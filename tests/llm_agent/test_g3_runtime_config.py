@@ -676,6 +676,152 @@ class CredentialPreparationTests(CredentialFixture, unittest.TestCase):
         self.assertTrue(all(".r1." in item["id"] for item in final_table["credentials"]))
 
 
+class RetiredIdentityTests(unittest.TestCase):
+    """Legacy Specialist credential retirement: the deployed runtime decides which subjects are retired."""
+
+    values = {"agents": {"specialists": {
+        "drift-specialist": {"runtime": "sandbox", "tools": {"feature-rag-mcp": ["feature_lookup"],
+                                                             "drift-mcp": ["drift_detection"]}},
+        "feature-rag-specialist": {"runtime": "sandbox",
+                                   "tools": {"feature-rag-mcp": ["feature_lookup", "fraud_scoring"]}}}},
+        "mcpServices": {"services": {
+            "feature-rag-mcp": {"toolGrants": {"feature-rag-specialist": ["feature_lookup", "fraud_scoring"],
+                                               "sandbox-feature-rag": ["feature_lookup", "fraud_scoring"]},
+                                "discoverySubjects": ["kagent-controller"]},
+            "drift-mcp": {"toolGrants": {"drift-specialist": ["drift_detection"],
+                                         "sandbox-drift": ["drift_detection"]},
+                          "discoverySubjects": ["kagent-controller"]}}}}
+
+    @staticmethod
+    def entry(subject, server, release, status="active"):
+        cid = f"{subject}.{server}.{status}" if release == "legacy" else f"{subject}.{server}.{release}.{status}"
+        return {"id": cid, "subject": subject, "status": status,
+                "token": hashlib.sha256(cid.encode()).hexdigest()}
+
+    def source(self):
+        e = self.entry
+        return {
+            "feature-rag-mcp": {"version": 1, "credentials": [
+                e("drift-specialist", "feature-rag-mcp", "legacy"), e("feature-rag-specialist", "feature-rag-mcp", "legacy"),
+                e("drift-specialist", "feature-rag-mcp", "legacy", "revoked"),
+                e("feature-rag-specialist", "feature-rag-mcp", "r1-release1"),
+                e("kagent-controller", "feature-rag-mcp", "r1-release1"),
+                e("kagent-controller", "feature-rag-mcp", "sbx-20261115"),
+                e("sandbox-feature-rag", "feature-rag-mcp", "sbx-20261115"),
+                e("drift-specialist", "feature-rag-mcp", "sbx-20261115", "revoked")]},
+            "drift-mcp": {"version": 1, "credentials": [
+                e("drift-specialist", "drift-mcp", "legacy"), e("drift-specialist", "drift-mcp", "r1-release1"),
+                e("kagent-controller", "drift-mcp", "r1-release1"),
+                e("sandbox-drift", "drift-mcp", "sbx-20261115")]},
+        }
+
+    def plan(self, **kw):
+        args = dict(release="fin-20261117", server_set="fin-20261117", mode="final", previous_server_set="sbx-20261115",
+                    client_namespace="ewallet-agents", server_namespace="ewallet-mcp",
+                    previous_server_namespace="ewallet-mcp", grants=creds.grants_from_values(self.values),
+                    retired_subjects=creds.retired_subjects(self.values),
+                    carry_releases=("r1-release1", "sbx-20261115"))
+        args.update(kw)
+        return creds.ReleasePlan(**args)
+
+    def store(self):
+        store = MemorySecretStore({})
+        store.tables = {("ewallet-mcp", creds.auth_secret_name(server, "sbx-20261115")): table
+                        for server, table in self.source().items()}
+        return store
+
+    def test_issue1_retired_runtime_subjects_get_no_grant_but_sandbox_subjects_keep_theirs(self):
+        grants = creds.grants_from_values(self.values)
+        self.assertEqual(creds.retired_subjects(self.values), {"drift-specialist", "feature-rag-specialist"})
+        self.assertNotIn("drift-specialist", {subject for subject, _ in grants})
+        self.assertNotIn("feature-rag-specialist", {subject for subject, _ in grants})
+        self.assertEqual(grants[("sandbox-feature-rag", "feature-rag-mcp")], ("feature_lookup", "fraud_scoring"))
+        self.assertEqual(grants[("sandbox-drift", "drift-mcp")], ("drift_detection",))
+        self.assertEqual(grants[("kagent-controller", "drift-mcp")], ("tools/list",))
+        deployed = json.loads(json.dumps(self.values))
+        deployed["agents"]["specialists"]["drift-specialist"]["runtime"] = "deployment"
+        self.assertIn(("drift-specialist", "drift-mcp"), creds.grants_from_values(deployed))
+        deployed["agents"]["specialists"]["drift-specialist"]["runtime"] = "pod"
+        with self.assertRaisesRegex(ValueError, "unknown Specialist runtime"):
+            creds.grants_from_values(deployed)
+
+    def test_issue2_source_table_validates_retired_subjects_by_name_only(self):
+        table = self.source()["drift-mcp"]
+        allowed = frozenset({"sandbox-drift", "kagent-controller"})
+        with self.assertRaisesRegex(ValueError, "failed validation"):
+            creds.validate_previous_table(table, server="drift-mcp", allowed_subjects=allowed)
+        out = creds.validate_previous_table(table, server="drift-mcp", allowed_subjects=allowed,
+                                            retired_subjects=frozenset({"drift-specialist"}))
+        self.assertEqual(len(out), 4)
+        intruder = {"version": 1, "credentials": table["credentials"] + [self.entry("someone-else", "drift-mcp", "r9")]}
+        with self.assertRaisesRegex(ValueError, "failed validation"):
+            creds.validate_previous_table(intruder, server="drift-mcp", allowed_subjects=allowed,
+                                          retired_subjects=frozenset({"drift-specialist"}))
+
+    def test_final_set_carries_active_identities_and_never_a_retired_one(self):
+        store = self.store()
+        self.assertEqual(creds.prepare_release(self.plan(), store, token_factory=lambda: self.fail("new token")), "created")
+        self.assertEqual(len(store.created), 1)
+        names = {m["metadata"]["name"] for m in store.created[0]}
+        self.assertEqual(names, {"mcp-auth-feature-rag-mcp-fin-20261117", "mcp-auth-drift-mcp-fin-20261117"},
+                         "server tables only; no client Secret is created or rotated")
+        for server, kept in (("feature-rag-mcp", {"kagent-controller", "sandbox-feature-rag"}),
+                             ("drift-mcp", {"kagent-controller", "sandbox-drift"})):
+            table = store.tables[("ewallet-mcp", f"mcp-auth-{server}-fin-20261117")]["credentials"]
+            self.assertEqual({item["subject"] for item in table}, kept)
+            source_tokens = {item["token"] for item in self.source()[server]["credentials"]
+                             if item["subject"] in kept}
+            self.assertEqual({item["token"] for item in table}, source_tokens, "active tokens unchanged")
+            retired_tokens = {item["token"] for item in self.source()[server]["credentials"]
+                              if item["subject"] in {"drift-specialist", "feature-rag-specialist"}}
+            self.assertFalse(retired_tokens & {item["token"] for item in table})
+        self.assertEqual(creds.prepare_release(self.plan(), store, token_factory=lambda: self.fail("x")), "unchanged")
+
+    def test_final_set_refuses_to_drop_an_active_identity(self):
+        with self.assertRaisesRegex(ValueError, "drop active identities"):
+            creds.prepare_release(self.plan(carry_releases=("sbx-20261115",)), self.store())
+        with self.assertRaisesRegex(ValueError, "retired subject cannot be granted"):
+            self.plan(grants={**creds.grants_from_values(self.values), ("drift-specialist", "drift-mcp"): ("drift_detection",)})
+        with self.assertRaisesRegex(ValueError, "final server set only"):
+            self.plan(mode="transition")
+
+    def test_transition_set_does_not_carry_retired_credentials(self):
+        plan = self.plan(mode="transition", carry_releases=(), server_set="t2-transition", release="t2")
+        issued = creds.new_credentials(plan.grants, plan.release, token_factory=iter(
+            f"tok-{i:03d}-" + "y" * 40 for i in range(100)).__next__)
+        manifests = creds.secret_manifests(plan, issued, {server: table for server, table in self.source().items()})
+        table = json.loads(next(m for m in manifests if m["metadata"]["name"] == "mcp-auth-drift-mcp-t2-transition")
+                           ["stringData"]["auth-config.json"])["credentials"]
+        self.assertNotIn("drift-specialist", {item["subject"] for item in table})
+        self.assertIn("sandbox-drift", {item["subject"] for item in table})
+
+    def test_list_only_mirror_set_drops_named_subjects_only(self):
+        # The in-release ewallet-agents/drift-mcp: only the kagent controller (list-only) stays.
+        grants = {("kagent-controller", "drift-mcp"): ("tools/list",)}
+        store = self.store()
+        plan = self.plan(grants=grants, server_namespace="ewallet-agents", dropped_subjects=frozenset({"sandbox-drift"}))
+        self.assertEqual(creds.prepare_release(plan, store), "created")
+        table = store.tables[("ewallet-agents", "mcp-auth-drift-mcp-fin-20261117")]["credentials"]
+        self.assertEqual({item["subject"] for item in table}, {"kagent-controller"})
+        with self.assertRaisesRegex(ValueError, "failed validation"):   # an unnamed subject is never tolerated
+            creds.prepare_release(self.plan(grants=grants, server_namespace="ewallet-agents", server_set="fin-b"),
+                                  self.store())
+        with self.assertRaisesRegex(ValueError, "cannot be granted"):
+            self.plan(dropped_subjects=frozenset({"sandbox-drift"}))
+
+    def test_fingerprint_of_plans_without_retirement_is_unchanged(self):
+        legacy = CredentialFixture()
+        plan = creds.ReleasePlan("r1", "r1-transition", "transition", "legacy", "ewallet-agents", "ewallet-mcp",
+                                 "ewallet-agents", creds.grants_from_values(legacy.values))
+        public = {"release": "r1", "server_set": "r1-transition", "mode": "transition", "previous_server_set": "legacy",
+                  "client_namespace": "ewallet-agents", "server_namespace": "ewallet-mcp",
+                  "previous_server_namespace": "ewallet-agents",
+                  "grants": [{"subject": s, "server": v, "tools": list(t)}
+                             for (s, v), t in sorted(plan.grants.items())]}
+        self.assertEqual(plan.fingerprint, hashlib.sha256(json.dumps(public, sort_keys=True,
+                                                                       separators=(",", ":")).encode()).hexdigest())
+
+
 class PlatformInputTests(unittest.TestCase):
     def test_replicated_secret_keeps_data_only(self):
         source = {"type": "Opaque", "data": {"connection_string": "eA=="},

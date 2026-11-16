@@ -222,6 +222,18 @@ async def verdict(args: argparse.Namespace, token: str, arguments: dict, transpo
                 reasons.append(f"observed {report['outcome']}, expected the hidden-tool authorization error")
             elif args.tool in (report["tools"] or []):
                 reasons.append("the tested principal lists the tool, so 'Unknown tool' is not an authorization denial")
+        elif args.expect == "call-denied":
+            # A list-only (discovery) subject: it authenticates and lists the tool, so the tool exists;
+            # "Unknown tool" on tools/call can then only be the server's grant check.
+            if report["outcome"] != "hidden_tool":
+                reasons.append(f"observed {report['outcome']}, expected the hidden-tool authorization error")
+            elif args.tool not in (report["tools"] or []):
+                reasons.append("the tested principal does not list the tool, so the denial is not proven on a known tool")
+        elif args.expect == "revoked":
+            # A retired credential: HTTP 401 at initialize while an active principal works on the same endpoint
+            # (the control above), so the 401 is the credential, not a down server or a broken route.
+            if report["outcome"] != "unauthenticated" or report["stage"] != "initialize":
+                reasons.append(f"observed {report['outcome']} at {report['stage']}, expected HTTP 401 at initialize")
         elif args.expect == "unauthenticated":
             if report["outcome"] != "unauthenticated" or report["stage"] != "initialize":
                 reasons.append(f"observed {report['outcome']} at {report['stage']}, expected HTTP 401 at initialize")
@@ -306,7 +318,8 @@ def main(argv: list[str] | None = None) -> int:
     mcp.add_argument("--endpoint", type=_local, required=True)
     mcp.add_argument("--tool", required=True)
     mcp.add_argument("--arguments-json", required=True)
-    mcp.add_argument("--expect", choices=["ok", "rejected", "unavailable", "denied", "unauthenticated"], required=True)
+    mcp.add_argument("--expect", choices=["ok", "rejected", "unavailable", "denied", "call-denied", "unauthenticated",
+                                          "revoked"], required=True)
     mcp.add_argument("--control-token-env", help="env var with the token of a principal granted --tool (negative expectations)")
     mcp.add_argument("--tested-valid-endpoint", type=_local,
                      help="endpoint where the tested credential is valid (required for --expect unauthenticated)")

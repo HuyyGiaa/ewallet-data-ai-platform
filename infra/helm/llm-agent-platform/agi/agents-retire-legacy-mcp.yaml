@@ -1,0 +1,10 @@
+# Package cr-agents (release llm-agent): the in-release ewallet-agents/drift-mcp. Its only subject was the
+# retired drift-specialist, so it becomes list-only: no tool grant, the kagent controller as its discovery
+# subject, and a final server set (mcpCredentialLifecycle.serverSet) holding only that credential. No route
+# or client uses this server; nothing can call a tool on it afterwards.
+mcpServices:
+  services:
+    drift-mcp:
+      toolGrants:
+        drift-specialist: null
+      discoverySubjects: [kagent-controller]

@@ -24,6 +24,9 @@
 #   p4-agents  llm-agent      Coordinator sandbox routes (a2aGateway.sandboxRoutes, sandboxSpecialists)
 #   t1-agents  llm-agent      the live crossNamespace.flows + sandbox-workers-to-otel-collector (OTLP 4317 only)
 #   sp-cleanup llm-agent      legacy Specialist Deployment cleanup: agi/specialists-sandbox-only.yaml (runtime: sandbox)
+#   cr-mcp     llm-agent-mcp  legacy credential retirement: agi/mcp-retire-legacy.yaml + serverSet=FINAL_SERVER_SET
+#   cr-agents  llm-agent      in-release drift-mcp list-only: agi/agents-retire-legacy-mcp.yaml + serverSet=FINAL_SERVER_SET
+#              (no blind rollback: a rollback re-selects a server set that still accepts the retired credentials)
 #                             removes their BYO Agent CRs and Deployment-only objects; Sandbox routes stay
 #   tr-agents  llm-agent      the live crossNamespace.flows + kagent-controller-to-otel-collector (OTLP 4317 only;
 #                             P2-C network step, before the kagent controller gets its OTLP endpoint)
@@ -54,7 +57,7 @@ REFERENCE_INPUT="${ROOT}/docs/evidence/llm_agent/agent_platform_runtime_20261102
 FEATURES='["account_behavior__account_tx_count_1h","account_behavior__account_tx_count_24h","user_behavior__user_avg_amount_30d","merchant_behavior__merchant_tx_count_24h"]'
 
 die() { echo "FAIL: $*" >&2; exit 1; }
-PACKAGES=" agi p1-mcp s1-mcp s1-agents p2-agents p4-agents img-mcp img-agents img-coordinator t1-agents tr-agents sp-cleanup "
+PACKAGES=" agi p1-mcp s1-mcp s1-agents p2-agents p4-agents img-mcp img-agents img-coordinator t1-agents tr-agents sp-cleanup cr-mcp cr-agents "
 SANDBOX_SPECIALISTS="{drift-specialist,feature-rag-specialist}"
 KEDA_AGENTS="fraud-coordinator feature-rag-specialist drift-specialist"
 # What the MCP and BYO images copy (infra/docker/*/Dockerfile). IMAGE_SHA may precede SHA only when
@@ -85,8 +88,8 @@ hl() { "${HELM}" --kube-context "${CTX}" "$@"; }
 package_release() {   # the release a package changes; agi changes both, one per call
   case "${PACKAGE}" in
     agi) echo "$1" ;;
-    p1-mcp|s1-mcp|img-mcp) echo mcp ;;
-    s1-agents|p2-agents|p4-agents|img-agents|img-coordinator|t1-agents|tr-agents|sp-cleanup) echo agents ;;
+    p1-mcp|s1-mcp|img-mcp|cr-mcp) echo mcp ;;
+    s1-agents|p2-agents|p4-agents|img-agents|img-coordinator|t1-agents|tr-agents|sp-cleanup|cr-agents) echo agents ;;
   esac
 }
 
@@ -152,7 +155,7 @@ sys.exit(0 if (s.get("drift-specialist") or {}).get("runtime") == "sandbox" else
 }
 drift_is_declarative() {   # before P2 the drift-specialist is Declarative; P4 and image rolls run after P2 made it BYO
   local want=Declarative
-  [[ "${PACKAGE}" == p4-agents || "${PACKAGE}" == img-* || "${PACKAGE}" == t1-agents || "${PACKAGE}" == tr-agents || "${PACKAGE}" == sp-cleanup ]] && want=BYO
+  [[ "${PACKAGE}" == p4-agents || "${PACKAGE}" == img-* || "${PACKAGE}" == t1-agents || "${PACKAGE}" == tr-agents || "${PACKAGE}" == sp-cleanup || "${PACKAGE}" == cr-* ]] && want=BYO
   if [[ "${want}" == BYO ]] && specialists_retired; then   # after sp-cleanup the Agent CR is gone on purpose
     ! kc -n ewallet-agents get agents.kagent.dev drift-specialist -o name > /dev/null 2>&1
     return
@@ -179,12 +182,19 @@ transaction_input() {
   "${PYTHON}" -c 'import json,sys;print(json.dumps(json.load(open(sys.argv[1]))["transaction"]))' "${REFERENCE_INPUT}" \
     > "${EV}/inputs/transaction.json"
 }
-token() { kc -n ewallet-agents get secret "$1" -o jsonpath='{.data.token}' | base64 -d; }
+token() { kc -n "${2:-ewallet-agents}" get secret "$1" -o jsonpath='{.data.token}' | base64 -d; }
+# AGI-08 principals after the legacy credential retirement: the live SandboxAgent subjects and the
+# kagent controller (list-only), never a retired Specialist credential.
+SANDBOX_RAG_SECRET=mcp-token-sandbox-feature-rag-feature-rag-mcp-sbx-20261115
+SANDBOX_DRIFT_SECRET=mcp-token-sandbox-drift-drift-mcp-sbx-20261115
+controller_secret() {   # the kagent controller's live credential for <server>, read from its RemoteMCPServer
+  kc -n ewallet-agents get remotemcpservers.kagent.dev "$1" -o jsonpath='{.spec.headersFrom[0].valueFrom.name}'
+}
 feature_readback() {   # read-only feature_lookup of the reference transaction (bounded DB 0 readback)
   local out=$1 arguments
   arguments=$("${PYTHON}" -c 'import json,sys;print(json.dumps({"transaction":json.load(open(sys.argv[1])),"feature_names":json.loads(sys.argv[2])}))' \
     "${EV}/inputs/transaction.json" "${FEATURES}")
-  EWALLET_MCP_SERVICE_TOKEN="$(token mcp-token-feature-rag-specialist-feature-rag-mcp)" \
+  EWALLET_MCP_SERVICE_TOKEN="$(token "${SANDBOX_RAG_SECRET}" ewallet-sandbox)" \
     "${AGENT_PY[@]}" "${ROOT}/scripts/llm_agent/agi_probe.py" mcp --endpoint "http://127.0.0.1:${AGI_MCP_PORT:-18082}/feature-rag/mcp" \
     --tool feature_lookup --arguments-json "${arguments}" --expect ok --evidence "${out}"
 }
@@ -204,10 +214,8 @@ drift_network() {   # the Drift Specialist's path to the MCP Gateway: the Deploy
 }
 token_secrets() {   # names only; values are never read here
   local name
-  for name in mcp-token-feature-rag-specialist-feature-rag-mcp mcp-token-drift-specialist-drift-mcp \
-              mcp-token-drift-specialist-feature-rag-mcp; do
-    kc -n ewallet-agents get secret "${name}" -o name
-  done
+  kc -n ewallet-sandbox get secret "${SANDBOX_RAG_SECRET}" "${SANDBOX_DRIFT_SECRET}" -o name
+  kc -n ewallet-agents get secret "$(controller_secret drift-mcp)" -o name
 }
 
 preflight() {
@@ -311,6 +319,13 @@ overlay_args() {   # prints one argument per line for this package's render of t
     sp-cleanup:agents)
       printf '%s\n' -f "${PRIVATE}/llm-agent-values.yaml" -f "${CHART}/agi/specialists-sandbox-only.yaml"
       echo __END__ ;;
+    cr-mcp:mcp|cr-agents:agents)
+      need FINAL_SERVER_SET
+      [[ "${FINAL_SERVER_SET}" =~ ^[a-z0-9]([-a-z0-9]{0,22}[a-z0-9])?$ ]] || die "FINAL_SERVER_SET must be a credential server-set name"
+      local file=mcp-retire-legacy.yaml base=llm-agent-mcp-values.yaml
+      [[ "$1" == agents ]] && file=agents-retire-legacy-mcp.yaml base=llm-agent-values.yaml
+      printf '%s\n' -f "${PRIVATE}/${base}" -f "${CHART}/agi/${file}" --set "mcpCredentialLifecycle.serverSet=${FINAL_SERVER_SET}"
+      echo __END__ ;;
     img-coordinator:agents)
       need COORDINATOR_IMAGE
       digest_ref "${COORDINATOR_IMAGE}" || die "COORDINATOR_IMAGE must be a digest-pinned Artifact Registry reference"
@@ -386,6 +401,8 @@ expected_identities() {
     --expect-added NetworkPolicy/ewallet-agents/allow-byo-modelconfig-to-kube-apiserver)
   local agent
   case "${PACKAGE}:$1" in
+    cr-mcp:mcp) printf '%s\n' --expect-changed Deployment/ewallet-mcp/feature-rag-mcp --expect-changed Deployment/ewallet-mcp/drift-mcp ;;
+    cr-agents:agents) printf '%s\n' --expect-changed Deployment/ewallet-agents/drift-mcp ;;
     agi:mcp|s1-mcp:mcp|img-mcp:mcp) printf '%s\n' --expect-changed Deployment/ewallet-mcp/feature-rag-mcp --expect-changed Deployment/ewallet-mcp/drift-mcp ;;
     p1-mcp:mcp) printf '%s\n' --expect-changed Deployment/ewallet-mcp/feature-rag-mcp --expect-changed Deployment/ewallet-mcp/drift-mcp \
                   --expect-added PodDisruptionBudget/ewallet-mcp/feature-rag-mcp ;;
@@ -477,24 +494,26 @@ negative() {
   # Two MCP mechanisms and one A2A mechanism, each proven by a control:
   #  1. per-server credentials: the Feature-RAG credential is refused (HTTP 401) by drift-mcp, while it is
   #     valid on feature-rag-mcp and the drift credential lists drift_detection;
-  #  2. per-tool grants: drift-specialist's feature-rag-mcp credential does not see fraud_scoring (hidden
-  #     "Unknown tool"), while the Feature-RAG credential lists it;
+  #  1. a credential of one server (sandbox-feature-rag) is refused by the other (drift-mcp, 401) while it
+  #     is valid on its own server;
+  #  2. per-tool grants: the kagent controller (list-only) sees drift_detection but cannot call it, while
+  #     sandbox-drift is granted it (the control);
   #  3. A2A routes: an undeclared x-kagent-host gets 404 while drift-specialist is routed.
   need BASELINE
   local window='{"start":"2026-05-01T00:00:00Z","end":"2026-05-31T00:00:00Z"}' failed=0 mcp="http://127.0.0.1:${AGI_MCP_PORT:-18082}"
   local drift_args fraud_args
   drift_args="{\"feature_name\":\"account_behavior__account_tx_count_1h\",\"baseline_id\":\"${BASELINE}\",\"current_window\":${window}}"
   fraud_args="{\"transaction\":$(cat "${EV}/inputs/transaction.json")}"
-  local rag drift drift_on_rag
-  rag=$(token mcp-token-feature-rag-specialist-feature-rag-mcp)
-  drift=$(token mcp-token-drift-specialist-drift-mcp)
-  drift_on_rag=$(token mcp-token-drift-specialist-feature-rag-mcp)
-  expect_probe "AGI-08 feature-rag credential refused by drift-mcp" with_tokens "${rag}" "${drift}" "${AGENT_PY[@]}" "${ROOT}/scripts/llm_agent/agi_probe.py" mcp \
+  local rag drift controller
+  rag=$(token "${SANDBOX_RAG_SECRET}" ewallet-sandbox)
+  drift=$(token "${SANDBOX_DRIFT_SECRET}" ewallet-sandbox)
+  controller=$(token "$(controller_secret drift-mcp)")
+  expect_probe "AGI-08 sandbox-feature-rag credential refused by drift-mcp" with_tokens "${rag}" "${drift}" "${AGENT_PY[@]}" "${ROOT}/scripts/llm_agent/agi_probe.py" mcp \
     --endpoint "${mcp}/drift/mcp" --tool drift_detection --arguments-json "${drift_args}" --expect unauthenticated \
     --control-token-env AGI_CONTROL_TOKEN --tested-valid-endpoint "${mcp}/feature-rag/mcp" \
     --evidence "${EV}/stage2/AGI-08-mcp-wrong-server-credential.json" || failed=1
-  expect_probe "AGI-08 drift principal does not see fraud_scoring" with_tokens "${drift_on_rag}" "${rag}" "${AGENT_PY[@]}" "${ROOT}/scripts/llm_agent/agi_probe.py" mcp \
-    --endpoint "${mcp}/feature-rag/mcp" --tool fraud_scoring --arguments-json "${fraud_args}" --expect denied \
+  expect_probe "AGI-08 list-only principal cannot call drift_detection" with_tokens "${controller}" "${drift}" "${AGENT_PY[@]}" "${ROOT}/scripts/llm_agent/agi_probe.py" mcp \
+    --endpoint "${mcp}/drift/mcp" --tool drift_detection --arguments-json "${drift_args}" --expect call-denied \
     --control-token-env AGI_CONTROL_TOKEN --evidence "${EV}/stage2/AGI-08-mcp-ungranted-tool.json" || failed=1
   "${AGENT_PY[@]}" "${ROOT}/scripts/llm_agent/agi_probe.py" request drift --request-id "${CAMPAIGN}-a2a-neg" \
     --feature account_behavior__account_tx_count_1h --baseline "${BASELINE}" \
@@ -533,6 +552,10 @@ rollback() {
   local which=$1 name namespace revision key
   read -r name namespace <<< "$(release "${which}")"
   require_approval A2
+  if [[ "${PACKAGE}" == cr-mcp || "${PACKAGE}" == cr-agents ]]; then
+    # The previous revision selects a server set that still accepts the retired credentials.
+    die "no rollback for ${PACKAGE}: fix forward with a new final server set (never re-activate retired credentials)"
+  fi
   key=$(revision_key "${name}")
   revision=$(grep -E "^${key}=" "${EV}/stage0/PREFLIGHT_PASS" | cut -d= -f2)
   [[ "${revision}" =~ ^[0-9]+$ ]] || die "no Stage 0 revision recorded for ${name}"

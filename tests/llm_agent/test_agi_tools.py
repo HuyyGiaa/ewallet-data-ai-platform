@@ -23,6 +23,7 @@ from ops.llm_agent import agi_inputs
 from tests.llm_agent.agi_support import (
     ACCOUNT_BASELINE,
     ACCOUNT_FEATURE,
+    CONTROLLER_TOKEN,
     CURRENT_WINDOW,
     DRIFT_TOKEN,
     FEATURE_RAG_TOKEN,
@@ -187,6 +188,27 @@ class ProbeMcpTests(unittest.TestCase):
             outcome = case.pop("outcome")
             with self.subTest(label):
                 self.assertVerdict(self.check("denied", **case), "FAIL", outcome)
+
+    def test_list_only_subject_is_a_proven_call_denial(self):
+        report = self.check("call-denied", CONTROLLER_TOKEN)   # kagent-controller: discovery-only
+        self.assertVerdict(report, "PASS", "hidden_tool")
+        self.assertIn("drift_detection", report["tools"])
+        self.assertEqual(report["control"]["outcome"], "listed")
+        self.assertVerdict(self.check("call-denied", DRIFT_TOKEN), "FAIL", "ok")
+        self.assertVerdict(self.check("call-denied", FEATURE_RAG_TOKEN), "FAIL", "hidden_tool")   # does not list it
+        self.assertVerdict(self.check("call-denied", CONTROLLER_TOKEN, control=False),
+                           "FAIL", "hidden_tool")
+        self.assertVerdict(self.check("call-denied", CONTROLLER_TOKEN, tool="drift_detectionx"),
+                           "FAIL", "hidden_tool")
+
+    def test_retired_credential_is_a_proven_revocation_only_with_a_working_control(self):
+        report = self.check("revoked", FEATURE_RAG_TOKEN, self.strict_app)
+        self.assertVerdict(report, "PASS", "unauthenticated")
+        self.assertEqual(report["control"]["outcome"], "listed")
+        self.assertVerdict(self.check("revoked", DRIFT_TOKEN), "FAIL", "ok")   # still accepted
+        self.assertVerdict(self.check("revoked", FEATURE_RAG_TOKEN, self.strict_app, control=False), "FAIL",
+                           "unauthenticated")
+        self.assertNotIn(FEATURE_RAG_TOKEN, json.dumps(report, default=str))
 
     def test_transport_failure_never_passes(self):
         httpx2 = self.httpx2

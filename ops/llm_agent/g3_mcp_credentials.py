@@ -13,6 +13,13 @@ pods roll. Client references move only after every server pod uses the
 transition table. A later final server set contains only the new credentials;
 deleting the old set is a separate, approval-gated operation.
 
+Retired identities: a Specialist whose deployed runtime is ``sandbox`` (agi/specialists-sandbox-only.yaml)
+no longer runs as a BYO Deployment, so its credential subject is retired. Its logical definition stays in
+the values (the Coordinator needs it), but it gets no grant, and no server set carries its credentials. A
+source table that still holds retired credentials is validated with those subjects tolerated by name, never
+carried. A final set may keep the credentials of several existing releases (``carry_releases``) so active
+clients need not move; it fails if any active, non-retired identity of the source would be dropped.
+
 Repeated preparation is metadata-only and idempotent when the complete set
 already exists with the expected fingerprint. A partial or conflicting set
 fails closed and is never overwritten.
@@ -73,6 +80,11 @@ class ReleasePlan:
     server_namespace: str
     previous_server_namespace: str
     grants: Mapping[tuple[str, str], tuple[str, ...]]
+    retired_subjects: frozenset[str] = frozenset()
+    carry_releases: tuple[str, ...] = ()
+    # Named source subjects a final set deliberately does not carry (granted elsewhere, not on this
+    # server). Tolerated by name in the source table exactly like retired subjects; never carried.
+    dropped_subjects: frozenset[str] = frozenset()
 
     def __post_init__(self) -> None:
         validate_identifier(self.release, "release")
@@ -91,6 +103,14 @@ class ReleasePlan:
             validate_namespace(namespace, label)
         if not self.grants:
             raise ValueError("credential plan has no granted pairs")
+        if self.retired_subjects & {subject for subject, _ in self.grants}:
+            raise ValueError("a retired subject cannot be granted")
+        if (self.carry_releases or self.dropped_subjects) and self.mode != "final":
+            raise ValueError("carry_releases and dropped_subjects apply to a final server set only")
+        if self.dropped_subjects & {subject for subject, _ in self.grants}:
+            raise ValueError("a dropped subject cannot be granted on this server set")
+        for release in self.carry_releases:
+            validate_identifier(release, "carried release", allow_legacy=True)
 
     @property
     def fingerprint(self) -> str:
@@ -107,6 +127,11 @@ class ReleasePlan:
                 for (subject, server), tools in sorted(self.grants.items())
             ],
         }
+        if self.retired_subjects or self.carry_releases:   # older plans keep their fingerprint
+            public_plan["retired_subjects"] = sorted(self.retired_subjects)
+            public_plan["carry_releases"] = list(self.carry_releases)
+        if self.dropped_subjects:
+            public_plan["dropped_subjects"] = sorted(self.dropped_subjects)
         encoded = json.dumps(public_plan, sort_keys=True, separators=(",", ":")).encode()
         return hashlib.sha256(encoded).hexdigest()
 
@@ -178,11 +203,30 @@ def revoked_secret_name(server: str, release: str) -> str:
     return base if release == "legacy" else f"{base}-{release}"
 
 
-def grants_from_values(values: Mapping) -> dict[tuple[str, str], tuple[str, ...]]:
-    """Return ``(subject, server) -> tools`` from specialist and discovery values."""
+def retired_subjects(values: Mapping) -> frozenset[str]:
+    """Specialists whose deployed runtime is ``sandbox``: no BYO Deployment, so no credential subject."""
 
+    specialists = (values.get("agents") or {}).get("specialists") or {}
+    runtimes = {subject: (spec or {}).get("runtime", "deployment") for subject, spec in specialists.items()}
+    unknown = sorted(subject for subject, runtime in runtimes.items() if runtime not in {"deployment", "sandbox"})
+    if unknown:
+        raise ValueError(f"unknown Specialist runtime for {unknown}")
+    return frozenset(subject for subject, runtime in runtimes.items() if runtime == "sandbox")
+
+
+def grants_from_values(values: Mapping) -> dict[tuple[str, str], tuple[str, ...]]:
+    """Return ``(subject, server) -> tools`` from specialist and discovery values.
+
+    Retired subjects (``retired_subjects``) are excluded from both sources: the Specialist's tools and
+    any server ``toolGrants`` entry left for it. Active SandboxAgent subjects are granted only through
+    ``toolGrants`` and are kept.
+    """
+
+    retired = retired_subjects(values)
     out: dict[tuple[str, str], tuple[str, ...]] = {}
     for subject, spec in (values.get("agents", {}).get("specialists") or {}).items():
+        if subject in retired:
+            continue
         for server, tools in (spec.get("tools") or {}).items():
             if tools:
                 out[(subject, server)] = tuple(tools)
@@ -191,12 +235,14 @@ def grants_from_values(values: Mapping) -> dict[tuple[str, str], tuple[str, ...]
         # this release, such as the SandboxAgent subjects of PKG-S1, are granted only here. A
         # subject granted both ways must be granted the same tools.
         for subject, tools in ((service or {}).get("toolGrants") or {}).items():
-            if not tools:
+            if not tools or subject in retired:
                 continue
             if (subject, server) in out and set(out[(subject, server)]) != set(tools):
                 raise ValueError(f"{subject} has conflicting grants on {server}")
             out[(subject, server)] = tuple(tools)
         for subject in (service or {}).get("discoverySubjects") or []:
+            if subject in retired:
+                raise ValueError(f"retired subject {subject} cannot be a discovery subject")
             if (subject, server) in out:
                 raise ValueError("a subject cannot be both discovery-only and business-granted")
             out[(subject, server)] = ("tools/list",)
@@ -236,10 +282,27 @@ def _table_entries(credentials: Iterable[Credential]) -> dict[str, list[dict[str
     return tables
 
 
+def credential_release(credential_id: str) -> str:
+    """``subject.server.release.status`` or the pre-release ``subject.server.status`` (``legacy``)."""
+
+    parts = credential_id.split(".")
+    if len(parts) == 4:
+        return parts[2]
+    if len(parts) == 3:
+        return "legacy"
+    raise ValueError("credential id has no release")
+
+
 def validate_previous_table(
-    raw: Mapping[str, object], *, server: str, allowed_subjects: frozenset[str]
+    raw: Mapping[str, object], *, server: str, allowed_subjects: frozenset[str],
+    retired_subjects: frozenset[str] = frozenset(),
 ) -> list[dict[str, str]]:
-    """Validate an old auth table before carrying it into a transition set."""
+    """Validate an old auth table before carrying it into a new set.
+
+    Every entry must name an allowed subject or, by name, an explicitly retired one; nothing else is
+    tolerated. The returned list still contains the retired entries: callers decide what to carry
+    (``carried_entries``), so validation is never relaxed by what a set keeps.
+    """
 
     items = raw.get("credentials")
     if raw.get("version") != 1 or not isinstance(items, list):
@@ -257,7 +320,7 @@ def validate_previous_table(
         if (
             not isinstance(credential_id, str)
             or not isinstance(subject, str)
-            or subject not in allowed_subjects
+            or subject not in (allowed_subjects | retired_subjects)
             or not isinstance(token, str)
             or not 32 <= len(token) <= 512
             or status not in {"active", "revoked"}
@@ -271,6 +334,29 @@ def validate_previous_table(
     if not any(item["status"] == "active" for item in out):
         raise ValueError(f"previous auth table for {server} has no active credential")
     return out
+
+
+def carried_entries(
+    entries: Sequence[Mapping[str, str]], *, server: str, retired_subjects: frozenset[str],
+    releases: tuple[str, ...] | None,
+) -> list[dict[str, str]]:
+    """Select what a new set keeps from a validated source table: never a retired subject.
+
+    ``releases`` limits the kept credentials to those releases (``None`` keeps every release). Any
+    active, non-retired identity of the source that would be dropped fails the plan.
+    """
+
+    kept = [dict(entry) for entry in entries
+            if entry["subject"] not in retired_subjects
+            and (releases is None or credential_release(entry["id"]) in releases)]
+    kept_active = {entry["subject"] for entry in kept if entry["status"] == "active"}
+    needed = {entry["subject"] for entry in entries
+              if entry["status"] == "active" and entry["subject"] not in retired_subjects}
+    if needed - kept_active:
+        raise ValueError(f"the new {server} set would drop active identities {sorted(needed - kept_active)}")
+    if not kept_active:
+        raise ValueError(f"the new {server} set has no active credential")
+    return kept
 
 
 def secret_manifests(
@@ -294,8 +380,9 @@ def secret_manifests(
         entries: list[dict[str, str]] = []
         if plan.mode == "transition":
             allowed = frozenset(subject for subject, candidate in plan.grants if candidate == server)
-            entries.extend(validate_previous_table(previous_tables.get(server, {}), server=server,
-                                                   allowed_subjects=allowed))
+            source = validate_previous_table(previous_tables.get(server, {}), server=server,
+                                             allowed_subjects=allowed, retired_subjects=plan.retired_subjects)
+            entries.extend(entry for entry in source if entry["subject"] not in plan.retired_subjects)
         entries.extend(current[server])
         manifests.append({
             "apiVersion": "v1", "kind": "Secret", "type": "Opaque", "immutable": True,
@@ -321,6 +408,34 @@ def secret_manifests(
             "metadata": {"name": name, "namespace": plan.client_namespace,
                          "labels": labels, "annotations": annotations},
             "stringData": {"token": credential.token},
+        })
+    return manifests
+
+
+def final_carry_manifests(
+    plan: ReleasePlan, tables: Mapping[str, Sequence[Mapping[str, str]]]
+) -> list[dict[str, object]]:
+    """Server tables of a final set that keeps existing credentials; no client Secret is created."""
+
+    if plan.mode != "final" or not plan.carry_releases:
+        raise ValueError("carried tables belong to a final set with carry_releases")
+    labels = {
+        "app.kubernetes.io/part-of": "ewallet-llm-agent",
+        "ewallet.io/credential": "mcp-service",
+        RELEASE_LABEL: plan.release,
+        SET_LABEL: plan.server_set,
+    }
+    manifests: list[dict[str, object]] = []
+    for server in plan.servers:
+        entries = [dict(entry) for entry in tables[server]]
+        granted = {subject for subject, candidate in plan.grants if candidate == server}
+        if any(entry["subject"] not in granted for entry in entries):
+            raise ValueError(f"a carried {server} credential names a subject without a grant")
+        manifests.append({
+            "apiVersion": "v1", "kind": "Secret", "type": "Opaque", "immutable": True,
+            "metadata": {"name": auth_secret_name(server, plan.server_set), "namespace": plan.server_namespace,
+                         "labels": labels, "annotations": {FINGERPRINT_ANNOTATION: plan.fingerprint}},
+            "stringData": {"auth-config.json": json.dumps({"version": 1, "credentials": entries}, sort_keys=True)},
         })
     return manifests
 
@@ -372,11 +487,23 @@ def prepare_release(
     if plan.mode == "transition":
         credentials = new_credentials(plan.grants, plan.release, token_factory=token_factory)
         store.create(secret_manifests(plan, credentials, source_tables))
+    elif plan.carry_releases:
+        tables: dict[str, list[dict[str, str]]] = {}
+        for server in plan.servers:
+            allowed = frozenset(subject for subject, candidate in plan.grants if candidate == server)
+            excluded = plan.retired_subjects | plan.dropped_subjects
+            source = validate_previous_table(source_tables[server], server=server, allowed_subjects=allowed,
+                                             retired_subjects=excluded)
+            tables[server] = carried_entries(source, server=server, retired_subjects=excluded,
+                                             releases=plan.carry_releases)
+        store.create(final_carry_manifests(plan, tables))
     else:
         credentials = []
         for server in plan.servers:
             allowed = frozenset(subject for subject, candidate in plan.grants if candidate == server)
-            entries = validate_previous_table(source_tables[server], server=server, allowed_subjects=allowed)
+            entries = validate_previous_table(source_tables[server], server=server, allowed_subjects=allowed,
+                                              retired_subjects=plan.retired_subjects)
+            entries = [entry for entry in entries if entry["subject"] not in plan.retired_subjects]
             for entry in entries:
                 if entry["id"].endswith((f".{plan.release}.active", f".{plan.release}.revoked")):
                     credentials.append(Credential(entry["subject"], server, entry["token"], plan.release,
@@ -451,6 +578,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--mode", choices=("transition", "final"), required=True)
     parser.add_argument("--previous-server-set", required=True,
                         help="legacy/transition set read in memory; never changed")
+    parser.add_argument("--carry-release", action="append", default=[], dest="carry_releases",
+                        help="final mode: keep the existing credentials of this release (repeatable) instead of "
+                             "requiring clients to move to --release")
+    parser.add_argument("--drop-subject", action="append", default=[], dest="dropped_subjects",
+                        help="final mode: a named source subject this server set does not carry (repeatable)")
     parser.add_argument("--dry-run", action="store_true", help="print only non-secret plan metadata")
     args = parser.parse_args(argv)
     try:
@@ -462,7 +594,10 @@ def main(argv: list[str] | None = None) -> int:
             client_namespace=args.client_namespace,
             server_namespace=args.server_namespace,
             previous_server_namespace=args.previous_server_namespace or args.server_namespace,
-            grants=grants_from_values(merged_values(args.base_values, args.values)),
+            grants=grants_from_values(values := merged_values(args.base_values, args.values)),
+            retired_subjects=retired_subjects(values),
+            carry_releases=tuple(args.carry_releases),
+            dropped_subjects=frozenset(args.dropped_subjects),
         )
     except (KeyError, TypeError, ValueError) as exc:
         parser.error(str(exc))
@@ -476,6 +611,11 @@ def main(argv: list[str] | None = None) -> int:
             "previous_server_set": plan.previous_server_set,
             "release": plan.release,
             "server_set": plan.server_set,
+            "retired_subjects": sorted(plan.retired_subjects),
+            "carry_releases": list(plan.carry_releases),
+            "dropped_subjects": sorted(plan.dropped_subjects),
+            "grants": [{"subject": subject, "server": server, "tools": list(tools)}
+                       for (subject, server), tools in sorted(plan.grants.items())],
             "secret_refs": [
                 {"namespace": identity.namespace, "name": identity.name}
                 for identity in plan.expected_secret_identities

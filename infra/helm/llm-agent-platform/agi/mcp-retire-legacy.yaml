@@ -1,0 +1,15 @@
+# Package cr-mcp (release llm-agent-mcp, namespace ewallet-mcp): retire the legacy Specialist MCP subjects.
+# The BYO Specialist Deployments are gone (sp-cleanup); only the SandboxAgent subjects and the kagent
+# controller (list-only) keep credentials. Applied together with mcpCredentialLifecycle.serverSet set to a
+# final server set prepared by ops/llm_agent/g3_mcp_credentials.py (--mode final --carry-release ...) that
+# no longer contains the retired subjects, so grants and the token table stay compatible in every pod.
+# null deletes the key from the merged values.
+mcpServices:
+  services:
+    feature-rag-mcp:
+      toolGrants:
+        drift-specialist: null
+        feature-rag-specialist: null
+    drift-mcp:
+      toolGrants:
+        drift-specialist: null

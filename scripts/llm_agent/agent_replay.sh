@@ -66,7 +66,7 @@ stop_pf() {
   rm -f "$PF_PIDS"
 }
 need_port() { listening "$1" || die "nothing listens on 127.0.0.1:$1; run: $0 pf"; }
-token() { k -n ewallet-agents get secret "$1" -o jsonpath='{.data.token}' | base64 -d; }
+token() { k -n "${2:-ewallet-agents}" get secret "$1" -o jsonpath='{.data.token}' | base64 -d; }
 
 # --- status -------------------------------------------------------------------------------------------
 status() {
@@ -180,22 +180,25 @@ PY
 negative() {
   need_port 18082; need_port 18083
   banner "AGI-08 negatives (each must observe its expected denial, with a passing control)"
-  local out="$REPLAY_DIR/negative" mcp=http://127.0.0.1:18082 window drift_args fraud_args rag drift drift_on_rag
+  local out="$REPLAY_DIR/negative" mcp=http://127.0.0.1:18082 window drift_args fraud_args rag drift controller
   mkdir -p "$out"
   window='{"start":"2026-05-01T00:00:00Z","end":"2026-05-31T00:00:00Z"}'
   drift_args="{\"feature_name\":\"account_behavior__account_tx_count_1h\",\"baseline_id\":\"${BASELINE}\",\"current_window\":${window}}"
   fraud_args="{\"transaction\":$(cat "$EV/inputs/transaction.json")}"
-  rag=$(token mcp-token-feature-rag-specialist-feature-rag-mcp); drift=$(token mcp-token-drift-specialist-drift-mcp)
-  drift_on_rag=$(token mcp-token-drift-specialist-feature-rag-mcp)
+  # Live principals only (no retired Specialist credential): the SandboxAgent subjects and the
+  # kagent controller's list-only credential, read from its RemoteMCPServer.
+  rag=$(token mcp-token-sandbox-feature-rag-feature-rag-mcp-sbx-20261115 ewallet-sandbox)
+  drift=$(token mcp-token-sandbox-drift-drift-mcp-sbx-20261115 ewallet-sandbox)
+  controller=$(token "$(k -n ewallet-agents get remotemcpservers.kagent.dev drift-mcp -o jsonpath='{.spec.headersFrom[0].valueFrom.name}')")
   probe() { local label=$1; shift; if "$@" > /dev/null 2>&1; then echo "PASS $label"; else echo "FAIL $label"; fi; }
   # Tokens reach the probe through its environment, never argv (as agi_campaign.sh negative does).
-  EWALLET_MCP_SERVICE_TOKEN=$rag AGI_CONTROL_TOKEN=$drift probe "feature-rag credential refused by drift-mcp (401)" \
+  EWALLET_MCP_SERVICE_TOKEN=$rag AGI_CONTROL_TOKEN=$drift probe "sandbox-feature-rag credential refused by drift-mcp (401)" \
     "${AGENT_PY[@]}" "$ROOT/scripts/llm_agent/agi_probe.py" mcp --endpoint "$mcp/drift/mcp" --tool drift_detection \
     --arguments-json "$drift_args" --expect unauthenticated --control-token-env AGI_CONTROL_TOKEN \
     --tested-valid-endpoint "$mcp/feature-rag/mcp" --evidence "$out/wrong-server-credential.json"
-  EWALLET_MCP_SERVICE_TOKEN=$drift_on_rag AGI_CONTROL_TOKEN=$rag probe "drift principal does not see fraud_scoring (ungranted tool)" \
-    "${AGENT_PY[@]}" "$ROOT/scripts/llm_agent/agi_probe.py" mcp --endpoint "$mcp/feature-rag/mcp" --tool fraud_scoring \
-    --arguments-json "$fraud_args" --expect denied --control-token-env AGI_CONTROL_TOKEN --evidence "$out/ungranted-tool.json"
+  EWALLET_MCP_SERVICE_TOKEN=$controller AGI_CONTROL_TOKEN=$drift probe "list-only principal cannot call drift_detection (ungranted call)" \
+    "${AGENT_PY[@]}" "$ROOT/scripts/llm_agent/agi_probe.py" mcp --endpoint "$mcp/drift/mcp" --tool drift_detection \
+    --arguments-json "$drift_args" --expect call-denied --control-token-env AGI_CONTROL_TOKEN --evidence "$out/ungranted-tool.json"
   "${AGENT_PY[@]}" "$ROOT/scripts/llm_agent/agi_probe.py" request drift --request-id "replay-a2a-neg-$(date -u +%H%M%S)" \
     --feature account_behavior__account_tx_count_1h --baseline "$BASELINE" \
     --window-start 2026-05-01T00:00:00Z --window-end 2026-05-31T00:00:00Z --out "$out/a2a-request.json" > /dev/null

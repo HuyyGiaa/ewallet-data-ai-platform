@@ -295,7 +295,7 @@ class CampaignGateTests(unittest.TestCase):
         result = self.run_script("negative", FAKE_PROBE_RC=json.dumps({"AGI-08-mcp-wrong-server-credential.json": 1}))
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(self.calls().count("--expect"), 3, "the remaining probes still ran")
-        self.assertIn("FAIL AGI-08 feature-rag credential refused by drift-mcp", (self.ev / "campaign.log").read_text())
+        self.assertIn("FAIL AGI-08 sandbox-feature-rag credential refused by drift-mcp", (self.ev / "campaign.log").read_text())
 
     def test_data_state_detects_a_changed_db3_digest(self):
         self.preflight()
@@ -427,6 +427,30 @@ class CampaignGateTests(unittest.TestCase):
             "ConfigMap/ewallet-agents/llm-agent-network-flows", "Deployment/ewallet-agents/a2a-gateway",
             "NetworkPolicy/ewallet-agents/allow-byo-modelconfig-to-kube-apiserver",
             "RoleBinding/ewallet-agents/ewallet-global-llm-reader"]))
+
+    def test_credential_retirement_packages_render_the_final_set_and_never_roll_back(self):
+        self.preflight()
+        for package, which, overlay, base, changed in (
+                ("cr-mcp", "mcp", "mcp-retire-legacy.yaml", "llm-agent-mcp-values.yaml",
+                 ["Deployment/ewallet-mcp/drift-mcp", "Deployment/ewallet-mcp/feature-rag-mcp"]),
+                ("cr-agents", "agents", "agents-retire-legacy-mcp.yaml", "llm-agent-values.yaml",
+                 ["Deployment/ewallet-agents/drift-mcp"])):
+            with self.subTest(package):
+                result, _ = self.args_for(package, which)
+                self.assertNotEqual(result.returncode, 0, "FINAL_SERVER_SET is required")
+                result, args = self.args_for(package, which, FINAL_SERVER_SET="fin-20261117")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                files = [Path(args[i + 1]).name for i, arg in enumerate(args) if arg == "-f"]
+                self.assertEqual(files, [base, overlay])
+                self.assertIn("mcpCredentialLifecycle.serverSet=fin-20261117", args)
+                identities = self.run_script("__identities", which, AGI_PACKAGE=package).stdout.split()
+                self.assertEqual(sorted(identities[i + 1] for i, a in enumerate(identities) if a == "--expect-changed"),
+                                 changed)
+                rollback = self.run_script("rollback", which, AGI_PACKAGE=package,
+                                           AGI_APPROVAL=f"{package.upper()}-ROLLBACK:{CAMPAIGN}")
+                self.assertNotEqual(rollback.returncode, 0)
+                self.assertIn("no rollback", rollback.stderr)
+        self.assertNotIn("REAL-ROLLBACK", self.log.read_text() if self.log.exists() else "")
 
     def test_a_package_refuses_the_other_release_and_unknown_packages(self):
         self.preflight()
