@@ -231,30 +231,40 @@ timeline() {   # timeline <file>: one line every 5 s until killed
   done >> "$1"
 }
 keda() {
-  local out="$REPLAY_DIR/keda"; mkdir -p "$out"
-  banner "BASELINE: expect 2/2 replicas, metric 0/2 (screenshot AGENT_08_KEDA_BASELINE)"
+  local out="$REPLAY_DIR/keda" since load
+  mkdir -p "$out"
+  banner "BASELINE: expect 2/2 replicas, metric 0/2 (screenshot AGENT_09a_KEDA_BASELINE)"
   k -n ewallet-agents get scaledobject,hpa
   k -n ewallet-agents get deploy fraud-coordinator feature-rag-specialist
   timeline "$out/timeline.txt" & local tl=$!
   trap 'kill $tl 2>/dev/null' EXIT
-  echo "live timeline: tail -f $out/timeline.txt   (or: watch -n2 kubectl --context $CTX -n ewallet-agents get hpa,pods)"
-  export KUBE_CONTEXT=$CTX EXP_APPROVED=yes EXP_CONCURRENCY=8 EXP_MAX_REQUESTS=100 EXP_DURATION=300
-  banner "LOAD 1: 100 typed tasks, concurrency 8 (~45 s). SCALE_OUT expected within ~40 s: desired 3, then a new pod Ready (screenshot AGENT_09_KEDA_SCALEOUT now)"
-  EXP_SCALE_IN_WAIT=0 bash "$ROOT/scripts/experiments/agent_experiment.sh" exp-c5-keda optimized run "$out/agr06" | tail -1
-  banner "LOAD 2 on 3 replicas: the scale-out pods must complete real tasks"
-  local since; since=$(date -u +%FT%TZ)
-  EXP_SCALE_IN_WAIT=420 bash "$ROOT/scripts/experiments/agent_experiment.sh" exp-c5-keda optimized run "$out/agr06" | tail -1 &
-  local load2=$!
-  sleep 120
-  banner "Tasks per pod since LOAD 2 (the newest pod must have > 0) (screenshot AGENT_09b_KEDA_NEW_POD_WORK)"
-  per_pod "$since" | tee "$out/per-pod.txt"
-  banner "SCALE_IN: ~5 min after load ends replicas return to 2 (screenshot AGENT_10_KEDA_SCALEIN when 2/2)"
-  wait "$load2" || true
+  echo "live timeline: tail -f $out/timeline.txt   (or: watch -n2 kubectl --context $CTX -n ewallet-agents get hpa)"
+  # The accepted AGR-06 profile: 100 typed tasks at concurrency 8. Since P4 each task runs on a Sandbox actor
+  # (~25 s), so the run needs up to the harness maximum of 900 s to finish all 100; the load itself is unchanged.
+  export KUBE_CONTEXT=$CTX EXP_APPROVED=yes EXP_CONCURRENCY=8 EXP_MAX_REQUESTS=100 EXP_DURATION=900 EXP_SCALE_IN_WAIT=420
+  since=$(date -u +%FT%TZ)
+  banner "LOAD: 100 typed tasks, concurrency 8 (~10 min). SCALE_OUT within ~1 min: HPA target > 2, desired 3, a third Coordinator pod (screenshot AGENT_09b_KEDA_SCALEOUT while it appears)"
+  bash "$ROOT/scripts/experiments/agent_experiment.sh" exp-c5-keda optimized run "$out/agr06" > "$out/load.log" 2>&1 &
+  load=$!
+  sleep 240
+  banner "NEW POD SERVES REAL TASKS: completed tasks per Coordinator pod so far (the youngest pod must be > 0) (screenshot AGENT_09c_KEDA_NEW_POD_WORK)"
+  per_pod "$since" | tee "$out/per-pod-during-load.txt"
+  banner "LOAD continues; when it ends, SCALE_IN follows after the 300 s window (screenshot AGENT_10_KEDA_SCALEIN at 2/2)"
+  wait "$load" || true
+  tail -1 "$out/load.log"
   kill "$tl" 2>/dev/null; trap - EXIT
-  k -n ewallet-agents get hpa; k -n ewallet-agents get events --field-selector reason=SuccessfulRescale \
+  k -n ewallet-agents get hpa
+  k -n ewallet-agents get events --field-selector reason=SuccessfulRescale \
     -o custom-columns=TIME:.lastTimestamp,OBJECT:.involvedObject.name,MESSAGE:.message | tail -6 | tee "$out/rescale-events.txt"
+  per_pod "$since" | tee "$out/per-pod.txt"
+  banner "Sandbox admission waits (Coordinator waited for a free Sandbox worker instead of failing)"
+  local pod
+  for pod in $(k -n ewallet-agents get pods -l ewallet.io/agent=fraud-coordinator -o name); do
+    k -n ewallet-agents logs "$pod" --since-time="$since" 2>/dev/null | grep -oE "coordinator.delegation_wait code=[a-z_]+ attempt=[0-9]+ wait_ms=[0-9]+" || true
+  done | awk '{split($2,c,"="); split($4,w,"="); n[c[2]]++; t[c[2]]+=w[2]} END {for (k in n) printf "%s waits=%d total_wait_s=%.1f\n", k, n[k], t[k]/1000; if (!length(n)) print "no waits"}' \
+    | tee "$out/admission-waits.txt"
   for run in "$out"/agr06/optimized/raw/run-*; do
-    python3 -c "import json,sys;d=json.load(open(sys.argv[1]))['levels']['load'];print(sys.argv[1].rsplit('/',1)[-1], {k:d.get(k) for k in ('requests','succeeded','availability_percent','peak_replicas','e2e_ms')})" "$run/summary.json"
+    python3 -c "import json,sys;d=json.load(open(sys.argv[1]))['levels']['load'];print(sys.argv[1].rsplit('/',1)[-1], {k:d.get(k) for k in ('requests','succeeded','states','availability_percent','peak_replicas','e2e_ms')})" "$run/summary.json"
   done
   echo "timeline: $out/timeline.txt"
 }

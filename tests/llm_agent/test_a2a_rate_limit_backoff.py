@@ -7,6 +7,8 @@ The limit stays; the Coordinator backs off within the delegation's own timeout.
 from __future__ import annotations
 
 from email.message import Message
+import time
+import json
 from threading import Event
 import unittest
 from urllib.error import HTTPError
@@ -216,3 +218,100 @@ class SandboxCapacityTests(unittest.TestCase):
     def test_one_attempt_turns_capacity_waits_off_too(self):
         with self.assertRaises(CoordinatorFailure):
             coordinator(lambda call: POOL_EXHAUSTED, [], RateLimitBackoff(max_attempts=1))._send(CALL, None, _NoSpan())
+
+
+class SandboxCapacityAuditTests(unittest.TestCase):
+    """Directive audit of f6ea89b5: idempotency, concurrency, trace context, malformed bodies, observability."""
+
+    FAST = RateLimitBackoff(capacity_base_delay_seconds=0.01, capacity_max_delay_seconds=0.05)
+
+    def test_every_attempt_sends_the_identical_delegation(self):
+        calls = []
+
+        def transport(call):
+            calls.append(json.dumps(call.payload, sort_keys=True))
+            if len(calls) < 3:
+                return POOL_EXHAUSTED
+            request_id = call.payload["params"]["message"]["messageId"]
+            return encode_specialist_task(request_id, fraud_evidence(request_id))
+
+        coordinator(transport, []).handle(a2a_message_send(fraud_request("cap-same")), scope=SCOPE, session_id="s")
+        self.assertEqual(len(set(calls)), 1, "same messageId/contextId: kagent routes every attempt to one actor")
+
+    def test_concurrent_delegations_share_a_two_slot_pool_without_failing(self):
+        import threading
+        lock, state = threading.Lock(), {"busy": 0, "peak": 0, "refused": 0}
+
+        def transport(call):
+            with lock:
+                if state["busy"] >= 2:
+                    state["refused"] += 1
+                    return POOL_EXHAUSTED
+                state["busy"] += 1
+                state["peak"] = max(state["peak"], state["busy"])
+            try:
+                time.sleep(0.02)
+                request_id = call.payload["params"]["message"]["messageId"]
+                return encode_specialist_task(request_id, fraud_evidence(request_id))
+            finally:
+                with lock:
+                    state["busy"] -= 1
+
+        engine = ProgrammaticCoordinator(transport=transport, synthesizer=lambda request, evidence: "ok",
+                                         idempotency_store=InMemoryIdempotencyStore(), rate_limit_backoff=self.FAST,
+                                         sleep=time.sleep)
+        results = []
+        threads = [threading.Thread(target=lambda i=i: results.append(engine.handle(
+            a2a_message_send(fraud_request(f"cap-conc-{i}")), scope=SCOPE, session_id=f"s{i}")["status"])) for i in range(8)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=30)
+        self.assertEqual(results.count("ok"), 8)
+        self.assertLessEqual(state["peak"], 2)
+        self.assertGreater(state["refused"], 0)
+
+    def test_trace_context_is_the_same_on_every_attempt(self):
+        from opentelemetry.sdk.trace import TracerProvider
+        parents, answers = [], [POOL_EXHAUSTED, POOL_EXHAUSTED]
+
+        def handler(request):
+            parents.append(request.headers.get("traceparent", ""))
+            if answers:
+                return httpx.Response(200, json=answers.pop(0), request=request)
+            return httpx.Response(200, json={"jsonrpc": "2.0", "id": "x", "result": {}}, request=request)
+
+        tracer = TracerProvider().get_tracer("t")
+        engine = coordinator(TracedGatewayTransport(httpx.Client(transport=httpx.MockTransport(handler))), [], self.FAST)
+        with tracer.start_as_current_span("g3.coordinator.delegate"):
+            engine._send(CALL, None, _NoSpan())
+        trace_ids = {value.split("-")[1] for value in parents}
+        self.assertEqual((len(parents), len(trace_ids)), (3, 1))
+        self.assertNotEqual(next(iter(trace_ids)), "0" * 32)
+
+    def test_malformed_or_other_errors_are_not_repeated(self):
+        for body in ({"jsonrpc": "2.0", "id": "x", "error": "substrate worker pool has no free workers"},
+                     {"jsonrpc": "2.0", "id": "x", "error": {"code": -32000, "message": "substrate worker pool has no free workers"}},
+                     {"jsonrpc": "2.0", "id": "x", "error": {"code": -32603, "message": "actor crashed"}}):
+            calls = []
+            with self.subTest(body=body):
+                coordinator(lambda call, body=body: calls.append(1) or body, [])._send(CALL, None, _NoSpan())
+                self.assertEqual(len(calls), 1)
+        with self.assertRaises(CoordinatorFailure) as caught:
+            coordinator(lambda call: {"jsonrpc": "2.0", "id": "cap-bad", "error": {"code": -32603, "message": "actor crashed"}},
+                        []).handle(a2a_message_send(fraud_request("cap-bad")), scope=SCOPE, session_id="s")
+        self.assertEqual(caught.exception.code, "invalid_a2a_response")
+
+    def test_each_wait_is_logged_with_its_code(self):
+        answers = [POOL_EXHAUSTED]
+
+        def transport(call):
+            if answers:
+                return answers.pop(0)
+            request_id = call.payload["params"]["message"]["messageId"]
+            return encode_specialist_task(request_id, fraud_evidence(request_id))
+
+        with self.assertLogs("ewallet.agent.audit", level="INFO") as logs:
+            coordinator(transport, []).handle(a2a_message_send(fraud_request("cap-log")), scope=SCOPE, session_id="s")
+        self.assertTrue(any("coordinator.delegation_wait code=sandbox_capacity_exhausted attempt=1" in line
+                            for line in logs.output))

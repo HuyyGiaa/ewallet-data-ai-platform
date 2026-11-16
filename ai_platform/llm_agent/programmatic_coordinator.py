@@ -23,6 +23,7 @@ import contextvars
 from dataclasses import asdict, dataclass, replace
 import hashlib
 import json
+import logging
 import re
 from threading import Event
 import time
@@ -67,6 +68,7 @@ WORKFLOW_CONTRACT_VERSION = "g3-orchestration/v2"
 _SPECIALISTS = frozenset({"feature-rag-specialist", "drift-specialist"})
 _NAMESPACE = re.compile(r"^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$")
 _TRACER = trace.get_tracer(__name__)
+_AUDIT = logging.getLogger("ewallet.agent.audit")
 _LITERAL_PLACEHOLDER = re.compile(r"(?:<transaction_id>|\{transaction_id\}|TODO|REPLACE_ME)", re.I)
 
 
@@ -100,6 +102,11 @@ class SandboxCapacityFailure(RateLimitedFailure):
 
 
 _POOL_EXHAUSTED = "substrate worker pool has no free workers"
+
+
+def _message_id(call: "GatewayCall") -> object:
+    message = (call.payload.get("params") or {}).get("message") if isinstance(call.payload, Mapping) else None
+    return message.get("messageId") if isinstance(message, Mapping) else None
 
 
 def _pool_exhausted(response: Mapping[str, object]) -> bool:
@@ -678,6 +685,9 @@ class ProgrammaticCoordinator:
                     raise
                 span.add_event("a2a.sandbox_capacity" if capacity else "a2a.rate_limited",
                                {"ewallet.attempt": attempt, "ewallet.wait_ms": int(wait * 1000)})
+                # One line per wait, so admission refusals and waiting time are countable from the logs.
+                _AUDIT.info("coordinator.delegation_wait code=%s attempt=%d wait_ms=%d request_id=%s", exc.code, attempt,
+                            int(wait * 1000), str(_message_id(call))[:128])
                 if cancelled is not None:
                     if cancelled.wait(wait):
                         raise CoordinatorFailure("cancelled", "request was cancelled during delegation") from exc

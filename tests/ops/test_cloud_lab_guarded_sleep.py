@@ -261,3 +261,104 @@ def test_approved_sleep_manifest_in_repo_is_parseable():
     approved = lab.approved_guarded_pdbs(lab.Path("docs/evidence/edai2/cloud_lab/sleep_20261106T163042Z"))
     assert approved == {"ewallet-agents/drift-mcp", "ewallet-agents/drift-specialist", "ewallet-agents/feature-rag-specialist",
                         "ewallet-agents/fraud-coordinator", "ewallet-mcp/drift-mcp"}
+
+
+# --- KEDA-aware guarded sleep (2026-11-16: KEDA minReplicaCount restored the agents, SLEEP_BLOCKED) ---------
+
+def scaled_object(ns, name, target, annotations=None):
+    return {"metadata": {"namespace": ns, "name": name, "annotations": annotations or {}},
+            "spec": {"scaleTargetRef": {"name": target}}}
+
+
+class KedaCluster(Cluster):
+    def __init__(self, *args, scaled_objects=(), **kwargs):
+        super().__init__(*args, **kwargs)
+        self.scaled_objects = list(scaled_objects)
+
+    def __call__(self, command):
+        if "scaledobjects.keda.sh" in " ".join(command) and "get" in command:
+            self.calls.append(command)
+            return json.dumps({"items": self.scaled_objects})
+        return super().__call__(command)
+
+    def annotations(self):
+        return [c[c.index("scaledobject") + 1:] for c in self.calls if "annotate" in c]
+
+
+KEDA_DEPLOY = deployment("ewallet-agents", "fraud-coordinator")
+KEDA_DEPLOY["spec"]["replicas"] = 2
+
+
+def keda_args(manifest, **extra):
+    return argparse.Namespace(scale_pdb_guarded=True, manifest=manifest, campaign="agi-c1", also_approve=None,
+                              execute=True, confirm_cluster=lab.CLUSTER, timeout=1, **extra)
+
+
+def keda_env(monkeypatch, keda=True):
+    monkeypatch.setenv("CLOUD_LAB_APPROVED", "yes")
+    monkeypatch.setenv(lab.GUARDED_APPROVAL_ENV, f"{lab.CLUSTER}:agi-c1")
+    if keda:
+        monkeypatch.setenv(lab.KEDA_APPROVAL_ENV, f"{lab.CLUSTER}:agi-c1")
+
+
+def test_a_keda_controlled_guarded_deployment_is_refused_before_any_mutation(manifest, monkeypatch):
+    keda_env(monkeypatch, keda=False)
+    cluster = KedaCluster([[pdb("ewallet-agents", "fraud-coordinator")]], deployments=[KEDA_DEPLOY],
+                          scaled_objects=[scaled_object("ewallet-agents", "fraud-coordinator", "fraud-coordinator")])
+    with pytest.raises(lab.GateError, match="KEDA ScaledObjects"):
+        lab.cmd_sleep(lab.Lab(True, "kc", cluster), keda_args(manifest))
+    assert cluster.mutations() == [] and cluster.annotations() == []
+
+
+def test_pause_needs_its_own_approval_token(manifest, monkeypatch):
+    keda_env(monkeypatch, keda=False)
+    cluster = KedaCluster([[pdb("ewallet-agents", "fraud-coordinator")]], deployments=[KEDA_DEPLOY],
+                          scaled_objects=[scaled_object("ewallet-agents", "fraud-coordinator", "fraud-coordinator")])
+    with pytest.raises(lab.GateError, match=lab.KEDA_APPROVAL_ENV):
+        lab.cmd_sleep(lab.Lab(True, "kc", cluster), keda_args(manifest, pause_keda=True))
+    assert cluster.mutations() == [] and cluster.annotations() == []
+
+
+def test_approved_pause_happens_before_scaling_and_then_resizes(manifest, monkeypatch):
+    keda_env(monkeypatch)
+    cluster = KedaCluster([[pdb("ewallet-agents", "fraud-coordinator")], [pdb("ewallet-agents", "fraud-coordinator", 0)]],
+                          deployments=[KEDA_DEPLOY],
+                          scaled_objects=[scaled_object("ewallet-agents", "fraud-coordinator", "fraud-coordinator")])
+    assert lab.cmd_sleep(lab.Lab(True, "kc", cluster), keda_args(manifest, pause_keda=True)) == 0
+    text = [" ".join(c) for c in cluster.calls]
+    pause = next(i for i, c in enumerate(text) if "annotate scaledobject fraud-coordinator" in c)
+    scale = next(i for i, c in enumerate(text) if "scale deploy fraud-coordinator --replicas=0" in c)
+    assert pause < scale and any("--num-nodes=0" in c for c in text)
+    assert cluster.annotations()[0][:3] == ["fraud-coordinator", f"{lab.KEDA_PAUSE}=0", f"{lab.PAUSED_BY}=agi-c1"]
+
+
+def test_a_failed_preparation_unpauses_and_restores_the_replicas(manifest, monkeypatch):
+    keda_env(monkeypatch)
+    monkeypatch.setattr(lab.time, "sleep", lambda seconds: None)
+    cluster = KedaCluster([[pdb("ewallet-agents", "fraud-coordinator")]], deployments=[KEDA_DEPLOY],
+                          scaled_objects=[scaled_object("ewallet-agents", "fraud-coordinator", "fraud-coordinator")])
+    with pytest.raises(lab.GateError, match="still protect"):
+        lab.cmd_sleep(lab.Lab(True, "kc", cluster), keda_args(manifest, pause_keda=True))
+    text = [" ".join(c) for c in cluster.calls]
+    assert any(f"{lab.KEDA_PAUSE}- {lab.PAUSED_BY}-" in c for c in text)
+    assert text[-1].endswith("scale deploy fraud-coordinator --replicas=2")
+    assert not any("--num-nodes=0" in c for c in text)
+
+
+def test_wake_unpauses_only_what_cloud_lab_paused():
+    cluster = KedaCluster([[]], scaled_objects=[
+        scaled_object("ewallet-agents", "fraud-coordinator", "fraud-coordinator",
+                      {lab.KEDA_PAUSE: "0", lab.PAUSED_BY: "agi-c1"}),
+        scaled_object("ewallet-agents", "other", "other", {lab.KEDA_PAUSE: "1"})])
+    resumed = lab.unpause_keda(lab.Lab(True, "kc", cluster))
+    assert resumed == ["ewallet-agents/fraud-coordinator"]
+    assert cluster.annotations() == [["fraud-coordinator", f"{lab.KEDA_PAUSE}-", f"{lab.PAUSED_BY}-"]]
+
+
+def test_no_keda_installed_keeps_the_previous_behaviour():
+    class NoKeda(Cluster):
+        def __call__(self, command):
+            if "scaledobjects.keda.sh" in " ".join(command):
+                raise lab.subprocess.CalledProcessError(1, command)
+            return super().__call__(command)
+    assert lab.keda_controllers(lab.scaled_objects(lab.Lab(True, "kc", NoKeda([[]]))), {"a/b"}) == []

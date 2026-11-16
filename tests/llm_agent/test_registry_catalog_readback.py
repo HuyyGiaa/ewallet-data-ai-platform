@@ -39,3 +39,23 @@ def test_a_missing_or_stale_entry_fails_with_the_difference():
     entry = readback([DOC], "http://127.0.0.1:18121", opener=opener)["entries"][0]
     assert entry["registered"] and not entry["matches"]
     assert any("ewallet.io/runtime" in item for item in entry["differences"]) and "spec.description differs" in entry["differences"]
+
+
+def test_p4_specialists_are_catalogued_as_sandbox_agents_with_their_image():
+    from pathlib import Path
+    import yaml
+    from ops.llm_agent.registry_catalog import CHART, build_catalog, merge_values
+
+    values = yaml.safe_load((CHART / "values.yaml").read_text())
+    for overlay in ("g3/g3.yaml", "agi/agents.yaml"):
+        values = merge_values(values, yaml.safe_load((CHART / overlay).read_text()) or {})
+    image = "asia-southeast1-docker.pkg.dev/p/r/i@sha256:" + "ab" * 32
+    values = merge_values(values, {"agents": {
+        "coordinator": {"byo": {"sandboxSpecialists": ["drift-specialist", "feature-rag-specialist"]}},
+        "specialists": {"drift-specialist": {"byo": {"image": image}}}}})
+    agents = {d["metadata"]["name"]: d for d in build_catalog(values["agents"], CHART / "prompts", "0" * 40) if d["kind"] == "Agent"}
+    assert agents["drift-specialist"]["metadata"]["labels"]["ewallet.io/runtime"] == "kagent-sandboxagent-byo"
+    assert agents["feature-rag-specialist"]["metadata"]["labels"]["ewallet.io/runtime"] == "kagent-sandboxagent-byo"
+    assert agents["fraud-coordinator"]["metadata"]["labels"]["ewallet.io/runtime"] == "kagent-byo"
+    assert agents["drift-specialist"]["metadata"]["labels"]["ewallet.io/image-digest"] == "sha256-" + "ab" * 8
+    assert "SandboxAgent" in agents["drift-specialist"]["spec"]["description"]

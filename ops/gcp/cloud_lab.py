@@ -42,6 +42,11 @@ G3_NODE_TARGET = 3
 PACKING_LIMIT = 0.85
 PROFILES_PATH = Path(__file__).with_name("cloud_lab_profiles.json")
 GUARDED_APPROVAL_ENV = "CLOUD_LAB_GUARDED_SLEEP_APPROVAL"
+# KEDA ScaledObjects with minReplicaCount > 0 put a guarded Deployment back right after it is scaled to zero
+# (2026-11-16, campaign agi-20261115T145608Z: SLEEP_BLOCKED). Pausing them is its own owner approval.
+KEDA_APPROVAL_ENV = "CLOUD_LAB_KEDA_PAUSE_APPROVAL"
+KEDA_PAUSE = "autoscaling.keda.sh/paused-replicas"
+PAUSED_BY = "ewallet.io/cloud-lab-paused-by"
 CAMPAIGN_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]{2,62}$")
 PDB_KEY = re.compile(r"^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?/[a-z0-9]([-.a-z0-9]{0,251}[a-z0-9])?$")
 
@@ -463,6 +468,17 @@ def cmd_plan_sleep(lab: Lab, args: argparse.Namespace) -> int:
             "needs_owner_approval": f"{GUARDED_APPROVAL_ENV}={CLUSTER}:<campaign>",
             "covered_by_manifest": sorted(set(blockers) & approved),
             "not_covered": sorted(set(blockers) - approved)}
+        try:
+            deployments = json.loads(lab.kubectl("get", "deploy", "-A", "-o", "json"))["items"]
+            targets = set(guarded_targets(pdbs, deployments, blockers).values())
+        except GateError as error:
+            targets = set()
+            report["guarded_preparation"]["target_error"] = str(error)
+        controllers = keda_controllers(scaled_objects(lab), targets)
+        if controllers:
+            report["guarded_preparation"]["keda_pause"] = {
+                "scaled_objects": controllers,
+                "needs_owner_approval": f"--pause-keda and {KEDA_APPROVAL_ENV}={CLUSTER}:<campaign>"}
     print(json.dumps(report, indent=2))
     return 0
 
@@ -484,14 +500,87 @@ def cmd_sleep(lab: Lab, args: argparse.Namespace) -> int:
             raise GateError(f"SLEEP_BLOCKED: PDB blockers not in the approved manifest: {unexpected}")
         deployments = json.loads(lab.kubectl("get", "deploy", "-A", "-o", "json"))["items"]
         targets = guarded_targets(pdbs, deployments, blockers)
-        print(json.dumps({"guarded_preparation": targets, "campaign": args.campaign}, indent=2))
-        for target in sorted(set(targets.values())):
-            namespace, name = target.split("/", 1)
-            lab.k_mutate("-n", namespace, "scale", "deploy", name, "--replicas=0")
-        if lab.execute:
-            wait_for_pdbs_released(lab, set(blockers), getattr(args, "timeout", 300))
+        controllers = keda_controllers(scaled_objects(lab), set(targets.values()))
+        if controllers and not getattr(args, "pause_keda", False):
+            raise GateError(f"SLEEP_BLOCKED: KEDA ScaledObjects {controllers} would scale the guarded Deployments back; "
+                            f"pausing them is a separate owner approval (--pause-keda and {KEDA_APPROVAL_ENV})")
+        if controllers and args.execute and os.environ.get(KEDA_APPROVAL_ENV) != f"{CLUSTER}:{args.campaign}":
+            raise GateError(f"--pause-keda needs the owner's {KEDA_APPROVAL_ENV}={CLUSTER}:{args.campaign}")
+        previous = {f"{d['metadata']['namespace']}/{d['metadata']['name']}": int(d.get("spec", {}).get("replicas", 1))
+                    for d in deployments
+                    if f"{d['metadata']['namespace']}/{d['metadata']['name']}" in set(targets.values())}
+        print(json.dumps({"guarded_preparation": targets, "keda_pause": controllers, "previous_replicas": previous,
+                          "campaign": args.campaign}, indent=2))
+        paused: list[str] = []
+        try:
+            for key in controllers:
+                set_keda_pause(lab, key, args.campaign)
+                paused.append(key)
+            for target in sorted(set(targets.values())):
+                namespace, name = target.split("/", 1)
+                lab.k_mutate("-n", namespace, "scale", "deploy", name, "--replicas=0")
+            if lab.execute:
+                wait_for_pdbs_released(lab, set(blockers), getattr(args, "timeout", 300))
+        except (GateError, subprocess.CalledProcessError):
+            print("guarded preparation did not complete: restoring KEDA and replicas", file=sys.stderr)
+            restore_guarded(lab, paused, previous)
+            raise
     lab.mutate(resize_command(0))
     return 0
+
+
+def scaled_objects(lab: Lab) -> list[dict[str, Any]]:
+    """Every KEDA ScaledObject, or none when KEDA is not installed (the read fails)."""
+    try:
+        return json.loads(lab.kubectl("get", "scaledobjects.keda.sh", "-A", "-o", "json") or "{}").get("items", [])
+    except (subprocess.CalledProcessError, ValueError):
+        return []
+
+
+def keda_controllers(items: list[dict[str, Any]], targets: set[str]) -> list[str]:
+    """Active (not paused) ScaledObjects whose target is one of the guarded Deployments, as ns/name."""
+    found = []
+    for item in items:
+        namespace = item["metadata"]["namespace"]
+        ref = item.get("spec", {}).get("scaleTargetRef", {})
+        if ref.get("kind", "Deployment") != "Deployment" or f"{namespace}/{ref.get('name')}" not in targets:
+            continue
+        if KEDA_PAUSE not in (item["metadata"].get("annotations") or {}):
+            found.append(f"{namespace}/{item['metadata']['name']}")
+    return sorted(found)
+
+
+def set_keda_pause(lab: Lab, key: str, campaign: str | None) -> None:
+    """Pause (campaign given) or unpause (None) one ScaledObject; the marker records who paused it."""
+    namespace, name = key.split("/", 1)
+    if campaign:
+        lab.k_mutate("-n", namespace, "annotate", "scaledobject", name, f"{KEDA_PAUSE}=0", f"{PAUSED_BY}={campaign}",
+                     "--overwrite")
+    else:
+        lab.k_mutate("-n", namespace, "annotate", "scaledobject", name, f"{KEDA_PAUSE}-", f"{PAUSED_BY}-")
+
+
+def restore_guarded(lab: Lab, paused: list[str], previous: dict[str, int]) -> None:
+    """Undo a guarded preparation that did not reach the resize: unpause, then restore the replicas."""
+    for key in paused:
+        set_keda_pause(lab, key, None)
+    for target, replicas in sorted(previous.items()):
+        namespace, name = target.split("/", 1)
+        lab.k_mutate("-n", namespace, "scale", "deploy", name, f"--replicas={replicas}")
+
+
+def unpause_keda(lab: Lab) -> list[str]:
+    """Unpause the ScaledObjects that a cloud-lab sleep paused; others stay as their owner left them."""
+    resumed = []
+    for item in scaled_objects(lab):
+        annotations = item["metadata"].get("annotations") or {}
+        key = f"{item['metadata']['namespace']}/{item['metadata']['name']}"
+        if PAUSED_BY in annotations:
+            set_keda_pause(lab, key, None)
+            resumed.append(key)
+        elif KEDA_PAUSE in annotations:
+            print(f"WARNING: ScaledObject {key} is paused by someone else; left paused")
+    return resumed
 
 
 def wait_for_pdbs_released(lab: Lab, keys: set[str], timeout: int, clock=time.monotonic, sleep=time.sleep) -> None:
@@ -550,6 +639,9 @@ def wake(lab: Lab, args: argparse.Namespace, mode: str) -> int:
         lab.k_mutate("label", name, f"{G3_LABEL}=true", "--overwrite")
     for workload, replicas in restore_plan(recorded, current, patterns):
         lab.k_mutate("-n", workload.namespace, "scale", workload.kind.lower(), workload.name, f"--replicas={replicas}")
+    resumed = unpause_keda(lab)
+    if resumed:
+        print(json.dumps({"keda_resumed": resumed}, indent=2))
     return 0
 
 
@@ -585,6 +677,8 @@ def cmd_verify(lab: Lab, args: argparse.Namespace) -> int:
     if args.expect == "awake":
         recorded, _ = read_manifest(args.manifest)
         failures += [f"{w.key} replicas != {r}" for w, r in restore_plan(recorded, lab.live_replicas())]
+        failures += [f"ScaledObject {i['metadata']['namespace']}/{i['metadata']['name']} still paused by cloud-lab"
+                     for i in scaled_objects(lab) if PAUSED_BY in (i["metadata"].get("annotations") or {})]
     print(json.dumps({"expect": args.expect, "failures": failures}, indent=2))
     return 1 if failures else 0
 
@@ -613,6 +707,9 @@ def build_parser() -> argparse.ArgumentParser:
     sleep.add_argument("--manifest", type=Path, help="approved sleep manifest (with pdb-after-scale.txt)")
     sleep.add_argument("--campaign", help="campaign id named in the guarded-sleep approval")
     sleep.add_argument("--timeout", type=int, default=300, help="seconds to wait for scaled PDBs to release")
+    sleep.add_argument("--pause-keda", action="store_true",
+                       help=f"separate owner approval ({KEDA_APPROVAL_ENV}): pause the KEDA ScaledObjects of guarded "
+                            "Deployments for the sleep; wake-full unpauses them")
     sleep.add_argument("--also-approve", action="append", metavar="NS/NAME",
                        help="a PDB added since the manifest (e.g. by PKG-P1) that the owner's guarded approval names")
     plan = sub.add_parser("plan-wake")

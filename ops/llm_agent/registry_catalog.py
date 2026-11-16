@@ -32,6 +32,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import os
 from pathlib import Path
 import subprocess
@@ -83,15 +84,31 @@ def _prompt_document(name: str, version: str, display_name: str, entry: Mapping[
     }
 
 
-def agent_runtime(values: Mapping[str, Any], spec: Mapping[str, Any], model_config: str) -> tuple[str, str]:
+def sandbox_specialists(values: Mapping[str, Any]) -> set[str]:
+    """Specialists the Coordinator delegates to as SandboxAgents (PKG-P4: coordinator.byo.sandboxSpecialists)."""
+
+    raw = ((values.get("coordinator") or {}).get("byo") or {}).get("sandboxSpecialists") or []
+    if isinstance(raw, str):
+        raw = raw.strip("{}").split(",")
+    return {str(item).strip() for item in raw if str(item).strip()}
+
+
+def agent_runtime(values: Mapping[str, Any], spec: Mapping[str, Any], model_config: str,
+                  name: str = "") -> tuple[str, str]:
     """The runtime the chart deploys for one agent (templates/agents.yaml), as label and text.
 
     BYO wins over the agent mode (the chart renders ``type: BYO``); otherwise
-    ``agents.mode`` selects a Substrate ``SandboxAgent`` or a kagent ``Agent``. The
-    text states configuration only; it does not claim verified sandbox execution.
+    ``agents.mode`` selects a Substrate ``SandboxAgent`` or a kagent ``Agent``. A BYO
+    Specialist that the Coordinator delegates to through the A2A Gateway sandbox route
+    (PKG-P4) runs as a SandboxAgent with the same image, and its Deployment stays as the
+    fallback. The text states configuration only; execution is verified by the E2E runs.
     """
 
     if (spec.get("byo") or {}).get("enabled"):
+        if name and name in sandbox_specialists(values):
+            return ("kagent-sandboxagent-byo",
+                    "BYO image served as a kagent 0.10.3 SandboxAgent on the Substrate WorkerPool business-agents "
+                    "(gVisor) behind the A2A Gateway sandbox route; the BYO Deployment is kept as the fallback")
         return "kagent-byo", "kagent 0.10.3 BYO Agent (own A2A server image)"
     if values.get("mode", "sandbox") == "sandbox":
         return ("kagent-sandboxagent",
@@ -128,10 +145,14 @@ def build_catalog(values: Mapping[str, Any], prompts_dir: Path, git_sha: str, *,
         if byo.get("enabled"):
             # A BYO runtime calls only the MCP route its module is bound to (byo_*.py).
             servers = [server for server in servers if server in BYO_MCP_SERVERS.get(name, ())]
-        runtime, runtime_text = agent_runtime(values, spec, model_config)
+        runtime, runtime_text = agent_runtime(values, spec, model_config, name)
         labels = {"ewallet.io/rubric-rows": spec["rubricRows"].replace(",", "."),
                   "ewallet.io/git-sha": git_sha[:40],
                   "ewallet.io/runtime": runtime}
+        digest = re.search(r"@sha256:([0-9a-f]{64})$", str(byo.get("image") or ""))
+        if digest:
+            # The deployed image identity (a label value stays short; the readback compares it).
+            labels["ewallet.io/image-digest"] = "sha256-" + digest.group(1)[:16]
         if "drift" in (byo.get("workflows") or []):
             labels["ewallet.io/workflows"] = ".".join(byo["workflows"])
         documents.append({
