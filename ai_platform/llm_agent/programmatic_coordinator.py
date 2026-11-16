@@ -45,6 +45,7 @@ from ai_platform.llm_agent.business_request import (
     a2a_message_send,
     typed_request_from_a2a,
 )
+from ai_platform.llm_agent.agent_metrics import record_sandbox_admission_wait, track_sandbox_delegation
 from ai_platform.llm_agent.contracts import Citation
 from ai_platform.llm_agent.gateway_backoff import RATE_LIMITED, rate_limited_delay, retry_after_seconds
 from ai_platform.llm_agent.drift_evidence import DriftFinding
@@ -184,6 +185,8 @@ class GatewayCall:
     headers: Mapping[str, str]
     payload: Mapping[str, object]
     timeout_seconds: float
+    # The Sandbox Specialist this call goes to (kagent SandboxAgent route); None for a Deployment Specialist.
+    sandbox_specialist: str | None = None
 
 
 class A2ATransport(Protocol):
@@ -277,6 +280,7 @@ class GatewayPolicy:
                 headers={"content-type": "application/json"},
                 payload=payload,
                 timeout_seconds=self.timeout_seconds,
+                sandbox_specialist=request.target_agent,
             )
         return GatewayCall(
             url=self.endpoint,
@@ -659,8 +663,17 @@ class ProgrammaticCoordinator:
                                       fingerprint=fingerprint, cancelled=cancelled, execute=execute)
 
     def _send(self, call: GatewayCall, cancelled: Event | None, span: trace.Span) -> Mapping[str, object]:
-        """Send one delegation, waiting and repeating while the A2A Gateway sheds it (429)."""
+        """Send one delegation, waiting and repeating while the A2A Gateway sheds it (429).
 
+        A Sandbox delegation is one in-flight unit from here until it ends (P2-D), whatever the retries.
+        """
+
+        if call.sandbox_specialist is None:
+            return self._send_attempts(call, cancelled, span)
+        with track_sandbox_delegation(call.sandbox_specialist):
+            return self._send_attempts(call, cancelled, span)
+
+    def _send_attempts(self, call: GatewayCall, cancelled: Event | None, span: trace.Span) -> Mapping[str, object]:
         deadline = time.monotonic() + call.timeout_seconds
         attempt = 0
         while True:
@@ -672,6 +685,8 @@ class ProgrammaticCoordinator:
                 return response
             except RateLimitedFailure as exc:
                 capacity = isinstance(exc, SandboxCapacityFailure)
+                if capacity and call.sandbox_specialist is not None:
+                    record_sandbox_admission_wait(call.sandbox_specialist)
                 budget = self._backoff.capacity_max_attempts if capacity else self._backoff.max_attempts
                 if attempt >= budget or self._backoff.max_attempts == 1:
                     raise

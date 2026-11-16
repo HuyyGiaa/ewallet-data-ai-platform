@@ -20,6 +20,15 @@ Exported through the shared otel-collector Prometheus exporter (namespace
     Prompt and completion tokens per variant.
 ``ewallet_agent_ab_llm_latency_seconds{variant}``
     Time from the assigned planner call to a grounded request or a failure.
+``ewallet_sandbox_delegations_inflight{specialist}``
+    Coordinator delegations to a Sandbox Specialist (kagent SandboxAgent on the shared Substrate
+    WorkerPool) from the first send until the delegation ends, however it ends. One per logical
+    delegation: waiting for a worker and sending again do not count twice. Summed over Coordinator
+    pods it is the Sandbox demand a WorkerPool autoscaler would size for (P2-D).
+``ewallet_sandbox_admission_waits_total{specialist}``
+    Sandbox delegations refused for capacity (kagent: the WorkerPool has no free worker), one per
+    refusal, including the last one when the wait budget runs out. A2A Gateway rate limiting (429)
+    and every other failure are not counted.
 
 Every label value comes from a closed set, so cardinality is fixed (at most 2
 agents x 2 modes x 4 outcomes, etc.). Without a configured MeterProvider the
@@ -43,6 +52,7 @@ Outcome = Literal["completed", "rejected", "failed", "cancelled"]
 AGENTS = frozenset({"fraud-coordinator", "feature-rag-specialist", "drift-specialist"})
 MODES = frozenset({"typed", "natural-language"})
 OUTCOMES = frozenset({"completed", "rejected", "failed", "cancelled"})
+SANDBOX_SPECIALISTS = frozenset({"feature-rag-specialist", "drift-specialist"})
 
 _meter = metrics.get_meter("ewallet.agent")
 _invocations = _meter.create_counter(
@@ -59,6 +69,14 @@ _inflight = _meter.create_up_down_counter(
 )
 _mcp_retries = _meter.create_counter(
     "mcp_client_retries_total", unit="1", description="Read-only MCP calls repeated after a transport failure",
+)
+_sandbox_inflight = _meter.create_up_down_counter(
+    "sandbox_delegations_inflight", unit="1",
+    description="Coordinator delegations to a Sandbox Specialist that have not ended",
+)
+_sandbox_waits = _meter.create_counter(
+    "sandbox_admission_waits_total", unit="1",
+    description="Sandbox delegations refused because the WorkerPool had no free worker",
 )
 
 
@@ -140,6 +158,10 @@ def initialize(agent: str) -> None:
         _pii.add(0, {"agent": agent, "pii_type": pii_type})
     _inflight.add(0, {"agent": agent})
     _mcp_retries.add(0, {"agent": agent})
+    if agent == "fraud-coordinator":
+        for specialist in sorted(SANDBOX_SPECIALISTS):
+            _sandbox_inflight.add(0, {"specialist": specialist})
+            _sandbox_waits.add(0, {"specialist": specialist})
 
 
 @contextmanager
@@ -152,6 +174,25 @@ def track_inflight(agent: str) -> Iterator[None]:
         yield
     finally:
         _inflight.add(-1, {"agent": agent})
+
+
+@contextmanager
+def track_sandbox_delegation(specialist: str) -> Iterator[None]:
+    """Count one logical Sandbox delegation as in flight until the block exits, however it exits."""
+
+    _check(specialist, SANDBOX_SPECIALISTS, "specialist")
+    _sandbox_inflight.add(1, {"specialist": specialist})
+    try:
+        yield
+    finally:
+        _sandbox_inflight.add(-1, {"specialist": specialist})
+
+
+def record_sandbox_admission_wait(specialist: str) -> None:
+    """Count one capacity refusal of a Sandbox delegation."""
+
+    _check(specialist, SANDBOX_SPECIALISTS, "specialist")
+    _sandbox_waits.add(1, {"specialist": specialist})
 
 
 def record_mcp_retry(agent: str) -> None:
