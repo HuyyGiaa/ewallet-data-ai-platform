@@ -324,7 +324,23 @@ overlay_args() {   # prints one argument per line for this package's render of t
       [[ "${FINAL_SERVER_SET}" =~ ^[a-z0-9]([-a-z0-9]{0,22}[a-z0-9])?$ ]] || die "FINAL_SERVER_SET must be a credential server-set name"
       local file=mcp-retire-legacy.yaml base=llm-agent-mcp-values.yaml
       [[ "$1" == agents ]] && file=agents-retire-legacy-mcp.yaml base=llm-agent-values.yaml
-      printf '%s\n' -f "${PRIVATE}/${base}" -f "${CHART}/agi/${file}" --set "mcpCredentialLifecycle.serverSet=${FINAL_SERVER_SET}"
+      # Helm keeps a null from a second -f file as a null value (it deletes only chart defaults), so the
+      # overlay is applied here: null deletes the key, maps merge, anything else replaces.
+      "${PYTHON}" -c '
+import sys, yaml
+def apply(base, overlay):
+    for key, value in overlay.items():
+        if value is None:
+            base.pop(key, None)
+        elif isinstance(value, dict):   # a missing or non-map base still drops the overlay nulls
+            base[key] = apply(base[key] if isinstance(base.get(key), dict) else {}, value)
+        else:
+            base[key] = value
+    return base
+base = yaml.safe_load(open(sys.argv[1])) or {}
+yaml.safe_dump(apply(base, yaml.safe_load(open(sys.argv[2])) or {}), open(sys.argv[3], "w"), sort_keys=True)' \
+        "${PRIVATE}/${base}" "${CHART}/agi/${file}" "${PRIVATE}/${PACKAGE}-values.yaml" || die "cannot apply ${file}"
+      printf '%s\n' -f "${PRIVATE}/${PACKAGE}-values.yaml" --set "mcpCredentialLifecycle.serverSet=${FINAL_SERVER_SET}"
       echo __END__ ;;
     img-coordinator:agents)
       need COORDINATOR_IMAGE

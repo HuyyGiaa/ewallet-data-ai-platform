@@ -440,8 +440,14 @@ class CampaignGateTests(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0, "FINAL_SERVER_SET is required")
                 result, args = self.args_for(package, which, FINAL_SERVER_SET="fin-20261117")
                 self.assertEqual(result.returncode, 0, result.stderr)
-                files = [Path(args[i + 1]).name for i, arg in enumerate(args) if arg == "-f"]
-                self.assertEqual(files, [base, overlay])
+                files = [args[i + 1] for i, arg in enumerate(args) if arg == "-f"]
+                self.assertEqual([Path(f).name for f in files], [f"{package}-values.yaml"])
+                rendered = yaml.safe_load(Path(files[0]).read_text()) or {}
+                declared = yaml.safe_load((ROOT / "infra/helm/llm-agent-platform/agi" / overlay).read_text())
+                for name in declared["mcpServices"]["services"]:
+                    grants = ((rendered.get("mcpServices") or {}).get("services", {}).get(name) or {}).get("toolGrants") or {}
+                    self.assertFalse({"drift-specialist", "feature-rag-specialist"} & set(grants), "retired grants deleted")
+                    self.assertNotIn(None, grants.values())
                 self.assertIn("mcpCredentialLifecycle.serverSet=fin-20261117", args)
                 identities = self.run_script("__identities", which, AGI_PACKAGE=package).stdout.split()
                 self.assertEqual(sorted(identities[i + 1] for i, a in enumerate(identities) if a == "--expect-changed"),
