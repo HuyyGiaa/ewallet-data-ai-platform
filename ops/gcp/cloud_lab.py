@@ -1,8 +1,8 @@
 """Operate the ``ewallet-dev`` GKE cluster as an on-demand cloud lab.
 
 The tool covers sleep (zero CPU nodes) and profile-based wake. Read-only
-commands are ``status``, ``plan-sleep``, ``plan-wake``, ``verify`` and
-``cost-status``. Every mutating command prints its plan by default and acts
+commands are ``status``, ``plan-sleep``, ``plan-wake``, ``verify``,
+``cost-status`` and ``record-manifest`` (it writes local files only). Every mutating command prints its plan by default and acts
 only with ``--execute``, ``--confirm-cluster ewallet-dev`` and
 ``CLOUD_LAB_APPROVED=yes``. Nothing here deletes a resource, starts a GPU, or
 wakes the cluster implicitly.
@@ -13,6 +13,13 @@ and ``CLOUD_LAB_GUARDED_SLEEP_APPROVAL=ewallet-dev:<campaign>``, and it scales o
 Deployments that the approved sleep manifest recorded as PDB-guarded and scaled to
 zero (``pdb-after-scale.txt``), plus PDBs the owner names with ``--also-approve``. A PDB
 blocker alone never authorizes a mutation.
+
+``record-manifest --out <dir>`` records the awake cluster's declared replicas, pod
+requests, disks and buckets: the recovery manifest that the next ``wake-*`` restores
+and ``verify --expect awake`` checks. Run it right before every sleep, on the healthy
+awake cluster. A manifest recorded on an earlier day restores that day's replicas:
+the 2026-11-06 manifest put the MCP servers back to 1 after PKG-P1 made them 2
+(Phase 1, 2026-11-16).
 """
 
 from __future__ import annotations
@@ -605,6 +612,63 @@ def wake_targets(args: argparse.Namespace, mode: str) -> list[str] | None:
     return profiles[args.profile]
 
 
+def record_manifest(lab: Lab, out: Path, campaign: str, source_commit: str = "",
+                    clock: Callable[[], float] = time.time) -> dict[str, Any]:
+    """Record the awake cluster as a recovery manifest in ``out`` (a new directory).
+
+    Refused on a sleeping cluster and during a sleep preparation (a ScaledObject paused by
+    cloud-lab, or a guarded Deployment already scaled to zero would be recorded as 0).
+    """
+    if not CAMPAIGN_ID.fullmatch(campaign or ""):
+        raise GateError("--campaign must be a campaign id")
+    if out.exists():
+        raise GateError(f"{out} exists; a recovery manifest is never overwritten")
+    vms = lab.pool_vms()
+    if not vms:
+        raise GateError("the node pool has no VMs: a recovery manifest records an awake cluster")
+    paused = sorted(f"{i['metadata']['namespace']}/{i['metadata']['name']}" for i in scaled_objects(lab)
+                    if PAUSED_BY in (i["metadata"].get("annotations") or {}))
+    if paused:
+        raise GateError(f"ScaledObjects {paused} are paused by a cloud-lab sleep; wake-full first, then record")
+    items = json.loads(lab.kubectl("get", "deploy,sts", "-A", "-o", "json"))["items"]
+    workloads = []
+    for item in items:
+        spec, meta = item.get("spec", {}), item["metadata"]
+        containers = spec.get("template", {}).get("spec", {}).get("containers", [])
+        workloads.append({
+            "kind": item["kind"], "namespace": meta["namespace"], "name": meta["name"],
+            "replicas": int(spec.get("replicas", 1)), "ready": int(item.get("status", {}).get("readyReplicas") or 0),
+            "images": [{"name": c.get("name"), "image": c.get("image")} for c in containers],
+        })
+    workloads.sort(key=lambda w: (w["namespace"], w["kind"], w["name"]))
+    requests = summarize_requests(json.loads(lab.kubectl("get", "pods", "-A", "-o", "json"))["items"])
+    disks = json.loads(lab.gcloud("compute", "disks", "list", "--format=json(name)"))
+    buckets = sorted(lab.gcloud("storage", "buckets", "list", "--format=value(name)").split())
+    not_ready = [f"{w['namespace']}/{w['name']}" for w in workloads if w["ready"] < w["replicas"]]
+    manifest = {
+        "purpose": "Recovery manifest recorded by cloud_lab record-manifest on the awake cluster: the replicas the "
+                   "next wake restores and verify --expect awake checks. Holds no Secret values or env.",
+        "project": PROJECT, "cluster": CLUSTER, "location": LOCATION, "node_pool": NODE_POOL,
+        "campaign": campaign, "recorded_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(clock())),
+        "source_commit": source_commit, "pool_vms": len(vms), "workloads": len(workloads),
+        "not_ready_at_record": not_ready,
+    }
+    out.mkdir(parents=True)
+    files = {"workloads.json": workloads, "workload-requests.json": requests, "disks-before.json": disks,
+             "MANIFEST.json": manifest}
+    for name, data in files.items():
+        (out / name).write_text(json.dumps(data, indent=2) + "\n")
+    (out / "buckets-before.txt").write_text("\n".join(buckets) + "\n")
+    return manifest
+
+
+def cmd_record_manifest(lab: Lab, args: argparse.Namespace) -> int:
+    """Write a recovery manifest for the next wake; reads the cluster, writes local files only."""
+    manifest = record_manifest(lab, args.out, args.campaign, args.source_commit or "")
+    print(json.dumps({"out": str(args.out), **manifest}, indent=2))
+    return 0
+
+
 def cmd_plan_wake(lab: Lab, args: argparse.Namespace) -> int:
     """Print the node count and cost for a wake without touching the cluster."""
     patterns = wake_targets(args, args.mode)
@@ -725,6 +789,10 @@ def build_parser() -> argparse.ArgumentParser:
     verify = sub.add_parser("verify")
     verify.add_argument("--expect", choices=["sleep", "awake"], required=True)
     verify.add_argument("--manifest", type=Path, required=True)
+    record = sub.add_parser("record-manifest", help="record the awake cluster as the next wake's recovery manifest")
+    record.add_argument("--out", type=Path, required=True, help="new directory for the manifest")
+    record.add_argument("--campaign", required=True)
+    record.add_argument("--source-commit", help="repository commit the cluster was deployed from")
     cost = sub.add_parser("cost-status")
     cost.add_argument("--gcs-gib", type=float, default=3442.3)
     cost.add_argument("--ar-gib", type=float, default=14.14)
@@ -740,7 +808,7 @@ def main(argv: list[str] | None = None) -> int:
     lab = Lab(getattr(args, "execute", False), args.kubeconfig)
     handlers: dict[str, Callable[[Lab, argparse.Namespace], int]] = {
         "status": cmd_status, "plan-sleep": cmd_plan_sleep, "sleep": cmd_sleep, "plan-wake": cmd_plan_wake,
-        "verify": cmd_verify, "cost-status": cmd_cost_status,
+        "verify": cmd_verify, "cost-status": cmd_cost_status, "record-manifest": cmd_record_manifest,
         "wake-minimal": lambda l, a: wake(l, a, "minimal"),
         "wake-experiment": lambda l, a: wake(l, a, "experiment"),
         "wake-full": lambda l, a: wake(l, a, "full"),
