@@ -699,7 +699,7 @@ def wake(lab: Lab, args: argparse.Namespace, mode: str) -> int:
         names = lab.kubectl("get", "nodes", "-o", "name").split()
     else:
         names = [f"node/<new-node-{i}>" for i in range(nodes)]
-    for name in names[: min(nodes, G3_NODE_TARGET)]:
+    for name in g3_label_targets(lab, names, min(nodes, G3_NODE_TARGET)):
         lab.k_mutate("label", name, f"{G3_LABEL}=true", "--overwrite")
     for workload, replicas in restore_plan(recorded, current, patterns):
         lab.k_mutate("-n", workload.namespace, "scale", workload.kind.lower(), workload.name, f"--replicas={replicas}")
@@ -707,6 +707,25 @@ def wake(lab: Lab, args: argparse.Namespace, mode: str) -> int:
     if resumed:
         print(json.dumps({"keda_resumed": resumed}, indent=2))
     return 0
+
+
+def g3_label_targets(lab: Lab, names: list[str], count: int) -> list[str]:
+    """The ``count`` nodes with the most free CPU when the label is applied.
+
+    The G3 LLM pods (vllm-primary needs 2 CPU) select this label. By the time the nodes are Ready the
+    wake's backlog has already filled some of them; labelling the first names alphabetically put the
+    label on three nodes at 82-99% CPU while two stayed at about 25%, and vllm-primary stayed Pending
+    (P2-B, 2026-11-16). Ties keep name order, so the plan is deterministic.
+    """
+    if not lab.execute or count <= 0:
+        return names[:count]
+    requested: dict[str, float] = {name.removeprefix("node/"): 0.0 for name in names}
+    for pod in json.loads(lab.kubectl("get", "pods", "-A", "-o", "json"))["items"]:
+        node = pod.get("spec", {}).get("nodeName")
+        if node in requested and pod.get("status", {}).get("phase") not in ("Succeeded", "Failed"):
+            requested[node] += pod_requests(pod)[0]
+    ranked = sorted(names, key=lambda name: (requested[name.removeprefix("node/")], name))
+    return ranked[:count]
 
 
 def wait_for_nodes(lab: Lab, nodes: int, timeout: int) -> None:

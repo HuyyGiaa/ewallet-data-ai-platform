@@ -145,3 +145,26 @@ def test_the_cli_exposes_record_manifest_as_a_read_only_command():
     args = parser.parse_args(["record-manifest", "--out", "/tmp/x", "--campaign", "p2-foundation-20261116T084657Z"])
     assert args.command == "record-manifest"
     assert not hasattr(args, "execute"), "record-manifest has no --execute: it never mutates the cluster"
+
+
+def scheduled(node, cpu, phase="Running"):
+    return {"metadata": {"namespace": "a", "name": f"p-{node}-{cpu}"},
+            "spec": {"nodeName": node, "containers": [{"resources": {"requests": {"cpu": cpu}}}]}, "status": {"phase": phase}}
+
+
+def test_g3_label_goes_to_the_nodes_with_the_most_free_cpu():
+    pods = [scheduled("n-a", "3900m"), scheduled("n-b", "3900m"), scheduled("n-c", "3200m"),
+            scheduled("n-d", "900m"), scheduled("n-e", "1100m"), scheduled("n-a", "500m", phase="Succeeded")]
+
+    def runner(command):
+        return json.dumps({"items": pods}) if "get pods -A" in " ".join(command) else ""
+
+    names = [f"node/n-{x}" for x in "abcde"]
+    assert lab.g3_label_targets(lab.Lab(True, "kc", runner), names, 3) == ["node/n-d", "node/n-e", "node/n-c"]
+
+
+def test_g3_label_plan_mode_and_ties_are_deterministic():
+    names = ["node/n-b", "node/n-a"]
+    assert lab.g3_label_targets(lab.Lab(False, "kc", lambda c: ""), names, 1) == ["node/n-b"], "plan mode reads nothing"
+    runner = lambda command: json.dumps({"items": []})
+    assert lab.g3_label_targets(lab.Lab(True, "kc", runner), names, 2) == ["node/n-a", "node/n-b"]
