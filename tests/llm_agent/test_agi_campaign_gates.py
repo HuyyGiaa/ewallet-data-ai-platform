@@ -446,6 +446,7 @@ class CampaignGateTests(unittest.TestCase):
             ("img-agents", "agents"): ("llm-agent-values.yaml", ["agents.coordinator.byo.image=",
                                                                   "agents.specialists.feature-rag-specialist.byo.image=",
                                                                   "agents.specialists.drift-specialist.byo.image="]),
+            ("img-coordinator", "agents"): ("llm-agent-values.yaml", ["agents.coordinator.byo.image="]),
         }
         for (package, which), (values, sets) in cases.items():
             with self.subTest(package):
@@ -464,6 +465,7 @@ class CampaignGateTests(unittest.TestCase):
             ("img-mcp", "mcp"): ["Deployment/ewallet-mcp/drift-mcp", "Deployment/ewallet-mcp/feature-rag-mcp"],
             ("img-agents", "agents"): ["Agent/ewallet-agents/drift-specialist", "Agent/ewallet-agents/feature-rag-specialist",
                                        "Agent/ewallet-agents/fraud-coordinator"],
+            ("img-coordinator", "agents"): ["Agent/ewallet-agents/fraud-coordinator"],
         }
         for (package, which), objects in cases.items():
             with self.subTest(package):

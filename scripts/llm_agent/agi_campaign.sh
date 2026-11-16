@@ -27,6 +27,8 @@
 #                             P2-C network step, before the kagent controller gets its OTLP endpoint)
 #   img-mcp    llm-agent-mcp  image roll: the live values with MCP_IMAGE and its identity, nothing else
 #   img-agents llm-agent      image roll: the live values with the three BYO agent images, nothing else
+#   img-coordinator llm-agent image roll of the Coordinator only (COORDINATOR_IMAGE); the Specialists keep
+#                             their live images (P2-D: a Coordinator-only metrics change)
 #                             (both after P2; a plain rollback restores the previous images)
 # Every command exits non-zero on the first failed check; a failed check never reaches a mutating command.
 # Checks and render arguments run in a fresh bash process (__check, __args): bash ignores `set -e` inside a
@@ -50,7 +52,7 @@ REFERENCE_INPUT="${ROOT}/docs/evidence/llm_agent/agent_platform_runtime_20261102
 FEATURES='["account_behavior__account_tx_count_1h","account_behavior__account_tx_count_24h","user_behavior__user_avg_amount_30d","merchant_behavior__merchant_tx_count_24h"]'
 
 die() { echo "FAIL: $*" >&2; exit 1; }
-PACKAGES=" agi p1-mcp s1-mcp s1-agents p2-agents p4-agents img-mcp img-agents t1-agents tr-agents "
+PACKAGES=" agi p1-mcp s1-mcp s1-agents p2-agents p4-agents img-mcp img-agents img-coordinator t1-agents tr-agents "
 SANDBOX_SPECIALISTS="{drift-specialist,feature-rag-specialist}"
 KEDA_AGENTS="fraud-coordinator feature-rag-specialist drift-specialist"
 # What the MCP and BYO images copy (infra/docker/*/Dockerfile). IMAGE_SHA may precede SHA only when
@@ -82,7 +84,7 @@ package_release() {   # the release a package changes; agi changes both, one per
   case "${PACKAGE}" in
     agi) echo "$1" ;;
     p1-mcp|s1-mcp|img-mcp) echo mcp ;;
-    s1-agents|p2-agents|p4-agents|img-agents|t1-agents|tr-agents) echo agents ;;
+    s1-agents|p2-agents|p4-agents|img-agents|img-coordinator|t1-agents|tr-agents) echo agents ;;
   esac
 }
 
@@ -288,6 +290,11 @@ overlay_args() {   # prints one argument per line for this package's render of t
         --set "agents.specialists.feature-rag-specialist.byo.image=${FEATURE_RAG_IMAGE}" \
         --set "agents.specialists.drift-specialist.byo.image=${DRIFT_IMAGE}"
       echo __END__ ;;
+    img-coordinator:agents)
+      need COORDINATOR_IMAGE
+      digest_ref "${COORDINATOR_IMAGE}" || die "COORDINATOR_IMAGE must be a digest-pinned Artifact Registry reference"
+      printf '%s\n' -f "${PRIVATE}/llm-agent-values.yaml" --set "agents.coordinator.byo.image=${COORDINATOR_IMAGE}"
+      echo __END__ ;;
     t1-agents:agents)
       (cd "${ROOT}" && "${PYTHON}" -m ops.llm_agent.agi_packages append-flow sandbox-otel-collector \
         --values "${PRIVATE}/llm-agent-values.yaml" --out "${PRIVATE}/t1-agents-flows.yaml" > /dev/null) \
@@ -371,6 +378,7 @@ expected_identities() {
       for agent in ${KEDA_AGENTS}; do
         printf '%s\n' --expect-added "ScaledObject/ewallet-agents/${agent}" --expect-removed "HorizontalPodAutoscaler/ewallet-agents/${agent}"
       done ;;
+    img-coordinator:agents) printf '%s\n' --expect-changed Agent/ewallet-agents/fraud-coordinator ;;
     t1-agents:agents) printf '%s\n' --expect-added AuthorizationPolicy/ewallet-agents/allow-sandbox-workers-to-otel-collector \
                   --expect-added NetworkPolicy/ewallet-agents/allow-sandbox-workers-to-otel-collector-ingress ;;
     tr-agents:agents) printf '%s\n' --expect-added AuthorizationPolicy/ewallet-agents/allow-kagent-controller-to-otel-collector \

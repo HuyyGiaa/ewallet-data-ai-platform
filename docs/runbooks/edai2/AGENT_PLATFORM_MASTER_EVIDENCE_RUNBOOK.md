@@ -525,6 +525,15 @@ AGI_PACKAGE=img-agents scripts/llm_agent/agi_campaign.sh gate agents        # on
 AGI_APPROVAL=IMG-AGENTS:$CAMPAIGN AGI_PACKAGE=img-agents scripts/llm_agent/agi_campaign.sh upgrade agents
 ```
 
+A change that touches only the Coordinator rolls the Coordinator alone. The Specialists keep their live
+images. P2-D (Sandbox capacity metrics) used this path:
+
+```bash
+AGI_PACKAGE=img-coordinator scripts/llm_agent/agi_campaign.sh preflight
+AGI_PACKAGE=img-coordinator scripts/llm_agent/agi_campaign.sh gate agents   # only Agent fraud-coordinator changes
+AGI_APPROVAL=IMG-COORDINATOR:$CAMPAIGN AGI_PACKAGE=img-coordinator scripts/llm_agent/agi_campaign.sh upgrade agents
+```
+
 - The render is the live values plus the image references, and nothing else, so no
   package's configuration changes.
 - `<release>-<package>-diff.txt` keeps each package's reviewed diff. `<release>-diff.txt`
