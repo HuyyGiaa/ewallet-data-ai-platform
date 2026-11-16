@@ -1,0 +1,95 @@
+{
+ "entries": [
+  {
+   "differences": [],
+   "kind": "Prompt",
+   "matches": true,
+   "name": "drift-specialist-system",
+   "published_git_sha": null,
+   "registered": true,
+   "status": 200,
+   "tag": "v2"
+  },
+  {
+   "differences": [],
+   "kind": "Prompt",
+   "matches": true,
+   "name": "feature-rag-specialist-system",
+   "published_git_sha": null,
+   "registered": true,
+   "status": 200,
+   "tag": "v5"
+  },
+  {
+   "differences": [],
+   "kind": "Prompt",
+   "matches": true,
+   "name": "fraud-coordinator-system",
+   "published_git_sha": null,
+   "registered": true,
+   "status": 200,
+   "tag": "v5"
+  },
+  {
+   "differences": [],
+   "kind": "MCPServer",
+   "matches": true,
+   "name": "drift-mcp",
+   "published_git_sha": null,
+   "registered": true,
+   "status": 200,
+   "tag": "v1"
+  },
+  {
+   "differences": [],
+   "kind": "MCPServer",
+   "matches": true,
+   "name": "feature-rag-mcp",
+   "published_git_sha": null,
+   "registered": true,
+   "status": 200,
+   "tag": "v1"
+  },
+  {
+   "differences": [
+    "label ewallet.io/byo-image-digest: registry 'sha256-75011f6ce496e192', catalog None",
+    "spec.description differs"
+   ],
+   "kind": "Agent",
+   "matches": false,
+   "name": "drift-specialist",
+   "published_git_sha": "281b0493b455b5afeaf1b9b9adbcf7433178653c",
+   "registered": true,
+   "status": 200,
+   "tag": "1.1.0"
+  },
+  {
+   "differences": [
+    "label ewallet.io/byo-image-digest: registry 'sha256-29867794f67f103e', catalog None",
+    "spec.description differs"
+   ],
+   "kind": "Agent",
+   "matches": false,
+   "name": "feature-rag-specialist",
+   "published_git_sha": "281b0493b455b5afeaf1b9b9adbcf7433178653c",
+   "registered": true,
+   "status": 200,
+   "tag": "1.0.0"
+  },
+  {
+   "differences": [
+    "label ewallet.io/byo-image-digest: registry 'sha256-9775406101b83b03', catalog 'sha256-94a13a8b168881e1'"
+   ],
+   "kind": "Agent",
+   "matches": false,
+   "name": "fraud-coordinator",
+   "published_git_sha": "281b0493b455b5afeaf1b9b9adbcf7433178653c",
+   "registered": true,
+   "status": 200,
+   "tag": "1.1.0"
+  }
+ ],
+ "git_sha": "f743b447964f31000f78e6014b4450858aa81a46",
+ "registry": "http://127.0.0.1:18121",
+ "verdict": "FAIL"
+}

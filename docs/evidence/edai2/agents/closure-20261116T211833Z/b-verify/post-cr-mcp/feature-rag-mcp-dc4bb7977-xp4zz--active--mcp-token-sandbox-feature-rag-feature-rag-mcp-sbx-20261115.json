@@ -1,0 +1,16 @@
+{
+  "tool": "feature_lookup",
+  "tools": null,
+  "stage": "initialize",
+  "http_statuses": [],
+  "outcome": "transport_error",
+  "error_type": [
+    "ConnectError"
+  ],
+  "endpoint": "http://127.0.0.1:18192/mcp",
+  "expect": "ok",
+  "verdict": "FAIL",
+  "reasons": [
+    "observed transport_error, expected ok"
+  ]
+}

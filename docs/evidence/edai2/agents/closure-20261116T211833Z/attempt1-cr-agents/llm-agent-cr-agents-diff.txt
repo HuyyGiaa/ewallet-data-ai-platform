@@ -1,0 +1,22 @@
+added: 0
+removed: 0
+changed: 1
+  Deployment ewallet-agents/drift-mcp
+
+### CHANGED Deployment ewallet-agents/drift-mcp
+--- 
++++ 
+@@ -68,3 +68,5 @@
+         - name: EWALLET_MCP_TOOL_GRANTS
+-          value: '{"drift-specialist":["drift_detection"]}'
++          value: '{}'
++        - name: EWALLET_MCP_DISCOVERY_SUBJECTS
++          value: '["kagent-controller"]'
+         - name: EWALLET_MCP_SERVICE_TOKENS
+@@ -73,3 +75,3 @@
+               key: auth-config.json
+-              name: mcp-auth-drift-mcp
++              name: mcp-auth-drift-mcp-fin-20261117
+         image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:91223fcf1266f09af8f11ec87bc6b1f5cad0e070220e12787b47a9788910dfe0
+
+RESULT: PASS

@@ -785,3 +785,11 @@ No privilege was added for testing.
   would come back without valid credentials.
 - **`ewallet-agents/drift-mcp`:** it keeps `sandbox-drift` because its image cannot run list-only. It has no route
   or ingress, and its drift backend artifacts are missing (pre-existing).
+
+### 11.5 Final state
+
+- **Cluster:** guarded sleep under the `sp-cleanup-20261116T200345Z` Gate 1 approval. It paused 2 ScaledObjects
+  (Coordinator, WorkerPool); the Specialist ones no longer exist.
+- **Nodes:** 0 nodes and 0 `cpu-pool` VMs; `verify --expect sleep` passed against the fresh recovery manifest.
+- **Network:** /32 removed; the authorized networks are the original 3 CIDRs.
+- **Cost:** about 1.5 h awake × 5 nodes × ~$0.165 ≈ $1.2 (list price, not billing).

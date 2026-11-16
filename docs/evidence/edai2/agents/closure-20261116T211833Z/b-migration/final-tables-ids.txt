@@ -1,0 +1,3 @@
+ewallet-mcp/drift-mcp immutable= True [('kagent-controller.drift-mcp.r1-release1.active', 'active'), ('kagent-controller.drift-mcp.sbx-20261115.active', 'active'), ('sandbox-drift.drift-mcp.sbx-20261115.active', 'active')]
+ewallet-mcp/feature-rag-mcp immutable= True [('kagent-controller.feature-rag-mcp.r1-release1.active', 'active'), ('kagent-controller.feature-rag-mcp.sbx-20261115.active', 'active'), ('sandbox-feature-rag.feature-rag-mcp.sbx-20261115.active', 'active')]
+ewallet-agents/drift-mcp immutable= True [('kagent-controller.drift-mcp.r1-release1.active', 'active'), ('kagent-controller.drift-mcp.sbx-20261115.active', 'active')]

@@ -1,0 +1,19 @@
+ewallet-agents/fraud-coordinator Ready True Active True Fallback False Paused False
+fraud-coordinator   Deployment/fraud-coordinator   334m/2 (avg)   2     3     3     134m
+ewallet-sandbox/business-agents-workerpool Ready True Active True Fallback False Paused False
+business-agents-workerpool   WorkerPool/business-agents   334m/1 (avg)   2     3     3     134m
+workerpool replicas spec/status 3/3
+91s         Normal   SuccessfulRescale   horizontalpodautoscaler/business-agents-workerpool   New size: 3; reason: external metric s0-prometheus(&LabelSelector{
+drift-specialist         True
+feature-rag-specialist   True
+ateapi ResumeActor since E2E start: 183, worker placements:      55 business-agents-deployment-7c4b97b9f4-4jbmt      30 business-agents-deployment-7c4b97b9f4-b6zmr       7 business-agents-deployment-7c4b97b9f4-kh7gf 
+ateapi restore errors since start: 0
+== HTTP status counts since E2E start
+a2a-gateway:      30 "http.status":200       1 "http.status":404 
+mcp-gateway:      96 "http.status":200      66 "http.status":202       1 "http.status":401      21 "http.status":405 
+ewallet-mcp/drift-mcp rejected: 
+ewallet-mcp/feature-rag-mcp rejected: 
+drift-mcp-5dfb65d6dc-d8pbg 1/1 Running 0
+drift-mcp-5dfb65d6dc-wnncb 1/1 Running 0
+feature-rag-mcp-dc4bb7977-754rr 1/1 Running 0
+feature-rag-mcp-dc4bb7977-xp4zz 1/1 Running 0

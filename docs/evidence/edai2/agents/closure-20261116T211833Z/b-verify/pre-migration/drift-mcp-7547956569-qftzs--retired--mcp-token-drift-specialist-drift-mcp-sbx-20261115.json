@@ -1,0 +1,99 @@
+{
+  "tool": "drift_detection",
+  "tools": [
+    "drift_detection"
+  ],
+  "stage": "call",
+  "http_statuses": [
+    200,
+    202,
+    200,
+    200
+  ],
+  "server": "drift-mcp",
+  "outcome": "ok",
+  "latency_ms": 177.001,
+  "tool_error_code": null,
+  "structured_content": {
+    "request_id": "214e0670-2fc2-49c6-be88-8f83d4b51809",
+    "tool_name": "drift_detection",
+    "status": "ok",
+    "result": {
+      "feature_name": "account_behavior__account_tx_count_1h",
+      "baseline_id": "bl-r5gb-202604.account_tx_count_1h",
+      "method": "psi",
+      "reference_window": {
+        "start": "2026-04-01T00:00:00+00:00",
+        "end": "2026-05-01T00:00:00+00:00"
+      },
+      "current_window": {
+        "start": "2026-05-01T00:00:00+00:00",
+        "end": "2026-05-31T00:00:00+00:00"
+      },
+      "current_count": 19338,
+      "min_current_count": 100,
+      "dataset_revisions": {
+        "reference": "feast-r5gb-20261111-214544",
+        "current": "feast-r5gb-20261111-214544"
+      },
+      "thresholds": {
+        "warning": 0.1,
+        "drift": 0.25
+      },
+      "live_metrics_verified": false,
+      "baseline_source": {
+        "uri": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/features/offline/snapshots/rehearsal-5gb-v1/ab-20261110225456-optimized-feat-r261110225459/feast-r5gb-20261111-214544",
+        "sha256": "4061359b93782a38ff22af635a45d131052980d23f477ac2b14d8ca9785e47da",
+        "reference_count": 3695519
+      },
+      "current_source": {
+        "sha256": "fbad1a8a2383b4c5ebb834977b7834694ba6e0c7b6e0882a2343046530ad2aa0",
+        "excluded_null_count": 0
+      },
+      "drift_status": "no_drift",
+      "psi": 0.0004795543627041439,
+      "bins": [
+        {
+          "upper_bound": 0.0,
+          "reference_proportion": 0.9926069924143266,
+          "current_proportion": 0.9943634295170132,
+          "contribution": 3.105302489878738e-06
+        },
+        {
+          "upper_bound": null,
+          "reference_proportion": 0.007393007585673352,
+          "current_proportion": 0.005636570482986865,
+          "contribution": 0.00047644906021426515
+        }
+      ]
+    },
+    "versions": {
+      "git_sha": "fd2c49c9c1078724346747e480425cda5e8ac39b",
+      "image_digest": "sha256:0e291f6582c698e3d8bd6ee213d04ca92227f354b4d2021b0cefc1c708d8a5f0",
+      "config_revision": "agi-20261115T145608Z",
+      "prompt_revision": "v2",
+      "model_revision": "fraud-detector/1",
+      "feature_revision": "canonical-100gb-v1/online-20261031-163506",
+      "corpus_revision": "fraud-policy-v1-20261030"
+    },
+    "citations": [],
+    "fallback_used": false
+  },
+  "endpoint": "http://127.0.0.1:18194/mcp",
+  "expect": "revoked",
+  "control": {
+    "outcome": "listed",
+    "tools": [
+      "drift_detection"
+    ],
+    "http_statuses": [
+      200,
+      202,
+      200
+    ]
+  },
+  "verdict": "FAIL",
+  "reasons": [
+    "observed ok at call, expected HTTP 401 at initialize"
+  ]
+}

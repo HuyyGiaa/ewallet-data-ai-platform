@@ -1,0 +1,25 @@
+cert-manager cert-manager 1 deployed
+ewallet-serving ml-platform 3 deployed
+istio-base istio-system 13 deployed
+istio-cni istio-system 13 deployed
+istiod istio-system 13 deployed
+kagent kagent 9 deployed
+kagent-crds kagent 1 deployed
+keda keda 2 deployed
+kserve kserve 1 deployed
+kserve-crd kserve 1 deployed
+llm-agent default 58 deployed
+llm-agent-mcp ewallet-mcp 18 deployed
+prompt-registry ewallet-prompts 1 deployed
+substrate ate-system 9 deployed
+substrate-crds ate-system 1 deployed
+ztunnel istio-system 13 deployed
+pending helm: 0
+deployment "drift-mcp" successfully rolled out
+deployment "feature-rag-mcp" successfully rolled out
+deployment "drift-mcp" successfully rolled out
+deployment "fraud-coordinator" successfully rolled out
+deployment "a2a-gateway" successfully rolled out
+MCP auth sets: drift-mcp=mcp-auth-drift-mcp-fin-20261117 feature-rag-mcp=mcp-auth-feature-rag-mcp-fin-20261117  ewallet-agents/drift-mcp=mcp-auth-drift-mcp-fin-20261117-b
+active jobs: []
+running actors: see worker snapshot

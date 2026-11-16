@@ -1,0 +1,46 @@
+{
+  "tool": "drift_detection",
+  "tools": [
+    "drift_detection"
+  ],
+  "stage": "call",
+  "http_statuses": [
+    200,
+    202,
+    200,
+    200
+  ],
+  "server": "drift-mcp",
+  "outcome": "unavailable",
+  "latency_ms": 95.753,
+  "tool_error_code": "drift_baseline_unavailable",
+  "structured_content": {
+    "request_id": "aed332a3-3fae-4b10-aa98-a0cd3da3ba43",
+    "tool_name": "drift_detection",
+    "status": "unavailable",
+    "result": {
+      "error": {
+        "code": "drift_baseline_unavailable",
+        "message": "No approved drift baseline registry is configured",
+        "retryable": true
+      }
+    },
+    "versions": {
+      "git_sha": "695279967f30451d7157228f67faa36842fa0aa4",
+      "image_digest": "sha256:91223fcf1266f09af8f11ec87bc6b1f5cad0e070220e12787b47a9788910dfe0",
+      "config_revision": "g3-gke-v1",
+      "prompt_revision": "v2",
+      "model_revision": "fraud-detector/1",
+      "feature_revision": "canonical-100gb-v1/online-20261031-163506",
+      "corpus_revision": "fraud-policy-v1-20261030"
+    },
+    "citations": [],
+    "fallback_used": false
+  },
+  "endpoint": "http://127.0.0.1:18195/mcp",
+  "expect": "ok",
+  "verdict": "FAIL",
+  "reasons": [
+    "observed unavailable, expected ok"
+  ]
+}

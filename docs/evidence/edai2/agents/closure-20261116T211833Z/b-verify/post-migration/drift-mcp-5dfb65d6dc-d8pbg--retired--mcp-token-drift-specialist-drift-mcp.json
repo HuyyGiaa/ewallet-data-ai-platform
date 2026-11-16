@@ -1,0 +1,25 @@
+{
+  "tool": "drift_detection",
+  "tools": null,
+  "stage": "initialize",
+  "http_statuses": [
+    401
+  ],
+  "outcome": "unauthenticated",
+  "http_status": 401,
+  "endpoint": "http://127.0.0.1:18193/mcp",
+  "expect": "revoked",
+  "control": {
+    "outcome": "listed",
+    "tools": [
+      "drift_detection"
+    ],
+    "http_statuses": [
+      200,
+      202,
+      200
+    ]
+  },
+  "verdict": "PASS",
+  "reasons": []
+}

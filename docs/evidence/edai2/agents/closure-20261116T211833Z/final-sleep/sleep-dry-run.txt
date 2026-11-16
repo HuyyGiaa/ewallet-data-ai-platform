@@ -1,0 +1,31 @@
+PLAN: kubectl --kubeconfig /home/huyy-giaa/.cache/ewallet-cloud-lab/kubeconfig --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev -n ewallet-sandbox annotate scaledobject business-agents-workerpool autoscaling.keda.sh/paused-replicas=2 ewallet.io/cloud-lab-paused-by=sp-cleanup-20261116T200345Z --overwrite
+{
+  "workerpool_keda_pause": {
+    "ewallet-sandbox/business-agents-workerpool": 2
+  },
+  "campaign": "sp-cleanup-20261116T200345Z"
+}
+{
+  "guarded_preparation": {
+    "ewallet-agents/drift-mcp": "ewallet-agents/drift-mcp",
+    "ewallet-agents/fraud-coordinator": "ewallet-agents/fraud-coordinator",
+    "ewallet-mcp/drift-mcp": "ewallet-mcp/drift-mcp",
+    "ewallet-mcp/feature-rag-mcp": "ewallet-mcp/feature-rag-mcp"
+  },
+  "keda_pause": [
+    "ewallet-agents/fraud-coordinator"
+  ],
+  "previous_replicas": {
+    "ewallet-agents/drift-mcp": 1,
+    "ewallet-agents/fraud-coordinator": 2,
+    "ewallet-mcp/drift-mcp": 2,
+    "ewallet-mcp/feature-rag-mcp": 2
+  },
+  "campaign": "sp-cleanup-20261116T200345Z"
+}
+PLAN: kubectl --kubeconfig /home/huyy-giaa/.cache/ewallet-cloud-lab/kubeconfig --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev -n ewallet-agents annotate scaledobject fraud-coordinator autoscaling.keda.sh/paused-replicas=0 ewallet.io/cloud-lab-paused-by=sp-cleanup-20261116T200345Z --overwrite
+PLAN: kubectl --kubeconfig /home/huyy-giaa/.cache/ewallet-cloud-lab/kubeconfig --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev -n ewallet-agents scale deploy drift-mcp --replicas=0
+PLAN: kubectl --kubeconfig /home/huyy-giaa/.cache/ewallet-cloud-lab/kubeconfig --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev -n ewallet-agents scale deploy fraud-coordinator --replicas=0
+PLAN: kubectl --kubeconfig /home/huyy-giaa/.cache/ewallet-cloud-lab/kubeconfig --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev -n ewallet-mcp scale deploy drift-mcp --replicas=0
+PLAN: kubectl --kubeconfig /home/huyy-giaa/.cache/ewallet-cloud-lab/kubeconfig --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev -n ewallet-mcp scale deploy feature-rag-mcp --replicas=0
+PLAN: gcloud container clusters resize ewallet-dev --project ewallet-data-ai-platform-hg26 --location asia-southeast1-b --node-pool cpu-pool --num-nodes=0 --quiet

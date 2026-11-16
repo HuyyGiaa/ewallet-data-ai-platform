@@ -1,0 +1,3 @@
+ids [('sandbox-drift.drift-mcp.sbx-20261115.active', 'active')]
+old-image (695279967) authenticator with attempt-2 config: VALID
+attempt-1 config on old image: INVALID (reproduces the live 503): ConfigurationError

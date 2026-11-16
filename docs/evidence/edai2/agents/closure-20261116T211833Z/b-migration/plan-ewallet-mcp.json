@@ -1,0 +1,61 @@
+{
+  "carry_releases": [
+    "r1-release1",
+    "sbx-20261115"
+  ],
+  "client_namespace": "ewallet-agents",
+  "dropped_subjects": [],
+  "fingerprint": "b4abdea99914c2c95fea349d69258a1897a0c202968daf2084e0463182b0b36a",
+  "grants": [
+    {
+      "server": "drift-mcp",
+      "subject": "kagent-controller",
+      "tools": [
+        "tools/list"
+      ]
+    },
+    {
+      "server": "feature-rag-mcp",
+      "subject": "kagent-controller",
+      "tools": [
+        "tools/list"
+      ]
+    },
+    {
+      "server": "drift-mcp",
+      "subject": "sandbox-drift",
+      "tools": [
+        "drift_detection"
+      ]
+    },
+    {
+      "server": "feature-rag-mcp",
+      "subject": "sandbox-feature-rag",
+      "tools": [
+        "feature_lookup",
+        "fraud_scoring",
+        "knowledge_search"
+      ]
+    }
+  ],
+  "mode": "final",
+  "previous_server_namespace": "ewallet-mcp",
+  "previous_server_set": "sbx-20261115",
+  "release": "fin-20261117",
+  "retired_subjects": [
+    "drift-specialist",
+    "feature-rag-specialist"
+  ],
+  "secret_refs": [
+    {
+      "name": "mcp-auth-drift-mcp-fin-20261117",
+      "namespace": "ewallet-mcp"
+    },
+    {
+      "name": "mcp-auth-feature-rag-mcp-fin-20261117",
+      "namespace": "ewallet-mcp"
+    }
+  ],
+  "server_namespace": "ewallet-mcp",
+  "server_set": "fin-20261117"
+}

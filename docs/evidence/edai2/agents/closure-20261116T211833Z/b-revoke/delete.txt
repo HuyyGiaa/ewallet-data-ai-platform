@@ -1,0 +1,9 @@
+secret "mcp-token-drift-specialist-drift-mcp" deleted from ewallet-agents namespace
+secret "mcp-token-drift-specialist-drift-mcp-r1-release1" deleted from ewallet-agents namespace
+secret "mcp-token-drift-specialist-drift-mcp-sbx-20261115" deleted from ewallet-agents namespace
+secret "mcp-token-drift-specialist-feature-rag-mcp" deleted from ewallet-agents namespace
+secret "mcp-token-drift-specialist-feature-rag-mcp-r1-release1" deleted from ewallet-agents namespace
+secret "mcp-token-drift-specialist-feature-rag-mcp-sbx-20261115" deleted from ewallet-agents namespace
+secret "mcp-token-feature-rag-specialist-feature-rag-mcp" deleted from ewallet-agents namespace
+secret "mcp-token-feature-rag-specialist-feature-rag-mcp-r1-release1" deleted from ewallet-agents namespace
+secret "mcp-token-feature-rag-specialist-feature-rag-mcp-sbx-20261115" deleted from ewallet-agents namespace

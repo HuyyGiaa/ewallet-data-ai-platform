@@ -1,0 +1,1 @@
+asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-feature-rag-specialist@sha256:29867794f67f103ed434110a6ad220347384a1f3f5cc8c3b77f1a4d9c4988b77

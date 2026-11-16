@@ -1,0 +1,75 @@
+{
+  "tool": "feature_lookup",
+  "tools": [
+    "feature_lookup",
+    "fraud_scoring",
+    "knowledge_search"
+  ],
+  "stage": "call",
+  "http_statuses": [
+    200,
+    202,
+    405,
+    200,
+    200,
+    202
+  ],
+  "server": "feature-rag-mcp",
+  "outcome": "ok",
+  "latency_ms": 290.213,
+  "tool_error_code": null,
+  "structured_content": {
+    "request_id": "78a990fc-bf2c-4a95-94ae-de21c1a2239f",
+    "tool_name": "feature_lookup",
+    "status": "ok",
+    "result": {
+      "transaction_id": "dc58ff4e-b5f7-4486-b1f8-4c31383741a9",
+      "historical_features": {
+        "account_behavior__account_tx_count_1h": {
+          "value": 0,
+          "event_timestamp": "2026-05-31T23:59:56+00:00"
+        },
+        "account_behavior__account_tx_count_24h": {
+          "value": 0,
+          "event_timestamp": "2026-05-31T23:59:56+00:00"
+        },
+        "user_behavior__user_avg_amount_30d": {
+          "value": 474960.33,
+          "event_timestamp": "2026-05-31T23:59:56+00:00"
+        },
+        "merchant_behavior__merchant_tx_count_24h": {
+          "value": 6,
+          "event_timestamp": "2026-05-31T23:59:56+00:00"
+        }
+      },
+      "request_time_features": {
+        "amount": 275465.53,
+        "type": "payment",
+        "channel": "app",
+        "merchant_present": true
+      },
+      "feature_contract": {
+        "historical_returned": 4,
+        "historical": 31,
+        "request_time": 4,
+        "derived_in_scoring_only": 6
+      },
+      "materialization_verified": false
+    },
+    "versions": {
+      "git_sha": "fd2c49c9c1078724346747e480425cda5e8ac39b",
+      "image_digest": "sha256:0e291f6582c698e3d8bd6ee213d04ca92227f354b4d2021b0cefc1c708d8a5f0",
+      "config_revision": "agi-20261115T145608Z",
+      "prompt_revision": "v2",
+      "model_revision": "fraud-detector/1",
+      "feature_revision": "canonical-100gb-v1/online-20261031-163506",
+      "corpus_revision": "fraud-policy-v1-20261030"
+    },
+    "citations": [],
+    "fallback_used": false
+  },
+  "endpoint": "http://127.0.0.1:18082/feature-rag/mcp",
+  "expect": "ok",
+  "verdict": "PASS",
+  "reasons": []
+}

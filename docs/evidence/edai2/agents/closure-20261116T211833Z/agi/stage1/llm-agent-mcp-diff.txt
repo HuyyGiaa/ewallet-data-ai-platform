@@ -1,0 +1,35 @@
+added: 0
+removed: 0
+changed: 2
+  Deployment ewallet-mcp/drift-mcp
+  Deployment ewallet-mcp/feature-rag-mcp
+
+### CHANGED Deployment ewallet-mcp/drift-mcp
+--- 
++++ 
+@@ -68,3 +68,3 @@
+         - name: EWALLET_MCP_TOOL_GRANTS
+-          value: '{"drift-specialist":["drift_detection"],"sandbox-drift":["drift_detection"]}'
++          value: '{"sandbox-drift":["drift_detection"]}'
+         - name: EWALLET_MCP_DISCOVERY_SUBJECTS
+@@ -75,3 +75,3 @@
+               key: auth-config.json
+-              name: mcp-auth-drift-mcp-sbx-20261115
++              name: mcp-auth-drift-mcp-fin-20261117
+         - name: OTEL_EXPORTER_OTLP_ENDPOINT
+
+### CHANGED Deployment ewallet-mcp/feature-rag-mcp
+--- 
++++ 
+@@ -68,3 +68,3 @@
+         - name: EWALLET_MCP_TOOL_GRANTS
+-          value: '{"drift-specialist":["feature_lookup"],"feature-rag-specialist":["feature_lookup","fraud_scoring","knowledge_search"],"sandbox-feature-rag":["feature_lookup","fraud_scoring","knowledge_search"]}'
++          value: '{"sandbox-feature-rag":["feature_lookup","fraud_scoring","knowledge_search"]}'
+         - name: EWALLET_MCP_DISCOVERY_SUBJECTS
+@@ -85,3 +85,3 @@
+               key: auth-config.json
+-              name: mcp-auth-feature-rag-mcp-sbx-20261115
++              name: mcp-auth-feature-rag-mcp-fin-20261117
+         - name: OTEL_EXPORTER_OTLP_ENDPOINT
+
+RESULT: PASS

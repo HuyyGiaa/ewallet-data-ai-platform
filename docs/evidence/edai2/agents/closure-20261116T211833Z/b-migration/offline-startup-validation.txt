@@ -1,0 +1,3 @@
+ewallet-mcp/drift-mcp: grants=['sandbox-drift'] discovery=['kagent-controller'] authenticator=VALID (ServiceTokenAuthenticator)
+ewallet-mcp/feature-rag-mcp: grants=['sandbox-feature-rag'] discovery=['kagent-controller'] authenticator=VALID (ServiceTokenAuthenticator)
+ewallet-agents/drift-mcp: grants=[] discovery=['kagent-controller'] authenticator=VALID (ServiceTokenAuthenticator)

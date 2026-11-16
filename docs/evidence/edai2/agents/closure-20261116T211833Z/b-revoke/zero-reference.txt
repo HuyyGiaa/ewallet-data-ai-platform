@@ -1,0 +1,20 @@
+== cluster objects referencing any of the 9 (all namespaces)
+objects scanned 667 references 0
+== Helm-rendered manifests of all releases
+llm-agent: 0
+llm-agent-mcp: 0
+== repo executable code (scripts/ ops/ infra/ ai_platform/ jenkins/)
+infra/helm/llm-agent-platform/g3/g3.yaml:49:        feature-rag-mcp: {name: mcp-token-drift-specialist-feature-rag-mcp, key: token}
+infra/helm/llm-agent-platform/g3/g3.yaml:50:        drift-mcp: {name: mcp-token-drift-specialist-drift-mcp, key: token}
+infra/helm/llm-agent-platform/g3/g3.yaml:53:        feature-rag-mcp: {name: mcp-token-feature-rag-specialist-feature-rag-mcp, key: token}
+infra/helm/llm-agent-platform/agi/agents.yaml:37:      # mcp-token-drift-specialist-drift-mcp credential.
+== secrets exist / owner
+mcp-token-drift-specialist-drift-mcp managed-by= owners= immutable=
+mcp-token-drift-specialist-drift-mcp-r1-release1 managed-by= owners= immutable=true
+mcp-token-drift-specialist-drift-mcp-sbx-20261115 managed-by= owners= immutable=true
+mcp-token-drift-specialist-feature-rag-mcp managed-by= owners= immutable=
+mcp-token-drift-specialist-feature-rag-mcp-r1-release1 managed-by= owners= immutable=true
+mcp-token-drift-specialist-feature-rag-mcp-sbx-20261115 managed-by= owners= immutable=true
+mcp-token-feature-rag-specialist-feature-rag-mcp managed-by= owners= immutable=
+mcp-token-feature-rag-specialist-feature-rag-mcp-r1-release1 managed-by= owners= immutable=true
+mcp-token-feature-rag-specialist-feature-rag-mcp-sbx-20261115 managed-by= owners= immutable=true

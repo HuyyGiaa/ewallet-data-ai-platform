@@ -1,0 +1,1 @@
+asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:94a13a8b168881e10fedbad4b5e4816fd8c92c8f987800930827998eb5ba41a9

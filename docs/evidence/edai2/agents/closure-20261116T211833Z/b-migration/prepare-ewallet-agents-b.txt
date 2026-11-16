@@ -1,0 +1,2 @@
+secret/mcp-auth-drift-mcp-fin-20261117-b
+credential release fin-20261117-b: created

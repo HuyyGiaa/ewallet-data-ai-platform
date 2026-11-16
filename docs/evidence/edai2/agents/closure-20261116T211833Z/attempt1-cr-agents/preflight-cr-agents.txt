@@ -1,0 +1,20 @@
+2026-11-16T21:43:16Z PASS P0.1 tracked tree clean at SHA
+2026-11-16T21:43:16Z PASS P0.2 kube context
+2026-11-16T21:43:17Z PASS P0.3 llm-agent deployed
+2026-11-16T21:43:18Z PASS P0.3 llm-agent-mcp deployed
+2026-11-16T21:43:20Z PASS P0.4 live values saved (private)
+2026-11-16T21:43:23Z PASS P0.4 live values saved (private)
+2026-11-16T21:43:23Z PASS P0.5 chart reproduces llm-agent
+2026-11-16T21:43:24Z PASS P0.5 chart reproduces llm-agent-mcp
+2026-11-16T21:43:25Z PASS P0.6 agents available
+2026-11-16T21:43:26Z PASS P0.6 MCP servers available
+2026-11-16T21:43:27Z PASS P0.7 drift-specialist is Declarative before the campaign
+2026-11-16T21:43:34Z PASS P0.8 Redis DB 3 owned by the RAG Hybrid project
+2026-11-16T21:43:35Z PASS P0.9 drift snapshot manifest digest
+2026-11-16T21:43:37Z PASS P0.10 RAG registry recorded
+2026-11-16T21:43:37Z PASS P0.11 reference transaction input
+2026-11-16T21:43:40Z PASS P0.12 Fraud target read (feature_lookup)
+2026-11-16T21:43:41Z PASS P0.13 API server addresses
+2026-11-16T21:43:42Z PASS P0.14 drift-specialist egress to mcp-gateway
+2026-11-16T21:43:45Z PASS P0.15 MCP credential Secrets exist (names only)
+2026-11-16T21:43:45Z PREFLIGHT PASSED

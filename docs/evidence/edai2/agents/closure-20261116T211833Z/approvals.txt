@@ -1,0 +1,9 @@
+2026-11-16T21:18:33Z OWNER DIRECTIVE "FINAL AGENT PLATFORM CLOSURE" (owner unavailable; bounded authorization): (1) publish corrected metadata for the 3 existing Agent Registry entries; (2) migrate MCP credentials and revoke ONLY the 9 verified obsolete Specialist credentials, delete their 9 client Secrets only after server-side revocation + zero-reference + acceptance; (3) full GKE E2E; (4) docs/evidence commit+push; (5) previously approved guarded sleep (Gate 1 of sp-cleanup-20261116T200345Z) + remove temporary /32. Max 2 remediation attempts per checkpoint; 2 h GKE budget from start. No blind Helm rollback restoring retired credentials.
+2026-11-16T21:22:51Z A2 live registry publish (3 Agent entries; prompts/MCPServers unchanged per dry run)
+2026-11-16T21:35:00Z B3 Prepare: final server set fin-20261117 (ewallet-mcp drift/feature-rag; ewallet-agents drift-mcp list-only)
+2026-11-16T21:40:23Z B3 Transition->Finalize: helm upgrade llm-agent-mcp (cr-mcp, serverSet fin-20261117, retired grants removed)
+2026-11-16T21:46:23Z B3 Finalize: helm upgrade llm-agent (cr-agents: ewallet-agents/drift-mcp list-only, serverSet fin-20261117)
+2026-11-16T21:57:54Z B3 remediation attempt 2 Prepare: ewallet-agents set fin-20261117-b (sandbox-drift only; old image lacks discovery support)
+2026-11-16T22:09:37Z B3 remediation attempt 2: helm upgrade llm-agent (cr-agents, serverSet fin-20261117-b, sandbox-drift only)
+2026-11-16T22:20:57Z B5 delete the 9 retired client Secrets (server-side revocation verified on 5/5 replicas; zero references)
+2026-11-16T22:33:23Z D2 guarded sleep (Gate 1 of sp-cleanup-20261116T200345Z): CLOUD_LAB_GUARDED_SLEEP_APPROVAL=ewallet-dev:sp-cleanup-20261116T200345Z CLOUD_LAB_KEDA_PAUSE_APPROVAL=ewallet-dev:sp-cleanup-20261116T200345Z; recovery manifest /home/huyy-giaa/ewallet-evidence/agents/closure/closure-20261116T211833Z/final-sleep/recovery-manifest

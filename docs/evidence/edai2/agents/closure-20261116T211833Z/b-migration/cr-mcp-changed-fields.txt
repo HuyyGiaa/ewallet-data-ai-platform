@@ -1,0 +1,15 @@
+added [] removed []
+== ('Deployment', 'ewallet-mcp', 'drift-mcp')
+   .spec.template.spec.containers[0].env[13].value 
+     live: "{\"drift-specialist\":[\"drift_detection\"],\"sandbox-drift\":[\"drift_detection\"]}" 
+     new:  "{\"sandbox-drift\":[\"drift_detection\"]}"
+   .spec.template.spec.containers[0].env[15].valueFrom.secretKeyRef.name 
+     live: "mcp-auth-drift-mcp-sbx-20261115" 
+     new:  "mcp-auth-drift-mcp-fin-20261117"
+== ('Deployment', 'ewallet-mcp', 'feature-rag-mcp')
+   .spec.template.spec.containers[0].env[13].value 
+     live: "{\"drift-specialist\":[\"feature_lookup\"],\"feature-rag-specialist\":[\"feature_lookup\",\"fraud_scoring\",\"knowledge_search\"],\"sandbox-feature-rag\":[\"feature_lookup\",\"fraud_scoring\",\"knowledge_search\"]}" 
+     new:  "{\"sandbox-feature-rag\":[\"feature_lookup\",\"fraud_scoring\",\"knowledge_search\"]}"
+   .spec.template.spec.containers[0].env[17].valueFrom.secretKeyRef.name 
+     live: "mcp-auth-feature-rag-mcp-sbx-20261115" 
+     new:  "mcp-auth-feature-rag-mcp-fin-20261117"

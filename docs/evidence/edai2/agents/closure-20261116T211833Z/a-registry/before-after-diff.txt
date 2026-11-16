@@ -1,0 +1,19 @@
+agents ('drift-specialist', '1.0.0') unchanged
+agents ('drift-specialist', '1.1.0') CHANGED: ['label ewallet.io/byo-image-digest: sha256-75011f6ce496e192 -> None', 'label ewallet.io/git-sha: 281b0493b455b5afeaf1b9b9adbcf7433178653c -> f743b447964f31000f78e6014b4450858aa81a46', 'spec.description']
+agents ('feature-rag-specialist', '1.0.0') CHANGED: ['label ewallet.io/byo-image-digest: sha256-29867794f67f103e -> None', 'label ewallet.io/git-sha: 281b0493b455b5afeaf1b9b9adbcf7433178653c -> f743b447964f31000f78e6014b4450858aa81a46', 'spec.description']
+agents ('fraud-coordinator', '1.0.0') unchanged
+agents ('fraud-coordinator', '1.1.0') CHANGED: ['label ewallet.io/byo-image-digest: sha256-9775406101b83b03 -> sha256-94a13a8b168881e1', 'label ewallet.io/git-sha: 281b0493b455b5afeaf1b9b9adbcf7433178653c -> f743b447964f31000f78e6014b4450858aa81a46']
+prompts ('drift-specialist-system', 'v1') unchanged
+prompts ('drift-specialist-system', 'v2') unchanged
+prompts ('feature-rag-specialist-system', 'v1') unchanged
+prompts ('feature-rag-specialist-system', 'v2') unchanged
+prompts ('feature-rag-specialist-system', 'v3') unchanged
+prompts ('feature-rag-specialist-system', 'v4') unchanged
+prompts ('feature-rag-specialist-system', 'v5') unchanged
+prompts ('fraud-coordinator-system', 'v1') unchanged
+prompts ('fraud-coordinator-system', 'v2') unchanged
+prompts ('fraud-coordinator-system', 'v3') unchanged
+prompts ('fraud-coordinator-system', 'v4') unchanged
+prompts ('fraud-coordinator-system', 'v5') unchanged
+mcpservers ('drift-mcp', 'v1') unchanged
+mcpservers ('feature-rag-mcp', 'v1') unchanged

@@ -1,0 +1,21 @@
+
+==================== 22:22:31Z  E2E combined  request_id replay-combined-222231  (Coordinator -> A2A Gateway -> Sandbox Specialist -> MCP Gateway -> backend) ====================
+state=completed  elapsed=16.972 s
+{"status": "complete", "workflow": "combined", "contract_version": "g3-orchestration/v2", "unavailable": []}
+  drift-specialist: status=ok fraud_probability=None psi=0.0004795543627041439
+  feature-rag-specialist: status=ok fraud_probability=0.0639895560144887 psi=None
+
+==================== 22:22:49Z  HOPS for combined (logs since 2026-11-16T22:22:31Z) ====================
+-- Coordinator (A2A Gateway sandbox route, LLM Gateway for NL)
+2026-11-16 22:22:46,908 - httpx - INFO - HTTP Request: POST http://a2a-gateway.ewallet-agents.svc.cluster.local:8083/api/a2a-sandboxes/ewallet-sandbox/feature-rag-specialist/ "HTTP/1.1 200 OK"
+2026-11-16 22:22:49,020 - httpx - INFO - HTTP Request: POST http://a2a-gateway.ewallet-agents.svc.cluster.local:8083/api/a2a-sandboxes/ewallet-sandbox/drift-specialist/ "HTTP/1.1 200 OK"
+2026-11-16 22:22:49,030 - ewallet.agent.audit - INFO - coordinator.task_completed request_id=replay-combined-222231 task_id=fdbf9161-b790-41f2-8932-1aad291b70a2 mode=typed status=complete duration_ms=16570
+-- A2A Gateway routes
+      1 "route":"default/sandbox-drift-specialist"
+      1 "route":"default/sandbox-feature-rag-specialist"
+-- MCP servers (actor_id = the Sandbox identity's credential subject)
+"actor_id": "sandbox-drift" "status": "ok" "tool_name": "drift_detection" "trace_id": "21511c7dfce11c6b3338b72604fd03be"
+"actor_id": "sandbox-feature-rag" "status": "ok" "tool_name": "feature_lookup" "trace_id": "21511c7dfce11c6b3338b72604fd03be" "actor_id": "sandbox-feature-rag" "status": "ok" "tool_name": "fraud_scoring" "trace_id": "21511c7dfce11c6b3338b72604fd03be" "actor_id": "sandbox-feature-rag" "status": "ok" "tool_name": "knowledge_search" "trace_id": "21511c7dfce11c6b3338b72604fd03be"
+-- Deployment Specialists must show no task for this request (0 = no fallback)
+none: legacy Specialist pods=0 deployments=0 (retired)
+saved under /home/huyy-giaa/ewallet-evidence/agents/closure/closure-20261116T211833Z/c-e2e/replay/e2e/replay-combined-222231-*

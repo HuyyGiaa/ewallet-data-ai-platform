@@ -1,0 +1,5 @@
+combined  21511c7dfce11c6b3338b72604fd03be spans=206 {'agentgateway': 32, 'kagent-controller': 21, 'fraud-coordinator': 72, 'feature-rag-specialist': 20, 'feature-rag-mcp': 29, 'drift-specialist': 18, 'drift-mcp': 14}
+drift     bc71530b9595cb3203b59c1cdc779d5d spans=128 {'agentgateway': 15, 'kagent-controller': 14, 'fraud-coordinator': 67, 'drift-specialist': 18, 'drift-mcp': 14}
+fraud     610af841b5bf95ff839095fd0faa7611 spans=171 {'agentgateway': 21, 'kagent-controller': 14, 'fraud-coordinator': 80, 'feature-rag-specialist': 25, 'feature-rag-mcp': 31}
+nl-drift  953682e3901a455d005924f663716d4f spans=186 {'agentgateway': 19, 'kagent-controller': 17, 'fraud-coordinator': 118, 'drift-specialist': 18, 'drift-mcp': 14}
+nl-fraud  3ead80b7c5394c09c100635d82c2b746 spans=270 {'agentgateway': 25, 'kagent-controller': 17, 'fraud-coordinator': 171, 'feature-rag-specialist': 26, 'feature-rag-mcp': 31}

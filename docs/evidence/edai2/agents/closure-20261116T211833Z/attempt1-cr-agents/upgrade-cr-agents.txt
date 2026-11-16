@@ -1,0 +1,7 @@
+2026-11-16T21:49:00Z GATE PASS llm-agent: exact identities and server-side dry-run
+2026-11-16T21:49:00Z MUTATION helm upgrade llm-agent (default)
+I1117 04:52:48.463151 3064407 warnings.go:107] "Warning: PollingInterval is configured but is not relevant for scaling. It only affects scaling when minReplicaCount = 0, idleReplicaCount is set, or useCachedMetrics is enabled, but it still controls how often KEDA refreshes the ScaledObject status conditions and events"
+I1117 04:52:48.463192 3064407 warnings.go:107] "Warning: CooldownPeriod is configured but is not relevant. CooldownPeriod is only relevant when minReplicaCount = 0 or idleReplicaCount is set"
+I1117 05:05:41.283083 3064407 warnings.go:107] "Warning: PollingInterval is configured but is not relevant for scaling. It only affects scaling when minReplicaCount = 0, idleReplicaCount is set, or useCachedMetrics is enabled, but it still controls how often KEDA refreshes the ScaledObject status conditions and events"
+I1117 05:05:41.283121 3064407 warnings.go:107] "Warning: CooldownPeriod is configured but is not relevant. CooldownPeriod is only relevant when minReplicaCount = 0 or idleReplicaCount is set"
+Error: UPGRADE FAILED: release llm-agent failed, and has been rolled back due to atomic being set: context deadline exceeded

@@ -1,0 +1,73 @@
+{
+ "apply": [
+  {
+   "apiVersion": "ar.dev/v1alpha1",
+   "kind": "Prompt",
+   "name": "drift-specialist-system",
+   "namespace": "default",
+   "status": "dry-run",
+   "tag": "v2"
+  },
+  {
+   "apiVersion": "ar.dev/v1alpha1",
+   "kind": "Prompt",
+   "name": "feature-rag-specialist-system",
+   "namespace": "default",
+   "status": "dry-run",
+   "tag": "v5"
+  },
+  {
+   "apiVersion": "ar.dev/v1alpha1",
+   "kind": "Prompt",
+   "name": "fraud-coordinator-system",
+   "namespace": "default",
+   "status": "dry-run",
+   "tag": "v5"
+  },
+  {
+   "apiVersion": "ar.dev/v1alpha1",
+   "kind": "MCPServer",
+   "name": "drift-mcp",
+   "namespace": "default",
+   "status": "dry-run",
+   "tag": "v1"
+  },
+  {
+   "apiVersion": "ar.dev/v1alpha1",
+   "kind": "MCPServer",
+   "name": "feature-rag-mcp",
+   "namespace": "default",
+   "status": "dry-run",
+   "tag": "v1"
+  },
+  {
+   "apiVersion": "ar.dev/v1alpha1",
+   "kind": "Agent",
+   "name": "drift-specialist",
+   "namespace": "default",
+   "status": "dry-run",
+   "tag": "1.1.0"
+  },
+  {
+   "apiVersion": "ar.dev/v1alpha1",
+   "kind": "Agent",
+   "name": "feature-rag-specialist",
+   "namespace": "default",
+   "status": "dry-run",
+   "tag": "1.0.0"
+  },
+  {
+   "apiVersion": "ar.dev/v1alpha1",
+   "kind": "Agent",
+   "name": "fraud-coordinator",
+   "namespace": "default",
+   "status": "dry-run",
+   "tag": "1.1.0"
+  }
+ ],
+ "apply_status": 200,
+ "dry_run": true,
+ "git_sha": "f743b447964f31000f78e6014b4450858aa81a46",
+ "readback": [],
+ "verdict": "PASS"
+}

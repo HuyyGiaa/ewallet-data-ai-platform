@@ -1,5 +1,34 @@
 # Agent platform completion: campaign handoff
 
+## Final closure `closure-20261116T211833Z` (2026-11-16/17, unattended, owner directive)
+
+Evidence: `~/ewallet-evidence/agents/closure/closure-20261116T211833Z/` (`SHA256SUMS.txt`), mirrored in
+`docs/evidence/edai2/agents/closure-20261116T211833Z/`. Results: `AGENT_PLATFORM_COMPLETION.md` §11.
+
+| Item | Value |
+|---|---|
+| `REGISTRY_STATUS` | **PASS**: 3 Agent entries republished from the live runtime; strict readback 8/8 (also after E2E); prompts/MCPServers untouched |
+| `CREDENTIAL_MIGRATION_STATUS` | **PASS**: final server sets `fin-20261117` (ewallet-mcp, `llm-agent-mcp` rev 18) and `fin-20261117-b` (ewallet-agents/drift-mcp, `llm-agent` rev 58, after one failed attempt rolled back by `--atomic`) |
+| `LEGACY_CREDENTIAL_REVOCATION_STATUS` | **PASS**: 9/9 rejected (401) on 5/5 MCP replicas with working controls; 9 client Secrets deleted after zero references (33 → 24) |
+| `GKE_E2E_STATUS` / `SECURITY_STATUS` | **PASS** / **PASS**: 5/5 workflows, 3/3 AGI-08 negatives on live identities, 6/6 concurrent, traces, 0 restore errors |
+| `COORDINATOR_KEDA_STATUS` / `WORKERPOOL_KEDA_STATUS` | **PASS** / **PASS** (both 2→3→2 around the concurrency run) |
+| Cluster | **ASLEEP**: guarded sleep (`sp-cleanup-20261116T200345Z` Gate 1 approval), 0 nodes, `verify --expect sleep` passed, /32 removed, the original 3 CIDRs |
+| Next wake | `cloud_lab wake-full --nodes 5 --manifest ~/ewallet-evidence/agents/closure/closure-20261116T211833Z/final-sleep/recovery-manifest` |
+
+**Rollback rules now:**
+- No rollback for `cr-mcp`/`cr-agents`; fix forward with a new final set.
+- Never `helm rollback llm-agent-mcp` to ≤ 17 or `llm-agent` to ≤ 57: those revisions select server sets that still
+  hold the retired tokens.
+- `SP-CLEANUP-ROLLBACK` is no longer valid.
+
+**Remaining (each needs approval):**
+- delete the unreferenced old auth tables (`sbx-20261115`, `r1-transition`, ewallet-agents `legacy`);
+- decide on the in-release `ewallet-agents/drift-mcp` (old image, no route, missing drift artifacts);
+- the owner Evidence Replay.
+
+**Superseded below:** in the sp-cleanup section, `REGISTRY_STATUS` PARTIAL and the "Ready next" registry and
+credential items.
+
 ## Legacy Specialist Deployment cleanup `sp-cleanup-20261116T200345Z` (2026-11-16/17)
 
 Evidence: `~/ewallet-evidence/agents/sp-cleanup/sp-cleanup-20261116T200345Z/` (`SHA256SUMS.txt`), mirrored in

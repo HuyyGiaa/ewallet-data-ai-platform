@@ -1,0 +1,5 @@
+added [] removed []
+== ('Deployment', 'ewallet-agents', 'drift-mcp')
+   .spec.template.spec.containers[0].env 
+     live: "list[15]" 
+     new:  "list[16] added=[{'name': 'EWALLET_MCP_TOOL_GRANTS', 'value': '{}'}, {'name': 'EWALLET_MCP_DISCOVERY_SUBJECTS', 'value': '[\"kagent-controller\"]'}, {'name': 'EWALLET_MCP_SERVICE_TOKENS', 'valueFrom': {'secretKeyRef': {'name': 'mcp-auth-drift-mcp-fin-20261117', 'key': 'auth-config.json'}}}]"

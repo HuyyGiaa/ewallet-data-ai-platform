@@ -1,0 +1,38 @@
+{
+  "tool": "drift_detection",
+  "tools": [
+    "drift_detection"
+  ],
+  "stage": "call",
+  "http_statuses": [
+    200,
+    202,
+    405,
+    200,
+    200,
+    202
+  ],
+  "server": "drift-mcp",
+  "outcome": "hidden_tool",
+  "jsonrpc_error": {
+    "code": -32602,
+    "message": "Unknown tool"
+  },
+  "endpoint": "http://127.0.0.1:18082/drift/mcp",
+  "expect": "call-denied",
+  "control": {
+    "outcome": "listed",
+    "tools": [
+      "drift_detection"
+    ],
+    "http_statuses": [
+      200,
+      405,
+      202,
+      200,
+      202
+    ]
+  },
+  "verdict": "PASS",
+  "reasons": []
+}
