@@ -225,7 +225,7 @@ The agents, MCP servers and system prompts are published to an [agentregistry](h
 
 *The deployed view.*
 
-The registry entries were generated when the agents were planned as kagent SandboxAgents. Their description still uses that wording, while the deployed agents are BYO and Declarative Deployments; see §9. *(Superseded, 2026-11-16: the Specialists now run as SandboxAgents only. The published entries still mention a BYO Deployment fallback until the next approved publication; see §9.)*
+The registry entries were generated when the agents were planned as kagent SandboxAgents. Their description still uses that wording, while the deployed agents are BYO and Declarative Deployments; see §9. *(Superseded, 2026-11-16: the Specialists run as SandboxAgents only, and the entries were republished to say so; see §9.)*
 
 ## 6. Agent conversations in the kagent UI
 
@@ -342,4 +342,5 @@ historical raw evidence, not a screenshot or a current cluster query.
   Worker pods drain on SIGTERM before scale-in. Both autoscalers were exercised on GKE under the 100-task load
   (COMPLETION §9).
 - **MCP replicas.** Each MCP server runs a single replica. RollingUpdate prevents downtime during upgrades, but there is no automatic fallback if the server fails.
-- **Registry wording.** The published Specialist entries still describe a BYO Deployment fallback and carry a `byo-image-digest` label. The catalog (`registry_catalog.py`) now renders them as Sandbox-only; the republish needs owner approval.
+- **Registry wording** *(resolved, 2026-11-16)*. The three Agent entries were republished from the live runtime: the Specialists are described as SandboxAgent-only without a `byo-image-digest` label, and the Coordinator label carries the deployed digest. Strict readback 8/8 ([AGENT_PLATFORM_COMPLETION.md](AGENT_PLATFORM_COMPLETION.md) §11.1).
+- **MCP credentials** *(2026-11-16)*. Only the SandboxAgent subjects and the list-only kagent controller hold MCP credentials (server set `fin-20261117`). The nine legacy Specialist credentials are revoked server-side and their client Secrets deleted (§11.2).

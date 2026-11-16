@@ -523,6 +523,43 @@ AGI_APPROVAL=SP-CLEANUP:$CAMPAIGN AGI_PACKAGE=sp-cleanup scripts/llm_agent/agi_c
 
 - **Kept:** the MCP credentials of the retired Specialists. Retiring them needs a separate approval.
 - **Rollback:** `SP-CLEANUP-ROLLBACK`. Helm restores the Agent CRs and kagent recreates the Deployments.
+  *Superseded by 2.6e:* after the credential retirement, the restored Deployments would have no valid MCP
+  credential, so this is no longer a working path.
+
+### 2.6e Legacy MCP credential retirement (`cr-mcp`, `cr-agents`, after `sp-cleanup`)
+
+The nine `mcp-token-{drift,feature-rag}-specialist-*` credentials are retired. The procedure goes Inventory →
+Prepare → Finalize → Verify → Revoke.
+
+1. **Inventory.** Read the auth table IDs only; never print a token.
+   ```bash
+   AGI_ENV=… scripts/llm_agent/mcp_credential_check.sh <out> pre-migration   # per replica, read-only
+   ```
+2. **Prepare** the final server set from the live values. Specialists with `runtime: sandbox` are retired
+   automatically. `--carry-release` keeps the active client releases, so no client moves.
+   ```bash
+   python -m ops.llm_agent.g3_mcp_credentials --context "$CTX" --values <live specialists + live mcpServices> \
+     --mode final --release fin-<date> --server-set fin-<date> --previous-server-set sbx-20261115 \
+     --previous-server-namespace ewallet-mcp --server-namespace ewallet-mcp \
+     --carry-release r1-release1 --carry-release sbx-20261115 [--dry-run]
+   ```
+   For `ewallet-agents/drift-mcp`, add `--server-namespace ewallet-agents --drop-subject kagent-controller` and
+   carry only `sbx-20261115`: its image (695279967) has no discovery subjects.
+3. **Finalize.** Set `FINAL_SERVER_SET` in the campaign file; each package has its own preflight and gate.
+   ```bash
+   AGI_PACKAGE=cr-mcp agi_campaign.sh preflight && AGI_PACKAGE=cr-mcp agi_campaign.sh gate mcp
+   AGI_APPROVAL=CR-MCP:$CAMPAIGN AGI_PACKAGE=cr-mcp agi_campaign.sh upgrade mcp
+   AGI_PACKAGE=cr-agents agi_campaign.sh preflight && AGI_PACKAGE=cr-agents agi_campaign.sh gate agents
+   AGI_APPROVAL=CR-AGENTS:$CAMPAIGN AGI_PACKAGE=cr-agents agi_campaign.sh upgrade agents
+   ```
+4. **Verify** with `mcp_credential_check.sh <out> post-migration`. Every row must be PASS: retired → `revoked`,
+   `sandbox-*` → `ok`, kagent-controller → `call-denied`. Then check zero references across cluster objects and
+   both releases' manifests.
+5. **Revoke.** Run `kubectl delete secret` on exactly the nine names, with `--dry-run=server` first.
+
+- **No rollback** for `cr-mcp`/`cr-agents`: `agi_campaign.sh rollback` refuses them. Fix forward with a new final
+  set; never re-select `sbx-20261115`, `r1-transition` or `legacy` (they still contain the retired tokens).
+- **AGI-08 principals** are now `sandbox-feature-rag`, `sandbox-drift` and the kagent controller (`call-denied`).
 
 ### 2.7 Image roll after P2 (`img-mcp`, `img-agents`)
 

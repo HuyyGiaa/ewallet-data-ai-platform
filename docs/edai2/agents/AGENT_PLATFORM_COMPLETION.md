@@ -19,7 +19,7 @@ This page reports the final GKE integration of the EDAI-2 Agent Platform: campai
 | KEDA Coordinator scaling | **GKE_PASS**: 2→3 at 05:45:51Z, 3→2 at 06:03:08Z; the scale-out pod completed tasks (again under B′, §9) |
 | Shared WorkerPool autoscaling (B′) | **COMPLETE** (§9): KEDA 2→3→2 on Sandbox demand; the new worker ran 29 actors; 100/100 at 0.185 task/s (+45 %), p95 102.6 s; drain-safe scale-in (R3a/R3b); metric outage holds the pool |
 | MCP failover | **GKE_PASS** (2026-11-15 run-04; code unchanged since) |
-| Agent Registry (AGI-13) | **PARTIAL** since sp-cleanup (§10): Prompts and MCPServers match; the 2 Specialist Agent entries still carry the pre-cleanup BYO label/description until a separately approved republish; the Coordinator digest label predates the cleanup (stale since the P2 `img-coordinator` roll). No record removed |
+| Agent Registry (AGI-13) | **GKE_PASS** (§11.1): the 3 Agent entries republished from the live runtime (Sandbox-only Specialists, Coordinator `94a13a8b`); strict readback 8/8; no record removed |
 | Distributed tracing (AGI-12) | **GKE_PASS**: Sandbox spans in the Coordinator's trace; since Phase 2 (§7) the kagent controller hop too (21 spans in the combined trace) |
 | Security | **GKE_PASS** (unchanged policies; negatives pass) |
 | Agent Fleet (shared WorkerPool) | **GKE_PASS** (2026-11-15/16 runs; fleet image updated, sharing unchanged) |
@@ -27,7 +27,8 @@ This page reports the final GKE integration of the EDAI-2 Agent Platform: campai
 | Substrate worker lifecycle (P2-A) | **COMPLETE** (§8): R1 and R2 passed on GKE; stale records removed at every ateapi start, before ateapi serves; no `worker pod not found` after the fix |
 | Coordinator Sandbox capacity metrics (P2-D) | **GKE_PASS** (§7.4): counter equals the logged capacity waits; gauge returns to 0 |
 | Natural-language combined prompts | Rejected by design (strict guard, owner decision) |
-| Legacy Specialist Deployment cleanup (`sp-cleanup`) | **GKE_PASS** (§10): 42 objects removed, 6 modified, 0 added (`llm-agent` rev 55); 5/5 E2E, 3/3 negatives, both KEDA healthy; registry republish and credential retirement await separate approval |
+| Legacy Specialist Deployment cleanup (`sp-cleanup`) | **GKE_PASS** (§10): 42 objects removed, 6 modified, 0 added (`llm-agent` rev 55); 5/5 E2E, 3/3 negatives, both KEDA healthy |
+| Legacy MCP credential retirement | **GKE_PASS** (§11.2): final server sets `fin-20261117`/`-b`; 9 retired credentials rejected on 5/5 replicas; 9 client Secrets deleted after zero references; old (unreferenced) server-set tables kept |
 
 ## 1. Architecture
 
@@ -37,7 +38,7 @@ kagent UI / A2A client
        ├─ LLM Gateway (agentgateway :3000) ─ vLLM CPU "ewallet-fraud-llm"   (NL intake only; ModelConfig ewallet-global-llm)
        └─ A2A Gateway route sandbox-<agent> ─ kagent controller ─ Substrate actor (gVisor) on WorkerPool business-agents
             feature-rag-specialist / drift-specialist (SandboxAgent only since sp-cleanup, §10; WorkerPool KEDA 2..3)
-              └─ ateom egress proxy (169.254.17.1:3128, cluster Services only) ─ MCP Gateway (identity sandbox default)
+              └─ ateom egress proxy (169.254.17.1:3128, cluster Services only) ─ MCP Gateway (identity sandbox default; server set fin-20261117, §11)
                    ├─ feature-rag-mcp (2 replicas, PDB) ─ Feast online (DB 0 / RAG DB 3), KServe fraud-detector, RAG index
                    └─ drift-mcp (2 replicas, PDB) ─ pinned versioned baseline/window artifacts
 ```
@@ -685,3 +686,102 @@ recreates the Deployments and KEDA the two ScaledObjects.
   server set and new negative credentials are needed first.
 - Leftover references that match nothing: cloud_lab profile `minimal.one-agent` (never run) and a Loki regex in
   `dashboards/logs-operations.json`.
+
+## 11. Final closure: Registry sync, legacy MCP credential retirement (`closure-20261116T211833Z`)
+
+Evidence: `~/ewallet-evidence/agents/closure/closure-20261116T211833Z/` (`SHA256SUMS.txt`), mirrored in
+`docs/evidence/edai2/agents/closure-20261116T211833Z/`. Gate alias `agi-20261116T211833Z`. Run unattended under
+the owner's bounded "final closure" directive.
+
+### 11.1 Agent Registry (Stage A)
+
+- **Inputs:** the catalog was rendered from the live `llm-agent` values (both Specialists `runtime: sandbox`), the
+  live Coordinator image (`94a13a8b…`) and the live SandboxAgent fleet image (`29867794…`). The Registry was
+  snapshotted (GET) before the write.
+- **Dry run:** Prompts and MCPServers were already identical; only the three Agent entries differed.
+- **Publish:** Prompts and MCPServers `unchanged`; `drift-specialist 1.1.0`, `feature-rag-specialist 1.0.0` and
+  `fraud-coordinator 1.1.0` `configured`. The prompt integrity gates were MATCH before and after.
+- **Strict readback:** PASS 8/8, again PASS after the E2E.
+- **Before/after:** the Specialists lost `ewallet.io/byo-image-digest` and their description now says "served only
+  as a kagent 0.10.3 SandboxAgent … no BYO Deployment". The Coordinator label moved `9775406101b8…` → `94a13a8b1688…`.
+  Old tags (`1.0.0`), all 12 prompt versions and both MCPServers are byte-identical.
+
+### 11.2 Legacy MCP credential retirement (Stage B)
+
+**Inventory (before):**
+- Server set `sbx-20261115` (ewallet-mcp) held three releases: `legacy`, `r1-release1` and `sbx-20261115`.
+- Active clients: SandboxAgents use `sbx-20261115`; the kagent controller (list-only) uses `r1-release1`.
+- No workload referenced the nine `mcp-token-{drift,feature-rag}-specialist-*` Secrets.
+- Before the change, all nine were accepted on every `ewallet-mcp` replica (they could still call tools).
+- The in-release `ewallet-agents/drift-mcp` (legacy table) also accepted the `legacy` drift token.
+
+**Tooling fixes (`46e4c354`, `a8fe2bdf`, `2cae8340`):**
+- **Issue 1:** `grants_from_values` drops subjects whose deployed runtime is `sandbox`, from both the Specialist
+  tools and any leftover server `toolGrants`.
+- **Issue 2:** a source table tolerates retired (or explicitly dropped) subjects by name only, and never carries
+  them.
+- **Final set:** a final set can keep existing releases (`--carry-release`), so no client moves. It fails if any
+  active, non-retired identity would be dropped.
+- **Overlays:** Helm keeps a `null` coming from a second values file, so the `cr-*` packages apply their overlay
+  themselves. The first gate caught this before any mutation.
+- **Rollback:** neither `cr-mcp` nor `cr-agents` has a rollback. A rollback would re-select a server set that
+  still accepts the retired credentials.
+
+**Migration:**
+
+| Step | Result |
+|---|---|
+| Prepare | Immutable final tables `fin-20261117` (ewallet-mcp drift/feature-rag: `sandbox-*` + `kagent-controller`). Validated offline with the real authenticator before any rollout |
+| `cr-mcp` | `llm-agent-mcp` rev 17 → 18. Exact diff: grants env without the two retired subjects, auth table → `fin-20261117`. 4/4 replicas rolled, 0 restarts |
+| `cr-agents` attempt 1 | Rejected. The old image (`695279967`) of `ewallet-agents/drift-mcp` has no discovery subjects, so the list-only config failed at startup (`authentication_not_configured`, readiness 503). The old pod kept serving; `helm --atomic` rolled back (rev 56 failed, rev 57 = rollback to 55). Nothing had been revoked or deleted yet |
+| `cr-agents` attempt 2 | Table `fin-20261117-b` holds only `sandbox-drift`, which already has the same privilege on `ewallet-mcp/drift-mcp`. Validated offline against that image's own `security.py` (which also reproduces the attempt 1 failure). Rev 58, Ready |
+
+**Revocation acceptance (per replica, `mcp_credential_check.sh`, direct pod forwards):** every probe passed with a
+working control on the same replica, on 5/5 replicas (`ewallet-mcp` drift×2 and feature-rag×2, `ewallet-agents`
+drift-mcp×1).
+- All nine retired credentials get HTTP 401 at initialize.
+- `sandbox-*` calls its granted tool: `ok` on ewallet-mcp. On `ewallet-agents/drift-mcp` it authenticates, but its
+  backend lacks the drift baseline, as before the change.
+- The kagent controller sees the tool but cannot call it (`call-denied`).
+- One harness defect was found and fixed: stale port-forwards from an earlier run had answered on reused ports, so
+  that run was discarded.
+
+**Zero references, then deletion:**
+- 0 references in 667 cluster objects (workloads, pods, ConfigMaps, Agents, SandboxAgents, RemoteMCPServers,
+  ScaledObjects, WorkerPools).
+- 0 references in both releases' manifests.
+- Server-side dry run first. Exactly the nine client Secrets were deleted: 33 → 24 credential Secrets.
+- **Kept:** `kagent-controller` (r1-release1, sbx-20261115), `sandbox-*`, the `mcp-token-revoked-*` sentinels, and
+  every auth table, old sets included.
+
+**AGI-08 (post-cleanup principals):**
+1. A `sandbox-feature-rag` credential is refused by drift-mcp (401), while it is valid on feature-rag-mcp.
+2. The list-only kagent controller cannot call `drift_detection`; the control is `sandbox-drift`.
+3. An undeclared A2A host gets 404 while the sandbox route works.
+
+No privilege was added for testing.
+
+### 11.3 Full GKE E2E after the migration (Stage C)
+
+| Check | Result |
+|---|---|
+| Typed fraud | `ok`, prob 0.0639895560144887, `sandbox-feature-rag` ran `feature_lookup`, `fraud_scoring`, `knowledge_search`; trace `610af841b5bf95ff839095fd0faa7611` |
+| Typed drift | `complete`, psi 0.0004795543627041439, `sandbox-drift` ran `drift_detection`; trace `bc71530b9595cb3203b59c1cdc779d5d` |
+| Typed combined | `complete`, `unavailable: []`; trace `21511c7dfce11c6b3338b72604fd03be` (206 spans, incl. kagent-controller 21) |
+| NL fraud / NL drift | `ok` / `complete`; traces `3ead80b7c5394c09c100635d82c2b746` / `953682e3901a455d005924f663716d4f` |
+| Negatives | 3/3 PASS |
+| Concurrency | 6/6 (15–71 s); both KEDA ScaledObjects went 2→3 and Active |
+| Placement | 183 `ResumeActor` on 3 shared workers, 0 restore errors; worker registry consistent (no stale record) |
+| HTTP | Only the two negatives' 404/401 plus streamable-HTTP 405 (GET) |
+| Registry | Strict readback PASS 8/8 |
+
+### 11.4 Limitations
+
+- **Old server sets:** `sbx-20261115`, `r1-transition` (ewallet-mcp) and `legacy` (ewallet-agents) still contain
+  the retired tokens. They are no longer referenced, their client Secrets are gone, and `cr-*` refuse rollback. A raw
+  `helm rollback` of `llm-agent-mcp` to ≤ 17 or `llm-agent` to ≤ 57 would still re-select them. Deleting those
+  tables needs a separate approval.
+- **Sp-cleanup rollback:** `SP-CLEANUP-ROLLBACK` (rev 54) is no longer a working path. The Specialist Deployments
+  would come back without valid credentials.
+- **`ewallet-agents/drift-mcp`:** it keeps `sandbox-drift` because its image cannot run list-only. It has no route
+  or ingress, and its drift backend artifacts are missing (pre-existing).

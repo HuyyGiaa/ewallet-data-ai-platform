@@ -7,8 +7,8 @@
 #   discovery kagent-controller (list-only) sees the tool but cannot call it              -> call-denied
 #   retired   each of the nine legacy Specialist credentials                              -> revoked (HTTP 401,
 #             with the active credential listing the tool on the same replica as the control)
-# The in-release ewallet-agents/drift-mcp has no non-retired subject, so its retired checks run without a
-# control and are reported as observations (outcome only).
+# The in-release ewallet-agents/drift-mcp (older image, no discovery subjects) keeps only sandbox-drift
+# after package cr-agents; it is checked with that credential as the active principal and the control.
 #
 # usage: mcp_credential_check.sh <out-dir> <label>
 # Env: AGI_ENV (campaign file: CTX, EV with inputs/transaction.json, BASELINE), KUBECONFIG, UV.
@@ -106,8 +106,10 @@ for pod in $(k -n ewallet-mcp get pods -l app.kubernetes.io/name=drift-mcp -o na
 done
 for pod in $(k -n ewallet-agents get pods -l app.kubernetes.io/name=drift-mcp -o name | sed 's|pod/||'); do
   port=$((port + 1)); forward ewallet-agents "$pod" "$port"
-  for name in "${RETIRED_DRIFT[@]}"; do   # no non-retired subject exists on this server: observation only
-    probe "$pod" "$port" retired-observed revoked drift_detection "$DRIFT_ARGS" ewallet-agents "$name"
+  # After cr-agents its only subject is sandbox-drift (no discovery support in its image), the control here.
+  probe "$pod" "$port" active ok drift_detection "$DRIFT_ARGS" ewallet-sandbox "$SANDBOX_DRIFT"
+  for name in "${RETIRED_DRIFT[@]}"; do
+    probe "$pod" "$port" retired revoked drift_detection "$DRIFT_ARGS" ewallet-agents "$name" ewallet-sandbox "$SANDBOX_DRIFT"
   done
 done
 cleanup
