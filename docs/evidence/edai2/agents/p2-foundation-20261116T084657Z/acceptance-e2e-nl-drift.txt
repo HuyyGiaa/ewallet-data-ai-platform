@@ -1,0 +1,19 @@
+
+==================== 11:04:41Z  E2E nl-drift  request_id replay-nl-drift-110441  (Coordinator -> A2A Gateway -> Sandbox Specialist -> MCP Gateway -> backend) ====================
+state=failed  elapsed=35.854 s
+message: {"code":"invalid_a2a_response","coordinator_revision":"programmatic-coordinator/byo-v1","message":"A2A response is incomplete","status":"error"}
+
+==================== 11:05:17Z  HOPS for nl-drift (logs since 2026-11-16T11:04:41Z) ====================
+-- Coordinator (A2A Gateway sandbox route, LLM Gateway for NL)
+2026-11-16 11:05:16,698 - httpx - INFO - HTTP Request: POST http://agentgateway.ewallet-agents.svc.cluster.local:3000/v1/chat/completions "HTTP/1.1 200 OK"
+2026-11-16 11:05:16,934 - httpx - INFO - HTTP Request: POST http://a2a-gateway.ewallet-agents.svc.cluster.local:8083/api/a2a-sandboxes/ewallet-sandbox/drift-specialist/ "HTTP/1.1 200 OK"
+2026-11-16 11:05:16,935 - ewallet.agent.audit - INFO - coordinator.task_failed request_id=nl-4366b527636671cfa2560b9e12a347c0 task_id=ea1269c0-397c-40d0-b2b3-277a7c144376 mode=natural-language code=invalid_a2a_response
+-- A2A Gateway routes
+      1 "route":"default/sandbox-drift-specialist"
+-- MCP servers (actor_id = the Sandbox identity's credential subject)
+-- Deployment Specialists must show no task for this request (0 = no fallback)
+pod/drift-specialist-6f7948f895-cw9dd 0
+pod/drift-specialist-6f7948f895-zlqnv 0
+pod/feature-rag-specialist-7c5f74d545-fzsxf 0
+pod/feature-rag-specialist-7c5f74d545-mjp6q 0
+saved under /home/huyy-giaa/ewallet-evidence/agents/phase2/p2-foundation-20261116T084657Z/acceptance/e2e/replay-nl-drift-110441-*

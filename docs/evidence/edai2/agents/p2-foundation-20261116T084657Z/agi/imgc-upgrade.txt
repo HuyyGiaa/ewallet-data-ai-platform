@@ -1,0 +1,9 @@
+2026-11-16T10:57:53Z GATE PASS llm-agent: exact identities and server-side dry-run
+2026-11-16T10:57:53Z MUTATION helm upgrade llm-agent (default)
+I1116 18:00:42.823457 2037129 warnings.go:107] "Warning: PollingInterval is configured but is not relevant for scaling. It only affects scaling when minReplicaCount = 0, idleReplicaCount is set, or useCachedMetrics is enabled, but it still controls how often KEDA refreshes the ScaledObject status conditions and events"
+I1116 18:00:42.823520 2037129 warnings.go:107] "Warning: CooldownPeriod is configured but is not relevant. CooldownPeriod is only relevant when minReplicaCount = 0 or idleReplicaCount is set"
+I1116 18:00:43.160889 2037129 warnings.go:107] "Warning: PollingInterval is configured but is not relevant for scaling. It only affects scaling when minReplicaCount = 0, idleReplicaCount is set, or useCachedMetrics is enabled, but it still controls how often KEDA refreshes the ScaledObject status conditions and events"
+I1116 18:00:43.160929 2037129 warnings.go:107] "Warning: CooldownPeriod is configured but is not relevant. CooldownPeriod is only relevant when minReplicaCount = 0 or idleReplicaCount is set"
+I1116 18:00:43.484954 2037129 warnings.go:107] "Warning: PollingInterval is configured but is not relevant for scaling. It only affects scaling when minReplicaCount = 0, idleReplicaCount is set, or useCachedMetrics is enabled, but it still controls how often KEDA refreshes the ScaledObject status conditions and events"
+I1116 18:00:43.484996 2037129 warnings.go:107] "Warning: CooldownPeriod is configured but is not relevant. CooldownPeriod is only relevant when minReplicaCount = 0 or idleReplicaCount is set"
+2026-11-16T11:00:55Z UPGRADED llm-agent

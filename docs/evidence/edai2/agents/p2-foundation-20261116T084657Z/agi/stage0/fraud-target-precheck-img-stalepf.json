@@ -1,0 +1,13 @@
+{
+  "tool": "feature_lookup",
+  "tools": null,
+  "stage": "initialize",
+  "http_statuses": [],
+  "outcome": "client_timeout",
+  "endpoint": "http://127.0.0.1:18082/feature-rag/mcp",
+  "expect": "ok",
+  "verdict": "FAIL",
+  "reasons": [
+    "observed client_timeout, expected ok"
+  ]
+}

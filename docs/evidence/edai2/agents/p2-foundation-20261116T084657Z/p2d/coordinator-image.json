@@ -1,0 +1,9 @@
+{
+ "git_sha": "8b43582c97b04e48362b474ff643d0a0fa2d7185",
+ "images": {
+  "g3-byo-coordinator": {
+   "digest_ref": null,
+   "tag_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator:8b43582c97b04e48362b474ff643d0a0fa2d7185"
+  }
+ }
+}

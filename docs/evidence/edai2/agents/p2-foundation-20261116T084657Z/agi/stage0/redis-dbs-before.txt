@@ -1,0 +1,17 @@
+ db      keys  owner (campaign_id)                use
+  0    173382  none (another workload)            production (ewallet_rag, Feature Store)
+  1         4  none (another workload)            canonical verification
+  2    204934  fs11-r5gb-20261112                 in use
+  3         5  ewallet_rag_hybrid_20261114t144825 in use
+  4         0  -                                  free for a new verification project
+  5         0  -                                  free for a new verification project
+  6         0  -                                  free for a new verification project
+  7         0  -                                  free for a new verification project
+  8        27  verify-fs12-20261112084123         in use
+  9        27  verify-fs12-20261114063323         in use
+ 10         0  -                                  free for a new verification project
+ 11         0  -                                  free for a new verification project
+ 12         0  -                                  free for a new verification project
+ 13         0  -                                  free for a new verification project
+ 14         0  -                                  free for a new verification project
+ 15         0  -                                  free for a new verification project

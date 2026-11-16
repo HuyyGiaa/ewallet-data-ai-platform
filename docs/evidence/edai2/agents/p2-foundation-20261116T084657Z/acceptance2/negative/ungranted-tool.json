@@ -1,0 +1,40 @@
+{
+  "tool": "fraud_scoring",
+  "tools": [
+    "feature_lookup"
+  ],
+  "stage": "call",
+  "http_statuses": [
+    200,
+    202,
+    405,
+    200,
+    200,
+    202
+  ],
+  "server": "feature-rag-mcp",
+  "outcome": "hidden_tool",
+  "jsonrpc_error": {
+    "code": -32602,
+    "message": "Unknown tool"
+  },
+  "endpoint": "http://127.0.0.1:18082/feature-rag/mcp",
+  "expect": "denied",
+  "control": {
+    "outcome": "listed",
+    "tools": [
+      "feature_lookup",
+      "fraud_scoring",
+      "knowledge_search"
+    ],
+    "http_statuses": [
+      200,
+      405,
+      202,
+      200,
+      202
+    ]
+  },
+  "verdict": "PASS",
+  "reasons": []
+}

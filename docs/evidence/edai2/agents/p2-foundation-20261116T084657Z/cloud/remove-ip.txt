@@ -1,0 +1,4 @@
+Updating ewallet-dev...
+...................................................done.
+Updated [https://container.googleapis.com/v1/projects/ewallet-data-ai-platform-hg26/zones/asia-southeast1-b/clusters/ewallet-dev].
+To inspect the contents of your cluster, go to: https://console.cloud.google.com/kubernetes/workload_/gcloud/asia-southeast1-b/ewallet-dev?project=ewallet-data-ai-platform-hg26

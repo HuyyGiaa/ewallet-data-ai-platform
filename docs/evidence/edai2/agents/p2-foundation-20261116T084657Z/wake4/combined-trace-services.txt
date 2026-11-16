@@ -1,0 +1,1 @@
+{'agentgateway': 34, 'kagent-controller': 21, 'fraud-coordinator': 99, 'drift-specialist': 18, 'drift-mcp': 14, 'feature-rag-specialist': 27, 'feature-rag-mcp': 31}

@@ -1,0 +1,19 @@
+{"time":"2026-11-16T11:14:31.516432543Z","level":"INFO","msg":"Syncer: performing initial sync on startup"}
+{"time":"2026-11-16T11:14:31.531539106Z","level":"INFO","msg":"Syncer: removing stale worker","worker":"kagent-pilot/kagent-pilot-deployment-9b94d6787-xxrxl","pool":"kagent-pilot","reason":"pod no longer exists"}
+{"time":"2026-11-16T11:14:31.53949721Z","level":"INFO","msg":"Syncer: removing stale worker","worker":"kagent-pilot/kagent-pilot-deployment-9b94d6787-wh7hm","pool":"kagent-pilot","reason":"pod no longer exists"}
+{"time":"2026-11-16T11:14:31.542883593Z","level":"INFO","msg":"Syncer: removing stale worker","worker":"kagent-pilot/kagent-pilot-deployment-9b94d6787-rnzfd","pool":"kagent-pilot","reason":"pod no longer exists"}
+{"time":"2026-11-16T11:14:31.545760382Z","level":"INFO","msg":"Syncer: removing stale worker","worker":"kagent-pilot/kagent-pilot-deployment-9b94d6787-6mc8z","pool":"kagent-pilot","reason":"pod no longer exists"}
+{"time":"2026-11-16T11:14:31.547447146Z","level":"INFO","msg":"Syncer: removing stale worker","worker":"kagent-pilot/kagent-pilot-deployment-9b94d6787-mg2p2","pool":"kagent-pilot","reason":"pod no longer exists"}
+{"time":"2026-11-16T11:14:31.552756989Z","level":"INFO","msg":"Syncer: removing stale worker","worker":"kagent-pilot/kagent-pilot-deployment-9b94d6787-rj8nk","pool":"kagent-pilot","reason":"pod no longer exists"}
+{"time":"2026-11-16T11:14:31.555254684Z","level":"INFO","msg":"Syncer: removing stale worker","worker":"kagent-pilot/kagent-pilot-deployment-9b94d6787-7gxgz","pool":"kagent-pilot","reason":"pod no longer exists"}
+{"time":"2026-11-16T11:14:31.558046589Z","level":"INFO","msg":"Syncer: removing stale worker","worker":"kagent-pilot/kagent-pilot-deployment-9b94d6787-6bpkm","pool":"kagent-pilot","reason":"pod no longer exists"}
+{"time":"2026-11-16T11:14:31.560039892Z","level":"INFO","msg":"Syncer: removing stale worker","worker":"ewallet-sandbox/business-agents-deployment-55b8b4858c-v8rzm","pool":"business-agents","reason":"pod no longer exists"}
+{"time":"2026-11-16T11:14:31.561753919Z","level":"INFO","msg":"Syncer: removing stale worker","worker":"ewallet-sandbox/business-agents-deployment-55b8b4858c-4zllc","pool":"business-agents","reason":"pod no longer exists"}
+{"time":"2026-11-16T11:14:31.563637969Z","level":"INFO","msg":"Syncer: removing stale worker","worker":"kagent-pilot/kagent-pilot-deployment-9b94d6787-7l2ws","pool":"kagent-pilot","reason":"pod no longer exists"}
+{"time":"2026-11-16T11:14:31.565523456Z","level":"INFO","msg":"Syncer: removing stale worker","worker":"kagent-pilot/kagent-pilot-deployment-9b94d6787-gkpc4","pool":"kagent-pilot","reason":"pod no longer exists"}
+{"time":"2026-11-16T11:14:31.567594241Z","level":"INFO","msg":"Syncer: removing stale worker","worker":"kagent-pilot/kagent-pilot-deployment-9b94d6787-hvv6r","pool":"kagent-pilot","reason":"pod no longer exists"}
+{"time":"2026-11-16T11:14:31.569370036Z","level":"INFO","msg":"Syncer: removing stale worker","worker":"kagent-pilot/kagent-pilot-deployment-9b94d6787-x78jj","pool":"kagent-pilot","reason":"pod no longer exists"}
+{"time":"2026-11-16T11:14:31.570712705Z","level":"INFO","msg":"Syncer: removing stale worker","worker":"kagent-pilot/kagent-pilot-deployment-9b94d6787-2tncf","pool":"kagent-pilot","reason":"pod no longer exists"}
+{"time":"2026-11-16T11:14:31.572231392Z","level":"INFO","msg":"Syncer: removing stale worker","worker":"ewallet-sandbox/business-agents-deployment-55b8b4858c-qbvxc","pool":"business-agents","reason":"pod no longer exists"}
+{"time":"2026-11-16T11:14:31.573903106Z","level":"INFO","msg":"Syncer: removing stale worker","worker":"ewallet-sandbox/business-agents-deployment-55b8b4858c-nns95","pool":"business-agents","reason":"pod no longer exists"}
+{"time":"2026-11-16T11:14:31.575379702Z","level":"INFO","msg":"Syncer: reconcile removed stale workers","count":17}

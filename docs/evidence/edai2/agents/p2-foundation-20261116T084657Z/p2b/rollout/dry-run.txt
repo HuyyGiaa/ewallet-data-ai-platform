@@ -1,0 +1,3 @@
+2026-11-16T12:12:05Z atelet-placement preflight PASS: ate-system/substrate revision 6, image asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/substrate-ateapi:0.0.9-ewallet.0291af52.d836b5a3@sha256:f51f794685090249f807f3c27e9e97a8f4f9365e073bb1ed40f404873d32e5b1, identity PASS
+2026-11-16T12:12:06Z atelet-placement diff PASS: {"target":"atelet-placement","added":[["PriorityClass","","ewallet-substrate-node-agent"]],"changed":[["DaemonSet","ate-system","atelet"]]}CANDIDATEPASS
+2026-11-16T12:12:10Z atelet-placement dry-run PASS (server-side)

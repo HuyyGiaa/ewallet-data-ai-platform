@@ -1,0 +1,10 @@
+Allocated resources:
+  (Total limits may be over 100 percent, i.e., overcommitted.)
+  Resource           Requests          Limits
+  --------           --------          ------
+  cpu                3916m (99%)       20943m (534%)
+  memory             8489405312 (60%)  19767638528 (142%)
+  ephemeral-storage  0 (0%)            0 (0%)
+  hugepages-1Gi      0 (0%)            0 (0%)
+  hugepages-2Mi      0 (0%)            0 (0%)
+Events:

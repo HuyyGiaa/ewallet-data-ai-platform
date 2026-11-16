@@ -1,0 +1,69 @@
+added: 2
+  AuthorizationPolicy ewallet-agents/allow-kagent-controller-to-otel-collector
+  NetworkPolicy ewallet-agents/allow-kagent-controller-to-otel-collector-ingress
+removed: 0
+changed: 0
+
+### ADDED AuthorizationPolicy ewallet-agents/allow-kagent-controller-to-otel-collector
+--- 
++++ 
+@@ -0,0 +1,23 @@
++apiVersion: security.istio.io/v1
++kind: AuthorizationPolicy
++metadata:
++  labels:
++    app.kubernetes.io/managed-by: Helm
++    app.kubernetes.io/part-of: ewallet-llm-agent
++    app.kubernetes.io/version: llm-agent-v1
++  name: allow-kagent-controller-to-otel-collector
++  namespace: ewallet-agents
++spec:
++  action: ALLOW
++  rules:
++  - from:
++    - source:
++        principals:
++        - cluster.local/ns/kagent/sa/kagent-controller
++    to:
++    - operation:
++        ports:
++        - '4317'
++  selector:
++    matchLabels:
++      app.kubernetes.io/name: otel-collector
+
+### ADDED NetworkPolicy ewallet-agents/allow-kagent-controller-to-otel-collector-ingress
+--- 
++++ 
+@@ -0,0 +1,29 @@
++apiVersion: networking.k8s.io/v1
++kind: NetworkPolicy
++metadata:
++  labels:
++    app.kubernetes.io/managed-by: Helm
++    app.kubernetes.io/part-of: ewallet-llm-agent
++    app.kubernetes.io/version: llm-agent-v1
++  name: allow-kagent-controller-to-otel-collector-ingress
++  namespace: ewallet-agents
++spec:
++  ingress:
++  - from:
++    - namespaceSelector:
++        matchLabels:
++          kubernetes.io/metadata.name: kagent
++      podSelector:
++        matchLabels:
++          app.kubernetes.io/component: controller
++          app.kubernetes.io/name: kagent
++    ports:
++    - port: 4317
++      protocol: TCP
++    - port: 15008
++      protocol: TCP
++  podSelector:
++    matchLabels:
++      app.kubernetes.io/name: otel-collector
++  policyTypes:
++  - Ingress
+
+RESULT: PASS

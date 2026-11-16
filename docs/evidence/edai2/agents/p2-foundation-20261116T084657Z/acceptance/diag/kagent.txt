@@ -1,0 +1,4 @@
+{"level":"info","ts":"2026-11-16T11:03:05Z","logger":"http","msg":"Request completed","method":"POST","path":"/api/a2a-sandboxes/ewallet-sandbox/feature-rag-specialist/","remote_addr":"10.216.2.25:58745","status":200,"duration":0.196574095}
+{"level":"info","ts":"2026-11-16T11:03:05Z","logger":"http","msg":"Request completed","method":"POST","path":"/api/a2a-sandboxes/ewallet-sandbox/drift-specialist/","remote_addr":"10.216.2.25:59969","status":200,"duration":0.19829418}
+{"level":"info","ts":"2026-11-16T11:04:26Z","logger":"http","msg":"Request completed","method":"POST","path":"/api/a2a-sandboxes/ewallet-sandbox/feature-rag-specialist/","remote_addr":"10.216.2.25:58745","status":200,"duration":0.211323251}
+{"level":"info","ts":"2026-11-16T11:05:16Z","logger":"http","msg":"Request completed","method":"POST","path":"/api/a2a-sandboxes/ewallet-sandbox/drift-specialist/","remote_addr":"10.216.2.25:58745","status":200,"duration":0.207388167}

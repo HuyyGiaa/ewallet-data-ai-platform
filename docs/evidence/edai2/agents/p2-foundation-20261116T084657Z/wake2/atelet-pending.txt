@@ -1,0 +1,1 @@
+FailedScheduling   0/5 nodes are available: 1 Insufficient cpu, 4 node(s) didn't satisfy plugin(s) [NodeAffinity]. no new claims to deallocate, preemption: 0/5 nodes are available: 1 No preemption vic

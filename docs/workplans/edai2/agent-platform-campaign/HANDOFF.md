@@ -1,5 +1,84 @@
 # Agent platform completion: campaign handoff
 
+## Phase 2 foundation `p2-foundation-20261116T084657Z` (2026-11-16)
+
+Evidence: `~/ewallet-evidence/agents/phase2/p2-foundation-20261116T084657Z/` (`SHA256SUMS.txt`), mirrored in
+`docs/evidence/edai2/agents/p2-foundation-20261116T084657Z/`. Results: `docs/edai2/agents/AGENT_PLATFORM_COMPLETION.md` §7.
+
+| Item | Value |
+|---|---|
+| `P2_FOUNDATION_STATUS` | **PARTIAL**: everything passes except the single-worker controlled replacement tests (R1/R2), which were not approved |
+| `P2_A_STATUS` | **PARTIAL**: lifecycle is correct across 3 all-node replacements (sleep/wake) and the first post-fix start (17 stale records removed). R1/R2 not run |
+| `P2_B_STATUS` | **COMPLETE**: atelet bound at node registration on 2 consecutive wakes; wake 4 passed 5/5 E2E with no manual step; exact `verify --expect awake` passed |
+| `P2_C_STATUS` | **COMPLETE**: kagent-controller spans in the business trace |
+| `P2_D_STATUS` | **COMPLETE**: counter = logged capacity waits (16/16); gauge returns to 0; labels bounded |
+| `BPRIME_FOUNDATION_READY` | **CONDITIONAL**: signals, worker lifecycle and atelet placement are ready. B′ still needs R1/R2, PKG-P3 (`labelSelectorPath`), the WorkerPool ScaledObject and the KEDA watch for `ewallet-sandbox` |
+| Cluster | **ASLEEP**: 0 nodes, `verify --expect sleep` passed. Agent ScaledObjects are paused by marker `p2-foundation-20261116T084657Z`. The temporary /32 was removed; authorized networks = the original 3 CIDRs |
+| Next wake | `cloud_lab wake-full --nodes 5 --manifest ~/ewallet-evidence/agents/phase2/p2-foundation-20261116T084657Z/final-sleep/recovery-manifest` (mirrored under `final-sleep/`) |
+
+**A. Commits** (branch only, not merged). Each is its own rollback boundary.
+
+| Commit | Package | Change |
+|---|---|---|
+| `9f20ee96` | P2-A | ateapi worker reconcile patch |
+| `e752cc63` | P2-C | `tr-agents`, `kagent-otel` and the runtime_fix replace path |
+| `9d206555` | P2-D | Coordinator metrics |
+| `8b43582c` | P2-B | `record-manifest` |
+| `87531452` | P2-D | `img-coordinator` package |
+| `01855047` | P2-A | ateapi digest pin |
+| `998c0d2a` | P2-B | atelet placement |
+| `ba1a9407` | P2-B | G3 label placement |
+
+**B. Live state after the campaign:**
+
+| Release | Revision | Change |
+|---|---|---|
+| `substrate` | 7 | ateapi `d836b5a3` + atelet placement (PriorityClass `ewallet-substrate-node-agent`) |
+| `kagent` | 9 | OTLP endpoint with scheme |
+| `llm-agent` | 54 | `tr-agents` flow + Coordinator `94a13a8b` |
+| `llm-gpu-router` | — | uninstalled; namespace `ewallet-llm-gpu` kept |
+
+**C. Approvals:** all are in `approvals.txt`.
+- G1/G2, G5/G6 and G7–G9 at the start.
+- F2: one `ml-pipeline` eviction during wake 1, before the owner ruled out manual eviction.
+- G3 after the acceptance evidence.
+- The P2-B steps (1)–(5).
+- Never approved: G4 (R1/R2).
+- The agi tool ran under the alias `agi-20261116T084657Z`, because it requires the `agi-` form.
+
+**D. Rollbacks:**
+- Substrate: `runtime_fix.sh substrate|atelet-placement rollback`, with tokens `PKG-T-SUBSTRATE-ROLLBACK` and
+  `P2B-ATELET-PLACEMENT-ROLLBACK`. `atelet-placement` rolls back without `--wait` while asleep.
+- kagent: `P2C-KAGENT-OTEL-ROLLBACK`.
+- Agents: `TR-AGENTS-ROLLBACK` and `IMG-COORDINATOR-ROLLBACK`.
+
+**E. Wake procedure from now on:**
+1. Before each sleep, run `record-manifest --out <dir>`.
+2. Wake with that manifest.
+3. Do not scale MCP by hand.
+
+`cloud_lab` labels the least-loaded nodes for the G3 LLM.
+
+**F. Tooling gotchas:**
+- `agi_probe` evidence is create-only: move stale `stage0/*precheck*.json` aside before rerunning a preflight.
+- `helm get manifest` can return an empty result transiently; rerun the preflight.
+- Port-forwards go stale after rollouts; restart them.
+- The `img-agents` gate expects all three Agents to change; use `img-coordinator` for Coordinator-only changes.
+
+**G. Not done:**
+- R1/R2: owner approval needed.
+- Merge: the branch is pushed, nothing is merged and no PR is open.
+- B′ work: out of scope by directive.
+
+**H. Cost:** about 3.4 h awake × 5 nodes × ~$0.165 per node-hour ≈ $2.8, over four wakes (09:32–13:12Z).
+
+**I. Specialist Deployments, legacy credentials, Sandbox-only registry and the owner Evidence Replay:** untouched, as
+directed.
+
+**J. Next:**
+1. Approve R1/R2 to close P2-A.
+2. Then PKG-P3 and the B′ plan, using `sum(ewallet_sandbox_delegations_inflight)` as the demand signal.
+
 ## Phase 1 `p1-20261116T075841Z` (2026-11-16): wake verification, controller tracing, B′ readiness
 
 Evidence: `~/ewallet-evidence/agents/phase1/p1-20261116T075841Z/` (`SHA256SUMS.txt`), mirrored in

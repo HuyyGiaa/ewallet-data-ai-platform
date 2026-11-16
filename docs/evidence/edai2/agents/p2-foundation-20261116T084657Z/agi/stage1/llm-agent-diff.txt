@@ -1,0 +1,15 @@
+added: 0
+removed: 0
+changed: 1
+  Agent ewallet-agents/fraud-coordinator
+
+### CHANGED Agent ewallet-agents/fraud-coordinator
+--- 
++++ 
+@@ -84,3 +84,3 @@
+         value: '0.1'
+-      image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:9775406101b83b03cdbbfcb550daf7e7ced61b0bde8ca1869a02e16daf06b69b
++      image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:94a13a8b168881e10fedbad4b5e4816fd8c92c8f987800930827998eb5ba41a9
+       imagePullPolicy: IfNotPresent
+
+RESULT: PASS

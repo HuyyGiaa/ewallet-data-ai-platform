@@ -1,0 +1,4 @@
+gmp-critical              1000000000   <none>   PreemptLowerPriority
+system-cluster-critical   2000000000   <none>   PreemptLowerPriority
+system-node-critical      2000001000   <none>   PreemptLowerPriority
+workflow-controller       1000000      <none>   PreemptLowerPriority

@@ -1,0 +1,61 @@
+{
+ "jsonrpc": "2.0",
+ "id": "replay-nl-fraud-110305",
+ "result": {
+  "kind": "task",
+  "id": "4da58f64-2467-42de-9e41-9912f522a10e",
+  "contextId": "ef565b36-5f4b-41af-b87f-65316ec12b69",
+  "history": [
+   {
+    "kind": "message",
+    "messageId": "replay-nl-fraud-110305",
+    "contextId": "ef565b36-5f4b-41af-b87f-65316ec12b69",
+    "parts": [
+     {
+      "kind": "text",
+      "text": "Hãy đánh giá rủi ro gian lận cho giao dịch payment dc58ff4e-b5f7-4486-b1f8-4c31383741a9 (user 55561d92-d042-401c-b02a-b03e3ed280f7, account 2d48f147-f98c-4819-b183-f94ca049c175, device e7765b81-c9f9-4147-aa00-46f34de1d7da, merchant e3e4aced-6b0d-40af-be5c-eef9255204c9, amount 275465.53 VND, channel app, event_timestamp 2026-06-01T00:00:00Z): lấy feature của user/account, gọi mô hình dự đoán gian lận, giải thích mức rủi ro và trích dẫn chính sách liên quan."
+     }
+    ],
+    "role": "user",
+    "taskId": "4da58f64-2467-42de-9e41-9912f522a10e"
+   },
+   {
+    "kind": "message",
+    "messageId": "5f81c757-ce93-45dc-afb7-659cc55663cf",
+    "parts": [
+     {
+      "kind": "text",
+      "text": "Đang dùng LLM (agentgateway → vLLM) để chọn công cụ và trích xuất tham số giao dịch…"
+     }
+    ],
+    "role": "agent"
+   },
+   {
+    "kind": "message",
+    "messageId": "8392bab5-c8f5-4808-b100-101c1f3b15e5",
+    "parts": [
+     {
+      "kind": "text",
+      "text": "LLM đã chọn công cụ `fraud-evidence`; đang ủy quyền cho feature-rag-specialist qua A2A Gateway (request_id nl-2924c4103ddd0cdb8b008b1789d4a369)…"
+     }
+    ],
+    "role": "agent"
+   }
+  ],
+  "status": {
+   "message": {
+    "kind": "message",
+    "messageId": "c2dcbfae-67f5-4cb3-b855-38a328f46436",
+    "parts": [
+     {
+      "kind": "text",
+      "text": "{\"code\":\"invalid_a2a_response\",\"coordinator_revision\":\"programmatic-coordinator/byo-v1\",\"message\":\"A2A response is incomplete\",\"status\":\"error\"}"
+     }
+    ],
+    "role": "agent"
+   },
+   "state": "failed",
+   "timestamp": "2026-11-16T11:04:26.271671Z"
+  }
+ }
+}

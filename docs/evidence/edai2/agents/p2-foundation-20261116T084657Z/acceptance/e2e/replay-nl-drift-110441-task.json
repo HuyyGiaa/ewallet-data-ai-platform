@@ -1,0 +1,61 @@
+{
+ "jsonrpc": "2.0",
+ "id": "replay-nl-drift-110441",
+ "result": {
+  "kind": "task",
+  "id": "ea1269c0-397c-40d0-b2b3-277a7c144376",
+  "contextId": "312b8206-39ec-4a2b-afeb-c30048c42649",
+  "history": [
+   {
+    "kind": "message",
+    "messageId": "replay-nl-drift-110441",
+    "contextId": "312b8206-39ec-4a2b-afeb-c30048c42649",
+    "parts": [
+     {
+      "kind": "text",
+      "text": "Phân tích drift của account_behavior__account_tx_count_1h so với baseline bl-r5gb-202604.account_tx_count_1h trong window 2026-05-01T00:00:00Z to 2026-05-31T00:00:00Z."
+     }
+    ],
+    "role": "user",
+    "taskId": "ea1269c0-397c-40d0-b2b3-277a7c144376"
+   },
+   {
+    "kind": "message",
+    "messageId": "a70bd5cc-6e51-429e-a817-bf86037dd7fe",
+    "parts": [
+     {
+      "kind": "text",
+      "text": "Đang dùng LLM (agentgateway → vLLM) để chọn công cụ và trích xuất tham số giao dịch…"
+     }
+    ],
+    "role": "agent"
+   },
+   {
+    "kind": "message",
+    "messageId": "c988de40-4916-4839-b898-5f1e98fcb7da",
+    "parts": [
+     {
+      "kind": "text",
+      "text": "LLM đã chọn công cụ `drift`; đang ủy quyền cho drift-specialist qua A2A Gateway (request_id nl-4366b527636671cfa2560b9e12a347c0)…"
+     }
+    ],
+    "role": "agent"
+   }
+  ],
+  "status": {
+   "message": {
+    "kind": "message",
+    "messageId": "3b7e55de-c8e3-48a0-80f8-a312008f8e5f",
+    "parts": [
+     {
+      "kind": "text",
+      "text": "{\"code\":\"invalid_a2a_response\",\"coordinator_revision\":\"programmatic-coordinator/byo-v1\",\"message\":\"A2A response is incomplete\",\"status\":\"error\"}"
+     }
+    ],
+    "role": "agent"
+   },
+   "state": "failed",
+   "timestamp": "2026-11-16T11:05:16.936551Z"
+  }
+ }
+}

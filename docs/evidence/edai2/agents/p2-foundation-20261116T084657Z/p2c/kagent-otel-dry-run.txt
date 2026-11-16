@@ -1,0 +1,3 @@
+2026-11-16T10:37:52Z kagent-otel preflight PASS: kagent/kagent revision 8, image asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/kagent-controller:0.10.3-ewallet.ea032b19@sha256:6d5c9de094c193d8bb4b895c7894c524191310c1018a18e1484b6879f5cd64a1, identity PASS
+2026-11-16T10:37:52Z kagent-otel diff PASS: {"target":"kagent-otel","changed":[["ConfigMap","kagent","kagent-controller"],["Deployment","kagent","kagent-controller"]]}CANDIDATEPASS
+2026-11-16T10:38:10Z kagent-otel dry-run PASS (server-side)

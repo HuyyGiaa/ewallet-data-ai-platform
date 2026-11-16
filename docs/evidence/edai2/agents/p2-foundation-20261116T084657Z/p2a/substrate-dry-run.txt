@@ -1,0 +1,3 @@
+2026-11-16T11:12:28Z substrate preflight PASS: ate-system/substrate revision 5, image asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/substrate-ateapi:0.0.9-ewallet.0291af52@sha256:435e8e036dca96bb1622055dd4774439384940a0e8dc2cb2d80ff0bb41979841, identity PASS
+2026-11-16T11:12:29Z substrate diff PASS: {"target":"substrate","changed":[["Deployment","ate-system","ate-api-server-deployment"]]}CANDIDATEPASS
+2026-11-16T11:12:59Z substrate dry-run PASS (server-side)

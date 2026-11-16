@@ -1,0 +1,8 @@
+{"time":"2026-11-16T12:47:49.732671316Z","level":"INFO","msg":"Syncer: creating worker in store","worker":"ewallet-sandbox/business-agents-deployment-55b8b4858c-rhxcx"}
+{"time":"2026-11-16T12:47:49.735534407Z","level":"INFO","msg":"Syncer: creating worker in store","worker":"ewallet-sandbox/business-agents-deployment-55b8b4858c-vlvf5"}
+{"time":"2026-11-16T12:47:49.7371017Z","level":"INFO","msg":"Syncer: creating worker in store","worker":"kagent-pilot/kagent-pilot-deployment-9b94d6787-ncd68"}
+{"time":"2026-11-16T12:47:49.802912962Z","level":"INFO","msg":"Syncer: performing initial sync on startup"}
+{"time":"2026-11-16T12:47:49.814118321Z","level":"INFO","msg":"Syncer: removing stale worker","worker":"kagent-pilot/kagent-pilot-deployment-9b94d6787-g9tcd","pool":"kagent-pilot","reason":"pod no longer exists"}
+{"time":"2026-11-16T12:47:49.815528786Z","level":"INFO","msg":"Syncer: removing stale worker","worker":"ewallet-sandbox/business-agents-deployment-55b8b4858c-qznpc","pool":"business-agents","reason":"pod no longer exists"}
+{"time":"2026-11-16T12:47:49.817742563Z","level":"INFO","msg":"Syncer: removing stale worker","worker":"ewallet-sandbox/business-agents-deployment-55b8b4858c-ghbzg","pool":"business-agents","reason":"pod no longer exists"}
+{"time":"2026-11-16T12:47:49.819949659Z","level":"INFO","msg":"Syncer: reconcile removed stale workers","count":3}

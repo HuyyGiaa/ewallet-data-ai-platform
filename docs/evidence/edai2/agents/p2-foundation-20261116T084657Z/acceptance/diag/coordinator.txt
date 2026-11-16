@@ -1,0 +1,3 @@
+2026-11-16 11:05:16,935 - ewallet.agent.audit - INFO - coordinator.task_failed request_id=nl-4366b527636671cfa2560b9e12a347c0 task_id=ea1269c0-397c-40d0-b2b3-277a7c144376 mode=natural-language code=invalid_a2a_response
+2026-11-16 11:03:05,307 - ewallet.agent.audit - INFO - coordinator.task_failed request_id=replay-combined-110304 task_id=de9c8c56-ed7f-4205-bc84-e3ce904781dc mode=typed code=specialists_unavailable
+2026-11-16 11:04:26,271 - ewallet.agent.audit - INFO - coordinator.task_failed request_id=nl-2924c4103ddd0cdb8b008b1789d4a369 task_id=4da58f64-2467-42de-9e41-9912f522a10e mode=natural-language code=invalid_a2a_response

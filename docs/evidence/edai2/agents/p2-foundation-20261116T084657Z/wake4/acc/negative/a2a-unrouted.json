@@ -1,0 +1,15 @@
+{
+  "endpoint": "http://127.0.0.1:18083/",
+  "tested": {
+    "host": "payments-agent.ewallet-agents",
+    "http_status": 404,
+    "body": "route not found"
+  },
+  "control": {
+    "host": "drift-specialist.ewallet-agents",
+    "http_status": 200
+  },
+  "expect": "no-route",
+  "verdict": "PASS",
+  "reasons": []
+}

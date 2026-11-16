@@ -1,0 +1,39 @@
+P2 FOUNDATION — CONSOLIDATED APPROVAL PACKAGE (p2-foundation-20261116T084657Z)
+Prepared 2026-11-16T09:22:33Z at HEAD 8b43582c (branch feature/edai2-agent-platform-integration, local, not pushed).
+Cluster state: ASLEEP (0 nodes). Nothing in this campaign has mutated the cloud.
+
+OFFLINE RESULTS
+- P2-A substrate-ateapi:0.0.9-ewallet.0291af52.d836b5a3 built by build_runtime_fix_images.py (full Substrate
+  Go suite -race PASS), Trivy gate PASS (SCAN_ONLY). New syncer tests fail on unpatched code (4/6) and pass patched.
+- P2-C tr-agents renders exactly 1 NetworkPolicy + 1 AuthorizationPolicy (kagent-controller SA -> otel-collector:4317);
+  kagent-otel diff on the real chart render = 1 ConfigMap key + checksum annotation (CANDIDATE PASS).
+- P2-D g3-byo-coordinator:8b43582c built, import check PASS, Trivy gate PASS (SCAN_ONLY). 13 metric tests PASS.
+- P2-B cloud_lab record-manifest (read-only) + tests; 132 ops tests PASS.
+
+PACKAGES (each its own gate, rollback boundary and evidence)
+G1  Access + wake: temporary /32 for the operator IP (existing CIDRs kept) ; cloud_lab wake-full --nodes 5
+    --manifest docs/evidence/edai2/cloud_lab/sleep_20261106T163042Z ; then scale ewallet-mcp MCP to Helm-declared 2
+    (the last time the old manifest is used). Cost ~5 x 0.165 = ~0.83 USD/h.
+G2  P2-B read-only: atelet scheduling/PriorityClass investigation (no PriorityClass applied without evidence +
+    a separate approval); ownership audit of ewallet-llm-gpu.
+G3  P2-A: push the scanned ateapi image (scan_and_push.sh) ; runtime_fix.sh substrate upgrade
+    (RUNTIME_FIX_APPROVAL=PKG-T-SUBSTRATE:<context>; identity + exact diff = ateapi image only + server dry-run,
+    helm --atomic). Rollback: PKG-T-SUBSTRATE-ROLLBACK (helm rollback to recorded revision).
+G4  P2-A worker replacement (controlled): R1 delete one idle business-agents worker pod -> record removed,
+    replacement registered, smoke PASS ; R2 scale ate-api-server 0, delete one idle worker pod, scale back 1 ->
+    startup reconcile removes the stale record (logged), smoke PASS. Never Valkey flush / bulk deletion.
+G5  P2-C: tr-agents (AGI_APPROVAL=TR-AGENTS:p2-foundation-20261116T084657Z) then runtime_fix.sh kagent-otel
+    (RUNTIME_FIX_APPROVAL=P2C-KAGENT-OTEL:<context>). Rollback controller first, then network.
+G6  P2-D: push the scanned coordinator image ; img-agents (AGI_APPROVAL=IMG-AGENTS:p2-foundation-20261116T084657Z) with only the Coordinator
+    image changed (Specialist digests unchanged). Rollback: IMG-AGENTS-ROLLBACK.
+G7  Integrated acceptance (typed fraud/drift/combined, NL fraud/drift, negatives, tracing, metrics, bounded load).
+G8  Sleep/wake regression: record-manifest -> KEDA-aware guarded sleep -> wake-full --nodes 5 with the NEW manifest ->
+    verify --expect awake (exact) -> smoke + worker registry check (no stale workers).
+G9  Final: record-manifest -> KEDA-aware guarded sleep (CLOUD_LAB_GUARDED_SLEEP_APPROVAL and
+    CLOUD_LAB_KEDA_PAUSE_APPROVAL = ewallet-dev:p2-foundation-20261116T084657Z, --also-approve ewallet-mcp/feature-rag-mcp) -> verify sleep -> remove /32.
+DECISION ewallet-llm-gpu (P3 finished 2026-11-08, GPU host destroyed): the llm-gpu-router chart hard-codes replicas 1,
+    so 'scaled to 0' is Helm drift. Option U: export helm values/manifest (no Secret values) then
+    helm uninstall llm-gpu-router + delete the agentgateway-staging Deployment's owner release, namespace kept or deleted
+    per owner. Option K: keep at 0, recorded as accepted drift in the new recovery manifest.
+NOT IN SCOPE (unchanged): B′ ScaledObject, PKG-P3, KEDA watch for ewallet-sandbox, WorkerPool scaling ownership,
+    Specialist Deployment deletion, legacy credential rotation, registry republish, owner Evidence Replay, merge to main.

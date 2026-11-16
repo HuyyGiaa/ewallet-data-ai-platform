@@ -1,0 +1,2 @@
+NAME          	NAMESPACE      	REVISION	UPDATED                                	STATUS  	CHART               	APP VERSION        
+llm-gpu-router	ewallet-llm-gpu	2       	2026-11-08 21:03:55.371682704 +0700 +07	deployed	llm-gpu-router-0.1.0	llm-d-router-v1.0.0

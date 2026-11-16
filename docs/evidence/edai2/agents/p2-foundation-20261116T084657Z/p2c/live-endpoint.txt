@@ -1,0 +1,1 @@
+http://otel-collector.ewallet-agents.svc.cluster.local:4317

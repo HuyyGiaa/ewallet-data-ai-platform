@@ -1,0 +1,37 @@
+
+==================== 11:16:41Z  E2E nl-fraud  request_id replay-nl-fraud-111641  (Coordinator -> A2A Gateway -> Sandbox Specialist -> MCP Gateway -> backend) ====================
+state=completed  elapsed=57.424 s
+**Kết quả điều tra gian lận**
+
+- Giao dịch `dc58ff4e-b5f7-4486-b1f8-4c31383741a9`: payment, 275465.53 VND, kênh app, thời điểm 2026-06-01T00:00:00+00:00
+- Mô hình `fraud-detector` v1: fraud_probability = 0.0639895560144887, dự đoán = 0 (không gian lận); feature_timestamp 2026-05-31T23:59:56+00:00
+- Feature từ Feast online store:
+  - `account_behavior__account_tx_count_1h` = 0 (event_timestamp 2026-05-31T23:59:56+00:00)
+  - `account_behavior__account_tx_count_24h` = 0 (event_timestamp 2026-05-31T23:59:56+00:00)
+  - `merchant_behavior__merchant_tx_count_24h` = 6 (event_timestamp 2026-05-31T23:59:56+00:00)
+  - `user_behavior__user_avg_amount_30d` = 474960.33 (event_timestamp 2026-05-31T23:59:56+00:00)
+- Chính sách liên quan (trích dẫn từ RAG):
+  1. `policy-payment-anomaly` / `policy-payment-anomaly:0000` (score 0.49425804103295834, repo://data/llm_agent/rag/fraud-policy-v1/policy-payment-anomaly.md)
+  2. `policy-account-takeover` / `policy-account-takeover:0000` (score 0.4664269647229036, repo://data/llm_agent/rag/fraud-policy-v1/policy-account-takeover.md)
+  3. `policy-account-takeover` / `policy-account-takeover:0001` (score 0.4522020703117881, repo://data/llm_agent/rag/fraud-policy-v1/policy-account-takeover.md)
+
+Trạng thái: `ok` · request_id `nl-d1abaa83322c2a338b56c6ea3e837cd6` · LLM chọn công cụ `fraud-evidence` (695+264 token) · nl-intake/v1
+
+_Các giá trị được sao chép nguyên văn từ bằng chứng đã xác thực của Specialist (Feast, KServe, RAG); LLM chỉ dùng để chọn công cụ v
+{"status": "ok", "contract_version": "g3-orchestration/v1", "fraud_score": {"feature_timestamp": "2026-05-31T23:59:56+00:00", "fraud_prediction": 0, "fraud_probability": 0.0639895560144887, "model_input_schema_sha256": "03c0ea040c59dd5bafd7e649a7cc8067b93f1971f8b0d3dfb2d3571268c43176", "model_name": "fraud-detector", "model_version": "1", "transaction_id": "dc58ff4e-b5f7-4486-b1f8-4c31383741a9"}, "features": {"account_behavior__account_tx_count_1h": {"event_timestamp": "2026-05-31T23:59:56+00:00", "value": 0}, "account_behavior__account_tx_count_24h": {"event_timestamp": "2026-05-31T23:59:56+00:00", "value": 0}, "merchant_behavior__merchant_tx_count_24h": {"event_timestamp": "2026-05-31T23:59:56+00:00", "value": 6}, "user_behavior__user_avg_amount_30d": {"event_timestamp": "2026-05-31T23:59:56+00:00", "value": 474960.33}}, "unavailable": []}
+
+==================== 11:17:38Z  HOPS for nl-fraud (logs since 2026-11-16T11:16:41Z) ====================
+-- Coordinator (A2A Gateway sandbox route, LLM Gateway for NL)
+2026-11-16 11:17:24,523 - httpx - INFO - HTTP Request: POST http://agentgateway.ewallet-agents.svc.cluster.local:3000/v1/chat/completions "HTTP/1.1 200 OK"
+2026-11-16 11:17:38,539 - httpx - INFO - HTTP Request: POST http://a2a-gateway.ewallet-agents.svc.cluster.local:8083/api/a2a-sandboxes/ewallet-sandbox/feature-rag-specialist/ "HTTP/1.1 200 OK"
+2026-11-16 11:17:38,547 - ewallet.agent.audit - INFO - coordinator.task_completed request_id=nl-d1abaa83322c2a338b56c6ea3e837cd6 task_id=65d17229-388a-418c-bd9d-f5c147c477f4 mode=natural-language status=ok duration_ms=57
+-- A2A Gateway routes
+      1 "route":"default/sandbox-feature-rag-specialist"
+-- MCP servers (actor_id = the Sandbox identity's credential subject)
+"actor_id": "sandbox-feature-rag" "status": "ok" "tool_name": "feature_lookup" "trace_id": "96da34b5b5811705176e5f167e221bd4" "actor_id": "sandbox-feature-rag" "status": "ok" "tool_name": "fraud_scoring" "trace_id": "96da34b5b5811705176e5f167e221bd4" "actor_id": "sandbox-feature-rag" "status": "ok" "tool_name": "knowledge_search" "trace_id": "96da34b5b5811705176e5f167e221bd4"
+-- Deployment Specialists must show no task for this request (0 = no fallback)
+pod/drift-specialist-6f7948f895-cw9dd 0
+pod/drift-specialist-6f7948f895-zlqnv 0
+pod/feature-rag-specialist-7c5f74d545-fzsxf 0
+pod/feature-rag-specialist-7c5f74d545-mjp6q 0
+saved under /home/huyy-giaa/ewallet-evidence/agents/phase2/p2-foundation-20261116T084657Z/acceptance2/e2e/replay-nl-fraud-111641-*

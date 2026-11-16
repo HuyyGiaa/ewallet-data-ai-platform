@@ -1,0 +1,18 @@
+{
+ "jsonrpc": "2.0",
+ "id": "replay-nl-drift-130841",
+ "method": "message/send",
+ "params": {
+  "message": {
+   "role": "user",
+   "messageId": "replay-nl-drift-130841",
+   "contextId": "dec66048-5880-4e05-bfee-2e2b0ecbbbc1",
+   "parts": [
+    {
+     "kind": "text",
+     "text": "Phân tích drift của account_behavior__account_tx_count_1h so với baseline bl-r5gb-202604.account_tx_count_1h trong window 2026-05-01T00:00:00Z to 2026-05-31T00:00:00Z."
+    }
+   ]
+  }
+ }
+}

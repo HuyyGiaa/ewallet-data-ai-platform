@@ -1,0 +1,271 @@
++ patch -p1 --forward --batch -i /home/huyy-giaa/Develop/ewallet-data-ai-platform/infra/kubernetes/kagent-pilot/patches/substrate-0.0.9-resume-recovery.patch
+patching file cmd/ateapi/internal/controlapi/functional_recovery_test.go
+patching file cmd/ateapi/internal/controlapi/functional_test.go
+patching file cmd/ateapi/internal/controlapi/workflow.go
+patching file cmd/ateapi/internal/controlapi/workflow_resume.go
+patching file cmd/ateom-gvisor/main.go
+patching file cmd/ateom-gvisor/sandbox_teardown.go
+patching file cmd/ateom-gvisor/sandbox_teardown_test.go
++ patch -p1 --forward --batch -i /home/huyy-giaa/Develop/ewallet-data-ai-platform/infra/kubernetes/kagent-pilot/patches/substrate-0.0.9-sandbox-egress-proxy.patch
+patching file cmd/ateom-gvisor/egress_proxy.go
+patching file cmd/ateom-gvisor/egress_proxy_test.go
+patching file cmd/ateom-gvisor/main.go
++ patch -p1 --forward --batch -i /home/huyy-giaa/Develop/ewallet-data-ai-platform/infra/kubernetes/kagent-pilot/patches/substrate-0.0.9-worker-reconcile.patch
+patching file cmd/ateapi/internal/controlapi/functional_test.go
+patching file cmd/ateapi/internal/controlapi/syncer.go
+patching file cmd/ateapi/internal/controlapi/syncer_reconcile_test.go
+patching file cmd/ateapi/internal/controlapi/syncer_test.go
++ git init -q
++ docker run --rm --network host --user 1000:1000 -eGOFLAGS=-mod=mod -eGOTOOLCHAIN=local -e HOME=/tmp -e GOCACHE=/tmp/gocache -e GOPATH=/tmp/gopath -v /home/huyy-giaa/.cache/ewallet-runtime-fix/p2a-build/runtime-fix-dg7n2qhn/substrate-src/substrate-0.0.9:/src -w /src/. golang:1.26.10@sha256:cfa27959837144bf4649802ba38e59daffd0dd2a7994aa83daaf113285b0f551 bash -c go get golang.org/x/net@v0.62.0 google.golang.org/grpc@v1.83.2 && go mod vendor
+go: downloading google.golang.org/grpc v1.83.2
+go: downloading golang.org/x/net v0.62.0
+go: downloading golang.org/x/sys v0.49.0
+go: downloading google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af
+go: downloading google.golang.org/genproto/googleapis/rpc v0.0.0-20260526163538-3dc84a4a5aaa
+go: downloading golang.org/x/text v0.43.0
+go: downloading google.golang.org/genproto v0.0.0-20260319201613-d00831a3d3e7
+go: downloading cel.dev/expr v0.25.2
+go: downloading go.opentelemetry.io/otel/metric v1.44.0
+go: downloading go.opentelemetry.io/otel/sdk v1.44.0
+go: downloading go.opentelemetry.io/contrib/detectors/gcp v1.44.0
+go: downloading golang.org/x/mod v0.41.0
+go: downloading go.opentelemetry.io/otel/trace v1.44.0
+go: downloading golang.org/x/crypto v0.58.0
+go: downloading github.com/spiffe/go-spiffe/v2 v2.7.0
+go: downloading go.opentelemetry.io/otel v1.44.0
+go: downloading github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.33.0
+go: downloading go.opentelemetry.io/otel/sdk/metric v1.44.0
+go: downloading golang.org/x/sync v0.24.0
+go: downloading golang.org/x/term v0.47.0
+go: downloading golang.org/x/tools v0.51.0
+go: downloading google.golang.org/genproto/googleapis/api v0.0.0-20260526163538-3dc84a4a5aaa
+go: upgraded cel.dev/expr v0.25.1 => v0.25.2
+go: upgraded github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.31.0 => v1.33.0
+go: upgraded github.com/spiffe/go-spiffe/v2 v2.6.0 => v2.7.0
+go: upgraded go.opentelemetry.io/contrib/detectors/gcp v1.42.0 => v1.44.0
+go: upgraded go.opentelemetry.io/otel v1.43.0 => v1.44.0
+go: upgraded go.opentelemetry.io/otel/metric v1.43.0 => v1.44.0
+go: upgraded go.opentelemetry.io/otel/sdk v1.43.0 => v1.44.0
+go: upgraded go.opentelemetry.io/otel/sdk/metric v1.43.0 => v1.44.0
+go: upgraded go.opentelemetry.io/otel/trace v1.43.0 => v1.44.0
+go: upgraded golang.org/x/crypto v0.52.0 => v0.58.0
+go: upgraded golang.org/x/net v0.55.0 => v0.62.0
+go: upgraded golang.org/x/sync v0.20.0 => v0.24.0
+go: upgraded golang.org/x/sys v0.45.0 => v0.49.0
+go: upgraded golang.org/x/term v0.43.0 => v0.47.0
+go: upgraded golang.org/x/text v0.37.0 => v0.43.0
+go: upgraded google.golang.org/genproto/googleapis/api v0.0.0-20260401024825-9d38bb4040a9 => v0.0.0-20260526163538-3dc84a4a5aaa
+go: upgraded google.golang.org/genproto/googleapis/rpc v0.0.0-20260406210006-6f92a3bedf2d => v0.0.0-20260526163538-3dc84a4a5aaa
+go: upgraded google.golang.org/grpc v1.81.0 => v1.83.2
+go: downloading github.com/myzhan/gomq/zmtp v0.0.0-20220926014711-4eea0d4a1e75
+go: downloading cloud.google.com/go/storage v1.62.1
+go: downloading github.com/google/uuid v1.6.0
+go: downloading k8s.io/api v0.36.1
+go: downloading github.com/google/go-containerregistry v0.21.5
+go: downloading github.com/redis/go-redis/v9 v9.18.0
+go: downloading k8s.io/apimachinery v0.36.1
+go: downloading github.com/spf13/pflag v1.0.10
+go: downloading go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.68.0
+go: downloading golang.org/x/oauth2 v0.36.0
+go: downloading k8s.io/utils v0.0.0-20260319190234-28399d86e0b5
+go: downloading k8s.io/client-go v0.36.1
+go: downloading github.com/myzhan/gomq v0.0.0-20220926014711-4eea0d4a1e75
+go: downloading sigs.k8s.io/controller-runtime v0.24.1
+go: downloading github.com/alicebob/miniredis/v2 v2.37.0
+go: downloading github.com/aws/aws-sdk-go-v2/config v1.32.17
+go: downloading github.com/aws/aws-sdk-go-v2/service/s3 v1.101.0
+go: downloading github.com/opencontainers/runtime-spec v1.3.0
+go: downloading google.golang.org/api v0.274.0
+go: downloading github.com/google/go-cmp v0.7.0
+go: downloading github.com/aws/aws-sdk-go-v2 v1.41.7
+go: downloading github.com/spf13/cobra v1.10.2
+go: downloading cloud.google.com/go v0.123.0
+go: downloading github.com/klauspost/compress v1.18.5
+go: downloading cloud.google.com/go/compute/metadata v0.9.0
+go: downloading github.com/envoyproxy/go-control-plane/envoy v1.37.0
+go: downloading github.com/google/nftables v0.3.0
+go: downloading github.com/containerd/ttrpc v1.2.8
+go: downloading github.com/pelletier/go-toml/v2 v2.4.0
+go: downloading github.com/hashicorp/go-reap v0.0.0-20260220095743-4e27870b4f51
+go: downloading github.com/vishvananda/netlink v1.3.1
+go: downloading github.com/vishvananda/netns v0.0.5
+go: downloading github.com/myzhan/boomer v1.6.1-0.20250711115830-8a2c7ce4c7b1
+go: downloading go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.65.0
+go: downloading sigs.k8s.io/yaml v1.6.0
+go: downloading github.com/prometheus/client_golang v1.23.2
+go: downloading go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.43.0
+go: downloading go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.43.0
+go: downloading go.opentelemetry.io/otel/exporters/prometheus v0.65.0
+go: downloading go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.43.0
+go: downloading github.com/envoyproxy/go-control-plane v0.14.0
+go: downloading github.com/docker/cli v29.4.0+incompatible
+go: downloading github.com/mitchellh/go-homedir v1.1.0
+go: downloading github.com/opencontainers/go-digest v1.0.0
+go: downloading k8s.io/apiextensions-apiserver v0.36.1
+go: downloading k8s.io/klog/v2 v2.140.0
+go: downloading k8s.io/kube-openapi v0.0.0-20260317180543-43fb72c5454a
+go: downloading sigs.k8s.io/structured-merge-diff/v6 v6.3.2
+go: downloading sigs.k8s.io/randfill v1.0.0
+go: downloading github.com/go-logr/logr v1.4.3
+go: downloading github.com/cespare/xxhash/v2 v2.3.0
+go: downloading github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f
+go: downloading github.com/yuin/gopher-lua v1.1.1
+go: downloading gopkg.in/inf.v0 v0.9.1
+go: downloading github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
+go: downloading github.com/inconshreveable/mousetrap v1.1.0
+go: downloading github.com/evanphx/json-patch/v5 v5.9.11
+go: downloading github.com/go-logr/zapr v1.3.0
+go: downloading go.uber.org/zap v1.27.1
+go: downloading gopkg.in/evanphx/json-patch.v4 v4.13.0
+go: downloading github.com/aws/smithy-go v1.25.1
+go: downloading github.com/aws/aws-sdk-go-v2/credentials v1.19.16
+go: downloading github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.23
+go: downloading github.com/aws/aws-sdk-go-v2/service/signin v1.0.11
+go: downloading github.com/aws/aws-sdk-go-v2/service/sso v1.30.17
+go: downloading github.com/aws/aws-sdk-go-v2/service/sts v1.42.1
+go: downloading github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.21
+go: downloading github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.10
+go: downloading github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.23
+go: downloading github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.24
+go: downloading github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.9
+go: downloading github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.9.15
+go: downloading github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.23
+go: downloading github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.23
+go: downloading cloud.google.com/go/container v1.49.0
+go: downloading cloud.google.com/go/iam v1.9.0
+go: downloading cloud.google.com/go/monitoring v1.24.3
+go: downloading cloud.google.com/go/resourcemanager v1.13.0
+go: downloading cloud.google.com/go/serviceusage v1.14.0
+go: downloading github.com/mdlayher/netlink v1.7.3-0.20250113171957-fbb4dce95f42
+go: downloading cloud.google.com/go/auth v0.19.0
+go: downloading github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric v0.55.0
+go: downloading github.com/googleapis/gax-go/v2 v2.21.0
+go: downloading github.com/containerd/log v0.1.0
+go: downloading github.com/asaskevich/EventBus v0.0.0-20200907212545-49d423059eef
+go: downloading github.com/olekukonko/tablewriter v1.0.8
+go: downloading github.com/shirou/gopsutil v3.21.11+incompatible
+go: downloading github.com/ugorji/go/codec v1.3.1
+go: downloading github.com/zeromq/goczmq v4.1.0+incompatible
+go: downloading github.com/felixge/httpsnoop v1.0.4
+go: downloading go.yaml.in/yaml/v2 v2.4.4
+go: downloading go.opentelemetry.io/proto/otlp v1.10.0
+go: downloading github.com/prometheus/client_model v0.6.2
+go: downloading github.com/prometheus/common v0.67.5
+go: downloading github.com/google/gnostic-models v0.7.0
+go: downloading github.com/prometheus/otlptranslator v1.0.0
+go: downloading golang.org/x/time v0.15.0
+go: downloading github.com/cncf/xds/go v0.0.0-20260202195803-dba9d589def2
+go: downloading github.com/envoyproxy/protoc-gen-validate v1.3.3
+go: downloading github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10
+go: downloading github.com/go-logr/stdr v1.2.2
+go: downloading go.opentelemetry.io/auto/sdk v1.2.1
+go: downloading github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674
+go: downloading github.com/envoyproxy/go-control-plane/ratelimit v0.1.0
+go: downloading github.com/beorn7/perks v1.0.1
+go: downloading github.com/opencontainers/image-spec v1.1.1
+go: downloading k8s.io/streaming v0.36.1
+go: downloading github.com/containerd/stargz-snapshotter/estargz v0.18.2
+go: downloading github.com/prometheus/procfs v0.20.1
+go: downloading sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730
+go: downloading go.uber.org/atomic v1.11.0
+go: downloading github.com/fxamacker/cbor/v2 v2.9.0
+go: downloading github.com/fsnotify/fsnotify v1.9.0
+go: downloading github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
+go: downloading github.com/json-iterator/go v1.1.12
+go: downloading github.com/sirupsen/logrus v1.9.4
+go: downloading go.yaml.in/yaml/v3 v3.0.4
+go: downloading go.uber.org/multierr v1.11.0
+go: downloading github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.23
+go: downloading cloud.google.com/go/longrunning v0.9.0
+go: downloading github.com/mdlayher/socket v0.5.0
+go: downloading github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.55.0
+go: downloading github.com/cenkalti/backoff/v5 v5.0.3
+go: downloading github.com/tklauser/go-sysconf v0.4.0
+go: downloading github.com/mattn/go-runewidth v0.0.19
+go: downloading github.com/olekukonko/errors v1.2.0
+go: downloading github.com/olekukonko/ll v0.1.6
+go: downloading github.com/grpc-ecosystem/grpc-gateway/v2 v2.28.0
+go: downloading github.com/go-openapi/jsonreference v0.21.4
+go: downloading github.com/go-openapi/swag v0.25.4
+go: downloading github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
+go: downloading gomodules.xyz/jsonpatch/v2 v2.4.0
+go: downloading github.com/docker/docker-credential-helpers v0.9.3
+go: downloading github.com/moby/spdystream v0.5.1
+go: downloading github.com/vbatts/tar-split v0.12.2
+go: downloading github.com/x448/float16 v0.8.4
+go: downloading github.com/yusufpapurcu/wmi v1.2.4
+go: downloading github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
+go: downloading github.com/modern-go/reflect2 v1.0.3-0.20250322232337-35a7c28c31ee
+go: downloading github.com/rivo/uniseg v0.2.0
+go: downloading github.com/fatih/color v1.18.0
+go: downloading github.com/clipperhouse/uax29/v2 v2.6.0
+go: downloading github.com/tklauser/numcpus v0.12.0
+go: downloading github.com/go-openapi/jsonpointer v0.22.4
+go: downloading github.com/olekukonko/cat v0.0.0-20250911104152-50322a0618f6
+go: downloading github.com/emicklei/go-restful/v3 v3.13.0
+go: downloading github.com/go-openapi/swag/cmdutils v0.25.4
+go: downloading github.com/go-openapi/swag/conv v0.25.4
+go: downloading github.com/go-openapi/swag/fileutils v0.25.4
+go: downloading github.com/go-openapi/swag/jsonname v0.25.4
+go: downloading github.com/go-openapi/swag/jsonutils v0.25.4
+go: downloading github.com/go-openapi/swag/loading v0.25.4
+go: downloading github.com/go-openapi/swag/mangling v0.25.4
+go: downloading github.com/go-openapi/swag/netutils v0.25.4
+go: downloading github.com/go-openapi/swag/stringutils v0.25.4
+go: downloading github.com/go-openapi/swag/typeutils v0.25.4
+go: downloading github.com/go-openapi/swag/yamlutils v0.25.4
+go: downloading github.com/go-jose/go-jose/v4 v4.1.4
+go: downloading github.com/go-ole/go-ole v1.2.6
+go: downloading github.com/mattn/go-colorable v0.1.14
+go: downloading github.com/mattn/go-isatty v0.0.20
+go: downloading github.com/googleapis/enterprise-certificate-proxy v0.3.14
+go: downloading github.com/google/s2a-go v0.1.9
+go: downloading cloud.google.com/go/auth/oauth2adapt v0.2.8
++ docker run --rm --network host --user 1000:1000 -eGOFLAGS=-mod=vendor -eGOTOOLCHAIN=local -e HOME=/tmp -e GOCACHE=/tmp/gocache -e GOPATH=/tmp/gopath -v /home/huyy-giaa/.cache/ewallet-runtime-fix/p2a-build/runtime-fix-dg7n2qhn/substrate-src/substrate-0.0.9:/src -w /src/. golang:1.26.10@sha256:cfa27959837144bf4649802ba38e59daffd0dd2a7994aa83daaf113285b0f551 bash -c go build ./... && go vet ./cmd/... && go test -race -count=1 ./cmd/ateapi/... ./cmd/atelet/... ./internal/...
+ok  	github.com/agent-substrate/substrate/cmd/ateapi	1.041s
+ok  	github.com/agent-substrate/substrate/cmd/ateapi/internal/controlapi	43.706s
+ok  	github.com/agent-substrate/substrate/cmd/ateapi/internal/credbundle	1.288s
+?   	github.com/agent-substrate/substrate/cmd/ateapi/internal/sessionidentity	[no test files]
+?   	github.com/agent-substrate/substrate/cmd/ateapi/internal/sessionidjwt	[no test files]
+?   	github.com/agent-substrate/substrate/cmd/ateapi/internal/store	[no test files]
+ok  	github.com/agent-substrate/substrate/cmd/ateapi/internal/store/ateredis	1.179s
+?   	github.com/agent-substrate/substrate/cmd/ateapi/internal/store/storetest	[no test files]
+ok  	github.com/agent-substrate/substrate/cmd/ateapi/internal/workercache	1.230s
+ok  	github.com/agent-substrate/substrate/cmd/atelet	1.092s
+ok  	github.com/agent-substrate/substrate/cmd/atelet/internal/ategcs	1.560s
+ok  	github.com/agent-substrate/substrate/cmd/atelet/internal/memorypullcache	1.023s
+ok  	github.com/agent-substrate/substrate/internal/actorlog	1.018s
+ok  	github.com/agent-substrate/substrate/internal/ateapiauth	1.020s
+ok  	github.com/agent-substrate/substrate/internal/ateclient	1.064s
+ok  	github.com/agent-substrate/substrate/internal/ateerrors	1.030s
+ok  	github.com/agent-substrate/substrate/internal/ateinterceptors	1.026s
+ok  	github.com/agent-substrate/substrate/internal/ateompath	1.013s
+?   	github.com/agent-substrate/substrate/internal/benchmarking/boomer/dynconfig	[no test files]
+?   	github.com/agent-substrate/substrate/internal/benchmarking/boomer/glutton	[no test files]
+?   	github.com/agent-substrate/substrate/internal/benchmarking/boomer/metrics	[no test files]
+?   	github.com/agent-substrate/substrate/internal/benchmarking/boomer/trace	[no test files]
+?   	github.com/agent-substrate/substrate/internal/contextlogging	[no test files]
+ok  	github.com/agent-substrate/substrate/internal/e2e	1.055s
+?   	github.com/agent-substrate/substrate/internal/e2e/fixtures/probe	[no test files]
+ok  	github.com/agent-substrate/substrate/internal/e2e/suites/demo	1.048s
+ok  	github.com/agent-substrate/substrate/internal/e2e/suites/example	1.051s
+ok  	github.com/agent-substrate/substrate/internal/e2e/suites/identity	1.048s
+?   	github.com/agent-substrate/substrate/internal/envtestbins	[no test files]
+?   	github.com/agent-substrate/substrate/internal/installdefaults	[no test files]
+?   	github.com/agent-substrate/substrate/internal/k8sjwt	[no test files]
+ok  	github.com/agent-substrate/substrate/internal/localca	1.182s
+ok  	github.com/agent-substrate/substrate/internal/localjwtauthority	1.017s
+?   	github.com/agent-substrate/substrate/internal/proto/ateletpb	[no test files]
+?   	github.com/agent-substrate/substrate/internal/proto/ateompb	[no test files]
+?   	github.com/agent-substrate/substrate/internal/proto/glutton	[no test files]
+ok  	github.com/agent-substrate/substrate/internal/readyz	1.104s
+ok  	github.com/agent-substrate/substrate/internal/resources	1.031s
+ok  	github.com/agent-substrate/substrate/internal/serverboot	1.035s
+?   	github.com/agent-substrate/substrate/internal/version	[no test files]
++ docker run --rm --network host -eGOFLAGS=-mod=vendor -eGOTOOLCHAIN=local -e HOME=/tmp -e GOCACHE=/tmp/gocache -e GOPATH=/tmp/gopath -v /home/huyy-giaa/.cache/ewallet-runtime-fix/p2a-build/runtime-fix-dg7n2qhn/substrate-src/substrate-0.0.9:/src -w /src/. golang:1.26.10@sha256:cfa27959837144bf4649802ba38e59daffd0dd2a7994aa83daaf113285b0f551 bash -c go test -race -count=1 ./cmd/ateom-gvisor/
+ok  	github.com/agent-substrate/substrate/cmd/ateom-gvisor	31.284s
++ docker run --rm --network host --user 1000:1000 -eCGO_ENABLED=0 -eGOOS=linux -eGOARCH=amd64 -eGOAMD64=v1 -eGOFLAGS=-mod=vendor -trimpath -buildvcs=false -eGOTOOLCHAIN=local -e HOME=/tmp -e GOCACHE=/tmp/gocache -e GOPATH=/tmp/gopath -v /home/huyy-giaa/.cache/ewallet-runtime-fix/p2a-build/runtime-fix-dg7n2qhn/substrate-src/substrate-0.0.9:/src -w /src/. golang:1.26.10@sha256:cfa27959837144bf4649802ba38e59daffd0dd2a7994aa83daaf113285b0f551 bash -c go build -ldflags "-X github.com/agent-substrate/substrate/internal/version.Commit=136dbb16c9c36841009d58128e83ca49c552e0f3+ewallet.0291af52 -X github.com/agent-substrate/substrate/internal/version.BuildDate=2026-07-10T15:29:41Z" -o /src/.out/substrate-ateapi ./cmd/ateapi
++ docker build -q -t asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/substrate-ateapi:0.0.9-ewallet.0291af52.d836b5a3 /home/huyy-giaa/.cache/ewallet-runtime-fix/p2a-build/runtime-fix-dg7n2qhn/ctx-substrate-ateapi
+sha256:f51f794685090249f807f3c27e9e97a8f4f9365e073bb1ed40f404873d32e5b1
+/home/huyy-giaa/.cache/ewallet-runtime-fix/p2a-build/image-digests.json
+EXIT=0

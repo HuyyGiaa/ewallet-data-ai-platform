@@ -1,0 +1,396 @@
+2026-11-16T11:11:47Z	INFO	[vulndb] Need to update DB
+2026-11-16T11:11:47Z	INFO	[vulndb] Downloading vulnerability DB...
+2026-11-16T11:11:47Z	INFO	[vulndb] Downloading artifact...	repo="mirror.gcr.io/aquasec/trivy-db:2"
+1.17 MiB / 134.12 MiB [>_____________________________________________________________] 0.87% ? p/s ?6.63 MiB / 134.12 MiB [--->__________________________________________________________] 4.95% ? p/s ?13.13 MiB / 134.12 MiB [----->_______________________________________________________] 9.79% ? p/s ?19.79 MiB / 134.12 MiB [------>________________________________________] 14.76% 31.05 MiB p/s ETA 3s23.08 MiB / 134.12 MiB [-------->______________________________________] 17.21% 31.05 MiB p/s ETA 3s28.73 MiB / 134.12 MiB [---------->____________________________________] 21.42% 31.05 MiB p/s ETA 3s34.17 MiB / 134.12 MiB [----------->___________________________________] 25.48% 30.60 MiB p/s ETA 3s39.66 MiB / 134.12 MiB [------------->_________________________________] 29.57% 30.60 MiB p/s ETA 3s46.17 MiB / 134.12 MiB [---------------->______________________________] 34.43% 30.60 MiB p/s ETA 2s51.12 MiB / 134.12 MiB [----------------->_____________________________] 38.12% 30.44 MiB p/s ETA 2s55.30 MiB / 134.12 MiB [------------------->___________________________] 41.23% 30.44 MiB p/s ETA 2s61.04 MiB / 134.12 MiB [--------------------->_________________________] 45.52% 30.44 MiB p/s ETA 2s67.19 MiB / 134.12 MiB [----------------------->_______________________] 50.10% 30.21 MiB p/s ETA 2s73.17 MiB / 134.12 MiB [------------------------->_____________________] 54.56% 30.21 MiB p/s ETA 2s77.63 MiB / 134.12 MiB [--------------------------->___________________] 57.88% 30.21 MiB p/s ETA 1s82.56 MiB / 134.12 MiB [---------------------------->__________________] 61.56% 29.91 MiB p/s ETA 1s87.45 MiB / 134.12 MiB [------------------------------>________________] 65.20% 29.91 MiB p/s ETA 1s94.25 MiB / 134.12 MiB [--------------------------------->_____________] 70.28% 29.91 MiB p/s ETA 1s101.24 MiB / 134.12 MiB [---------------------------------->___________] 75.49% 29.99 MiB p/s ETA 1s105.76 MiB / 134.12 MiB [------------------------------------>_________] 78.86% 29.99 MiB p/s ETA 0s109.86 MiB / 134.12 MiB [------------------------------------->________] 81.91% 29.99 MiB p/s ETA 0s113.40 MiB / 134.12 MiB [-------------------------------------->_______] 84.55% 29.36 MiB p/s ETA 0s117.37 MiB / 134.12 MiB [---------------------------------------->_____] 87.52% 29.36 MiB p/s ETA 0s122.75 MiB / 134.12 MiB [------------------------------------------>___] 91.53% 29.36 MiB p/s ETA 0s127.01 MiB / 134.12 MiB [------------------------------------------->__] 94.70% 28.93 MiB p/s ETA 0s130.68 MiB / 134.12 MiB [-------------------------------------------->_] 97.44% 28.93 MiB p/s ETA 0s132.30 MiB / 134.12 MiB [--------------------------------------------->] 98.64% 28.93 MiB p/s ETA 0s134.12 MiB / 134.12 MiB [-------------------------------------------->] 100.00% 27.83 MiB p/s ETA 0s134.12 MiB / 134.12 MiB [-------------------------------------------->] 100.00% 27.83 MiB p/s ETA 0s134.12 MiB / 134.12 MiB [-------------------------------------------->] 100.00% 27.83 MiB p/s ETA 0s134.12 MiB / 134.12 MiB [-------------------------------------------->] 100.00% 26.03 MiB p/s ETA 0s134.12 MiB / 134.12 MiB [-------------------------------------------->] 100.00% 26.03 MiB p/s ETA 0s134.12 MiB / 134.12 MiB [-------------------------------------------->] 100.00% 26.03 MiB p/s ETA 0s134.12 MiB / 134.12 MiB [-------------------------------------------->] 100.00% 24.35 MiB p/s ETA 0s134.12 MiB / 134.12 MiB [-------------------------------------------->] 100.00% 24.35 MiB p/s ETA 0s134.12 MiB / 134.12 MiB [-------------------------------------------->] 100.00% 24.35 MiB p/s ETA 0s134.12 MiB / 134.12 MiB [-------------------------------------------->] 100.00% 22.78 MiB p/s ETA 0s134.12 MiB / 134.12 MiB [-------------------------------------------->] 100.00% 22.78 MiB p/s ETA 0s134.12 MiB / 134.12 MiB [-------------------------------------------->] 100.00% 22.78 MiB p/s ETA 0s134.12 MiB / 134.12 MiB [-------------------------------------------->] 100.00% 21.31 MiB p/s ETA 0s134.12 MiB / 134.12 MiB [-------------------------------------------->] 100.00% 21.31 MiB p/s ETA 0s134.12 MiB / 134.12 MiB [-------------------------------------------->] 100.00% 21.31 MiB p/s ETA 0s134.12 MiB / 134.12 MiB [-----------------------------------------------] 100.00% 16.03 MiB p/s 8.6s2026-11-16T11:11:58Z	INFO	[vulndb] Artifact successfully downloaded	repo="mirror.gcr.io/aquasec/trivy-db:2"
+2026-11-16T11:11:58Z	INFO	[vuln] Vulnerability scanning is enabled
+2026-11-16T11:11:58Z	INFO	[secret] Secret scanning is enabled
+2026-11-16T11:11:58Z	INFO	[secret] If your scanning is slow, please try '--scanners vuln' to disable secret scanning
+2026-11-16T11:11:58Z	INFO	[secret] Please see https://trivy.dev/docs/v0.75/guide/scanner/secret#recommendation for faster secret detection
+2026-11-16T11:12:00Z	INFO	Detected OS	family="debian" version="13.5"
+2026-11-16T11:12:00Z	INFO	[debian] Detecting vulnerabilities...	os_version="13" pkg_num=5
+2026-11-16T11:12:00Z	INFO	Number of language-specific files	num=1
+2026-11-16T11:12:00Z	INFO	[gobinary] Detecting vulnerabilities...
+2026-11-16T11:12:00Z	WARN	Using severities from other vendors for some vulnerabilities. Read https://trivy.dev/docs/v0.75/guide/scanner/vulnerability#severity-selection for details.
+The push refers to repository [asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/substrate-ateapi]
+a6561d7a67f6: Waiting
+d6b1b89eccac: Waiting
+2780920e5dbf: Waiting
+250c06f7c38e: Waiting
+99515e7b4d35: Waiting
+47de5dd0b812: Waiting
+bdfd7f7e5bf6: Waiting
+507029607eb6: Waiting
+3214acf345c0: Waiting
+99ba982a9142: Waiting
+b839dfae01f6: Waiting
+ebddc55facdc: Waiting
+c172f21841df: Waiting
+52630fc75a18: Waiting
+fbc71cafb99d: Waiting
+dd64bf2dd177: Waiting
+7c12895b777b: Waiting
+fbc71cafb99d: Waiting
+dd64bf2dd177: Waiting
+7c12895b777b: Waiting
+a6561d7a67f6: Waiting
+d6b1b89eccac: Waiting
+2780920e5dbf: Waiting
+250c06f7c38e: Waiting
+99515e7b4d35: Waiting
+47de5dd0b812: Waiting
+bdfd7f7e5bf6: Waiting
+507029607eb6: Waiting
+3214acf345c0: Waiting
+99ba982a9142: Waiting
+b839dfae01f6: Waiting
+ebddc55facdc: Waiting
+c172f21841df: Waiting
+52630fc75a18: Waiting
+a6561d7a67f6: Waiting
+d6b1b89eccac: Waiting
+2780920e5dbf: Waiting
+250c06f7c38e: Waiting
+99515e7b4d35: Waiting
+47de5dd0b812: Waiting
+bdfd7f7e5bf6: Waiting
+507029607eb6: Waiting
+3214acf345c0: Waiting
+99ba982a9142: Waiting
+b839dfae01f6: Waiting
+ebddc55facdc: Waiting
+c172f21841df: Waiting
+52630fc75a18: Waiting
+fbc71cafb99d: Waiting
+dd64bf2dd177: Waiting
+7c12895b777b: Waiting
+fbc71cafb99d: Waiting
+dd64bf2dd177: Waiting
+7c12895b777b: Waiting
+a6561d7a67f6: Waiting
+d6b1b89eccac: Waiting
+2780920e5dbf: Waiting
+250c06f7c38e: Waiting
+99515e7b4d35: Waiting
+47de5dd0b812: Waiting
+bdfd7f7e5bf6: Waiting
+507029607eb6: Waiting
+3214acf345c0: Waiting
+99ba982a9142: Waiting
+b839dfae01f6: Waiting
+ebddc55facdc: Waiting
+c172f21841df: Waiting
+52630fc75a18: Waiting
+dd64bf2dd177: Waiting
+7c12895b777b: Waiting
+a6561d7a67f6: Waiting
+d6b1b89eccac: Waiting
+2780920e5dbf: Waiting
+250c06f7c38e: Waiting
+99515e7b4d35: Waiting
+47de5dd0b812: Waiting
+bdfd7f7e5bf6: Waiting
+507029607eb6: Waiting
+3214acf345c0: Waiting
+99ba982a9142: Waiting
+b839dfae01f6: Waiting
+ebddc55facdc: Waiting
+c172f21841df: Waiting
+52630fc75a18: Waiting
+fbc71cafb99d: Waiting
+c172f21841df: Waiting
+52630fc75a18: Waiting
+fbc71cafb99d: Waiting
+dd64bf2dd177: Waiting
+7c12895b777b: Waiting
+a6561d7a67f6: Waiting
+d6b1b89eccac: Waiting
+2780920e5dbf: Waiting
+250c06f7c38e: Waiting
+99515e7b4d35: Waiting
+47de5dd0b812: Waiting
+bdfd7f7e5bf6: Waiting
+507029607eb6: Waiting
+3214acf345c0: Waiting
+99ba982a9142: Waiting
+b839dfae01f6: Waiting
+ebddc55facdc: Waiting
+99ba982a9142: Waiting
+b839dfae01f6: Waiting
+ebddc55facdc: Waiting
+c172f21841df: Waiting
+52630fc75a18: Waiting
+fbc71cafb99d: Waiting
+dd64bf2dd177: Waiting
+7c12895b777b: Waiting
+a6561d7a67f6: Waiting
+d6b1b89eccac: Waiting
+2780920e5dbf: Waiting
+250c06f7c38e: Waiting
+99515e7b4d35: Waiting
+47de5dd0b812: Waiting
+bdfd7f7e5bf6: Waiting
+507029607eb6: Waiting
+3214acf345c0: Waiting
+a6561d7a67f6: Waiting
+d6b1b89eccac: Waiting
+2780920e5dbf: Waiting
+250c06f7c38e: Waiting
+99515e7b4d35: Waiting
+47de5dd0b812: Waiting
+bdfd7f7e5bf6: Waiting
+507029607eb6: Waiting
+3214acf345c0: Waiting
+99ba982a9142: Waiting
+b839dfae01f6: Waiting
+ebddc55facdc: Waiting
+c172f21841df: Waiting
+52630fc75a18: Waiting
+fbc71cafb99d: Waiting
+dd64bf2dd177: Waiting
+7c12895b777b: Waiting
+ebddc55facdc: Waiting
+c172f21841df: Waiting
+52630fc75a18: Waiting
+fbc71cafb99d: Waiting
+dd64bf2dd177: Waiting
+7c12895b777b: Waiting
+a6561d7a67f6: Waiting
+d6b1b89eccac: Waiting
+2780920e5dbf: Waiting
+250c06f7c38e: Waiting
+99515e7b4d35: Waiting
+47de5dd0b812: Waiting
+bdfd7f7e5bf6: Waiting
+507029607eb6: Waiting
+3214acf345c0: Waiting
+99ba982a9142: Waiting
+b839dfae01f6: Waiting
+a6561d7a67f6: Waiting
+d6b1b89eccac: Waiting
+2780920e5dbf: Waiting
+250c06f7c38e: Waiting
+99515e7b4d35: Waiting
+47de5dd0b812: Waiting
+bdfd7f7e5bf6: Waiting
+507029607eb6: Waiting
+3214acf345c0: Waiting
+99ba982a9142: Waiting
+b839dfae01f6: Waiting
+ebddc55facdc: Waiting
+c172f21841df: Waiting
+52630fc75a18: Waiting
+fbc71cafb99d: Waiting
+dd64bf2dd177: Waiting
+7c12895b777b: Waiting
+fbc71cafb99d: Waiting
+dd64bf2dd177: Waiting
+7c12895b777b: Waiting
+a6561d7a67f6: Waiting
+d6b1b89eccac: Waiting
+2780920e5dbf: Waiting
+250c06f7c38e: Waiting
+99515e7b4d35: Waiting
+47de5dd0b812: Waiting
+bdfd7f7e5bf6: Waiting
+507029607eb6: Waiting
+3214acf345c0: Waiting
+99ba982a9142: Waiting
+b839dfae01f6: Waiting
+ebddc55facdc: Waiting
+c172f21841df: Waiting
+52630fc75a18: Waiting
+bdfd7f7e5bf6: Waiting
+507029607eb6: Waiting
+3214acf345c0: Waiting
+99ba982a9142: Waiting
+b839dfae01f6: Waiting
+ebddc55facdc: Waiting
+c172f21841df: Waiting
+52630fc75a18: Waiting
+fbc71cafb99d: Waiting
+dd64bf2dd177: Waiting
+7c12895b777b: Waiting
+a6561d7a67f6: Waiting
+d6b1b89eccac: Waiting
+2780920e5dbf: Waiting
+250c06f7c38e: Waiting
+99515e7b4d35: Waiting
+47de5dd0b812: Waiting
+2780920e5dbf: Waiting
+250c06f7c38e: Waiting
+99515e7b4d35: Waiting
+47de5dd0b812: Waiting
+bdfd7f7e5bf6: Waiting
+507029607eb6: Waiting
+3214acf345c0: Waiting
+99ba982a9142: Waiting
+b839dfae01f6: Waiting
+ebddc55facdc: Waiting
+c172f21841df: Waiting
+52630fc75a18: Waiting
+fbc71cafb99d: Waiting
+dd64bf2dd177: Waiting
+7c12895b777b: Waiting
+a6561d7a67f6: Waiting
+d6b1b89eccac: Waiting
+3214acf345c0: Waiting
+99ba982a9142: Waiting
+b839dfae01f6: Waiting
+ebddc55facdc: Waiting
+c172f21841df: Waiting
+52630fc75a18: Waiting
+fbc71cafb99d: Waiting
+dd64bf2dd177: Waiting
+7c12895b777b: Waiting
+a6561d7a67f6: Waiting
+d6b1b89eccac: Waiting
+2780920e5dbf: Waiting
+250c06f7c38e: Waiting
+99515e7b4d35: Waiting
+47de5dd0b812: Waiting
+bdfd7f7e5bf6: Waiting
+507029607eb6: Waiting
+52630fc75a18: Waiting
+fbc71cafb99d: Waiting
+dd64bf2dd177: Waiting
+7c12895b777b: Waiting
+a6561d7a67f6: Waiting
+d6b1b89eccac: Waiting
+2780920e5dbf: Waiting
+250c06f7c38e: Waiting
+99515e7b4d35: Waiting
+47de5dd0b812: Waiting
+bdfd7f7e5bf6: Waiting
+507029607eb6: Waiting
+3214acf345c0: Waiting
+99ba982a9142: Waiting
+b839dfae01f6: Waiting
+ebddc55facdc: Waiting
+c172f21841df: Waiting
+507029607eb6: Waiting
+3214acf345c0: Waiting
+99ba982a9142: Waiting
+b839dfae01f6: Waiting
+ebddc55facdc: Waiting
+c172f21841df: Waiting
+52630fc75a18: Waiting
+fbc71cafb99d: Waiting
+dd64bf2dd177: Waiting
+7c12895b777b: Waiting
+a6561d7a67f6: Waiting
+d6b1b89eccac: Waiting
+2780920e5dbf: Waiting
+250c06f7c38e: Waiting
+99515e7b4d35: Waiting
+47de5dd0b812: Waiting
+bdfd7f7e5bf6: Waiting
+a6561d7a67f6: Waiting
+d6b1b89eccac: Waiting
+2780920e5dbf: Waiting
+250c06f7c38e: Waiting
+99515e7b4d35: Waiting
+47de5dd0b812: Waiting
+bdfd7f7e5bf6: Waiting
+507029607eb6: Waiting
+3214acf345c0: Waiting
+99ba982a9142: Waiting
+b839dfae01f6: Waiting
+ebddc55facdc: Waiting
+c172f21841df: Waiting
+52630fc75a18: Waiting
+fbc71cafb99d: Waiting
+dd64bf2dd177: Waiting
+7c12895b777b: Waiting
+dd64bf2dd177: Waiting
+7c12895b777b: Waiting
+a6561d7a67f6: Waiting
+d6b1b89eccac: Waiting
+2780920e5dbf: Waiting
+250c06f7c38e: Waiting
+99515e7b4d35: Waiting
+47de5dd0b812: Waiting
+bdfd7f7e5bf6: Waiting
+507029607eb6: Waiting
+3214acf345c0: Waiting
+99ba982a9142: Waiting
+b839dfae01f6: Waiting
+ebddc55facdc: Waiting
+c172f21841df: Waiting
+52630fc75a18: Waiting
+fbc71cafb99d: Waiting
+a6561d7a67f6: Waiting
+d6b1b89eccac: Waiting
+2780920e5dbf: Waiting
+250c06f7c38e: Waiting
+99515e7b4d35: Waiting
+47de5dd0b812: Waiting
+bdfd7f7e5bf6: Waiting
+507029607eb6: Waiting
+3214acf345c0: Waiting
+99ba982a9142: Waiting
+b839dfae01f6: Waiting
+ebddc55facdc: Waiting
+c172f21841df: Waiting
+52630fc75a18: Waiting
+fbc71cafb99d: Waiting
+dd64bf2dd177: Waiting
+7c12895b777b: Waiting
+b839dfae01f6: Waiting
+ebddc55facdc: Layer already exists
+c172f21841df: Waiting
+52630fc75a18: Waiting
+fbc71cafb99d: Waiting
+dd64bf2dd177: Waiting
+7c12895b777b: Waiting
+a6561d7a67f6: Waiting
+d6b1b89eccac: Waiting
+2780920e5dbf: Layer already exists
+250c06f7c38e: Waiting
+99515e7b4d35: Waiting
+47de5dd0b812: Waiting
+bdfd7f7e5bf6: Waiting
+507029607eb6: Waiting
+3214acf345c0: Waiting
+99ba982a9142: Waiting
+d6b1b89eccac: Layer already exists
+250c06f7c38e: Layer already exists
+99515e7b4d35: Layer already exists
+47de5dd0b812: Waiting
+bdfd7f7e5bf6: Layer already exists
+507029607eb6: Layer already exists
+3214acf345c0: Layer already exists
+99ba982a9142: Layer already exists
+b839dfae01f6: Layer already exists
+c172f21841df: Layer already exists
+52630fc75a18: Layer already exists
+fbc71cafb99d: Waiting
+dd64bf2dd177: Layer already exists
+7c12895b777b: Waiting
+a6561d7a67f6: Waiting
+fbc71cafb99d: Waiting
+7c12895b777b: Layer already exists
+47de5dd0b812: Layer already exists
+a6561d7a67f6: Pushed
+fbc71cafb99d: Pushed
+0.0.9-ewallet.0291af52.d836b5a3: digest: sha256:f51f794685090249f807f3c27e9e97a8f4f9365e073bb1ed40f404873d32e5b1 size: 856
+{
+ "git_sha": "49290a0d26a61651e682ffd7a5afdc47298e3c7c",
+ "images": {
+  "substrate-ateapi": {
+   "base": "ghcr.io/kagent-dev/substrate/ateapi@sha256:3c50661b4e7d9e697ada97a97b2a8df563057a2cab5b9e7b0b09060ff80d9e85",
+   "binary_sha256": "3c1f43d136e7d083943414e25bd8a7a1e5a8fa1de594279e2e89cacd16d989c5",
+   "digest_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/substrate-ateapi@sha256:f51f794685090249f807f3c27e9e97a8f4f9365e073bb1ed40f404873d32e5b1",
+   "go_image": "golang:1.26.10@sha256:cfa27959837144bf4649802ba38e59daffd0dd2a7994aa83daaf113285b0f551",
+   "patch_sha256": "0291af52e52d818b552c3f453354523d916f506476bc6eeb86d48290993ef838",
+   "security_bumps": [
+    "golang.org/x/net@v0.62.0",
+    "google.golang.org/grpc@v1.83.2"
+   ],
+   "source_sha256": "e4337e88a7848c59ca2de2b696a2a8a97ecec97eca0531f221ef2f958321dc65",
+   "tag_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/substrate-ateapi:0.0.9-ewallet.0291af52.d836b5a3",
+   "tests": "passed",
+   "upstream": "substrate v0.0.9 (136dbb16c9c36841009d58128e83ca49c552e0f3)"
+  }
+ },
+ "spec_sha256": "50401f16212a0789255c59f87f36917b6a7cbb985c0a73e211791ac05bc4bdfe"
+}

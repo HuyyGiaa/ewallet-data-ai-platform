@@ -1,0 +1,23 @@
+
+==================== 11:03:05Z  E2E nl-fraud  request_id replay-nl-fraud-110305  (Coordinator -> A2A Gateway -> Sandbox Specialist -> MCP Gateway -> backend) ====================
+state=failed  elapsed=80.72 s
+message: {"code":"invalid_a2a_response","coordinator_revision":"programmatic-coordinator/byo-v1","message":"A2A response is incomplete","status":"error"}
+
+==================== 11:04:26Z  HOPS for nl-fraud (logs since 2026-11-16T11:03:05Z) ====================
+-- Coordinator (A2A Gateway sandbox route, LLM Gateway for NL)
+2026-11-16 11:03:05,303 - httpx - INFO - HTTP Request: POST http://a2a-gateway.ewallet-agents.svc.cluster.local:8083/api/a2a-sandboxes/ewallet-sandbox/drift-specialist/ "HTTP/1.1 200 OK"
+2026-11-16 11:03:05,305 - httpx - INFO - HTTP Request: POST http://a2a-gateway.ewallet-agents.svc.cluster.local:8083/api/a2a-sandboxes/ewallet-sandbox/feature-rag-specialist/ "HTTP/1.1 200 OK"
+2026-11-16 11:03:05,307 - ewallet.agent.audit - INFO - coordinator.task_failed request_id=replay-combined-110304 task_id=de9c8c56-ed7f-4205-bc84-e3ce904781dc mode=typed code=specialists_unavailable
+2026-11-16 11:04:26,037 - httpx - INFO - HTTP Request: POST http://agentgateway.ewallet-agents.svc.cluster.local:3000/v1/chat/completions "HTTP/1.1 200 OK"
+2026-11-16 11:04:26,267 - httpx - INFO - HTTP Request: POST http://a2a-gateway.ewallet-agents.svc.cluster.local:8083/api/a2a-sandboxes/ewallet-sandbox/feature-rag-specialist/ "HTTP/1.1 200 OK"
+2026-11-16 11:04:26,271 - ewallet.agent.audit - INFO - coordinator.task_failed request_id=nl-2924c4103ddd0cdb8b008b1789d4a369 task_id=4da58f64-2467-42de-9e41-9912f522a10e mode=natural-language code=invalid_a2a_response
+-- A2A Gateway routes
+      1 "route":"default/sandbox-drift-specialist"
+      2 "route":"default/sandbox-feature-rag-specialist"
+-- MCP servers (actor_id = the Sandbox identity's credential subject)
+-- Deployment Specialists must show no task for this request (0 = no fallback)
+pod/drift-specialist-6f7948f895-cw9dd 0
+pod/drift-specialist-6f7948f895-zlqnv 0
+pod/feature-rag-specialist-7c5f74d545-fzsxf 0
+pod/feature-rag-specialist-7c5f74d545-mjp6q 0
+saved under /home/huyy-giaa/ewallet-evidence/agents/phase2/p2-foundation-20261116T084657Z/acceptance/e2e/replay-nl-fraud-110305-*

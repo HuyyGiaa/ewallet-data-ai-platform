@@ -1,0 +1,16 @@
+ate-api-server-deployment-749c44fcb8-xf2q9 Running gke-ewallet-dev-cpu-pool-58daed59-qsct
+ate-controller-6bcb5b4bf7-mbvsk Running gke-ewallet-dev-cpu-pool-58daed59-qsct
+atelet-84tk2 Running gke-ewallet-dev-cpu-pool-58daed59-s9v3
+atelet-92685 Running gke-ewallet-dev-cpu-pool-58daed59-f4fh
+atelet-ghxq8 Running gke-ewallet-dev-cpu-pool-58daed59-0m1n
+atelet-h5hxl Running gke-ewallet-dev-cpu-pool-58daed59-1t75
+atelet-ssznh Running gke-ewallet-dev-cpu-pool-58daed59-qsct
+atenet-router-85b65959f5-xp7t4 Running gke-ewallet-dev-cpu-pool-58daed59-qsct
+dns-669f5bf88b-ggrfq Running gke-ewallet-dev-cpu-pool-58daed59-qsct
+rustfs-5587886f5c-zmnzf Running gke-ewallet-dev-cpu-pool-58daed59-f4fh
+valkey-cluster-0 Running gke-ewallet-dev-cpu-pool-58daed59-f4fh
+valkey-cluster-1 Running gke-ewallet-dev-cpu-pool-58daed59-f4fh
+valkey-cluster-2 Running gke-ewallet-dev-cpu-pool-58daed59-f4fh
+valkey-cluster-3 Running gke-ewallet-dev-cpu-pool-58daed59-f4fh
+valkey-cluster-4 Running gke-ewallet-dev-cpu-pool-58daed59-f4fh
+valkey-cluster-5 Running gke-ewallet-dev-cpu-pool-58daed59-f4fh

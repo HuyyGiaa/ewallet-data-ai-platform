@@ -1,0 +1,17 @@
+{
+  "out": "/home/huyy-giaa/ewallet-evidence/agents/phase2/p2-foundation-20261116T084657Z/final-sleep/recovery-manifest",
+  "purpose": "Recovery manifest recorded by cloud_lab record-manifest on the awake cluster: the replicas the next wake restores and verify --expect awake checks. Holds no Secret values or env.",
+  "project": "ewallet-data-ai-platform-hg26",
+  "cluster": "ewallet-dev",
+  "location": "asia-southeast1-b",
+  "node_pool": "cpu-pool",
+  "campaign": "p2-foundation-20261116T084657Z",
+  "recorded_at": "2026-11-16T13:10:48Z",
+  "source_commit": "ba1a94076e3894d8f76fa36309824d9ce412807d",
+  "pool_vms": 5,
+  "workloads": 80,
+  "not_ready_at_record": [
+    "kubeflow/ml-pipeline-persistenceagent",
+    "kubeflow/ml-pipeline-scheduledworkflow"
+  ]
+}

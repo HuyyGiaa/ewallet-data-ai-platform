@@ -1,0 +1,8 @@
+nodeSelector None
+affinity null
+tolerations None
+pc None
+runtimeClass None
+hostNetwork None
+init []
+updateStrategy {'rollingUpdate': {'maxSurge': 0, 'maxUnavailable': 1}, 'type': 'RollingUpdate'}

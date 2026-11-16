@@ -1,0 +1,1 @@
+2026-11-16T09:33:22Z   FailedScheduling   0/5 nodes are available: 1 Insufficient cpu, 4 node(s) didn't satisfy plugin(s) [NodeAffinity]. no new claims to deallocate, preemption: 0/5 nodes are available: 1 No preemption victims found for incoming pod, 4 Preemption is not helpful for scheduling.

@@ -1,0 +1,192 @@
+2026-11-16T09:45:35Z	INFO	[vulndb] Need to update DB
+2026-11-16T09:45:35Z	INFO	[vulndb] Downloading vulnerability DB...
+2026-11-16T09:45:35Z	INFO	[vulndb] Downloading artifact...	repo="mirror.gcr.io/aquasec/trivy-db:2"
+573.02 KiB / 134.12 MiB [>___________________________________________________________] 0.42% ? p/s ?1.54 MiB / 134.12 MiB [>_____________________________________________________________] 1.15% ? p/s ?3.27 MiB / 134.12 MiB [->____________________________________________________________] 2.44% ? p/s ?4.86 MiB / 134.12 MiB [->_______________________________________________] 3.62% 7.16 MiB p/s ETA 18s6.51 MiB / 134.12 MiB [-->______________________________________________] 4.86% 7.16 MiB p/s ETA 17s8.19 MiB / 134.12 MiB [-->______________________________________________] 6.11% 7.16 MiB p/s ETA 17s9.54 MiB / 134.12 MiB [--->_____________________________________________] 7.11% 7.20 MiB p/s ETA 17s11.18 MiB / 134.12 MiB [---->___________________________________________] 8.34% 7.20 MiB p/s ETA 17s12.86 MiB / 134.12 MiB [---->___________________________________________] 9.58% 7.20 MiB p/s ETA 16s14.54 MiB / 134.12 MiB [----->_________________________________________] 10.84% 7.27 MiB p/s ETA 16s16.22 MiB / 134.12 MiB [----->_________________________________________] 12.09% 7.27 MiB p/s ETA 16s17.74 MiB / 134.12 MiB [------>________________________________________] 13.23% 7.27 MiB p/s ETA 16s19.43 MiB / 134.12 MiB [------>________________________________________] 14.49% 7.33 MiB p/s ETA 15s21.06 MiB / 134.12 MiB [------->_______________________________________] 15.70% 7.33 MiB p/s ETA 15s22.70 MiB / 134.12 MiB [------->_______________________________________] 16.92% 7.33 MiB p/s ETA 15s24.44 MiB / 134.12 MiB [-------->______________________________________] 18.22% 7.40 MiB p/s ETA 14s26.53 MiB / 134.12 MiB [--------->_____________________________________] 19.78% 7.40 MiB p/s ETA 14s28.45 MiB / 134.12 MiB [--------->_____________________________________] 21.21% 7.40 MiB p/s ETA 14s30.47 MiB / 134.12 MiB [---------->____________________________________] 22.72% 7.57 MiB p/s ETA 13s32.48 MiB / 134.12 MiB [----------->___________________________________] 24.21% 7.57 MiB p/s ETA 13s34.48 MiB / 134.12 MiB [------------>__________________________________] 25.71% 7.57 MiB p/s ETA 13s36.20 MiB / 134.12 MiB [------------>__________________________________] 26.99% 7.69 MiB p/s ETA 12s38.17 MiB / 134.12 MiB [------------->_________________________________] 28.46% 7.69 MiB p/s ETA 12s40.14 MiB / 134.12 MiB [-------------->________________________________] 29.93% 7.69 MiB p/s ETA 12s42.12 MiB / 134.12 MiB [-------------->________________________________] 31.40% 7.84 MiB p/s ETA 11s44.05 MiB / 134.12 MiB [--------------->_______________________________] 32.84% 7.84 MiB p/s ETA 11s45.47 MiB / 134.12 MiB [--------------->_______________________________] 33.91% 7.84 MiB p/s ETA 11s46.89 MiB / 134.12 MiB [---------------->______________________________] 34.96% 7.84 MiB p/s ETA 11s48.96 MiB / 134.12 MiB [----------------->_____________________________] 36.51% 7.84 MiB p/s ETA 10s51.06 MiB / 134.12 MiB [----------------->_____________________________] 38.07% 7.84 MiB p/s ETA 10s53.15 MiB / 134.12 MiB [------------------>____________________________] 39.63% 8.01 MiB p/s ETA 10s55.12 MiB / 134.12 MiB [------------------->____________________________] 41.10% 8.01 MiB p/s ETA 9s57.16 MiB / 134.12 MiB [-------------------->___________________________] 42.62% 8.01 MiB p/s ETA 9s59.23 MiB / 134.12 MiB [--------------------->__________________________] 44.16% 8.15 MiB p/s ETA 9s61.14 MiB / 134.12 MiB [--------------------->__________________________] 45.59% 8.15 MiB p/s ETA 8s62.93 MiB / 134.12 MiB [---------------------->_________________________] 46.93% 8.15 MiB p/s ETA 8s64.56 MiB / 134.12 MiB [----------------------->________________________] 48.14% 8.19 MiB p/s ETA 8s66.44 MiB / 134.12 MiB [----------------------->________________________] 49.54% 8.19 MiB p/s ETA 8s68.59 MiB / 134.12 MiB [------------------------>_______________________] 51.14% 8.19 MiB p/s ETA 7s70.70 MiB / 134.12 MiB [------------------------->______________________] 52.72% 8.33 MiB p/s ETA 7s72.76 MiB / 134.12 MiB [-------------------------->_____________________] 54.25% 8.33 MiB p/s ETA 7s74.83 MiB / 134.12 MiB [-------------------------->_____________________] 55.79% 8.33 MiB p/s ETA 7s76.93 MiB / 134.12 MiB [--------------------------->____________________] 57.36% 8.46 MiB p/s ETA 6s79.01 MiB / 134.12 MiB [---------------------------->___________________] 58.91% 8.46 MiB p/s ETA 6s80.66 MiB / 134.12 MiB [---------------------------->___________________] 60.14% 8.46 MiB p/s ETA 6s82.13 MiB / 134.12 MiB [----------------------------->__________________] 61.24% 8.47 MiB p/s ETA 6s84.24 MiB / 134.12 MiB [------------------------------>_________________] 62.81% 8.47 MiB p/s ETA 5s86.26 MiB / 134.12 MiB [------------------------------>_________________] 64.32% 8.47 MiB p/s ETA 5s87.77 MiB / 134.12 MiB [------------------------------->________________] 65.44% 8.53 MiB p/s ETA 5s89.71 MiB / 134.12 MiB [-------------------------------->_______________] 66.89% 8.53 MiB p/s ETA 5s91.45 MiB / 134.12 MiB [-------------------------------->_______________] 68.19% 8.53 MiB p/s ETA 5s93.08 MiB / 134.12 MiB [--------------------------------->______________] 69.41% 8.55 MiB p/s ETA 4s94.30 MiB / 134.12 MiB [--------------------------------->______________] 70.31% 8.55 MiB p/s ETA 4s95.58 MiB / 134.12 MiB [---------------------------------->_____________] 71.27% 8.55 MiB p/s ETA 4s97.06 MiB / 134.12 MiB [---------------------------------->_____________] 72.37% 8.43 MiB p/s ETA 4s98.75 MiB / 134.12 MiB [----------------------------------->____________] 73.63% 8.43 MiB p/s ETA 4s100.56 MiB / 134.12 MiB [----------------------------------->___________] 74.98% 8.43 MiB p/s ETA 3s102.00 MiB / 134.12 MiB [----------------------------------->___________] 76.06% 8.42 MiB p/s ETA 3s103.93 MiB / 134.12 MiB [------------------------------------>__________] 77.49% 8.42 MiB p/s ETA 3s105.43 MiB / 134.12 MiB [------------------------------------>__________] 78.61% 8.42 MiB p/s ETA 3s107.30 MiB / 134.12 MiB [------------------------------------->_________] 80.01% 8.44 MiB p/s ETA 3s109.16 MiB / 134.12 MiB [-------------------------------------->________] 81.39% 8.44 MiB p/s ETA 2s111.01 MiB / 134.12 MiB [-------------------------------------->________] 82.77% 8.44 MiB p/s ETA 2s112.79 MiB / 134.12 MiB [--------------------------------------->_______] 84.10% 8.49 MiB p/s ETA 2s114.78 MiB / 134.12 MiB [---------------------------------------->______] 85.58% 8.49 MiB p/s ETA 2s116.79 MiB / 134.12 MiB [---------------------------------------->______] 87.08% 8.49 MiB p/s ETA 2s118.22 MiB / 134.12 MiB [----------------------------------------->_____] 88.15% 8.52 MiB p/s ETA 1s120.59 MiB / 134.12 MiB [------------------------------------------>____] 89.92% 8.52 MiB p/s ETA 1s122.44 MiB / 134.12 MiB [------------------------------------------>____] 91.29% 8.52 MiB p/s ETA 1s124.47 MiB / 134.12 MiB [------------------------------------------->___] 92.81% 8.65 MiB p/s ETA 1s126.29 MiB / 134.12 MiB [-------------------------------------------->__] 94.16% 8.65 MiB p/s ETA 0s128.02 MiB / 134.12 MiB [-------------------------------------------->__] 95.45% 8.65 MiB p/s ETA 0s129.82 MiB / 134.12 MiB [--------------------------------------------->_] 96.79% 8.66 MiB p/s ETA 0s131.29 MiB / 134.12 MiB [---------------------------------------------->] 97.89% 8.66 MiB p/s ETA 0s132.81 MiB / 134.12 MiB [---------------------------------------------->] 99.03% 8.66 MiB p/s ETA 0s134.12 MiB / 134.12 MiB [--------------------------------------------->] 100.00% 8.57 MiB p/s ETA 0s134.12 MiB / 134.12 MiB [--------------------------------------------->] 100.00% 8.57 MiB p/s ETA 0s134.12 MiB / 134.12 MiB [--------------------------------------------->] 100.00% 8.57 MiB p/s ETA 0s134.12 MiB / 134.12 MiB [--------------------------------------------->] 100.00% 8.01 MiB p/s ETA 0s134.12 MiB / 134.12 MiB [--------------------------------------------->] 100.00% 8.01 MiB p/s ETA 0s134.12 MiB / 134.12 MiB [--------------------------------------------->] 100.00% 8.01 MiB p/s ETA 0s134.12 MiB / 134.12 MiB [--------------------------------------------->] 100.00% 7.50 MiB p/s ETA 0s134.12 MiB / 134.12 MiB [--------------------------------------------->] 100.00% 7.50 MiB p/s ETA 0s134.12 MiB / 134.12 MiB [--------------------------------------------->] 100.00% 7.50 MiB p/s ETA 0s134.12 MiB / 134.12 MiB [--------------------------------------------->] 100.00% 7.01 MiB p/s ETA 0s134.12 MiB / 134.12 MiB [--------------------------------------------->] 100.00% 7.01 MiB p/s ETA 0s134.12 MiB / 134.12 MiB [--------------------------------------------->] 100.00% 7.01 MiB p/s ETA 0s134.12 MiB / 134.12 MiB [-------------------------------------------------] 100.00% 7.71 MiB p/s 18s2026-11-16T09:45:53Z	INFO	[vulndb] Artifact successfully downloaded	repo="mirror.gcr.io/aquasec/trivy-db:2"
+2026-11-16T09:45:53Z	INFO	[vuln] Vulnerability scanning is enabled
+2026-11-16T09:45:53Z	INFO	[secret] Secret scanning is enabled
+2026-11-16T09:45:53Z	INFO	[secret] If your scanning is slow, please try '--scanners vuln' to disable secret scanning
+2026-11-16T09:45:53Z	INFO	[secret] Please see https://trivy.dev/docs/v0.75/guide/scanner/secret#recommendation for faster secret detection
+2026-11-16T09:45:54Z	INFO	[python] Licenses acquired from one or more METADATA files may be subject to additional terms. Use `--debug` flag to see all affected packages.
+2026-11-16T09:45:55Z	INFO	Detected OS	family="debian" version="13.7"
+2026-11-16T09:45:55Z	INFO	[debian] Detecting vulnerabilities...	os_version="13" pkg_num=87
+2026-11-16T09:45:55Z	INFO	Number of language-specific files	num=1
+2026-11-16T09:45:55Z	INFO	[python-pkg] Detecting vulnerabilities...
+2026-11-16T09:45:55Z	WARN	Using severities from other vendors for some vulnerabilities. Read https://trivy.dev/docs/v0.75/guide/scanner/vulnerability#severity-selection for details.
+
+📣 [34mNotices:[0m
+  - Version 0.76.2 of Trivy is now available, current version is 0.75.0
+
+To suppress version checks, run Trivy scans with the --skip-version-check flag
+
+The push refers to repository [asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator]
+e79d40031064: Waiting
+7c96327fcf8c: Waiting
+590a74e312f6: Waiting
+d9b43ae25ce3: Waiting
+a0842512ff3d: Waiting
+034768b5ff69: Waiting
+206356c42440: Waiting
+a546a81ba946: Waiting
+2d517a4d89f5: Waiting
+f5a6873b128d: Waiting
+618551c27959: Waiting
+0189d7904bb0: Waiting
+8649613c9d5d: Waiting
+90b93dccd534: Waiting
+f0e5b9dc9f75: Waiting
+5acf88e6a87f: Waiting
+f75a79b3d26b: Waiting
+f75a79b3d26b: Waiting
+e79d40031064: Waiting
+7c96327fcf8c: Waiting
+590a74e312f6: Waiting
+d9b43ae25ce3: Waiting
+a0842512ff3d: Waiting
+034768b5ff69: Waiting
+206356c42440: Waiting
+a546a81ba946: Waiting
+2d517a4d89f5: Waiting
+f5a6873b128d: Waiting
+618551c27959: Waiting
+0189d7904bb0: Waiting
+8649613c9d5d: Waiting
+90b93dccd534: Waiting
+f0e5b9dc9f75: Waiting
+5acf88e6a87f: Waiting
+a546a81ba946: Waiting
+2d517a4d89f5: Waiting
+f5a6873b128d: Waiting
+618551c27959: Waiting
+0189d7904bb0: Waiting
+8649613c9d5d: Waiting
+90b93dccd534: Waiting
+f0e5b9dc9f75: Waiting
+5acf88e6a87f: Waiting
+f75a79b3d26b: Waiting
+e79d40031064: Waiting
+7c96327fcf8c: Waiting
+590a74e312f6: Waiting
+d9b43ae25ce3: Waiting
+a0842512ff3d: Waiting
+034768b5ff69: Waiting
+206356c42440: Waiting
+f75a79b3d26b: Waiting
+e79d40031064: Waiting
+7c96327fcf8c: Waiting
+590a74e312f6: Waiting
+d9b43ae25ce3: Waiting
+a0842512ff3d: Waiting
+034768b5ff69: Waiting
+206356c42440: Waiting
+a546a81ba946: Waiting
+2d517a4d89f5: Waiting
+f5a6873b128d: Waiting
+618551c27959: Waiting
+0189d7904bb0: Waiting
+8649613c9d5d: Waiting
+90b93dccd534: Waiting
+f0e5b9dc9f75: Waiting
+5acf88e6a87f: Waiting
+206356c42440: Waiting
+a546a81ba946: Waiting
+2d517a4d89f5: Waiting
+f5a6873b128d: Waiting
+618551c27959: Waiting
+0189d7904bb0: Waiting
+8649613c9d5d: Waiting
+90b93dccd534: Waiting
+f0e5b9dc9f75: Waiting
+5acf88e6a87f: Waiting
+f75a79b3d26b: Waiting
+e79d40031064: Waiting
+7c96327fcf8c: Waiting
+590a74e312f6: Waiting
+d9b43ae25ce3: Waiting
+a0842512ff3d: Waiting
+034768b5ff69: Waiting
+034768b5ff69: Waiting
+206356c42440: Waiting
+a546a81ba946: Waiting
+2d517a4d89f5: Waiting
+f5a6873b128d: Waiting
+618551c27959: Waiting
+0189d7904bb0: Waiting
+8649613c9d5d: Waiting
+90b93dccd534: Waiting
+f0e5b9dc9f75: Waiting
+5acf88e6a87f: Waiting
+f75a79b3d26b: Waiting
+e79d40031064: Waiting
+7c96327fcf8c: Waiting
+590a74e312f6: Waiting
+d9b43ae25ce3: Waiting
+a0842512ff3d: Waiting
+e79d40031064: Waiting
+7c96327fcf8c: Waiting
+590a74e312f6: Waiting
+d9b43ae25ce3: Waiting
+a0842512ff3d: Waiting
+034768b5ff69: Waiting
+206356c42440: Waiting
+a546a81ba946: Waiting
+2d517a4d89f5: Waiting
+f5a6873b128d: Waiting
+618551c27959: Waiting
+0189d7904bb0: Waiting
+8649613c9d5d: Waiting
+90b93dccd534: Waiting
+f0e5b9dc9f75: Waiting
+5acf88e6a87f: Waiting
+f75a79b3d26b: Waiting
+a546a81ba946: Waiting
+2d517a4d89f5: Waiting
+f5a6873b128d: Waiting
+618551c27959: Waiting
+0189d7904bb0: Waiting
+8649613c9d5d: Waiting
+90b93dccd534: Waiting
+f0e5b9dc9f75: Waiting
+5acf88e6a87f: Layer already exists
+f75a79b3d26b: Waiting
+e79d40031064: Waiting
+7c96327fcf8c: Waiting
+590a74e312f6: Waiting
+d9b43ae25ce3: Waiting
+a0842512ff3d: Waiting
+034768b5ff69: Waiting
+206356c42440: Waiting
+f75a79b3d26b: Waiting
+e79d40031064: Waiting
+7c96327fcf8c: Waiting
+590a74e312f6: Waiting
+d9b43ae25ce3: Waiting
+a0842512ff3d: Waiting
+034768b5ff69: Layer already exists
+206356c42440: Layer already exists
+a546a81ba946: Layer already exists
+2d517a4d89f5: Layer already exists
+f5a6873b128d: Waiting
+618551c27959: Waiting
+0189d7904bb0: Waiting
+8649613c9d5d: Layer already exists
+90b93dccd534: Layer already exists
+f0e5b9dc9f75: Layer already exists
+0189d7904bb0: Layer already exists
+f75a79b3d26b: Pushed
+7c96327fcf8c: Pushed
+a0842512ff3d: Pushed
+618551c27959: Pushed
+d9b43ae25ce3: Pushed
+e79d40031064: Pushed
+590a74e312f6: Pushed
+f5a6873b128d: Pushed
+8b43582c97b04e48362b474ff643d0a0fa2d7185: digest: sha256:94a13a8b168881e10fedbad4b5e4816fd8c92c8f987800930827998eb5ba41a9 size: 856
+{
+ "git_sha": "8b43582c97b04e48362b474ff643d0a0fa2d7185",
+ "images": {
+  "g3-byo-coordinator": {
+   "digest_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:94a13a8b168881e10fedbad4b5e4816fd8c92c8f987800930827998eb5ba41a9",
+   "tag_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator:8b43582c97b04e48362b474ff643d0a0fa2d7185"
+  }
+ }
+}

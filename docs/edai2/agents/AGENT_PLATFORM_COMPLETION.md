@@ -19,10 +19,12 @@ This page reports the final GKE integration of the EDAI-2 Agent Platform: campai
 | KEDA Coordinator scaling | **GKE_PASS**: 2→3 at 05:45:51Z, 3→2 at 06:03:08Z; the scale-out pod completed tasks |
 | MCP failover | **GKE_PASS** (2026-11-15 run-04; code unchanged since) |
 | Agent Registry (AGI-13) | **GKE_PASS**: readback 8/8 after the approved publish; no record removed |
-| Distributed tracing (AGI-12) | **GKE_PASS for Sandbox spans**: Sandbox Feature-RAG spans in the Coordinator's trace. One hop gap remains: the kagent controller exports no spans (empty endpoint) |
+| Distributed tracing (AGI-12) | **GKE_PASS**: Sandbox spans in the Coordinator's trace; since Phase 2 (§7) the kagent controller hop too (21 spans in the combined trace) |
 | Security | **GKE_PASS** (unchanged policies; negatives pass) |
 | Agent Fleet (shared WorkerPool) | **GKE_PASS** (2026-11-15/16 runs; fleet image updated, sharing unchanged) |
-| Sleep / wake readiness | **SLEEP_VERIFIED** with the KEDA-aware guarded sleep (§6.4); wake-full unpauses (unit-tested, not yet exercised on GKE) |
+| Sleep / wake readiness | **GKE_PASS** (Phase 2, §7): three guarded sleep/wake cycles; the last wake needed no manual step and passed 5/5 E2E |
+| Substrate worker lifecycle (P2-A) | **GKE_PASS** (§7.1): stale worker records removed at every ateapi start; no `worker pod not found` after the fix |
+| Coordinator Sandbox capacity metrics (P2-D) | **GKE_PASS** (§7.4): counter equals the logged capacity waits; gauge returns to 0 |
 | Natural-language combined prompts | Rejected by design (strict guard, owner decision) |
 
 ## 1. Architecture
@@ -271,3 +273,94 @@ Items 1 and 2, and the capacity part of item 5, are resolved by the final remedi
   - The temporary authorized network was removed afterwards.
 - **Remaining:** the unpause path of `wake-full` is unit-tested only. It runs at the owner's next wake (replay §1),
   which must show `keda_resumed` with the 3 ScaledObjects.
+
+## 7. Phase 2 foundation (`p2-foundation-20261116T084657Z`)
+
+Evidence: `~/ewallet-evidence/agents/phase2/p2-foundation-20261116T084657Z/`, mirrored in
+[`docs/evidence/edai2/agents/p2-foundation-20261116T084657Z/`](../../evidence/edai2/agents/p2-foundation-20261116T084657Z/)
+(`SHA256SUMS.txt`; the exported GPU release values and raw Coordinator logs stay private). Every mutation had its own
+owner approval (`approvals.txt`). B′ was not started: no ScaledObject for the WorkerPool, no PKG-P3, and the KEDA watch
+namespaces are unchanged.
+
+### 7.1 P2-A: Substrate worker registry (`9f20ee96`, image `0.0.9-ewallet.0291af52.d836b5a3`)
+
+- **Defect:** Substrate 0.0.9 removed a worker record only on a pod delete event, and its startup sync only added
+  records. After a sleep every pod was gone, so the records stayed in Valkey and actors were sent to dead pods.
+  On GKE before the fix, the combined, NL fraud and NL drift requests failed at the same seconds as
+  `CallAteletRestore: worker pod not found`.
+- **Fix:** ateapi reconciles the store against the synced worker-pod informer, at startup and every 2 min:
+  - it removes records whose pod is gone, or whose pod has another UID or pool;
+  - it releases their actor the same way a delete event does;
+  - it removes nothing before the informer cache has synced, and never touches a live worker.
+
+  Go tests: 7 new ones. Four of them fail on unpatched code. The full Substrate suite passes with `-race`.
+- **GKE:** rolled out with `runtime_fix.sh substrate` (identity, exact diff = the ateapi image, server dry-run,
+  `--atomic`).
+  - The first start removed 17 stale records (4 `business-agents`, 13 `kagent-pilot`) and kept the 2 live workers.
+  - After each later full sleep/wake it removed 3 stale records (the pods from before the sleep) and registered the
+    new pods.
+  - Not one `worker pod not found` was seen after the fix.
+- **Not run:** the controlled single-worker replacement tests R1/R2 (deleting a worker pod, or deleting one while
+  ateapi is down). The owner did not approve them. All-node replacement by sleep/wake was exercised three times.
+
+### 7.2 P2-B: wake hygiene
+
+- **Recovery manifest** (`8b43582c`): `cloud_lab record-manifest` records the awake cluster before each sleep. It is
+  read-only and refuses a sleeping cluster or a sleep in progress.
+  - The next wake restored the MCP servers to the Helm-declared 2 without a manual step.
+  - `verify --expect awake` passed with its exact comparison on wakes 3 and 4. Phase 1 had failed it: the stale
+    2026-11-06 manifest said 1.
+- **atelet scheduling** (`998c0d2a`):
+  - **Defect, seen on two 5-node wakes:** one atelet stayed Pending on a full node while a Sandbox worker ran
+    there, which gave `found 0 atelet pods on node`.
+  - **Root cause:** atelet does not tolerate `node.kubernetes.io/not-ready:NoSchedule`. The DaemonSet controller
+    therefore created its pod only at node Ready, together with the whole priority-0 backlog.
+  - **Fix:** the PriorityClass `ewallet-substrate-node-agent` (value 100000, `preemptionPolicy: Never`, so it never
+    evicts anything) plus the not-ready toleration. It was applied with `runtime_fix.sh atelet-placement` while the
+    pool was empty, because a live rollout would have stalled on the Pending pod.
+  - **GKE:** on the next two wakes every atelet was created 2–3 s after its node registered and 15–20 s before
+    Ready: 5/5 Running, with no eviction.
+  - WorkerPool 0.0.9 has no podAffinity or topology spread, so workers cannot be tied to atelet. With atelet bound
+    first on every node, any worker placement is served, which also holds for B′ scale-out.
+- **G3 LLM label** (`ba1a9407`):
+  - **Defect:** the wake labelled the first three node names. They were already full (82–99% CPU), so
+    `vllm-primary` stayed Pending.
+  - **Fix:** the label now goes to the nodes with the most free CPU. On wake 4 `vllm-primary` was scheduled at once.
+- **`ewallet-llm-gpu`:** release `llm-gpu-router` (P3, finished 2026-11-08) was uninstalled after its values and
+  manifest were exported. The namespace and the non-Helm `agentgateway-staging` (0 replicas, recorded in the
+  manifest) remain.
+
+### 7.3 P2-C: kagent controller tracing (`e752cc63`)
+
+- **Network** (`tr-agents`): one NetworkPolicy and one Istio ALLOW for `cluster.local/ns/kagent/sa/kagent-controller`
+  to `otel-collector:4317`.
+- **Controller** (`runtime_fix.sh kagent-otel`): the endpoint is now
+  `http://otel-collector.ewallet-agents.svc.cluster.local:4317`. The exact diff is 1 ConfigMap key and the checksum
+  annotation; the image is unchanged.
+- **GKE:** `kagent-controller` appears in Tempo with 21 spans in each combined business trace (wakes 1 and 4), and
+  the `invalid target address` errors stopped.
+
+### 7.4 P2-D: Coordinator Sandbox capacity metrics (`9d206555`, image `g3-byo-coordinator@sha256:94a13a8b…`)
+
+- `ewallet_sandbox_delegations_inflight{specialist}`: one unit per logical delegation, released however it ends.
+- `ewallet_sandbox_admission_waits_total{specialist}`: kagent capacity refusals only.
+- Rolled with the new `img-coordinator` package (`87531452`); only the Coordinator Agent changed.
+- **Bounded load:** 24 typed tasks at concurrency 4.
+  - All 24 completed, with no task failure and no duplicate task id.
+  - The counter reached **16**, equal to the 16 logged `delegation_wait code=sandbox_capacity_exhausted` lines.
+  - There were 40 sends = 24 first sends + 16 resends.
+  - The gauge peaked at 4–5 and returned to 0. The peak of 5 above concurrency 4 is export lag across 3 Coordinator
+    pods during the KEDA scale-out.
+- **Cardinality:** 2 series per Coordinator pod.
+- **KEDA suitability** (evaluation only, B′ not activated): the gauge is a direct demand signal. A B′ trigger
+  should use `sum(ewallet_sandbox_delegations_inflight)` with a short staleness window, since scaled-in pods leave
+  series for up to 5 min. `rate(ewallet_sandbox_admission_waits_total[2m]) > 0` is a good saturation alarm.
+
+### 7.5 Integrated acceptance (wake 4, no manual intervention)
+
+- Typed: fraud `ok`, drift `complete`, combined `complete` with `unavailable: []`.
+- NL: fraud `ok` and drift `complete`.
+- Negatives: 3/3.
+- `verify --expect awake`: no failures.
+- `kagent-controller` spans are in the trace.
+

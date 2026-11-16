@@ -1,0 +1,18 @@
+{
+ "jsonrpc": "2.0",
+ "id": "replay-nl-fraud-130652",
+ "method": "message/send",
+ "params": {
+  "message": {
+   "role": "user",
+   "messageId": "replay-nl-fraud-130652",
+   "contextId": "8639aa22-511e-4db8-8371-66716e58fab1",
+   "parts": [
+    {
+     "kind": "text",
+     "text": "Hãy đánh giá rủi ro gian lận cho giao dịch payment dc58ff4e-b5f7-4486-b1f8-4c31383741a9 (user 55561d92-d042-401c-b02a-b03e3ed280f7, account 2d48f147-f98c-4819-b183-f94ca049c175, device e7765b81-c9f9-4147-aa00-46f34de1d7da, merchant e3e4aced-6b0d-40af-be5c-eef9255204c9, amount 275465.53 VND, channel app, event_timestamp 2026-06-01T00:00:00Z): lấy feature của user/account, gọi mô hình dự đoán gian lận, giải thích mức rủi ro và trích dẫn chính sách liên quan."
+    }
+   ]
+  }
+ }
+}

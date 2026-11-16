@@ -1,0 +1,7 @@
+Release "llm-agent" has been upgraded. Happy Helming!
+NAME: llm-agent
+LAST DEPLOYED: Mon Nov 16 17:02:53 2026
+NAMESPACE: default
+STATUS: deployed
+REVISION: 53
+TEST SUITE: None

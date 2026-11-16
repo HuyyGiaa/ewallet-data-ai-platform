@@ -1,0 +1,58 @@
+{
+  "tool": "feature_lookup",
+  "tools": [
+    "feature_lookup",
+    "fraud_scoring",
+    "knowledge_search"
+  ],
+  "stage": "call",
+  "http_statuses": [
+    200,
+    405,
+    202,
+    200,
+    200,
+    202
+  ],
+  "server": "feature-rag-mcp",
+  "outcome": "rejected",
+  "latency_ms": 394.161,
+  "tool_error_code": "invalid_arguments",
+  "structured_content": {
+    "request_id": "8e1c0a85-e288-445a-b809-a5ed58bfc283",
+    "tool_name": "feature_lookup",
+    "status": "rejected",
+    "result": {
+      "error": {
+        "code": "invalid_arguments",
+        "message": "Tool arguments failed validation",
+        "retryable": false,
+        "details": [
+          {
+            "location": [
+              "feature_names"
+            ],
+            "type": "value_error"
+          }
+        ]
+      }
+    },
+    "versions": {
+      "git_sha": "fd2c49c9c1078724346747e480425cda5e8ac39b",
+      "image_digest": "sha256:0e291f6582c698e3d8bd6ee213d04ca92227f354b4d2021b0cefc1c708d8a5f0",
+      "config_revision": "agi-20261115T145608Z",
+      "prompt_revision": "v2",
+      "model_revision": "fraud-detector/1",
+      "feature_revision": "canonical-100gb-v1/online-20261031-163506",
+      "corpus_revision": "fraud-policy-v1-20261030"
+    },
+    "citations": [],
+    "fallback_used": false
+  },
+  "endpoint": "http://127.0.0.1:18082/feature-rag/mcp",
+  "expect": "ok",
+  "verdict": "FAIL",
+  "reasons": [
+    "observed rejected, expected ok"
+  ]
+}

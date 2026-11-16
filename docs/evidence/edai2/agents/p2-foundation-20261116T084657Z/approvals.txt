@@ -1,0 +1,26 @@
+2026-11-16T09:31:35Z OWNER-APPROVED (AskUserQuestion) for p2-foundation-20261116T084657Z: G1+G2 (temporary /32 existing CIDRs kept + wake-full --nodes 5 + MCP to Helm-declared 2; read-only atelet/PriorityClass + ewallet-llm-gpu investigation), G5+G6 (tr-agents TR-AGENTS:p2-foundation-20261116T084657Z then runtime_fix kagent-otel P2C-KAGENT-OTEL:<context>; push coordinator image + img-agents IMG-AGENTS:p2-foundation-20261116T084657Z coordinator only), G7-G9 (integrated acceptance, one sleep/wake regression with record-manifest, final KEDA-aware guarded sleep ewallet-dev:p2-foundation-20261116T084657Z --also-approve ewallet-mcp/feature-rag-mcp + remove /32). GPU leftovers: uninstall P3 releases in ewallet-llm-gpu after exporting values/manifest (no Secret values), keep namespace. NOT APPROVED: G3+G4 (P2-A substrate image push/upgrade, worker replacement R1/R2).
+2026-11-16T09:32:03Z G1: temporary /32 added (existing 3 CIDRs kept) rc=0
+2026-11-16T09:33:57Z G1: scaled ewallet-mcp MCP Deployments to Helm-declared 2
+2026-11-16T09:42:00Z OWNER-APPROVED F2: delete one kubeflow/ml-pipeline pod on qsct (250m) so the Pending atelet can schedule; no worker/Substrate/Valkey change
+2026-11-16T09:42:02Z F2: deleted pod/ml-pipeline-7bf5bdc78-qwjx9
+2026-11-16T09:42:46Z GPU: exported values/manifest (0 Secrets in release) and helm uninstall llm-gpu-router (namespace and non-Helm agentgateway-staging kept)
+2026-11-16T09:43:20Z NOTE: agi_campaign.sh requires agi-YYYYMMDDTHHMMSSZ; the approved packages TR-AGENTS / IMG-AGENTS for p2-foundation-20261116T084657Z run under the tool alias agi-20261116T084657Z (same timestamp)
+2026-11-16T09:45:58Z G6: pushed scanned coordinator image
+2026-11-16T10:09:22Z G5: tr-agents upgrade rc=0
+2026-11-16T10:40:47Z G5: runtime_fix kagent-otel upgrade rc=0
+2026-11-16T10:53:35Z NOTE: img-agents gate requires all 3 Agents changed; the approved coordinator-only roll (G6) runs as package img-coordinator (commit 87531452), token IMG-COORDINATOR:agi-20261116T084657Z
+2026-11-16T11:00:55Z G6: img-coordinator upgrade rc=0
+2026-11-16T11:11:46Z OWNER-APPROVED (AskUserQuestion) G3 after acceptance evidence (combined/NL fail = worker pod not found): push scanned ateapi image + runtime_fix substrate upgrade RUNTIME_FIX_APPROVAL=PKG-T-SUBSTRATE:<context>. G4 (worker replacement) still NOT approved.
+2026-11-16T11:14:41Z G3: runtime_fix substrate upgrade rc=0
+2026-11-16T11:31:21Z G8: KEDA-aware guarded sleep (regression round 1)
+2026-11-16T11:35:37Z G8: wake-full --nodes 5 with recorded manifest /home/huyy-giaa/ewallet-evidence/agents/phase2/p2-foundation-20261116T084657Z/sleep1/recovery-manifest
+2026-11-16T11:50:22Z OWNER DIRECTIVE: no repeated manual eviction; P2-B needs a durable source-controlled atelet/worker placement fix (PriorityClass eval, placement constraints), verified on GKE incl. sleep/wake without manual intervention; temporary eviction only with separate approval
+2026-11-16T12:06:06Z OWNER-APPROVED (AskUserQuestion) P2-B steps (1)-(5): record-manifest + KEDA-aware guarded sleep; asleep runtime_fix atelet-placement (RUNTIME_FIX_APPROVAL=P2B-ATELET-PLACEMENT:<context>); wake-full --nodes 5 with new manifest, no manual intervention, verify atelets + 5 e2e + worker registry; one more sleep/wake cycle; final guarded sleep + remove /32
+2026-11-16T12:11:39Z P2-B(1): guarded sleep done
+2026-11-16T12:12:51Z P2-B(2): runtime_fix atelet-placement upgrade (asleep) rc=0
+2026-11-16T12:13:01Z P2-B(3): wake-full --nodes 5 with /home/huyy-giaa/ewallet-evidence/agents/phase2/p2-foundation-20261116T084657Z/sleep2/recovery-manifest
+2026-11-16T12:39:43Z wake3 finding: atelet 5/5 bound at node registration (fix works); vllm-primary Pending because the G3 label went to the 3 full nodes (alphabetical); cloud_lab fixed in ba1a9407; acceptance deferred to the approved step-4 cycle (no manual relabel/eviction)
+2026-11-16T12:43:53Z P2-B(4): sleep of the repeat cycle done
+2026-11-16T12:44:25Z P2-B(4): wake-full --nodes 5 (fixed cloud_lab ba1a9407) with /home/huyy-giaa/ewallet-evidence/agents/phase2/p2-foundation-20261116T084657Z/sleep3/recovery-manifest, no manual intervention
+2026-11-16T13:14:27Z P2-B(5)/G9: final KEDA-aware guarded sleep
+2026-11-16T13:15:05Z G9: temporary /32 removed rc=0; authorized networks equal the original 3 CIDRs

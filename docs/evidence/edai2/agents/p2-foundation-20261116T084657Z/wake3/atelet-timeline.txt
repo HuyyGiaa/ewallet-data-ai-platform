@@ -1,0 +1,5 @@
+gke-ewallet-dev-cpu-pool-58daed59-2vmr node_created=2026-11-16T12:13:48Z node_ready=2026-11-16T12:14:02Z atelet_created=2026-11-16T12:13:51Z pc=ewallet-substrate-node-agent/100000
+gke-ewallet-dev-cpu-pool-58daed59-z206 node_created=2026-11-16T12:13:52Z node_ready=2026-11-16T12:14:10Z atelet_created=2026-11-16T12:13:54Z pc=ewallet-substrate-node-agent/100000
+gke-ewallet-dev-cpu-pool-58daed59-94sp node_created=2026-11-16T12:13:44Z node_ready=2026-11-16T12:14:05Z atelet_created=2026-11-16T12:13:47Z pc=ewallet-substrate-node-agent/100000
+gke-ewallet-dev-cpu-pool-58daed59-q9dj node_created=2026-11-16T12:13:48Z node_ready=2026-11-16T12:14:10Z atelet_created=2026-11-16T12:13:51Z pc=ewallet-substrate-node-agent/100000
+gke-ewallet-dev-cpu-pool-58daed59-q3qc node_created=2026-11-16T12:13:45Z node_ready=2026-11-16T12:14:04Z atelet_created=2026-11-16T12:13:47Z pc=ewallet-substrate-node-agent/100000
