@@ -46,6 +46,8 @@ class Cluster:
             return json.dumps({"items": self.scaled_objects})
         if "get deploy,sts" in text:
             return json.dumps({"items": self.workloads})
+        if "get deploy -A" in text:
+            return json.dumps({"items": [w for w in self.workloads if w["kind"] == "Deployment"]})
         if "get pods -A" in text:
             return json.dumps({"items": self.pods})
         if "compute disks list" in text:
@@ -99,7 +101,7 @@ def test_verify_awake_keeps_the_exact_comparison(tmp_path, capsys):
 
     def runner(command):
         text = " ".join(command)
-        if "get deploy,sts" in text:
+        if "get deploy,sts" in text or "get deploy -A" in text:
             return json.dumps({"items": live(mcp=1)})   # one MCP server short of the record
         return Cluster(live())(command)
 
@@ -168,3 +170,83 @@ def test_g3_label_plan_mode_and_ties_are_deterministic():
     assert lab.g3_label_targets(lab.Lab(False, "kc", lambda c: ""), names, 1) == ["node/n-b"], "plan mode reads nothing"
     runner = lambda command: json.dumps({"items": []})
     assert lab.g3_label_targets(lab.Lab(True, "kc", runner), names, 2) == ["node/n-a", "node/n-b"]
+
+
+# ----------------------------------------------------------------------------- B′ WorkerPool support
+
+def pool_owned(name, replicas):
+    w = workload("Deployment", "ewallet-sandbox", name, replicas)
+    w["metadata"]["ownerReferences"] = [{"kind": "WorkerPool", "name": "business-agents"}]
+    return w
+
+
+def test_workerpool_owned_deployments_are_never_recorded_or_verified(tmp_path, capsys):
+    record(Cluster(live() + [pool_owned("business-agents-deployment", 3)]), tmp_path / "m")
+    recorded, _ = lab.read_manifest(tmp_path / "m")
+    assert "ewallet-sandbox/business-agents-deployment" not in {w.key for w in recorded}
+
+    # An older manifest that did record it (at 2) is not enforced against the KEDA-owned value (3).
+    old = json.loads((tmp_path / "m/workloads.json").read_text())
+    old.append({"kind": "Deployment", "namespace": "ewallet-sandbox", "name": "business-agents-deployment", "replicas": 2})
+    (tmp_path / "m/workloads.json").write_text(json.dumps(old))
+    cluster = Cluster(live() + [pool_owned("business-agents-deployment", 3)])
+    assert lab.cmd_verify(lab.Lab(False, "kc", cluster), argparse.Namespace(expect="awake", manifest=tmp_path / "m")) == 0
+    assert json.loads(capsys.readouterr().out)["failures"] == []
+
+
+def so(name, kind="Deployment", target="x", minimum=2, paused=False):
+    ann = {lab.KEDA_PAUSE: "0", lab.PAUSED_BY: "c"} if paused else {}
+    return {"metadata": {"namespace": "ewallet-sandbox", "name": name, "annotations": ann},
+            "spec": {"scaleTargetRef": {"kind": kind, "name": target}, "minReplicaCount": minimum}}
+
+
+def test_workerpool_scaledobjects_are_found_with_their_floor():
+    items = [so("coord"), so("pool", "WorkerPool", "business-agents", 2), so("old", "WorkerPool", "p", 1, paused=True)]
+    assert lab.workerpool_scaledobjects(items) == [("ewallet-sandbox/pool", 2)]
+
+
+class SleepCluster(Cluster):
+    def __init__(self, sos):
+        super().__init__(live(), scaled_objects=sos)
+
+    def __call__(self, command):
+        text = " ".join(command)
+        if "get pdb" in text or "get jobs" in text or "workflows.argoproj.io" in text:
+            self.calls.append(command)
+            return json.dumps({"items": []})
+        if "node-pools list" in text:
+            self.calls.append(command)
+            return lab.NODE_POOL
+        if "node-pools describe" in text:
+            self.calls.append(command)
+            return "{}"
+        return super().__call__(command)
+
+
+def sleep_args(**kw):
+    base = dict(scale_pdb_guarded=False, manifest=None, campaign="bprime-20261116T165353Z", timeout=5, pause_keda=False,
+                also_approve=None, execute=True, confirm_cluster=lab.CLUSTER)
+    base.update(kw)
+    return argparse.Namespace(**base)
+
+
+def test_sleep_refuses_an_unpaused_workerpool_scaledobject_without_approval(monkeypatch):
+    monkeypatch.setenv("CLOUD_LAB_APPROVED", "yes")
+    cluster = SleepCluster([so("pool", "WorkerPool", "business-agents", 2)])
+    with pytest.raises(lab.GateError, match="scale a WorkerPool"):
+        lab.cmd_sleep(lab.Lab(True, "kc", cluster), sleep_args())
+    monkeypatch.setenv(lab.KEDA_APPROVAL_ENV, "ewallet-dev:wrong")
+    with pytest.raises(lab.GateError, match="needs the owner"):
+        lab.cmd_sleep(lab.Lab(True, "kc", cluster), sleep_args(pause_keda=True))
+    assert cluster.mutations() == []
+
+
+def test_sleep_pauses_the_workerpool_at_its_floor_then_resizes(monkeypatch):
+    monkeypatch.setenv("CLOUD_LAB_APPROVED", "yes")
+    monkeypatch.setenv(lab.KEDA_APPROVAL_ENV, "ewallet-dev:bprime-20261116T165353Z")
+    cluster = SleepCluster([so("pool", "WorkerPool", "business-agents", 2)])
+    assert lab.cmd_sleep(lab.Lab(True, "kc", cluster), sleep_args(pause_keda=True)) == 0
+    muts = [" ".join(c) for c in cluster.mutations()]
+    assert any(f"annotate scaledobject pool {lab.KEDA_PAUSE}=2 {lab.PAUSED_BY}=bprime-20261116T165353Z" in m for m in muts)
+    assert "resize" in muts[-1]
+    assert lab.unpause_keda.__doc__  # wake-full unpauses every marked ScaledObject, WorkerPool ones included

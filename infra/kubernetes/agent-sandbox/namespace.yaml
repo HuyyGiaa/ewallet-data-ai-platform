@@ -33,8 +33,13 @@ spec:
   # infra/kubernetes/kagent-pilot/patches/). Only this campaign pool uses it; kagent-pilot keeps
   # the release image.
   ateomImage: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/substrate-ateom-gvisor:0.0.9-ewallet.0291af52.d8d1db43@sha256:68a6f1a8dcbff6aa5456b5480c124a0c914faa632b7ee5d90cdbae5c21207de9
-  # Two warm workers serve every session of both business Specialists (AGS-04).
+  # B′: replicas (required by the CRD) is the creation value only. Once the pool exists, KEDA owns
+  # spec.replicas through /scale (workerpool-scaledobject.yaml, min 2, max 3): never re-apply this
+  # manifest to the live pool; scripts/llm_agent/bprime.sh pool patches only scaleSelector and
+  # ateomImage. scaleSelector exposes the worker pods to the HPA and needs the PKG-P3 CRD patch
+  # (infra/kubernetes/substrate-scale/).
   replicas: 2
+  scaleSelector: ate.dev/worker-pool=business-agents
   sandboxClass: gvisor
   template:
     resources:

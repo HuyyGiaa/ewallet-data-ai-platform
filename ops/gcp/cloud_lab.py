@@ -500,6 +500,24 @@ def cmd_sleep(lab: Lab, args: argparse.Namespace) -> int:
     if blockers and not args.scale_pdb_guarded:
         raise GateError(f"SLEEP_BLOCKED: PDBs would be bypassed: {blockers}; PDB-guarded preparation needs "
                         f"separate owner approval ({GUARDED_APPROVAL_ENV}) and --scale-pdb-guarded")
+    pools = workerpool_scaledobjects(scaled_objects(lab))
+    if pools and not getattr(args, "pause_keda", False):
+        raise GateError(f"SLEEP_BLOCKED: KEDA ScaledObjects {[k for k, _ in pools]} scale a WorkerPool; pausing them at "
+                        f"their floor is a separate owner approval (--pause-keda and {KEDA_APPROVAL_ENV})")
+    if pools and args.execute and os.environ.get(KEDA_APPROVAL_ENV) != f"{CLUSTER}:{args.campaign}":
+        raise GateError(f"--pause-keda needs the owner's {KEDA_APPROVAL_ENV}={CLUSTER}:{args.campaign}")
+    if pools and not CAMPAIGN_ID.fullmatch(args.campaign or ""):
+        raise GateError("--pause-keda needs --campaign")
+    pools_paused: list[str] = []
+    try:
+        for key, floor in pools:
+            set_keda_pause(lab, key, args.campaign, replicas=floor)
+            pools_paused.append(key)
+        if pools:
+            print(json.dumps({"workerpool_keda_pause": dict(pools), "campaign": args.campaign}, indent=2))
+    except subprocess.CalledProcessError:
+        restore_guarded(lab, pools_paused, {})
+        raise
     if blockers:
         approved = require_guarded_approval(args)
         unexpected = sorted(set(blockers) - approved)
@@ -530,7 +548,7 @@ def cmd_sleep(lab: Lab, args: argparse.Namespace) -> int:
                 wait_for_pdbs_released(lab, set(blockers), getattr(args, "timeout", 300))
         except (GateError, subprocess.CalledProcessError):
             print("guarded preparation did not complete: restoring KEDA and replicas", file=sys.stderr)
-            restore_guarded(lab, paused, previous)
+            restore_guarded(lab, paused + pools_paused, previous)
             raise
     lab.mutate(resize_command(0))
     return 0
@@ -542,6 +560,29 @@ def scaled_objects(lab: Lab) -> list[dict[str, Any]]:
         return json.loads(lab.kubectl("get", "scaledobjects.keda.sh", "-A", "-o", "json") or "{}").get("items", [])
     except (subprocess.CalledProcessError, ValueError):
         return []
+
+
+def workerpool_scaledobjects(items: list[dict[str, Any]]) -> list[tuple[str, int]]:
+    """Active (not paused) ScaledObjects that scale a Substrate WorkerPool, with their floor (B′).
+
+    A guarded sleep pauses them at minReplicaCount: KEDA must not resize the pool while the nodes go
+    away, and the wake starts the pool at its baseline. Worker pods drain on SIGTERM (ateom patch).
+    """
+    found = []
+    for item in items:
+        ref = item.get("spec", {}).get("scaleTargetRef", {})
+        if ref.get("kind") != "WorkerPool" or KEDA_PAUSE in (item["metadata"].get("annotations") or {}):
+            continue
+        found.append((f"{item['metadata']['namespace']}/{item['metadata']['name']}", int(item["spec"].get("minReplicaCount", 1))))
+    return sorted(found)
+
+
+def workerpool_owned(lab: Lab) -> set[str]:
+    """Deployments a WorkerPool owns (atecontroller's <pool>-deployment): their replicas follow the
+    WorkerPool, which KEDA owns under B′, so cloud_lab never records, restores or verifies them."""
+    items = json.loads(lab.kubectl("get", "deploy", "-A", "-o", "json"))["items"]
+    return {f"{d['metadata']['namespace']}/{d['metadata']['name']}" for d in items
+            if any(o.get("kind") == "WorkerPool" for o in d["metadata"].get("ownerReferences") or [])}
 
 
 def keda_controllers(items: list[dict[str, Any]], targets: set[str]) -> list[str]:
@@ -557,11 +598,11 @@ def keda_controllers(items: list[dict[str, Any]], targets: set[str]) -> list[str
     return sorted(found)
 
 
-def set_keda_pause(lab: Lab, key: str, campaign: str | None) -> None:
+def set_keda_pause(lab: Lab, key: str, campaign: str | None, replicas: int = 0) -> None:
     """Pause (campaign given) or unpause (None) one ScaledObject; the marker records who paused it."""
     namespace, name = key.split("/", 1)
     if campaign:
-        lab.k_mutate("-n", namespace, "annotate", "scaledobject", name, f"{KEDA_PAUSE}=0", f"{PAUSED_BY}={campaign}",
+        lab.k_mutate("-n", namespace, "annotate", "scaledobject", name, f"{KEDA_PAUSE}={replicas}", f"{PAUSED_BY}={campaign}",
                      "--overwrite")
     else:
         lab.k_mutate("-n", namespace, "annotate", "scaledobject", name, f"{KEDA_PAUSE}-", f"{PAUSED_BY}-")
@@ -634,6 +675,8 @@ def record_manifest(lab: Lab, out: Path, campaign: str, source_commit: str = "",
     workloads = []
     for item in items:
         spec, meta = item.get("spec", {}), item["metadata"]
+        if any(o.get("kind") == "WorkerPool" for o in meta.get("ownerReferences") or []):
+            continue  # B′: replicas follow the WorkerPool (KEDA), never cloud_lab
         containers = spec.get("template", {}).get("spec", {}).get("containers", [])
         workloads.append({
             "kind": item["kind"], "namespace": meta["namespace"], "name": meta["name"],
@@ -701,7 +744,8 @@ def wake(lab: Lab, args: argparse.Namespace, mode: str) -> int:
         names = [f"node/<new-node-{i}>" for i in range(nodes)]
     for name in g3_label_targets(lab, names, min(nodes, G3_NODE_TARGET)):
         lab.k_mutate("label", name, f"{G3_LABEL}=true", "--overwrite")
-    for workload, replicas in restore_plan(recorded, current, patterns):
+    owned = workerpool_owned(lab)   # B′: KEDA -> WorkerPool -> atecontroller own these replicas
+    for workload, replicas in restore_plan([w for w in recorded if w.key not in owned], current, patterns):
         lab.k_mutate("-n", workload.namespace, "scale", workload.kind.lower(), workload.name, f"--replicas={replicas}")
     resumed = unpause_keda(lab)
     if resumed:
@@ -759,7 +803,9 @@ def cmd_verify(lab: Lab, args: argparse.Namespace) -> int:
     failures = sleep_failures(vms, disks, before, buckets, buckets_before)
     if args.expect == "awake":
         recorded, _ = read_manifest(args.manifest)
-        failures += [f"{w.key} replicas != {r}" for w, r in restore_plan(recorded, lab.live_replicas())]
+        owned = workerpool_owned(lab)
+        failures += [f"{w.key} replicas != {r}" for w, r in restore_plan([w for w in recorded if w.key not in owned],
+                                                                          lab.live_replicas())]
         failures += [f"ScaledObject {i['metadata']['namespace']}/{i['metadata']['name']} still paused by cloud-lab"
                      for i in scaled_objects(lab) if PAUSED_BY in (i["metadata"].get("annotations") or {})]
     print(json.dumps({"expect": args.expect, "failures": failures}, indent=2))

@@ -1,0 +1,59 @@
+# B′: KEDA scales the shared Sandbox WorkerPool (both Specialists' SandboxAgents) on logical
+# Sandbox demand. Applied by scripts/llm_agent/bprime.sh scaledobject (owner approval); needs PKG-W
+# (KEDA watches ewallet-sandbox), PKG-P3 (WorkerPool /scale labelSelectorPath) and
+# spec.scaleSelector on the pool. KEDA (through its HPA and /scale) is the single owner of
+# WorkerPool.spec.replicas: namespace.yaml no longer sets it, cloud_lab never restores it.
+#
+# Signal: ewallet_sandbox_delegations_inflight (Coordinator, programmatic_coordinator._send): one
+# unit per logical Sandbox delegation from the first send until it ends, including the time it waits
+# for a free worker. A worker runs one actor at a time, so the workers needed equal the delegations in
+# flight: AverageValue with threshold 1. The OTLP exporter drops a removed Coordinator pod's series
+# after 60 s (otelCollector.metricExpiration), so stale series cannot hold the pool up for long.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: business-agents-workerpool
+  namespace: ewallet-sandbox
+  labels:
+    app.kubernetes.io/part-of: ewallet-llm-agent
+    ewallet.io/bprime: shared-workerpool
+spec:
+  scaleTargetRef:
+    apiVersion: ate.dev/v1alpha1
+    kind: WorkerPool
+    name: business-agents
+  minReplicaCount: 2
+  maxReplicaCount: 3
+  pollingInterval: 15
+  cooldownPeriod: 300
+  # Metric failure must never shrink a busy pool: keep the current size when it is above the
+  # fallback value (the floor) after 3 failed reads.
+  fallback:
+    failureThreshold: 3
+    replicas: 2
+    behavior: currentReplicasIfHigher
+  advanced:
+    horizontalPodAutoscalerConfig:
+      name: business-agents-workerpool
+      behavior:
+        scaleUp:
+          stabilizationWindowSeconds: 0
+          selectPolicy: Max
+          policies:
+            - {type: Pods, value: 1, periodSeconds: 30}
+        scaleDown:
+          # Five quiet minutes before a worker is removed; then one per minute. A removed worker
+          # drains (ateom finishes the active turn and its checkpoint), so this is cost hysteresis,
+          # not the safety mechanism.
+          stabilizationWindowSeconds: 300
+          selectPolicy: Max
+          policies:
+            - {type: Pods, value: 1, periodSeconds: 60}
+  triggers:
+    - type: prometheus
+      name: sandbox-delegations-inflight
+      metricType: AverageValue
+      metadata:
+        serverAddress: http://prometheus.ewallet-agents.svc.cluster.local:9090
+        query: sum(ewallet_sandbox_delegations_inflight) or vector(0)
+        threshold: "1"
