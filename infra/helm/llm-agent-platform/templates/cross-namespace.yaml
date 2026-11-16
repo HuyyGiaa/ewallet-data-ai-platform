@@ -47,7 +47,9 @@ spec:
         {{- end }}
 {{- end }}
 {{- end }}
+{{- $retiredSpecialists := include "llm-agent-platform.retiredSpecialists" . | fromYamlArray }}
 {{- range $flow := .Values.crossNamespace.flows }}
+{{- if not (has $flow.local $retiredSpecialists) }}
 {{- $local := index $.Values.networkFlows.workloads $flow.local }}
 {{- if not $local }}
 {{- fail (printf "crossNamespace flow %s references an undeclared workload %s" $flow.name $flow.local) }}
@@ -188,5 +190,6 @@ spec:
       to:
         - operation:
             ports: [{{ int $flow.port | quote }}]
+{{- end }}
 {{- end }}
 {{- end }}

@@ -22,6 +22,23 @@ def catalog():
     return build_catalog(VALUES, CHART / "prompts", SHA)
 
 
+class SandboxOnlyTests(unittest.TestCase):
+    def test_retired_specialist_deployments_are_described_as_sandbox_only(self):
+        values = json.loads(json.dumps(VALUES))
+        overlay = yaml.safe_load((CHART / "agi/specialists-sandbox-only.yaml").read_text())["agents"]["specialists"]
+        for name, spec in overlay.items():
+            values["specialists"][name].update(spec)
+        values.setdefault("coordinator", {}).setdefault("byo", {})["sandboxSpecialists"] = sorted(overlay)
+        docs = {d["metadata"]["name"]: d for d in build_catalog(values, CHART / "prompts", SHA) if d["kind"] == "Agent"}
+        self.assertEqual(set(docs), {"fraud-coordinator", "feature-rag-specialist", "drift-specialist"},
+                         "the active Specialist entries stay in the registry")
+        for name in overlay:
+            text = json.dumps(docs[name])
+            self.assertNotIn("fallback", text)
+            self.assertIn("no BYO Deployment", text)
+            self.assertNotIn("ewallet.io/byo-image-digest", docs[name]["metadata"].get("labels", {}))
+
+
 class FakeRegistry:
     """Records requests; answers /v0/apply and readbacks like the real server."""
 

@@ -233,3 +233,53 @@ class RegistryOverlayTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+SANDBOX_ROUTES = ("--set", "a2aGateway.sandboxRoutes.namespace=ewallet-sandbox",
+                  "--set", "a2aGateway.sandboxRoutes.agents={drift-specialist,feature-rag-specialist}",
+                  "--set", "agents.coordinator.byo.sandboxSpecialists={drift-specialist,feature-rag-specialist}")
+
+
+@unittest.skipUnless(HELM, "helm binary unavailable")
+class SpecialistCleanupTests(unittest.TestCase):
+    """Legacy Specialist Deployment cleanup: runtime: sandbox drops their BYO infrastructure only."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.before = objects(helm("llm-agent", *AGENTS, *AGI_AGENTS, *SANDBOX_ROUTES))
+        cls.after = objects(helm("llm-agent", *AGENTS, *AGI_AGENTS, *SANDBOX_ROUTES, "-f", "agi/specialists-sandbox-only.yaml"))
+
+    def test_the_specialist_deployment_infrastructure_is_gone(self):
+        gone = set(self.before) - set(self.after)
+        self.assertEqual(set(self.after) - set(self.before), set(), "nothing is added")
+        for name in ("drift-specialist", "feature-rag-specialist"):
+            self.assertIn(("Agent", name), gone)
+            self.assertIn(("ServiceAccount", name), gone)
+            self.assertNotIn(("Agent", name), self.after)
+        self.assertFalse([k for k in self.after if k[0] in ("PodDisruptionBudget", "ScaledObject", "HorizontalPodAutoscaler",
+                                                           "AuthorizationPolicy", "NetworkPolicy", "ServiceAccount")
+                          and ("drift-specialist" in k[1] or "feature-rag-specialist" in k[1])])
+
+    def test_the_coordinator_keeps_its_runtime_and_sandbox_specialists(self):
+        b = self.before[("Agent", "fraud-coordinator")]["spec"]["byo"]["deployment"]
+        a = self.after[("Agent", "fraud-coordinator")]["spec"]["byo"]["deployment"]
+        self.assertEqual((a["image"], env(a), a.get("args")), (b["image"], env(b), b.get("args")))
+        self.assertEqual(env(a)["EWALLET_COORDINATOR_WORKFLOWS"], "fraud,drift")
+        changed = {k for k in set(a.get("annotations") or {}) | set(b.get("annotations") or {})
+                   if (a.get("annotations") or {}).get(k) != (b.get("annotations") or {}).get(k)}
+        self.assertEqual(changed, {"ewallet.io/a2a-gateway-config-sha256"}, "only the gateway config rollout trigger")
+
+    def test_a2a_gateway_keeps_exactly_the_sandbox_routes(self):
+        def routes(objs):
+            config = yaml.safe_load(objs[("ConfigMap", "a2a-gateway-config")]["data"]["config.yaml"])
+            return [r["name"] for r in config["routes"]]
+        self.assertIn("drift-specialist", routes(self.before))
+        self.assertEqual([r for r in routes(self.after) if "specialist" in r],
+                         ["sandbox-drift-specialist", "sandbox-feature-rag-specialist"])
+
+    def test_invalid_runtime_or_a_drift_workflow_without_any_drift_runtime_fails(self):
+        bad = helm("llm-agent", *AGENTS, *AGI_AGENTS, "--set", "agents.specialists.drift-specialist.runtime=pod")
+        self.assertNotEqual(bad.returncode, 0)
+        self.assertIn("runtime must be deployment or sandbox", bad.stderr)
+        no_route = helm("llm-agent", *AGENTS, *AGI_AGENTS, "-f", "agi/specialists-sandbox-only.yaml")
+        self.assertNotEqual(no_route.returncode, 0, "drift workflows need the drift Sandbox route when it is retired")

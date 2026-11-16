@@ -1,0 +1,13 @@
+# Legacy Specialist Deployment cleanup (after B′): Feature-RAG and Drift run only as kagent SandboxAgents
+# on the shared WorkerPool ewallet-sandbox/business-agents, reached through the A2A Gateway's
+# /api/a2a-sandboxes/ewallet-sandbox/<agent>/ routes. runtime: sandbox stops rendering their BYO
+# Deployment infrastructure (Agent CR -> kagent Deployment/Service, prompt ConfigMap, ServiceAccount,
+# PDB, ScaledObject/HPA, x-kagent-host route, Deployment-only flows and policies). Their logical
+# definitions stay for the Coordinator's sandboxSpecialists and the sandbox routes.
+# Applied as agi_campaign.sh package sp-cleanup; rollback is a plain helm rollback.
+agents:
+  specialists:
+    feature-rag-specialist:
+      runtime: sandbox
+    drift-specialist:
+      runtime: sandbox

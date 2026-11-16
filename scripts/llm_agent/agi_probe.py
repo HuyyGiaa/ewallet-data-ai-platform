@@ -20,8 +20,10 @@ mcp      call one MCP tool through the MCP Gateway with the official SDK and
          transport, timeout) is FAIL. Tokens come from the environment and are
          never printed or written.
 a2a-route  send one typed request to the A2A Gateway with an undeclared
-         x-kagent-host; PASS only for HTTP 404 while a declared control host
-         (default drift-specialist.ewallet-agents) answers 200.
+         x-kagent-host; PASS only for HTTP 404 while a declared control answers
+         200. The control is a declared x-kagent-host (--control-kagent-host) or,
+         since the legacy Specialist Deployments are gone, a declared Sandbox
+         route path (--control-path /api/a2a-sandboxes/ewallet-sandbox/drift-specialist/).
 
 usage:
   python3 scripts/llm_agent/agi_probe.py request drift --request-id agi-...-drift \\
@@ -43,6 +45,7 @@ import asyncio
 import json
 import os
 from pathlib import Path
+import re
 import sys
 import time
 from urllib.parse import urlparse
@@ -254,7 +257,27 @@ def a2a_route(args: argparse.Namespace, opener=None) -> dict:
         except (URLError, TimeoutError, OSError) as exc:
             return {"host": host, "http_status": None, "error_type": type(exc).__name__}
 
-    tested, control = send(args.kagent_host), send(args.control_kagent_host)
+    def send_path(path: str) -> dict:
+        # A declared Sandbox route: kagent selects the session actor by the message contextId.
+        payload = json.loads(body)
+        message = (payload.get("params") or {}).get("message") or {}
+        if message and not message.get("contextId"):
+            message["contextId"] = message.get("messageId") or "a2a-route-control"
+        request = Request(args.endpoint.rstrip("/") + path, data=json.dumps(payload).encode(), method="POST",
+                          headers={"Content-Type": "application/json"})
+        try:
+            with opener(request, timeout=args.timeout) as response:
+                return {"path": path, "http_status": response.status, "body": response.read(4096).decode(errors="replace")}
+        except HTTPError as exc:
+            return {"path": path, "http_status": exc.code, "body": exc.read(4096).decode(errors="replace")}
+        except (URLError, TimeoutError, OSError) as exc:
+            return {"path": path, "http_status": None, "error_type": type(exc).__name__}
+
+    control_path = getattr(args, "control_path", None)
+    if control_path and not re.fullmatch(r"/api/a2a-sandboxes/[a-z0-9-]+/[a-z0-9-]+/", control_path):
+        raise SystemExit("--control-path must be a declared /api/a2a-sandboxes/<namespace>/<agent>/ route")
+    tested = send(args.kagent_host)
+    control = send_path(control_path) if control_path else send(args.control_kagent_host)
     reasons = []
     if tested["http_status"] != 404:
         reasons.append(f"undeclared host returned {tested['http_status']}, expected 404 (no route)")
@@ -292,7 +315,10 @@ def main(argv: list[str] | None = None) -> int:
     route = commands.add_parser("a2a-route")
     route.add_argument("--endpoint", type=_local, required=True)
     route.add_argument("--kagent-host", required=True)
-    route.add_argument("--control-kagent-host", default="drift-specialist.ewallet-agents")
+    control = route.add_mutually_exclusive_group()
+    control.add_argument("--control-kagent-host", default="drift-specialist.ewallet-agents",
+                         help="declared x-kagent-host control (legacy Deployment routes)")
+    control.add_argument("--control-path", help="declared Sandbox route control, e.g. /api/a2a-sandboxes/ewallet-sandbox/drift-specialist/")
     route.add_argument("--request", type=Path, required=True)
     route.add_argument("--expect", choices=["no-route"], required=True)
     route.add_argument("--evidence", type=Path, required=True)

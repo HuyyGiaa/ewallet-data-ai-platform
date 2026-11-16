@@ -196,7 +196,7 @@ negative() {
     --window-start 2026-05-01T00:00:00Z --window-end 2026-05-31T00:00:00Z --out "$out/a2a-request.json" > /dev/null
   probe "undeclared A2A host is not routed (404, control routed)" \
     "${AGENT_PY[@]}" "$ROOT/scripts/llm_agent/agi_probe.py" a2a-route --endpoint http://127.0.0.1:18083/ \
-    --kagent-host payments-agent.ewallet-agents --control-kagent-host drift-specialist.ewallet-agents \
+    --kagent-host payments-agent.ewallet-agents --control-path /api/a2a-sandboxes/ewallet-sandbox/drift-specialist/ \
     --request "$out/a2a-request.json" --expect no-route --evidence "$out/a2a-unrouted.json"
   unset rag drift drift_on_rag
   echo "evidence: $out/*.json"

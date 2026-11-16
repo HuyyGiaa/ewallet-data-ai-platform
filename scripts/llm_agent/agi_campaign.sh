@@ -23,6 +23,8 @@
 #                             its rollback deletes the three ScaledObjects first, then rolls back
 #   p4-agents  llm-agent      Coordinator sandbox routes (a2aGateway.sandboxRoutes, sandboxSpecialists)
 #   t1-agents  llm-agent      the live crossNamespace.flows + sandbox-workers-to-otel-collector (OTLP 4317 only)
+#   sp-cleanup llm-agent      legacy Specialist Deployment cleanup: agi/specialists-sandbox-only.yaml (runtime: sandbox)
+#                             removes their BYO Agent CRs and Deployment-only objects; Sandbox routes stay
 #   tr-agents  llm-agent      the live crossNamespace.flows + kagent-controller-to-otel-collector (OTLP 4317 only;
 #                             P2-C network step, before the kagent controller gets its OTLP endpoint)
 #   img-mcp    llm-agent-mcp  image roll: the live values with MCP_IMAGE and its identity, nothing else
@@ -52,7 +54,7 @@ REFERENCE_INPUT="${ROOT}/docs/evidence/llm_agent/agent_platform_runtime_20261102
 FEATURES='["account_behavior__account_tx_count_1h","account_behavior__account_tx_count_24h","user_behavior__user_avg_amount_30d","merchant_behavior__merchant_tx_count_24h"]'
 
 die() { echo "FAIL: $*" >&2; exit 1; }
-PACKAGES=" agi p1-mcp s1-mcp s1-agents p2-agents p4-agents img-mcp img-agents img-coordinator t1-agents tr-agents "
+PACKAGES=" agi p1-mcp s1-mcp s1-agents p2-agents p4-agents img-mcp img-agents img-coordinator t1-agents tr-agents sp-cleanup "
 SANDBOX_SPECIALISTS="{drift-specialist,feature-rag-specialist}"
 KEDA_AGENTS="fraud-coordinator feature-rag-specialist drift-specialist"
 # What the MCP and BYO images copy (infra/docker/*/Dockerfile). IMAGE_SHA may precede SHA only when
@@ -84,7 +86,7 @@ package_release() {   # the release a package changes; agi changes both, one per
   case "${PACKAGE}" in
     agi) echo "$1" ;;
     p1-mcp|s1-mcp|img-mcp) echo mcp ;;
-    s1-agents|p2-agents|p4-agents|img-agents|img-coordinator|t1-agents|tr-agents) echo agents ;;
+    s1-agents|p2-agents|p4-agents|img-agents|img-coordinator|t1-agents|tr-agents|sp-cleanup) echo agents ;;
   esac
 }
 
@@ -142,9 +144,19 @@ bad = [d["metadata"]["name"] for d in items
 print("unavailable:", bad)
 sys.exit(1 if bad or not items else 0)'
 }
+specialists_retired() {   # the live release already runs the Specialists only as SandboxAgents (sp-cleanup applied)
+  [[ -f "${PRIVATE}/llm-agent-values.yaml" ]] && "${PYTHON}" -c '
+import sys, yaml
+s = ((yaml.safe_load(open(sys.argv[1])) or {}).get("agents") or {}).get("specialists") or {}
+sys.exit(0 if (s.get("drift-specialist") or {}).get("runtime") == "sandbox" else 1)' "${PRIVATE}/llm-agent-values.yaml"
+}
 drift_is_declarative() {   # before P2 the drift-specialist is Declarative; P4 and image rolls run after P2 made it BYO
   local want=Declarative
-  [[ "${PACKAGE}" == p4-agents || "${PACKAGE}" == img-* || "${PACKAGE}" == t1-agents || "${PACKAGE}" == tr-agents ]] && want=BYO
+  [[ "${PACKAGE}" == p4-agents || "${PACKAGE}" == img-* || "${PACKAGE}" == t1-agents || "${PACKAGE}" == tr-agents || "${PACKAGE}" == sp-cleanup ]] && want=BYO
+  if [[ "${want}" == BYO ]] && specialists_retired; then   # after sp-cleanup the Agent CR is gone on purpose
+    ! kc -n ewallet-agents get agents.kagent.dev drift-specialist -o name > /dev/null 2>&1
+    return
+  fi
   [[ "$(kc -n ewallet-agents get agents.kagent.dev drift-specialist -o jsonpath='{.spec.type}')" == "${want}" ]]
 }
 redis_databases() {
@@ -183,7 +195,13 @@ apiserver_addresses() {
   } > "${EV}/stage0/apiserver.txt"
   [[ -s "${EV}/stage0/apiserver.txt" ]]
 }
-drift_network() { kc -n ewallet-agents get networkpolicy -o name | grep -q drift-specialist-to-mcp-gateway; }
+drift_network() {   # the Drift Specialist's path to the MCP Gateway: the Deployment's flow, or the Sandbox workers' flow
+  if specialists_retired; then
+    kc -n ewallet-agents get networkpolicy -o name | grep -q sandbox-workers-to-mcp-gateway-ingress
+  else
+    kc -n ewallet-agents get networkpolicy -o name | grep -q drift-specialist-to-mcp-gateway
+  fi
+}
 token_secrets() {   # names only; values are never read here
   local name
   for name in mcp-token-feature-rag-specialist-feature-rag-mcp mcp-token-drift-specialist-drift-mcp \
@@ -290,6 +308,9 @@ overlay_args() {   # prints one argument per line for this package's render of t
         --set "agents.specialists.feature-rag-specialist.byo.image=${FEATURE_RAG_IMAGE}" \
         --set "agents.specialists.drift-specialist.byo.image=${DRIFT_IMAGE}"
       echo __END__ ;;
+    sp-cleanup:agents)
+      printf '%s\n' -f "${PRIVATE}/llm-agent-values.yaml" -f "${CHART}/agi/specialists-sandbox-only.yaml"
+      echo __END__ ;;
     img-coordinator:agents)
       need COORDINATOR_IMAGE
       digest_ref "${COORDINATOR_IMAGE}" || die "COORDINATOR_IMAGE must be a digest-pinned Artifact Registry reference"
@@ -379,6 +400,10 @@ expected_identities() {
         printf '%s\n' --expect-added "ScaledObject/ewallet-agents/${agent}" --expect-removed "HorizontalPodAutoscaler/ewallet-agents/${agent}"
       done ;;
     img-coordinator:agents) printf '%s\n' --expect-changed Agent/ewallet-agents/fraud-coordinator ;;
+    sp-cleanup:agents)   # exact: the 42 Deployment-only objects go; 6 shared objects change (no Coordinator image/env change)
+      local id
+      for id in Agent/ewallet-agents/drift-specialist Agent/ewallet-agents/feature-rag-specialist AuthorizationPolicy/ewallet-agents/allow-a2a-gateway-to-drift-specialist AuthorizationPolicy/ewallet-agents/allow-a2a-gateway-to-feature-rag-specialist AuthorizationPolicy/ewallet-agents/allow-drift-specialist-to-agentgateway AuthorizationPolicy/ewallet-agents/allow-drift-specialist-to-mcp-gateway AuthorizationPolicy/ewallet-agents/allow-drift-specialist-to-otel-collector AuthorizationPolicy/ewallet-agents/allow-feature-rag-specialist-to-agentgateway AuthorizationPolicy/ewallet-agents/allow-feature-rag-specialist-to-mcp-gateway AuthorizationPolicy/ewallet-agents/allow-feature-rag-specialist-to-otel-collector AuthorizationPolicy/ewallet-agents/allow-kagent-controller-to-drift-specialist AuthorizationPolicy/ewallet-agents/allow-kagent-controller-to-feature-rag-specialist ConfigMap/ewallet-agents/drift-specialist-prompt-v2 ConfigMap/ewallet-agents/feature-rag-specialist-prompt-v5 NetworkPolicy/ewallet-agents/allow-a2a-gateway-to-drift-specialist-egress NetworkPolicy/ewallet-agents/allow-a2a-gateway-to-drift-specialist-ingress NetworkPolicy/ewallet-agents/allow-a2a-gateway-to-feature-rag-specialist-egress NetworkPolicy/ewallet-agents/allow-a2a-gateway-to-feature-rag-specialist-ingress NetworkPolicy/ewallet-agents/allow-ambient-probes-drift-specialist NetworkPolicy/ewallet-agents/allow-ambient-probes-feature-rag-specialist NetworkPolicy/ewallet-agents/allow-drift-specialist-to-agentgateway-egress NetworkPolicy/ewallet-agents/allow-drift-specialist-to-agentgateway-ingress NetworkPolicy/ewallet-agents/allow-drift-specialist-to-kagent-controller-egress NetworkPolicy/ewallet-agents/allow-drift-specialist-to-mcp-gateway-egress NetworkPolicy/ewallet-agents/allow-drift-specialist-to-mcp-gateway-ingress NetworkPolicy/ewallet-agents/allow-drift-specialist-to-otel-collector-egress NetworkPolicy/ewallet-agents/allow-drift-specialist-to-otel-collector-ingress NetworkPolicy/ewallet-agents/allow-feature-rag-specialist-to-agentgateway-egress NetworkPolicy/ewallet-agents/allow-feature-rag-specialist-to-agentgateway-ingress NetworkPolicy/ewallet-agents/allow-feature-rag-specialist-to-kagent-controller-egress NetworkPolicy/ewallet-agents/allow-feature-rag-specialist-to-mcp-gateway-egress NetworkPolicy/ewallet-agents/allow-feature-rag-specialist-to-mcp-gateway-ingress NetworkPolicy/ewallet-agents/allow-feature-rag-specialist-to-otel-collector-egress NetworkPolicy/ewallet-agents/allow-feature-rag-specialist-to-otel-collector-ingress NetworkPolicy/ewallet-agents/allow-kagent-controller-to-drift-specialist-ingress NetworkPolicy/ewallet-agents/allow-kagent-controller-to-feature-rag-specialist-ingress PodDisruptionBudget/ewallet-agents/drift-specialist PodDisruptionBudget/ewallet-agents/feature-rag-specialist ScaledObject/ewallet-agents/drift-specialist ScaledObject/ewallet-agents/feature-rag-specialist ServiceAccount/ewallet-agents/drift-specialist ServiceAccount/ewallet-agents/feature-rag-specialist; do printf '%s\n' --expect-removed "${id}"; done
+      for id in Agent/ewallet-agents/fraud-coordinator ConfigMap/ewallet-agents/a2a-gateway-config ConfigMap/ewallet-agents/llm-agent-network-flows Deployment/ewallet-agents/a2a-gateway NetworkPolicy/ewallet-agents/allow-byo-modelconfig-to-kube-apiserver RoleBinding/ewallet-agents/ewallet-global-llm-reader; do printf '%s\n' --expect-changed "${id}"; done ;;
     t1-agents:agents) printf '%s\n' --expect-added AuthorizationPolicy/ewallet-agents/allow-sandbox-workers-to-otel-collector \
                   --expect-added NetworkPolicy/ewallet-agents/allow-sandbox-workers-to-otel-collector-ingress ;;
     tr-agents:agents) printf '%s\n' --expect-added AuthorizationPolicy/ewallet-agents/allow-kagent-controller-to-otel-collector \
@@ -476,7 +501,7 @@ negative() {
     --window-start 2026-05-01T00:00:00Z --window-end 2026-05-31T00:00:00Z --out "${EV}/stage2/AGI-08-a2a-request.json"
   expect_probe "AGI-08 undeclared A2A host is not routed" "${AGENT_PY[@]}" "${ROOT}/scripts/llm_agent/agi_probe.py" a2a-route \
     --endpoint "http://127.0.0.1:${AGI_A2A_PORT:-18083}/" --kagent-host payments-agent.ewallet-agents \
-    --control-kagent-host drift-specialist.ewallet-agents --request "${EV}/stage2/AGI-08-a2a-request.json" \
+    --control-path /api/a2a-sandboxes/ewallet-sandbox/drift-specialist/ --request "${EV}/stage2/AGI-08-a2a-request.json" \
     --expect no-route --evidence "${EV}/stage2/AGI-08-a2a-unrouted.json" || failed=1
   (( ! failed )) || die "AGI-08: at least one negative probe did not prove its expected denial"
   log "AGI-08 PASS"

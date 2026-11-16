@@ -100,10 +100,17 @@ def agent_runtime(values: Mapping[str, Any], spec: Mapping[str, Any], model_conf
     BYO wins over the agent mode (the chart renders ``type: BYO``); otherwise
     ``agents.mode`` selects a Substrate ``SandboxAgent`` or a kagent ``Agent``. A BYO
     Specialist that the Coordinator delegates to through the A2A Gateway sandbox route
-    (PKG-P4) runs as a SandboxAgent with the same image, and its Deployment stays as the
-    fallback. The text states configuration only; execution is verified by the E2E runs.
+    (PKG-P4) runs as a SandboxAgent with the same image. Before the legacy Specialist
+    Deployment cleanup its Deployment stayed as a fallback; with ``runtime: sandbox``
+    (agi/specialists-sandbox-only.yaml) there is none, and no BYO image digest label is
+    published for it. The text states configuration only; execution is verified by the E2E runs.
     """
 
+    if spec.get("runtime") == "sandbox" and name and name in sandbox_specialists(values):
+        # Legacy Specialist Deployment cleanup: the Specialist runs only as a SandboxAgent.
+        return ("kagent-sandboxagent-byo",
+                "BYO image served only as a kagent 0.10.3 SandboxAgent on the Substrate WorkerPool business-agents "
+                "(gVisor, KEDA 2-3 workers) behind the A2A Gateway sandbox route; no BYO Deployment")
     if (spec.get("byo") or {}).get("enabled"):
         if name and name in sandbox_specialists(values):
             return ("kagent-sandboxagent-byo",
@@ -151,7 +158,7 @@ def build_catalog(values: Mapping[str, Any], prompts_dir: Path, git_sha: str, *,
                   "ewallet.io/git-sha": git_sha[:40],
                   "ewallet.io/runtime": runtime}
         digest = re.search(r"@sha256:([0-9a-f]{64})$", str(byo.get("image") or ""))
-        if digest:
+        if digest and spec.get("runtime") != "sandbox":   # a retired Deployment has no image to label
             # The BYO Deployment image (a label value stays short; the readback compares it).
             labels["ewallet.io/byo-image-digest"] = "sha256-" + digest.group(1)[:16]
         sandbox_digest = re.search(r"@sha256:([0-9a-f]{64})$", sandbox_image)

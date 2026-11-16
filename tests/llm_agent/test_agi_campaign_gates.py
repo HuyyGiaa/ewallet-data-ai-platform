@@ -408,6 +408,26 @@ class CampaignGateTests(unittest.TestCase):
                          ["AuthorizationPolicy/ewallet-agents/allow-kagent-controller-to-otel-collector",
                           "NetworkPolicy/ewallet-agents/allow-kagent-controller-to-otel-collector-ingress"])
 
+    def test_sp_cleanup_renders_the_overlay_and_expects_the_exact_removals(self):
+        self.preflight(AGI_PACKAGE="sp-cleanup", FAKE_DRIFT_TYPE="BYO")
+        result, args = self.args_for("sp-cleanup", "agents")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        files = [args[i + 1] for i, arg in enumerate(args) if arg == "-f"]
+        self.assertEqual([Path(f).name for f in files], ["llm-agent-values.yaml", "specialists-sandbox-only.yaml"])
+        self.assertNotIn("--set", args, "no image or value change beyond the overlay")
+        identities = self.run_script("__identities", "agents", AGI_PACKAGE="sp-cleanup").stdout.split()
+        removed = [identities[i + 1] for i, a in enumerate(identities) if a == "--expect-removed"]
+        changed = [identities[i + 1] for i, a in enumerate(identities) if a == "--expect-changed"]
+        self.assertEqual(len(removed), 42)
+        self.assertIn("Agent/ewallet-agents/drift-specialist", removed)
+        self.assertIn("Agent/ewallet-agents/feature-rag-specialist", removed)
+        self.assertNotIn("Agent/ewallet-agents/fraud-coordinator", removed)
+        self.assertEqual(sorted(changed), sorted([
+            "Agent/ewallet-agents/fraud-coordinator", "ConfigMap/ewallet-agents/a2a-gateway-config",
+            "ConfigMap/ewallet-agents/llm-agent-network-flows", "Deployment/ewallet-agents/a2a-gateway",
+            "NetworkPolicy/ewallet-agents/allow-byo-modelconfig-to-kube-apiserver",
+            "RoleBinding/ewallet-agents/ewallet-global-llm-reader"]))
+
     def test_a_package_refuses_the_other_release_and_unknown_packages(self):
         self.preflight()
         result = self.run_script("gate", "agents", AGI_PACKAGE="p1-mcp")

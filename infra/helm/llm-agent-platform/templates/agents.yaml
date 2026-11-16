@@ -18,7 +18,8 @@
 {{- end }}
 {{- $manifest := .Files.Get "prompts/manifest.json" | fromJson }}
 {{- $all := dict }}
-{{- range $name, $spec := $a.specialists }}{{ $_ := set $all $name $spec }}{{ end }}
+{{- $retired := include "llm-agent-platform.retiredSpecialists" . | fromYamlArray }}
+{{- range $name, $spec := $a.specialists }}{{ if not (has $name $retired) }}{{ $_ := set $all $name $spec }}{{ end }}{{ end }}
 {{- $_ := set $all $a.coordinator.name $a.coordinator }}
 {{- range $name := keys $all | sortAlpha }}
 {{- $spec := index $all $name }}
@@ -237,8 +238,10 @@ spec:
         {{- fail "agents.coordinator.byo.workflows must be [fraud] or [fraud, drift]" }}
         {{- end }}
         {{- if and $isCoordinator (has "drift" $workflows) }}
-        {{- if not (dig "specialists" "drift-specialist" "byo" "enabled" false $.Values.agents) }}
-        {{- fail "coordinator drift workflows need the deterministic BYO drift-specialist (agents.specialists.drift-specialist.byo.enabled)" }}
+        {{- $driftInSandbox := and (has "drift-specialist" $retired) (has "drift-specialist" (index $byo "sandboxSpecialists" | default list)) }}
+        {{- $driftByo := and (dig "specialists" "drift-specialist" "byo" "enabled" false $.Values.agents) (not (has "drift-specialist" $retired)) }}
+        {{- if not (or $driftByo $driftInSandbox) }}
+        {{- fail "coordinator drift workflows need the deterministic drift-specialist: BYO (agents.specialists.drift-specialist.byo.enabled) or runtime sandbox and listed in agents.coordinator.byo.sandboxSpecialists" }}
         {{- end }}
         # Agent integration: typed and natural-language drift and combined
         # workflows (workflow_intake.py, programmatic_coordinator.py).

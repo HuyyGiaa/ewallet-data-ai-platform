@@ -80,7 +80,9 @@ under Ambient L4, so the MCP backend's credential subject filters tools and
 denies discovery-only subjects from tools/call. */}}
 {{- $rules = append $rules "true" }}
 {{- else }}
+{{- $retiredCallers := include "llm-agent-platform.retiredSpecialists" $ | fromYamlArray }}
 {{- range $agent := keys $.Values.agents.specialists | sortAlpha }}
+{{- if has $agent $retiredCallers }}{{ continue }}{{ end }}
 {{- $tools := index (index $.Values.agents.specialists $agent).tools $server | default list }}
 {{- $sa := index $g.callerServiceAccounts $agent | default "" }}
 {{- if and $tools $sa }}
@@ -167,7 +169,9 @@ routes:
 # enforced by the chart's exact AuthorizationPolicy before this process; it is
 # not exposed as agentgateway source.identity. The application route therefore
 # opens only when a mesh caller is configured, and otherwise remains fail-closed.
+{{- $retiredSpecialists := include "llm-agent-platform.retiredSpecialists" . | fromYamlArray }}
 {{- range $agent := keys .Values.agents.specialists | sortAlpha }}
+{{- if not (has $agent $retiredSpecialists) }}
 - name: {{ $agent }}
   matches:
   - headers:
@@ -198,6 +202,7 @@ routes:
       {{- end }}
   backends:
   - host: {{ printf "%s.%s.svc.cluster.local:8080" $agent $ns }}
+{{- end }}
 {{- end }}
 {{- $sb := $g.sandboxRoutes | default dict }}
 {{- if $sb.agents }}

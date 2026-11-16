@@ -1,7 +1,9 @@
 {{- if and .Values.agents.enabled .Values.agents.autoscaling.enabled }}
 {{- $a := .Values.agents }}
 {{- $s := $a.autoscaling }}
-{{- $names := keys $a.specialists | sortAlpha }}
+{{- $retired := include "llm-agent-platform.retiredSpecialists" . | fromYamlArray }}
+{{- $names := list }}
+{{- range $n := keys $a.specialists | sortAlpha }}{{ if not (has $n $retired) }}{{ $names = append $names $n }}{{ end }}{{ end }}
 {{- $names = append $names $a.coordinator.name }}
 {{- if eq $a.mode "sandbox" }}
 {{- if not (and (ge (int $s.minReplicas) 1) (le (int $s.minReplicas) (int $s.businessHours.replicas)) (le (int $s.businessHours.replicas) (int $s.maxReplicas))) }}

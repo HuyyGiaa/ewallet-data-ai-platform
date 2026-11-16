@@ -507,6 +507,23 @@ RUNTIME_FIX_APPROVAL=P2C-KAGENT-OTEL:$CTX KUBE_CONTEXT=$CTX scripts/llm_agent/ru
 
   Roll back the controller first.
 
+### 2.6d Legacy Specialist Deployment cleanup (`sp-cleanup`, after B′)
+
+The Feature-RAG and Drift Specialists run only as SandboxAgents on the shared WorkerPool. This package
+renders `agi/specialists-sandbox-only.yaml` (`runtime: sandbox`) over the live values. It removes their BYO
+Agent CRs, which makes kagent delete their Deployments and Services, plus 40 Deployment-only objects:
+ServiceAccounts, PDBs, ScaledObjects, policies and prompt ConfigMaps. The Sandbox routes and the Coordinator
+stay.
+
+```bash
+AGI_PACKAGE=sp-cleanup scripts/llm_agent/agi_campaign.sh preflight
+AGI_PACKAGE=sp-cleanup scripts/llm_agent/agi_campaign.sh gate agents   # 42 removed, 6 changed (exact identities)
+AGI_APPROVAL=SP-CLEANUP:$CAMPAIGN AGI_PACKAGE=sp-cleanup scripts/llm_agent/agi_campaign.sh upgrade agents
+```
+
+- **Kept:** the MCP credentials of the retired Specialists. Retiring them needs a separate approval.
+- **Rollback:** `SP-CLEANUP-ROLLBACK`. Helm restores the Agent CRs and kagent recreates the Deployments.
+
 ### 2.7 Image roll after P2 (`img-mcp`, `img-agents`)
 
 Use these when a code fix changes an image input after the packages are live. Example: the

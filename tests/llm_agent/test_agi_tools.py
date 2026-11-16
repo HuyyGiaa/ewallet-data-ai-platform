@@ -261,6 +261,47 @@ class ProbeA2ATests(unittest.TestCase):
                 self.assertEqual(self.route(answers)["verdict"], "FAIL")
 
 
+class SandboxControlRouteTests(unittest.TestCase):
+    """After the legacy Specialist cleanup the AGI-08 control is a declared Sandbox route."""
+
+    def run_probe(self, tested, control, path="/api/a2a-sandboxes/ewallet-sandbox/drift-specialist/"):
+        from urllib.error import HTTPError
+        seen = {}
+
+        def opener(request, timeout):
+            if request.get_header("X-kagent-host"):
+                status, body = tested
+            else:
+                seen["url"], seen["body"] = request.full_url, json.loads(request.data)
+                status, body = control
+            if isinstance(status, Exception):
+                raise status
+            if status >= 400:
+                raise HTTPError(request.full_url, status, "error", {}, io.BytesIO(body))
+            return ProbeA2ATests.Response(status, body)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            request = Path(tmp) / "request.json"
+            request.write_text(json.dumps({"jsonrpc": "2.0", "params": {"message": {"messageId": "m-1"}}}))
+            args = argparse.Namespace(endpoint="http://127.0.0.1:18083/", kagent_host="payments-agent.ewallet-agents",
+                                      control_kagent_host=None, control_path=path, request=request,
+                                      expect="no-route", timeout=5)
+            return agi_probe.a2a_route(args, opener), seen
+
+    def test_undeclared_host_404_with_a_working_sandbox_route_passes(self):
+        report, seen = self.run_probe((404, b"route not found"), (200, b'{"jsonrpc":"2.0","result":{}}'))
+        self.assertEqual(report["verdict"], "PASS")
+        self.assertEqual(seen["url"], "http://127.0.0.1:18083/api/a2a-sandboxes/ewallet-sandbox/drift-specialist/")
+        self.assertEqual(seen["body"]["params"]["message"]["contextId"], "m-1", "kagent selects the actor by contextId")
+
+    def test_the_security_assertion_is_unchanged(self):
+        ok = (200, b'{"jsonrpc":"2.0","result":{}}')
+        self.assertEqual(self.run_probe(ok, ok)[0]["verdict"], "FAIL", "an undeclared host must not be routed")
+        self.assertEqual(self.run_probe((404, b""), (404, b""))[0]["verdict"], "FAIL", "the control must be routed")
+        with self.assertRaises(SystemExit):
+            self.run_probe((404, b""), ok, path="/api/a2a/ewallet-agents/drift-specialist/")
+
+
 class InputsTests(unittest.TestCase):
     def test_database_is_made_explicit_in_both_connection_forms(self):
         self.assertEqual(agi_inputs.with_database("redis.fs.svc:6379,password=p,db=0", 3),

@@ -5,6 +5,23 @@ app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end -}}
 
 {{/* Enforced flows, plus the llm-d, policy-gateway and collector flows when enabled. */}}
+{{- /* Specialists whose runtime is "sandbox": they run only as kagent SandboxAgents on the shared
+WorkerPool (ewallet-sandbox), so their legacy BYO Deployment infrastructure (Agent CR, prompt
+ConfigMap, ServiceAccount, PDB, ScaledObject, A2A host route, flows and policies) is not rendered.
+Their logical definition stays: the Coordinator's sandboxSpecialists and the A2A sandbox routes
+still name them. */}}
+{{- define "llm-agent-platform.retiredSpecialists" -}}
+{{- $names := list -}}
+{{- range $name, $spec := .Values.agents.specialists -}}
+{{- $runtime := index $spec "runtime" | default "deployment" -}}
+{{- if not (has $runtime (list "deployment" "sandbox")) -}}
+{{- fail (printf "agents.specialists.%s.runtime must be deployment or sandbox" $name) -}}
+{{- end -}}
+{{- if eq $runtime "sandbox" -}}{{- $names = append $names $name -}}{{- end -}}
+{{- end -}}
+{{- toYaml ($names | sortAlpha) -}}
+{{- end -}}
+
 {{- define "llm-agent-platform.enforcedFlows" -}}
 {{- $flows := .Values.networkFlows.enforced -}}
 {{- if .Values.llmd.enabled -}}
@@ -36,7 +53,12 @@ app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- if (dig "enabled" false (.Values.podLogs | default dict)) -}}
 {{- $flows = append $flows (dict "name" "observability-alloy-to-loki" "from" "observability-alloy" "to" "observability-loki" "port" 3100) -}}
 {{- end -}}
-{{- toYaml $flows -}}
+{{- $retired := include "llm-agent-platform.retiredSpecialists" . | fromYamlArray -}}
+{{- $kept := list -}}
+{{- range $flow := $flows -}}
+{{- if not (or (has $flow.from $retired) (has $flow.to $retired)) -}}{{- $kept = append $kept $flow -}}{{- end -}}
+{{- end -}}
+{{- toYaml $kept -}}
 {{- end -}}
 
 {{/* Deployment, Service and PDB of a standalone agentgateway policy gateway. */}}
@@ -260,7 +282,8 @@ resolve the global ModelConfig: the only subjects of its read Role. */}}
 {{- $names := list }}
 {{- if and .Values.agents.enabled (eq .Values.agents.mode "agent") }}
 {{- $all := dict }}
-{{- range $name, $spec := .Values.agents.specialists }}{{ $_ := set $all $name $spec }}{{ end }}
+{{- $retired := include "llm-agent-platform.retiredSpecialists" . | fromYamlArray }}
+{{- range $name, $spec := .Values.agents.specialists }}{{ if not (has $name $retired) }}{{ $_ := set $all $name $spec }}{{ end }}{{ end }}
 {{- $_ := set $all .Values.agents.coordinator.name .Values.agents.coordinator }}
 {{- range $name := keys $all | sortAlpha }}
 {{- $byo := index (index $all $name) "byo" | default dict }}
