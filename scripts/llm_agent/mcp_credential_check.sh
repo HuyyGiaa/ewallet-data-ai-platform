@@ -64,11 +64,24 @@ except Exception: print("NO_EVIDENCE", "?")' "$file")
 }
 
 pf_pid=""
-cleanup() { [[ -n "$pf_pid" ]] && kill "$pf_pid" 2>/dev/null || true; }
+cleanup() {   # kubectl itself is the background process (exec), so this really closes the forward
+  if [[ -n "$pf_pid" ]]; then kill "$pf_pid" 2>/dev/null || true; wait "$pf_pid" 2>/dev/null || true; fi
+  pf_pid=""
+}
 trap cleanup EXIT
-forward() {   # forward <ns> <pod> <port>: one pod, waits until the local port answers
-  cleanup; k -n "$1" port-forward "pod/$2" "$3:8080" > /dev/null 2>&1 & pf_pid=$!
-  for _ in $(seq 1 40); do (exec 3<>"/dev/tcp/127.0.0.1/$3") 2>/dev/null && return 0; sleep 0.25; done
+listener_pid() { ss -ltnpH "sport = :$1" 2>/dev/null | grep -oE 'pid=[0-9]+' | head -1 | cut -d= -f2; }
+forward() {   # forward <ns> <pod> <port>: exactly this pod on a port nobody else holds
+  cleanup
+  [[ -z "$(listener_pid "$3")" ]] || die "127.0.0.1:$3 is already in use; refusing to probe through a stale forward"
+  ( exec kubectl --context "$CTX" --request-timeout=60s -n "$1" port-forward --address 127.0.0.1 "pod/$2" "$3:8080" \
+      > /dev/null 2>&1 ) & pf_pid=$!
+  for _ in $(seq 1 60); do
+    if [[ "$(listener_pid "$3")" == "$pf_pid" ]] \
+       && curl -s -o /dev/null --max-time 5 -w '%{http_code}' "http://127.0.0.1:$3/health/live" | grep -qE '^[1-5][0-9][0-9]$'; then
+      return 0   # the listener is this kubectl and the pod answered HTTP (warm-up)
+    fi
+    sleep 0.5
+  done
   die "port-forward to $1/$2 did not open"
 }
 
@@ -97,5 +110,5 @@ for pod in $(k -n ewallet-agents get pods -l app.kubernetes.io/name=drift-mcp -o
     probe "$pod" "$port" retired-observed revoked drift_detection "$DRIFT_ARGS" ewallet-agents "$name"
   done
 done
-cleanup; pf_pid=""
+cleanup
 echo "summary: $summary"

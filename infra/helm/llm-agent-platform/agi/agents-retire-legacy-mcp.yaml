@@ -1,10 +1,14 @@
 # Package cr-agents (release llm-agent): the in-release ewallet-agents/drift-mcp. Its only subject was the
-# retired drift-specialist, so it becomes list-only: no tool grant, the kagent controller as its discovery
-# subject, and a final server set (mcpCredentialLifecycle.serverSet) holding only that credential. No route
-# or client uses this server; nothing can call a tool on it afterwards.
+# retired drift-specialist. The server runs an older image (695279967) whose authenticator has no
+# discovery subjects and needs at least one granted subject, so a list-only server is not possible:
+# attempt 1 (no grant, kagent-controller discovery) was rejected at startup (authentication_not_configured)
+# and rolled back by helm --atomic. It now mirrors the live drift-mcp's business subject: sandbox-drift
+# with drift_detection only (the privilege it already has on ewallet-mcp/drift-mcp), with a final server
+# set (mcpCredentialLifecycle.serverSet) that holds only that credential. No route, NetworkPolicy ingress
+# or client reaches this server. null deletes the key from the merged values.
 mcpServices:
   services:
     drift-mcp:
       toolGrants:
         drift-specialist: null
-      discoverySubjects: [kagent-controller]
+        sandbox-drift: [drift_detection]
