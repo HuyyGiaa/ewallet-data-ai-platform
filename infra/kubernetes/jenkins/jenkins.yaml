@@ -82,9 +82,13 @@ data:
               stringParam('RELEASE_BRANCH', '', 'release/<name> ref that must resolve to EXPECTED_GIT_SHA before any release')
               booleanParam('INTENTIONAL_GATE_FAILURE', negative, 'Fail before release for negative proof')
               booleanParam('DEPLOY_APPROVED', false, 'No deployment is approved in the Jenkins proof')
-              choiceParam('ENVIRONMENT', ['dev', 'gcp', 'gke-cpu'], 'Validated release target')
+              choiceParam('ENVIRONMENT', ['gke-cpu', 'gcp', 'dev'], 'Validated cluster profile')
               stringParam('KUBE_CONTEXT', '', 'Must remain empty for CI-only proof')
               stringParam('IMAGE_MANIFEST', '', 'Must remain empty for CI-only proof')
+              choiceParam('REGISTRY_LOOKUP', ['required', 'off'], 'Artifact Registry lookup for image reuse and digest readback')
+              booleanParam('PROMOTE_TO_PRODUCTION', false, 'Separately approved production promotion after a passing rehearsal')
+              stringParam('PRODUCTION_KUBE_CONTEXT', '', 'Production context of the approved deployer identity')
+              stringParam('PRODUCTION_IDENTITY', '', 'Approved production deployer identity (owner decision D1)')
             }
           }
           def createPipeline = { jobName, branchName, pipelineScriptPath, expectedSha, negative ->
@@ -92,6 +96,9 @@ data:
               description("Immutable staging-snapshot proof; source " + expectedSha)
               disabled(false)
               keepDependencies(false)
+              // Two builds of one job never overlap; releases of different jobs are serialized by
+              // resource locks (Leases, scripts/ci/release_lock.py), not by the executor count.
+              concurrentBuild(false)
               logRotator { numToKeep(10); artifactNumToKeep(10) }
               parameters { addParameters(delegate, expectedSha, negative) }
               definition {
@@ -113,11 +120,13 @@ data:
           createPipeline('edai2-agent-ci', '*/proof/agent', 'Jenkinsfile.llm-agent', "${EDAI2_AGENT_SHA}", false)
           createPipeline('edai2-docs-change-detection', '*/proof/docs', 'Jenkinsfile', "${EDAI2_DOCS_SHA}", false)
           createPipeline('edai2-agent-negative', '*/proof/agent', 'Jenkinsfile.llm-agent', "${EDAI2_AGENT_SHA}", true)
-          // Release jobs: no default SHA and DEPLOY_APPROVED=false, so a deployment
-          // needs an explicit SHA, an explicit approval flag and the input step.
-          createPipeline('edai2-cd-mcp-agents', '*/release/mcp-agents', 'Jenkinsfile.llm-agent', '', false)
-          createPipeline('edai2-cd-agents', '*/release/agents', 'Jenkinsfile.llm-agent', '', false)
+          // Release jobs, one per release group (jenkins/catalog/release-units.json): no default
+          // SHA and DEPLOY_APPROVED=false, so a deployment needs an explicit SHA, an explicit
+          // approval flag and the input step; production needs a second, distinct approver.
           createPipeline('edai2-cd-rag-pipeline', '*/release/rag-pipeline', 'Jenkinsfile.llm-agent', '', false)
+          createPipeline('edai2-cd-mcp-agents', '*/release/mcp-agents', 'Jenkinsfile.llm-agent', '', false)
+          createPipeline('edai2-cd-agent-fleet', '*/release/agent-fleet', 'Jenkinsfile.llm-agent', '', false)
+          createPipeline('edai2-cd-coordinator', '*/release/coordinator', 'Jenkinsfile.llm-agent', '', false)
           createPipeline('edai2-cd-prompt-management', '*/release/prompt-management', 'Jenkinsfile.llm-agent', '', false)
           createPipeline('edai2-cd-streaming', '*/release/streaming', 'Jenkinsfile', '', false)
 ---
@@ -227,7 +236,7 @@ spec:
             - {name: config, mountPath: /var/jenkins_config, readOnly: true}
             - {name: source, mountPath: /opt/ewallet-source, readOnly: true}
             - {name: tmp, mountPath: /tmp}
-            # Short-lived token for the namespace-scoped Roles in cd-rbac.yaml only.
+            # Short-lived token for the namespace-scoped Roles in rbac/batch-b-isolated.yaml only.
             - {name: kube-api, mountPath: /var/run/secrets/kubernetes.io/serviceaccount, readOnly: true}
       volumes:
         - name: home

@@ -59,6 +59,16 @@ rules:
   - list
   - watch
   - delete
+# Release locks (scripts/ci/release_lock.py): create-only Leases, deleted at the exact
+# resourceVersion. Added by the CI/CD rebuild; applying it is a separate owner approval.
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - create
+  - delete
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
