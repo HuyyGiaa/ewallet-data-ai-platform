@@ -70,9 +70,12 @@ def test_only_the_obsolete_unreferenced_sets_are_deleted_and_final_sets_kept():
     matrix = m.build(inventory())
     assert matrix["problems"] == [] and matrix["delete"] == REVIEWED
     d = decisions(matrix)
-    for kept in ("ewallet-mcp/mcp-auth-drift-mcp-fin-20261117", "ewallet-mcp/mcp-auth-feature-rag-mcp-fin-20261117",
-                 "ewallet-agents/mcp-auth-drift-mcp-fin-20261117-b", "ewallet-agents/mcp-auth-drift-mcp-fin-20261117"):
+    for kept in ("ewallet-mcp/mcp-auth-drift-mcp-fin-20261117", "ewallet-mcp/mcp-auth-feature-rag-mcp-fin-20261117"):
         assert d[kept] == "KEEP", kept
+    # An inventory collected without the namespace-scoped Helm view cannot clear the ewallet-agents copies: kept.
+    for kept in ("ewallet-agents/mcp-auth-drift-mcp-fin-20261117-b", "ewallet-agents/mcp-auth-drift-mcp-fin-20261117"):
+        assert d[kept] == "UNKNOWN", kept
+        assert "re-collect" in next(r for r in matrix["rows"] if f"{r['namespace']}/{r['name']}" == kept)["reasons"][0]
     row = next(r for r in matrix["rows"] if r["name"] == "mcp-auth-drift-mcp-sbx-20261115")
     assert row["historical_helm_revisions"] == ["llm-agent-mcp@17"] and row["history_references"]
     assert row["retired_subjects"] == ["drift-specialist"]
@@ -130,6 +133,122 @@ def test_main_fails_when_the_computed_list_differs_from_the_reviewed_list(tmp_pa
     assert (tmp_path / "m.tsv").read_text().startswith("decision\t")
 
 
+# ------------------------------------------------------------------ lf: the two ewallet-agents final-set copies
+
+LF_REVIEWED = ["ewallet-agents/mcp-auth-drift-mcp-fin-20261117", "ewallet-agents/mcp-auth-drift-mcp-fin-20261117-b"]
+
+
+def lf_inventory():
+    """The state recorded at the end of lc-20261117T002220Z (after-delete inventory), with the scoped Helm view."""
+    data = inventory()
+    data["tables"] = [t for t in data["tables"] if "fin-20261117" in t["name"]]
+    data["references"] = {
+        "live": {"ewallet-mcp/mcp-auth-drift-mcp-fin-20261117": ["Pod/ewallet-mcp/drift-mcp-a"],
+                 "ewallet-mcp/mcp-auth-feature-rag-mcp-fin-20261117": ["Pod/ewallet-mcp/feature-rag-mcp-a"]},
+        "history": {},
+        # Conservative view: the ewallet-mcp server's table name also blocks the same-named ewallet-agents copy.
+        "helm_current": {"ewallet-mcp/mcp-auth-drift-mcp-fin-20261117": ["llm-agent-mcp"],
+                         "ewallet-agents/mcp-auth-drift-mcp-fin-20261117": ["llm-agent-mcp"],
+                         "ewallet-mcp/mcp-auth-feature-rag-mcp-fin-20261117": ["llm-agent-mcp"]},
+        "helm_history": {"ewallet-agents/mcp-auth-drift-mcp-fin-20261117": ["llm-agent-mcp@18", "llm-agent@56"],
+                         "ewallet-agents/mcp-auth-drift-mcp-fin-20261117-b": ["llm-agent@58"]},
+        "helm_current_scoped": {"ewallet-mcp/mcp-auth-drift-mcp-fin-20261117": ["llm-agent-mcp"],
+                                "ewallet-mcp/mcp-auth-feature-rag-mcp-fin-20261117": ["llm-agent-mcp"]},
+        "helm_history_scoped": {"ewallet-agents/mcp-auth-drift-mcp-fin-20261117": ["llm-agent@56"],
+                                "ewallet-agents/mcp-auth-drift-mcp-fin-20261117-b": ["llm-agent@58"],
+                                "ewallet-mcp/mcp-auth-drift-mcp-fin-20261117": ["llm-agent-mcp@18"]},
+    }
+    return data
+
+
+def test_lf_the_unused_ewallet_agents_copies_are_the_only_deletions():
+    matrix = m.build(lf_inventory())
+    assert matrix["problems"] == [] and matrix["delete"] == LF_REVIEWED
+    d = decisions(matrix)
+    assert d["ewallet-mcp/mcp-auth-drift-mcp-fin-20261117"] == "KEEP"
+    assert d["ewallet-mcp/mcp-auth-feature-rag-mcp-fin-20261117"] == "KEEP"
+    row = next(r for r in matrix["rows"] if r["name"] == "mcp-auth-drift-mcp-fin-20261117" and r["namespace"] == "ewallet-agents")
+    assert any("another namespace" in reason for reason in row["reasons"])
+    assert any("llm-agent@56" in reason and "llm-agent-mcp" not in reason for reason in row["reasons"])
+
+
+def test_lf_a_deployed_in_release_server_keeps_both_copies():
+    data = lf_inventory()   # the pre-lc state: ewallet-agents/drift-mcp reads fin-20261117-b
+    data["servers"]["ewallet-agents/drift-mcp"] = {"present": True, "table": "mcp-auth-drift-mcp-fin-20261117-b"}
+    d = decisions(m.build(data))
+    assert d["ewallet-agents/mcp-auth-drift-mcp-fin-20261117-b"] == "KEEP"
+    assert d["ewallet-agents/mcp-auth-drift-mcp-fin-20261117"] == "UNKNOWN"
+    assert m.build(data)["delete"] == []
+
+
+@pytest.mark.parametrize("mutate,reason", [
+    (lambda d: d["references"]["live"].update({"ewallet-agents/mcp-auth-drift-mcp-fin-20261117-b": ["Pod/ewallet-agents/x"]}),
+     "live workload"),
+    (lambda d: d["references"]["helm_current_scoped"].update({"ewallet-agents/mcp-auth-drift-mcp-fin-20261117-b": ["llm-agent"]}),
+     "current Helm manifest object in ewallet-agents"),
+    (lambda d: d["references"].pop("helm_current_scoped"), "re-collect"),
+    (lambda d: d["servers"].pop("ewallet-agents/drift-mcp"), "not inventoried"),
+])
+def test_lf_any_namespace_local_dependency_keeps_the_copy(mutate, reason):
+    data = lf_inventory()
+    mutate(data)
+    matrix = m.build(data)
+    row = next(r for r in matrix["rows"] if r["name"] == "mcp-auth-drift-mcp-fin-20261117-b")
+    assert row["decision"] == "UNKNOWN" and reason in row["reasons"][0], row["reasons"]
+    assert "ewallet-agents/mcp-auth-drift-mcp-fin-20261117-b" not in matrix["delete"]
+
+
+def test_lf_the_ewallet_mcp_final_tables_are_never_namespace_obsolete():
+    data = lf_inventory()
+    for key in ("ewallet-mcp/drift-mcp", "ewallet-mcp/feature-rag-mcp"):   # even with no server reading them
+        data["servers"][key] = {"present": False, "table": None}
+    data["references"]["live"] = {}
+    data["references"]["helm_current_scoped"] = {}
+    matrix = m.build(data)
+    assert all(not k.startswith("ewallet-mcp/") for k in matrix["delete"])
+    assert decisions(matrix)["ewallet-mcp/mcp-auth-drift-mcp-fin-20261117"] == "KEEP"
+
+
+def test_lf_an_unverified_ewallet_mcp_final_table_blocks_the_copies_too():
+    data = lf_inventory()
+    data["tables"][0]["immutable"] = False   # ewallet-mcp/mcp-auth-drift-mcp-fin-20261117
+    matrix = m.build(data)
+    assert matrix["problems"] and matrix["delete"] == []
+
+
+def test_scoped_helm_references_follow_the_manifest_object_namespace():
+    manifest = """---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: drift-mcp
+  namespace: ewallet-mcp
+  labels:
+    namespace: decoy
+spec:
+  template:
+    spec:
+      containers:
+        - env:
+            - name: EWALLET_MCP_SERVICE_TOKENS
+              valueFrom: {secretKeyRef: {name: mcp-auth-drift-mcp-fin-20261117}}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: no-namespace
+data:
+  x: mcp-auth-drift-mcp-fin-20261117-b
+"""
+    known = {"ewallet-mcp/mcp-auth-drift-mcp-fin-20261117", "ewallet-agents/mcp-auth-drift-mcp-fin-20261117",
+             "ewallet-agents/mcp-auth-drift-mcp-fin-20261117-b"}
+    conservative = inv.helm_references(manifest, "llm-agent-mcp", known)
+    assert conservative["ewallet-agents/mcp-auth-drift-mcp-fin-20261117"] == ["llm-agent-mcp"]   # unchanged behaviour
+    scoped = inv.helm_scoped_references(manifest, "llm-agent-mcp", known, "ewallet-mcp")
+    assert scoped == {"ewallet-mcp/mcp-auth-drift-mcp-fin-20261117": ["llm-agent-mcp"],
+                      "ewallet-mcp/mcp-auth-drift-mcp-fin-20261117-b (no such table)": ["llm-agent-mcp"]}
+
+
 def test_collector_drops_tokens_and_classifies_references():
     secret_data = {"version": 1, "credentials": [{"id": "sandbox-drift.drift-mcp.fin.active", "subject": "sandbox-drift",
                                                   "token": "SUPER-SECRET-VALUE", "status": "active"}]}
@@ -178,6 +297,9 @@ def test_collector_drops_tokens_and_classifies_references():
     assert refs["live"]["ewallet-mcp/mcp-auth-drift-mcp-fin-20261117"] == ["Deployment/ewallet-mcp/drift-mcp"]
     assert refs["history"]["ewallet-mcp/mcp-auth-drift-mcp-sbx-20261115"] == ["ReplicaSet/ewallet-mcp/drift-mcp-old"]
     assert refs["helm_history"]["ewallet-mcp/mcp-auth-drift-mcp-sbx-20261115"] == ["llm-agent-mcp@17"]
+    # Namespace-less manifest text lives in the release namespace.
+    assert refs["helm_history_scoped"]["ewallet-mcp/mcp-auth-drift-mcp-sbx-20261115"] == ["llm-agent-mcp@17"]
+    assert refs["helm_current_scoped"]["ewallet-mcp/mcp-auth-drift-mcp-fin-20261117"] == ["llm-agent-mcp"]
     assert data["servers"]["ewallet-mcp/drift-mcp"] == {"present": True, "table": "mcp-auth-drift-mcp-fin-20261117"}
 
 
@@ -270,6 +392,91 @@ def test_the_chart_retires_the_in_release_server_and_only_its_exclusive_objects(
     bad.write_text(json.dumps({"mcpServices": {"services": {"drift-mcp": {"retired": True, "enabled": True}}}}))
     proc = subprocess.run(["helm", "template", "x", str(base), "-f", str(values), "-f", str(bad)], capture_output=True, text=True)
     assert proc.returncode != 0 and "a retired server cannot be enabled" in proc.stderr
+
+
+def _identities(rendered: str) -> set[str]:
+    """Kind/namespace/name of every rendered object (top-level metadata only; stdlib, no YAML parser)."""
+    found = set()
+    for doc in rendered.split("\n---"):
+        kind = next((l.split(":", 1)[1].strip() for l in doc.splitlines() if l.startswith("kind:")), None)
+        meta = doc.split("\nmetadata:\n", 1)[-1].splitlines()
+        top = [l for l in meta if l.startswith("  ") and not l.startswith("   ")]
+        field = lambda key: next((l.split(":", 1)[1].strip() for l in top if l.startswith(f"  {key}:")), None)  # noqa: E731
+        if kind:
+            found.add(f"{kind}/{field('namespace')}/{field('name')}")
+    return found
+
+
+def test_retiring_the_disabled_feature_rag_server_drops_its_cross_namespace_flows_only(tmp_path):
+    """lf-agents: a retired in-release server's crossNamespace flows render nothing, here or in the peer namespaces.
+
+    The gateway's egress to the active backend in ewallet-mcp (agents.mcpServers), its RemoteMCPServer-facing
+    configuration and the flows of other workloads must stay byte-identical.
+    """
+    base = ROOT / "infra/helm/llm-agent-platform"
+    digest = "sha256:" + "a" * 64
+    flows = [
+        {"name": "feature-rag-mcp-to-feast-redis", "direction": "egress", "local": "feature-rag-mcp", "port": 6379,
+         "peerIngress": True, "peer": {"namespace": "feature-store", "podLabels": {"app.kubernetes.io/name": "redis"}}},
+        {"name": "feature-rag-mcp-to-kserve", "direction": "egress", "local": "feature-rag-mcp", "port": 8080,
+         "peerIngress": True, "peerAuthorization": True,
+         "peer": {"namespace": "fraud-serving", "ambient": True,
+                  "podLabels": {"serving.kserve.io/inferenceservice": "fraud-detector"}}},
+        {"name": "kagent-controller-to-mcp-gateway", "direction": "ingress", "local": "mcp-gateway", "port": 8080,
+         "peer": {"namespace": "kagent", "ambient": True, "serviceAccount": "kagent-controller",
+                  "podLabels": {"app.kubernetes.io/name": "kagent"}}},
+    ]
+    values = tmp_path / "v.json"
+    values.write_text(json.dumps({
+        "mcpServices": {"enabled": True, "image": "r.example/x/mcp@" + digest,
+                        "identity": {"gitSha": "b" * 40, "imageDigest": digest, "configRevision": "c", "promptRevision": "p",
+                                     "modelRevision": "m", "featureRevision": "f", "corpusRevision": "r"},
+                        "services": {"feature-rag-mcp": {"enabled": False},
+                                     "drift-mcp": {"enabled": False, "retired": True}}},
+        "mcpGateway": {"enabled": True, "backendNamespace": "ewallet-mcp"},
+        "agents": {"mcpServers": {"feature-rag-mcp": {}, "drift-mcp": {}}},
+        "otelCollector": {"enabled": True},
+        "crossNamespace": {"flows": flows},
+    }))
+    overlay = tmp_path / "lf.yaml"
+    overlay.write_text((base / "agi/agents-retire-feature-rag-mcp.yaml").read_text())
+
+    def render(*files):
+        args = ["helm", "template", "llm-agent", str(base), "-n", "default"]
+        for f in files:
+            args += ["-f", str(f)]
+        return subprocess.run(args, check=True, capture_output=True, text=True).stdout
+
+    try:
+        before, after = render(values), render(values, overlay)
+    except FileNotFoundError:
+        pytest.skip("helm is not installed")
+    gone = sorted(_identities(before) - _identities(after))
+    assert gone == sorted([
+        "ServiceAccount/ewallet-agents/feature-rag-mcp",
+        "NetworkPolicy/ewallet-agents/allow-ambient-probes-feature-rag-mcp",
+        "NetworkPolicy/ewallet-agents/allow-feature-rag-mcp-to-otel-collector-ingress",
+        "NetworkPolicy/ewallet-agents/allow-feature-rag-mcp-to-otel-collector-egress",
+        "AuthorizationPolicy/ewallet-agents/allow-feature-rag-mcp-to-otel-collector",
+        "NetworkPolicy/ewallet-agents/allow-feature-rag-mcp-to-feast-redis-egress",
+        "NetworkPolicy/feature-store/allow-ewallet-agents-feature-rag-mcp-to-feast-redis",
+        "NetworkPolicy/ewallet-agents/allow-feature-rag-mcp-to-kserve-egress",
+        "NetworkPolicy/fraud-serving/allow-ewallet-agents-feature-rag-mcp-to-kserve",
+        "AuthorizationPolicy/fraud-serving/allow-ewallet-agents-feature-rag-mcp-to-kserve",
+    ]), gone
+    assert _identities(after) - _identities(before) == set()
+    kept = _identities(after)
+    for identity in ("NetworkPolicy/ewallet-agents/allow-mcp-gateway-to-feature-rag-mcp-cross-namespace-egress",
+                     "NetworkPolicy/ewallet-agents/allow-mcp-gateway-to-drift-mcp-cross-namespace-egress",
+                     "NetworkPolicy/ewallet-agents/allow-kagent-controller-to-mcp-gateway-ingress",
+                     "AuthorizationPolicy/ewallet-agents/allow-kagent-controller-to-mcp-gateway",
+                     "ConfigMap/ewallet-agents/mcp-gateway-config"):
+        assert identity in kept, identity
+    # The gateway's backend route to the active ewallet-mcp server is unchanged, not merely present.
+    gateway = lambda text: next(d for d in text.split("\n---") if "name: mcp-gateway-config" in d)  # noqa: E731
+    assert gateway(before) == gateway(after)
+    # Without retired: true the same flows render (the template keys on retirement, not on enabled: false).
+    assert "allow-ewallet-agents-feature-rag-mcp-to-feast-redis" in before
 
 
 # ------------------------------------------------------------------ KEEP-object fingerprints

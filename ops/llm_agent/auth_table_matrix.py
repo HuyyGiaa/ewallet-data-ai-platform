@@ -16,8 +16,16 @@ A table is DELETE only when all of these hold (owner directive, Stage B2):
      active credential and no retired subject;
   6. it is in the reviewed deletion list (``--expect-delete``); any difference between the computed and the
      reviewed list fails the plan.
-Protected tables are never deleted: the final sets ``fin-20261117`` and ``fin-20261117-b``. A table matching no
-rule (for example an unused final-set table) is UNKNOWN and kept.
+Protected tables are never deleted: the final sets ``fin-20261117`` and ``fin-20261117-b``, except where
+NAMESPACE_OBSOLETE_SETS makes a set obsolete in one namespace only. A table matching no rule is UNKNOWN and kept.
+
+Namespace-obsolete sets (offline audit lf-offline-20261117, docs/edai2/agents/AGENT_PLATFORM_COMPLETION.md §13): in
+``ewallet-agents`` the final-set copies ``fin-20261117`` (llm-agent@56 only, the failed cr-agents attempt) and
+``fin-20261117-b`` (llm-agent@58 only) served the in-release drift-mcp, retired in llm-agent@59. The same names stay
+live and protected in ``ewallet-mcp``. Such a table is DELETE only when, in addition to rules 4-6: no live object in
+its namespace names it, no current Helm manifest object in its namespace names it (the namespace-scoped view; a
+same-named table read in another namespace does not count, an inventory without the scoped view blocks), and its
+in-release server in that namespace is absent. Its retired-server rollback revisions are listed, not blockers.
 
 usage: python -m ops.llm_agent.auth_table_matrix --inventory inventory.json --out matrix.json
            [--expect-delete ewallet-mcp/mcp-auth-drift-mcp-sbx-20261115 ...]
@@ -36,6 +44,7 @@ from typing import Any
 
 OBSOLETE_SETS = ("legacy", "r1-transition", "sbx-20261115")
 PROTECTED_SETS = ("fin-20261117", "fin-20261117-b")
+NAMESPACE_OBSOLETE_SETS = {"ewallet-agents": ("fin-20261117", "fin-20261117-b")}
 RETIRED_SUBJECTS = frozenset({"drift-specialist", "feature-rag-specialist"})
 SERVERS = ("drift-mcp", "feature-rag-mcp")
 _NAME = re.compile(r"^mcp-auth-(?P<server>" + "|".join(SERVERS) + r")(?:-(?P<set>[a-z0-9]([-a-z0-9]{0,22}[a-z0-9])?))?$")
@@ -87,6 +96,7 @@ def build(inventory: dict[str, Any]) -> dict[str, Any]:
     references = inventory.get("references", {})
     live, history = references.get("live", {}), references.get("history", {})
     current_helm, helm_history = references.get("helm_current", {}), references.get("helm_history", {})
+    current_scoped = references.get("helm_current_scoped")   # None: collected before the scoped view existed
     servers = inventory.get("servers", {})   # "<ns>/<server>" -> {"present": bool, "table": name|None}
     problems: list[str] = []
 
@@ -117,8 +127,31 @@ def build(inventory: dict[str, Any]) -> dict[str, Any]:
                   retired_subjects=sorted({c.get("subject") for c in table.get("credentials") or []} & RETIRED_SUBJECTS),
                   credential_ids=sorted(c.get("id", "?") for c in table.get("credentials") or []))
         server_state = servers.get(f"{table['namespace']}/{server}") if server else None
+        namespace_obsolete = server_set in NAMESPACE_OBSOLETE_SETS.get(table["namespace"], ())
         if key in final_keys:
             row.decision, row.reasons = "KEEP", ["read by a live server (verified final table)"]
+        elif namespace_obsolete:
+            scoped = None if current_scoped is None else sorted(current_scoped.get(key, []))
+            if row.live_references:
+                row.reasons = ["referenced by a live workload"]
+            elif scoped is None:
+                row.reasons = ["inventory has no namespace-scoped Helm references; re-collect"]
+            elif scoped:
+                row.reasons = [f"referenced by a current Helm manifest object in {table['namespace']}: {scoped}"]
+            elif server_state is None:
+                row.reasons = [f"server {table['namespace']}/{server} was not inventoried"]
+            elif server_state.get("present"):
+                row.reasons = [f"its in-release server {table['namespace']}/{server} is still deployed"]
+            else:
+                row.decision = "DELETE"
+                row.reasons = [f"set {server_set} is obsolete in {table['namespace']}: its in-release server is absent "
+                               "(retired); no live or namespace-scoped current Helm reference"]
+                if row.current_helm_references:
+                    row.reasons.append("the same name is read in another namespace (not this table)")
+                history_scoped = sorted((references.get("helm_history_scoped") or {}).get(key, []))
+                if history_scoped:
+                    row.reasons.append("only historical revisions recreating the retired server name it: "
+                                       + ",".join(history_scoped))
         elif server_set in PROTECTED_SETS:
             row.decision, row.reasons = "KEEP", [f"protected final server set {server_set}"]
         elif server is None:

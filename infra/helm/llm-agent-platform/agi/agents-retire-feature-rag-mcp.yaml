@@ -1,0 +1,16 @@
+# Package lf-agents (release llm-agent, namespace default): retire the long-disabled in-release
+# ewallet-agents/feature-rag-mcp for good, the same way lc-agents retired the in-release drift-mcp.
+# Its Deployment, Service and PDB stopped rendering long ago (enabled: false); what remains is infrastructure only
+# that workload used, selecting pods app.kubernetes.io/name=feature-rag-mcp in ewallet-agents, of which none exist:
+#   ServiceAccount, kubelet-probe NetworkPolicy, otel-collector flow policies (NetworkPolicy x2, AuthorizationPolicy),
+#   and its two crossNamespace flows: egress NetworkPolicies here plus additive ingress NetworkPolicies in
+#   feature-store (Feast Online Redis) and fraud-serving (KServe fraud-detector), named allow-ewallet-agents-*.
+# Kept: the active ewallet-mcp/feature-rag-mcp (release llm-agent-mcp, its own allow-ewallet-mcp-* peer policies),
+# the MCP Gateway route and its cross-namespace egress to ewallet-mcp, RemoteMCPServer/feature-rag-mcp and its
+# discovery credential (agents.mcpServers), and the crossNamespace.flows values (the template skips flows of a
+# retired local workload). Applied by agi_campaign.sh (Python overlay: null deletes the key from the live values).
+mcpServices:
+  services:
+    feature-rag-mcp:
+      retired: true
+      enabled: false

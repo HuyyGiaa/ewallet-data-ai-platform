@@ -487,6 +487,32 @@ class CampaignGateTests(unittest.TestCase):
         self.assertEqual(self.run_script("__identities", "mcp", AGI_PACKAGE="lc-mcp").stdout.split(), [],
                          "lc-mcp expects exactly no object change")
 
+    def test_feature_rag_retirement_package_renders_its_overlay_and_expects_only_exclusive_objects(self):
+        self.preflight()
+        result, args = self.args_for("lf-agents", "agents")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        files = [args[i + 1] for i, arg in enumerate(args) if arg == "-f"]
+        self.assertEqual([Path(f).name for f in files], ["lf-agents-values.yaml"])
+        self.assertNotIn("--set", args)
+        rendered = yaml.safe_load(Path(files[0]).read_text()) or {}
+        services = rendered["mcpServices"]["services"]
+        self.assertEqual((services["feature-rag-mcp"]["retired"], services["feature-rag-mcp"]["enabled"]), (True, False))
+        identities = self.run_script("__identities", "agents", AGI_PACKAGE="lf-agents").stdout.split()
+        removed = sorted(identities[i + 1] for i, a in enumerate(identities) if a == "--expect-removed")
+        changed = [identities[i + 1] for i, a in enumerate(identities) if a == "--expect-changed"]
+        self.assertEqual(len(removed), 9)
+        self.assertTrue(all("feature-rag-mcp" in r.split("/")[2] for r in removed), removed)
+        self.assertFalse([r for r in removed if "/ewallet-mcp/" in r or "allow-ewallet-mcp-" in r],
+                         "the active ewallet-mcp server and its peer policies are never touched")
+        self.assertFalse([r for r in removed if r.startswith(("RemoteMCPServer/", "ConfigMap/"))
+                          or "cross-namespace-egress" in r], "the gateway route and RemoteMCPServer stay")
+        self.assertEqual({r.split("/")[1] for r in removed}, {"ewallet-agents", "feature-store", "fraud-serving"})
+        self.assertEqual(changed, ["ConfigMap/ewallet-agents/llm-agent-network-flows"])
+        upgrade = self.run_script("upgrade", "agents", AGI_PACKAGE="lf-agents", AGI_APPROVAL=f"LC-AGENTS:{CAMPAIGN}")
+        self.assertNotEqual(upgrade.returncode, 0)
+        self.assertIn("approval LF-AGENTS", upgrade.stderr)
+        self.assertNotIn("REAL-UPGRADE", self.calls())
+
     def test_gate_and_rollback_refuse_manifests_that_select_a_retired_credential(self):
         self.preflight()
         on = self.fake / "llm-agent-mcp-on.yaml"

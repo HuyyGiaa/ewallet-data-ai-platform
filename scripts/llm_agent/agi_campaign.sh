@@ -32,6 +32,9 @@
 #                             drop the retired Specialist client-credential references from the stored values
 #   lc-mcp     llm-agent-mcp  values-only: drop the retired Specialist client-credential references
 #                             (agi/mcp-drop-retired-client-refs.yaml); the rendered manifest must not change
+#   lf-agents  llm-agent      retire the long-disabled in-release ewallet-agents/feature-rag-mcp and its exclusive
+#                             infrastructure (agi/agents-retire-feature-rag-mcp.yaml), including its crossNamespace
+#                             flows' allow-ewallet-agents-* peer policies in feature-store and fraud-serving
 # Every gate and rollback refuses a manifest that references a retired MCP credential (auth tables of the
 # legacy, r1-transition and sbx-20261115 server sets; mcp-token-*-specialist-*): ops/llm_agent/retired_credentials.py.
 #                             removes their BYO Agent CRs and Deployment-only objects; Sandbox routes stay
@@ -64,7 +67,7 @@ REFERENCE_INPUT="${ROOT}/docs/evidence/llm_agent/agent_platform_runtime_20261102
 FEATURES='["account_behavior__account_tx_count_1h","account_behavior__account_tx_count_24h","user_behavior__user_avg_amount_30d","merchant_behavior__merchant_tx_count_24h"]'
 
 die() { echo "FAIL: $*" >&2; exit 1; }
-PACKAGES=" agi p1-mcp s1-mcp s1-agents p2-agents p4-agents img-mcp img-agents img-coordinator t1-agents tr-agents sp-cleanup cr-mcp cr-agents lc-agents lc-mcp "
+PACKAGES=" agi p1-mcp s1-mcp s1-agents p2-agents p4-agents img-mcp img-agents img-coordinator t1-agents tr-agents sp-cleanup cr-mcp cr-agents lc-agents lc-mcp lf-agents "
 SANDBOX_SPECIALISTS="{drift-specialist,feature-rag-specialist}"
 KEDA_AGENTS="fraud-coordinator feature-rag-specialist drift-specialist"
 # What the MCP and BYO images copy (infra/docker/*/Dockerfile). IMAGE_SHA may precede SHA only when
@@ -96,7 +99,7 @@ package_release() {   # the release a package changes; agi changes both, one per
   case "${PACKAGE}" in
     agi) echo "$1" ;;
     p1-mcp|s1-mcp|img-mcp|cr-mcp|lc-mcp) echo mcp ;;
-    s1-agents|p2-agents|p4-agents|img-agents|img-coordinator|t1-agents|tr-agents|sp-cleanup|cr-agents|lc-agents) echo agents ;;
+    s1-agents|p2-agents|p4-agents|img-agents|img-coordinator|t1-agents|tr-agents|sp-cleanup|cr-agents|lc-agents|lf-agents) echo agents ;;
   esac
 }
 
@@ -358,9 +361,10 @@ overlay_args() {   # prints one argument per line for this package's render of t
       apply_overlay "${PRIVATE}/${base}" "${CHART}/agi/${file}" "${PRIVATE}/${PACKAGE}-values.yaml"
       printf '%s\n' -f "${PRIVATE}/${PACKAGE}-values.yaml" --set "mcpCredentialLifecycle.serverSet=${FINAL_SERVER_SET}"
       echo __END__ ;;
-    lc-agents:agents|lc-mcp:mcp)   # the live values (already on the final server set) with the overlay applied
+    lc-agents:agents|lc-mcp:mcp|lf-agents:agents)   # the live values (already on the final server set) with the overlay applied
       local file=agents-retire-in-release-mcp.yaml base=llm-agent-values.yaml
       [[ "$1" == mcp ]] && file=mcp-drop-retired-client-refs.yaml base=llm-agent-mcp-values.yaml
+      [[ "${PACKAGE}" == lf-agents ]] && file=agents-retire-feature-rag-mcp.yaml
       apply_overlay "${PRIVATE}/${base}" "${CHART}/agi/${file}" "${PRIVATE}/${PACKAGE}-values.yaml"
       printf '%s\n' -f "${PRIVATE}/${PACKAGE}-values.yaml"
       echo __END__ ;;
@@ -445,6 +449,10 @@ expected_identities() {
     lc-agents:agents)   # exact: the retired in-release drift-mcp and only what it exclusively owned
       local id
       for id in Deployment/ewallet-agents/drift-mcp Service/ewallet-agents/drift-mcp PodDisruptionBudget/ewallet-agents/drift-mcp ServiceAccount/ewallet-agents/drift-mcp NetworkPolicy/ewallet-agents/allow-ambient-probes-drift-mcp NetworkPolicy/ewallet-agents/allow-drift-mcp-to-otel-collector-ingress NetworkPolicy/ewallet-agents/allow-drift-mcp-to-otel-collector-egress AuthorizationPolicy/ewallet-agents/allow-drift-mcp-to-otel-collector; do printf '%s\n' --expect-removed "${id}"; done
+      printf '%s\n' --expect-changed ConfigMap/ewallet-agents/llm-agent-network-flows ;;
+    lf-agents:agents)   # exact: what only the disabled in-release feature-rag-mcp used (no Deployment/Service/PDB left)
+      local id
+      for id in ServiceAccount/ewallet-agents/feature-rag-mcp NetworkPolicy/ewallet-agents/allow-ambient-probes-feature-rag-mcp NetworkPolicy/ewallet-agents/allow-feature-rag-mcp-to-otel-collector-ingress NetworkPolicy/ewallet-agents/allow-feature-rag-mcp-to-otel-collector-egress AuthorizationPolicy/ewallet-agents/allow-feature-rag-mcp-to-otel-collector NetworkPolicy/ewallet-agents/allow-feature-rag-mcp-to-feast-redis-egress NetworkPolicy/ewallet-agents/allow-feature-rag-mcp-to-kserve-fraud-detector-egress NetworkPolicy/feature-store/allow-ewallet-agents-feature-rag-mcp-to-feast-redis NetworkPolicy/fraud-serving/allow-ewallet-agents-feature-rag-mcp-to-kserve-fraud-detector; do printf '%s\n' --expect-removed "${id}"; done
       printf '%s\n' --expect-changed ConfigMap/ewallet-agents/llm-agent-network-flows ;;
     agi:mcp|s1-mcp:mcp|img-mcp:mcp) printf '%s\n' --expect-changed Deployment/ewallet-mcp/feature-rag-mcp --expect-changed Deployment/ewallet-mcp/drift-mcp ;;
     p1-mcp:mcp) printf '%s\n' --expect-changed Deployment/ewallet-mcp/feature-rag-mcp --expect-changed Deployment/ewallet-mcp/drift-mcp \

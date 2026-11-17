@@ -47,9 +47,13 @@ spec:
         {{- end }}
 {{- end }}
 {{- end }}
-{{- $retiredSpecialists := include "llm-agent-platform.retiredSpecialists" . | fromYamlArray }}
+{{- /* A flow whose local workload is retired (sandbox-only Specialist or retired in-release MCP server) renders
+nothing: its egress policy here and its additive peer-namespace ingress/authorization select only that workload's
+pods in this namespace. The gateway egress above follows agents.mcpServers and the MCP backend namespace, never
+mcpServices.retired, so the active backends stay reachable. */ -}}
+{{- $retiredWorkloads := include "llm-agent-platform.retiredWorkloads" . | fromYamlArray }}
 {{- range $flow := .Values.crossNamespace.flows }}
-{{- if not (has $flow.local $retiredSpecialists) }}
+{{- if not (has $flow.local $retiredWorkloads) }}
 {{- $local := index $.Values.networkFlows.workloads $flow.local }}
 {{- if not $local }}
 {{- fail (printf "crossNamespace flow %s references an undeclared workload %s" $flow.name $flow.local) }}

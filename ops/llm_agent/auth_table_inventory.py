@@ -6,6 +6,12 @@ server Deployment reads; every live object that names a table (workloads, scaled
 agent-sandbox resources); zero-replica ReplicaSets (rollout history); the current Helm release manifests; and
 every historical Helm revision. ops/llm_agent/auth_table_matrix.py turns it into the KEEP/DELETE/UNKNOWN matrix.
 
+Helm references are recorded twice: ``helm_current``/``helm_history`` block every table carrying a referenced name
+in any namespace (conservative), and ``helm_current_scoped``/``helm_history_scoped`` attribute each name to the
+namespace of the manifest object that names it (Secret references are namespace-local; an object without
+metadata.namespace lives in the release namespace). The matrix uses the scoped view only for sets that are
+obsolete in one namespace while the same table name is live in another (auth_table_matrix.NAMESPACE_OBSOLETE_SETS).
+
 usage: python -m ops.llm_agent.auth_table_inventory --context CTX --out inventory.json
            [--release llm-agent=default --release llm-agent-mcp=ewallet-mcp] [--skip-history]
 """
@@ -93,6 +99,39 @@ def helm_references(text: str, label: str, known: set[str]) -> dict[str, list[st
     return out
 
 
+def _document_namespace(document: str) -> str | None:
+    """metadata.namespace of one manifest document (top-level metadata block only; stdlib, no YAML parser)."""
+
+    lines = document.splitlines()
+    try:
+        start = lines.index("metadata:")
+    except ValueError:
+        return None
+    for line in lines[start + 1:]:
+        if line and not line.startswith(" "):   # the metadata block ended
+            return None
+        if line.startswith("  namespace:") and not line.startswith("   "):
+            return line.split(":", 1)[1].strip().strip("'\"") or None
+    return None
+
+
+def helm_scoped_references(text: str, label: str, known: set[str], release_namespace: str) -> dict[str, list[str]]:
+    """Each referenced table name attributed to the namespace of the manifest object that names it."""
+
+    out: dict[str, list[str]] = {}
+    for document in re.split(r"(?m)^---\s*$", text):
+        names = table_names(document)
+        if not names:
+            continue
+        namespace = _document_namespace(document) or release_namespace
+        for name in names:
+            key = f"{namespace}/{name}"
+            if key not in known:
+                key = f"{key} (no such table)"
+            out.setdefault(key, []).append(label)
+    return out
+
+
 def collect(context: str, releases: list[tuple[str, str]], run: Runner = run_command, history: bool = True) -> dict[str, Any]:
     kubectl = ["kubectl", "--context", context, "--request-timeout=60s"]
     helm = ["helm", "--kube-context", context]
@@ -117,22 +156,30 @@ def collect(context: str, releases: list[tuple[str, str]], run: Runner = run_com
     live, rollout_history = object_references(objects, known)
     helm_current: dict[str, list[str]] = {}
     helm_history: dict[str, list[str]] = {}
+    helm_current_scoped: dict[str, list[str]] = {}
+    helm_history_scoped: dict[str, list[str]] = {}
     revisions: dict[str, list[int]] = {}
+
+    def record(text: str, label: str, namespace: str, conservative: dict[str, list[str]], scoped: dict[str, list[str]]) -> None:
+        for key, labels in helm_references(text, label, known).items():
+            conservative.setdefault(key, []).extend(labels)
+        for key, labels in helm_scoped_references(text, label, known, namespace).items():
+            scoped.setdefault(key, []).extend(labels)
+
     for release, namespace in releases:
-        for key, labels in helm_references(run([*helm, "-n", namespace, "get", "manifest", release]), release, known).items():
-            helm_current.setdefault(key, []).extend(labels)
+        record(run([*helm, "-n", namespace, "get", "manifest", release]), release, namespace, helm_current, helm_current_scoped)
         if not history:
             continue
         revs = sorted(r["revision"] for r in json.loads(run([*helm, "-n", namespace, "history", release, "--max", "1000", "-o", "json"])))
         revisions[release] = revs
         for revision in revs:
             text = run([*helm, "-n", namespace, "get", "manifest", release, "--revision", str(revision)])
-            for key, labels in helm_references(text, f"{release}@{revision}", known).items():
-                helm_history.setdefault(key, []).extend(labels)
+            record(text, f"{release}@{revision}", namespace, helm_history, helm_history_scoped)
     return {"context": context, "tables": tables, "servers": servers, "scanned_kinds": kinds,
             "objects_scanned": len(objects), "helm_revisions": revisions,
             "references": {"live": live, "history": rollout_history, "helm_current": helm_current,
-                           "helm_history": helm_history}}
+                           "helm_history": helm_history, "helm_current_scoped": helm_current_scoped,
+                           "helm_history_scoped": helm_history_scoped}}
 
 
 def _release(value: str) -> tuple[str, str]:

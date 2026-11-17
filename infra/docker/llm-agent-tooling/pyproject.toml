@@ -37,8 +37,13 @@ dev = [
 ]
 # CI test runner only, never installed into an image (images sync with --no-dev).
 # httpx is what tests/experiments/test_mcp_experiment drives the MCP server with.
+# jsonschema: the chart/schema tests validate rendered objects against pinned schemas
+# (test_c5_keda_chart, test_phase_abc_p0_fixes, test_session_a_charts); it was only
+# reachable through mcp (dev group) before, at the same locked version.
+# test_vllm_model_image imports a Python 3.12 build script: run this group with --python 3.12.
 test = [
   "httpx==0.28.1",
+  "jsonschema==4.26.0",
   "pytest==9.2.0",
 ]
 

@@ -406,6 +406,7 @@ dev = [
 ]
 test = [
     { name = "httpx" },
+    { name = "jsonschema" },
     { name = "pytest" },
 ]
 
@@ -431,6 +432,7 @@ provides-extras = ["feast", "rag-query"]
 dev = [{ name = "mcp", specifier = "==2.3.0" }]
 test = [
     { name = "httpx", specifier = "==0.28.1" },
+    { name = "jsonschema", specifier = "==4.26.0" },
     { name = "pytest", specifier = "==9.2.0" },
 ]
 
