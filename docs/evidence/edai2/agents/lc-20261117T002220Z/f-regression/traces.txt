@@ -1,0 +1,7 @@
+combined  a56cd4030a9afb45b0b341649200d3fa spans=228 {'agentgateway': 34, 'kagent-controller': 21, 'fraud-coordinator': 83, 'drift-specialist': 18, 'drift-mcp': 14, 'feature-rag-specialist': 27, 'feature-rag-mcp': 31}
+drift     a2cb2e6bafaaa487aedf31d9a760602b spans=185 {'agentgateway': 15, 'kagent-controller': 14, 'fraud-coordinator': 124, 'drift-specialist': 18, 'drift-mcp': 14}
+fraud     3add855c796fdbb1c32f962d47db96a4 spans=225 {'agentgateway': 21, 'kagent-controller': 14, 'fraud-coordinator': 134, 'feature-rag-specialist': 25, 'feature-rag-mcp': 31}
+nl-drift  a3e9670dfbce7c840750cb36e4aee4eb spans=223 {'agentgateway': 19, 'kagent-controller': 17, 'fraud-coordinator': 155, 'drift-specialist': 18, 'drift-mcp': 14}
+nl-fraud 1215629fe4eb4065d6b647e9cd7e0d6d ERR Remote end closed connection without response
+summary NO TRACE
+nl-fraud  1215629fe4eb4065d6b647e9cd7e0d6d spans=333 {'agentgateway': 23, 'kagent-controller': 17, 'fraud-coordinator': 245, 'feature-rag-specialist': 19, 'feature-rag-mcp': 29} (retry)

@@ -1,0 +1,519 @@
+{
+  "context": "gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev",
+  "helm_revisions": {
+    "llm-agent": [
+      50,
+      51,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57,
+      58,
+      59
+    ],
+    "llm-agent-mcp": [
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19
+    ]
+  },
+  "objects_scanned": 483,
+  "references": {
+    "helm_current": {
+      "ewallet-agents/mcp-auth-drift-mcp-fin-20261117": [
+        "llm-agent-mcp"
+      ],
+      "ewallet-mcp/mcp-auth-drift-mcp-fin-20261117": [
+        "llm-agent-mcp"
+      ],
+      "ewallet-mcp/mcp-auth-feature-rag-mcp-fin-20261117": [
+        "llm-agent-mcp"
+      ]
+    },
+    "helm_history": {
+      "ewallet-agents/mcp-auth-drift-mcp": [
+        "llm-agent@50",
+        "llm-agent@51",
+        "llm-agent@52",
+        "llm-agent@53",
+        "llm-agent@54",
+        "llm-agent@55",
+        "llm-agent@57"
+      ],
+      "ewallet-agents/mcp-auth-drift-mcp-fin-20261117": [
+        "llm-agent@56",
+        "llm-agent-mcp@18",
+        "llm-agent-mcp@19"
+      ],
+      "ewallet-agents/mcp-auth-drift-mcp-fin-20261117-b": [
+        "llm-agent@58"
+      ],
+      "ewallet-mcp/mcp-auth-drift-mcp-fin-20261117": [
+        "llm-agent@56",
+        "llm-agent-mcp@18",
+        "llm-agent-mcp@19"
+      ],
+      "ewallet-mcp/mcp-auth-drift-mcp-r1-transition": [
+        "llm-agent-mcp@10",
+        "llm-agent-mcp@11"
+      ],
+      "ewallet-mcp/mcp-auth-drift-mcp-sbx-20261115": [
+        "llm-agent-mcp@12",
+        "llm-agent-mcp@13",
+        "llm-agent-mcp@14",
+        "llm-agent-mcp@15",
+        "llm-agent-mcp@16",
+        "llm-agent-mcp@17"
+      ],
+      "ewallet-mcp/mcp-auth-feature-rag-mcp-fin-20261117": [
+        "llm-agent-mcp@18",
+        "llm-agent-mcp@19"
+      ],
+      "ewallet-mcp/mcp-auth-feature-rag-mcp-r1-transition": [
+        "llm-agent-mcp@10",
+        "llm-agent-mcp@11"
+      ],
+      "ewallet-mcp/mcp-auth-feature-rag-mcp-sbx-20261115": [
+        "llm-agent-mcp@12",
+        "llm-agent-mcp@13",
+        "llm-agent-mcp@14",
+        "llm-agent-mcp@15",
+        "llm-agent-mcp@16",
+        "llm-agent-mcp@17"
+      ]
+    },
+    "history": {
+      "ewallet-mcp/mcp-auth-drift-mcp-r1-transition": [
+        "ReplicaSet/ewallet-mcp/drift-mcp-55d97bff46",
+        "ReplicaSet/ewallet-mcp/drift-mcp-7786549498",
+        "ReplicaSet/ewallet-mcp/drift-mcp-79cbf7844",
+        "ReplicaSet/ewallet-mcp/drift-mcp-dc4fcdfd5"
+      ],
+      "ewallet-mcp/mcp-auth-drift-mcp-sbx-20261115": [
+        "ReplicaSet/ewallet-mcp/drift-mcp-546dcbc9b5",
+        "ReplicaSet/ewallet-mcp/drift-mcp-5f4cbd88cc",
+        "ReplicaSet/ewallet-mcp/drift-mcp-7547956569",
+        "ReplicaSet/ewallet-mcp/drift-mcp-7b9ff7c9cb",
+        "ReplicaSet/ewallet-mcp/drift-mcp-7c474bb477",
+        "ReplicaSet/ewallet-mcp/drift-mcp-7f76fd485c"
+      ],
+      "ewallet-mcp/mcp-auth-feature-rag-mcp-r1-transition": [
+        "ReplicaSet/ewallet-mcp/feature-rag-mcp-557bc8dd87",
+        "ReplicaSet/ewallet-mcp/feature-rag-mcp-6c4fd5dc9d",
+        "ReplicaSet/ewallet-mcp/feature-rag-mcp-7c685b9ff",
+        "ReplicaSet/ewallet-mcp/feature-rag-mcp-84898967f"
+      ],
+      "ewallet-mcp/mcp-auth-feature-rag-mcp-sbx-20261115": [
+        "ReplicaSet/ewallet-mcp/feature-rag-mcp-69588cf69",
+        "ReplicaSet/ewallet-mcp/feature-rag-mcp-6b959c5764",
+        "ReplicaSet/ewallet-mcp/feature-rag-mcp-79ff47d796",
+        "ReplicaSet/ewallet-mcp/feature-rag-mcp-7b69f9d888",
+        "ReplicaSet/ewallet-mcp/feature-rag-mcp-995df8796",
+        "ReplicaSet/ewallet-mcp/feature-rag-mcp-ccb8f4888"
+      ]
+    },
+    "live": {
+      "ewallet-mcp/mcp-auth-drift-mcp-fin-20261117": [
+        "Deployment/ewallet-mcp/drift-mcp",
+        "ReplicaSet/ewallet-mcp/drift-mcp-5dfb65d6dc",
+        "Pod/ewallet-mcp/drift-mcp-5dfb65d6dc-8whk8",
+        "Pod/ewallet-mcp/drift-mcp-5dfb65d6dc-z4kfd"
+      ],
+      "ewallet-mcp/mcp-auth-feature-rag-mcp-fin-20261117": [
+        "Deployment/ewallet-mcp/feature-rag-mcp",
+        "ReplicaSet/ewallet-mcp/feature-rag-mcp-dc4bb7977",
+        "Pod/ewallet-mcp/feature-rag-mcp-dc4bb7977-gnh6g",
+        "Pod/ewallet-mcp/feature-rag-mcp-dc4bb7977-p8bh7"
+      ]
+    }
+  },
+  "scanned_kinds": [
+    "deployments",
+    "statefulsets",
+    "daemonsets",
+    "replicasets",
+    "jobs",
+    "cronjobs",
+    "pods",
+    "sandboxconfigs.ate.dev",
+    "agentharnesses.kagent.dev",
+    "agents.kagent.dev",
+    "mcpservers.kagent.dev",
+    "memories.kagent.dev",
+    "modelconfigs.kagent.dev",
+    "modelproviderconfigs.kagent.dev",
+    "remotemcpservers.kagent.dev",
+    "sandboxagents.kagent.dev",
+    "toolservers.kagent.dev"
+  ],
+  "servers": {
+    "ewallet-agents/drift-mcp": {
+      "present": false,
+      "table": null
+    },
+    "ewallet-agents/feature-rag-mcp": {
+      "present": false,
+      "table": null
+    },
+    "ewallet-mcp/drift-mcp": {
+      "present": true,
+      "table": "mcp-auth-drift-mcp-fin-20261117"
+    },
+    "ewallet-mcp/feature-rag-mcp": {
+      "present": true,
+      "table": "mcp-auth-feature-rag-mcp-fin-20261117"
+    }
+  },
+  "tables": [
+    {
+      "annotations": {
+        "ewallet.io/credential-plan-sha256": "b4abdea99914c2c95fea349d69258a1897a0c202968daf2084e0463182b0b36a"
+      },
+      "credentials": [
+        {
+          "id": "kagent-controller.drift-mcp.r1-release1.active",
+          "status": "active",
+          "subject": "kagent-controller"
+        },
+        {
+          "id": "kagent-controller.drift-mcp.sbx-20261115.active",
+          "status": "active",
+          "subject": "kagent-controller"
+        },
+        {
+          "id": "sandbox-drift.drift-mcp.sbx-20261115.active",
+          "status": "active",
+          "subject": "sandbox-drift"
+        }
+      ],
+      "immutable": true,
+      "name": "mcp-auth-drift-mcp-fin-20261117",
+      "namespace": "ewallet-mcp",
+      "owner_references": []
+    },
+    {
+      "annotations": {
+        "ewallet.io/credential-plan-sha256": "086eb3e518acc08e3300d68e9bd6c06cd3f8d4875d314c66352f2c3a9272dab6"
+      },
+      "credentials": [
+        {
+          "id": "drift-specialist.drift-mcp.active",
+          "status": "active",
+          "subject": "drift-specialist"
+        },
+        {
+          "id": "drift-specialist.drift-mcp.revoked",
+          "status": "revoked",
+          "subject": "drift-specialist"
+        },
+        {
+          "id": "drift-specialist.drift-mcp.r1-release1.active",
+          "status": "active",
+          "subject": "drift-specialist"
+        },
+        {
+          "id": "kagent-controller.drift-mcp.r1-release1.active",
+          "status": "active",
+          "subject": "kagent-controller"
+        },
+        {
+          "id": "drift-specialist.drift-mcp.r1-release1.revoked",
+          "status": "revoked",
+          "subject": "drift-specialist"
+        }
+      ],
+      "immutable": true,
+      "name": "mcp-auth-drift-mcp-r1-transition",
+      "namespace": "ewallet-mcp",
+      "owner_references": []
+    },
+    {
+      "annotations": {
+        "ewallet.io/credential-plan-sha256": "8d19a4f42c3147732bc7c63bba8d6bef1f85e265a9cde8b4e014ed8bd293e0ab"
+      },
+      "credentials": [
+        {
+          "id": "drift-specialist.drift-mcp.active",
+          "status": "active",
+          "subject": "drift-specialist"
+        },
+        {
+          "id": "drift-specialist.drift-mcp.revoked",
+          "status": "revoked",
+          "subject": "drift-specialist"
+        },
+        {
+          "id": "drift-specialist.drift-mcp.r1-release1.active",
+          "status": "active",
+          "subject": "drift-specialist"
+        },
+        {
+          "id": "kagent-controller.drift-mcp.r1-release1.active",
+          "status": "active",
+          "subject": "kagent-controller"
+        },
+        {
+          "id": "drift-specialist.drift-mcp.r1-release1.revoked",
+          "status": "revoked",
+          "subject": "drift-specialist"
+        },
+        {
+          "id": "drift-specialist.drift-mcp.sbx-20261115.active",
+          "status": "active",
+          "subject": "drift-specialist"
+        },
+        {
+          "id": "kagent-controller.drift-mcp.sbx-20261115.active",
+          "status": "active",
+          "subject": "kagent-controller"
+        },
+        {
+          "id": "sandbox-drift.drift-mcp.sbx-20261115.active",
+          "status": "active",
+          "subject": "sandbox-drift"
+        },
+        {
+          "id": "drift-specialist.drift-mcp.sbx-20261115.revoked",
+          "status": "revoked",
+          "subject": "drift-specialist"
+        }
+      ],
+      "immutable": true,
+      "name": "mcp-auth-drift-mcp-sbx-20261115",
+      "namespace": "ewallet-mcp",
+      "owner_references": []
+    },
+    {
+      "annotations": {
+        "ewallet.io/credential-plan-sha256": "b4abdea99914c2c95fea349d69258a1897a0c202968daf2084e0463182b0b36a"
+      },
+      "credentials": [
+        {
+          "id": "kagent-controller.feature-rag-mcp.r1-release1.active",
+          "status": "active",
+          "subject": "kagent-controller"
+        },
+        {
+          "id": "kagent-controller.feature-rag-mcp.sbx-20261115.active",
+          "status": "active",
+          "subject": "kagent-controller"
+        },
+        {
+          "id": "sandbox-feature-rag.feature-rag-mcp.sbx-20261115.active",
+          "status": "active",
+          "subject": "sandbox-feature-rag"
+        }
+      ],
+      "immutable": true,
+      "name": "mcp-auth-feature-rag-mcp-fin-20261117",
+      "namespace": "ewallet-mcp",
+      "owner_references": []
+    },
+    {
+      "annotations": {
+        "ewallet.io/credential-plan-sha256": "086eb3e518acc08e3300d68e9bd6c06cd3f8d4875d314c66352f2c3a9272dab6"
+      },
+      "credentials": [
+        {
+          "id": "drift-specialist.feature-rag-mcp.active",
+          "status": "active",
+          "subject": "drift-specialist"
+        },
+        {
+          "id": "feature-rag-specialist.feature-rag-mcp.active",
+          "status": "active",
+          "subject": "feature-rag-specialist"
+        },
+        {
+          "id": "drift-specialist.feature-rag-mcp.revoked",
+          "status": "revoked",
+          "subject": "drift-specialist"
+        },
+        {
+          "id": "drift-specialist.feature-rag-mcp.r1-release1.active",
+          "status": "active",
+          "subject": "drift-specialist"
+        },
+        {
+          "id": "feature-rag-specialist.feature-rag-mcp.r1-release1.active",
+          "status": "active",
+          "subject": "feature-rag-specialist"
+        },
+        {
+          "id": "kagent-controller.feature-rag-mcp.r1-release1.active",
+          "status": "active",
+          "subject": "kagent-controller"
+        },
+        {
+          "id": "drift-specialist.feature-rag-mcp.r1-release1.revoked",
+          "status": "revoked",
+          "subject": "drift-specialist"
+        }
+      ],
+      "immutable": true,
+      "name": "mcp-auth-feature-rag-mcp-r1-transition",
+      "namespace": "ewallet-mcp",
+      "owner_references": []
+    },
+    {
+      "annotations": {
+        "ewallet.io/credential-plan-sha256": "8d19a4f42c3147732bc7c63bba8d6bef1f85e265a9cde8b4e014ed8bd293e0ab"
+      },
+      "credentials": [
+        {
+          "id": "drift-specialist.feature-rag-mcp.active",
+          "status": "active",
+          "subject": "drift-specialist"
+        },
+        {
+          "id": "feature-rag-specialist.feature-rag-mcp.active",
+          "status": "active",
+          "subject": "feature-rag-specialist"
+        },
+        {
+          "id": "drift-specialist.feature-rag-mcp.revoked",
+          "status": "revoked",
+          "subject": "drift-specialist"
+        },
+        {
+          "id": "drift-specialist.feature-rag-mcp.r1-release1.active",
+          "status": "active",
+          "subject": "drift-specialist"
+        },
+        {
+          "id": "feature-rag-specialist.feature-rag-mcp.r1-release1.active",
+          "status": "active",
+          "subject": "feature-rag-specialist"
+        },
+        {
+          "id": "kagent-controller.feature-rag-mcp.r1-release1.active",
+          "status": "active",
+          "subject": "kagent-controller"
+        },
+        {
+          "id": "drift-specialist.feature-rag-mcp.r1-release1.revoked",
+          "status": "revoked",
+          "subject": "drift-specialist"
+        },
+        {
+          "id": "drift-specialist.feature-rag-mcp.sbx-20261115.active",
+          "status": "active",
+          "subject": "drift-specialist"
+        },
+        {
+          "id": "feature-rag-specialist.feature-rag-mcp.sbx-20261115.active",
+          "status": "active",
+          "subject": "feature-rag-specialist"
+        },
+        {
+          "id": "kagent-controller.feature-rag-mcp.sbx-20261115.active",
+          "status": "active",
+          "subject": "kagent-controller"
+        },
+        {
+          "id": "sandbox-feature-rag.feature-rag-mcp.sbx-20261115.active",
+          "status": "active",
+          "subject": "sandbox-feature-rag"
+        },
+        {
+          "id": "drift-specialist.feature-rag-mcp.sbx-20261115.revoked",
+          "status": "revoked",
+          "subject": "drift-specialist"
+        }
+      ],
+      "immutable": true,
+      "name": "mcp-auth-feature-rag-mcp-sbx-20261115",
+      "namespace": "ewallet-mcp",
+      "owner_references": []
+    },
+    {
+      "annotations": {},
+      "credentials": [
+        {
+          "id": "drift-specialist.drift-mcp.active",
+          "status": "active",
+          "subject": "drift-specialist"
+        },
+        {
+          "id": "drift-specialist.drift-mcp.revoked",
+          "status": "revoked",
+          "subject": "drift-specialist"
+        }
+      ],
+      "immutable": false,
+      "name": "mcp-auth-drift-mcp",
+      "namespace": "ewallet-agents",
+      "owner_references": []
+    },
+    {
+      "annotations": {
+        "ewallet.io/credential-plan-sha256": "4103399bef9adf08cec3c76eab6e3a745e10d458520c55a794027b0b19e8f7ef"
+      },
+      "credentials": [
+        {
+          "id": "kagent-controller.drift-mcp.r1-release1.active",
+          "status": "active",
+          "subject": "kagent-controller"
+        },
+        {
+          "id": "kagent-controller.drift-mcp.sbx-20261115.active",
+          "status": "active",
+          "subject": "kagent-controller"
+        }
+      ],
+      "immutable": true,
+      "name": "mcp-auth-drift-mcp-fin-20261117",
+      "namespace": "ewallet-agents",
+      "owner_references": []
+    },
+    {
+      "annotations": {
+        "ewallet.io/credential-plan-sha256": "6edd71325f3fb8e5d330c3352ead36f413d2d511d4b0e73c1b14768dc793b719"
+      },
+      "credentials": [
+        {
+          "id": "sandbox-drift.drift-mcp.sbx-20261115.active",
+          "status": "active",
+          "subject": "sandbox-drift"
+        }
+      ],
+      "immutable": true,
+      "name": "mcp-auth-drift-mcp-fin-20261117-b",
+      "namespace": "ewallet-agents",
+      "owner_references": []
+    },
+    {
+      "annotations": {},
+      "credentials": [
+        {
+          "id": "drift-specialist.feature-rag-mcp.active",
+          "status": "active",
+          "subject": "drift-specialist"
+        },
+        {
+          "id": "feature-rag-specialist.feature-rag-mcp.active",
+          "status": "active",
+          "subject": "feature-rag-specialist"
+        },
+        {
+          "id": "drift-specialist.feature-rag-mcp.revoked",
+          "status": "revoked",
+          "subject": "drift-specialist"
+        }
+      ],
+      "immutable": false,
+      "name": "mcp-auth-feature-rag-mcp",
+      "namespace": "ewallet-agents",
+      "owner_references": []
+    }
+  ]
+}

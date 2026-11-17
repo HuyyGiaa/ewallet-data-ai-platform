@@ -341,6 +341,7 @@ historical raw evidence, not a screenshot or a current cluster query.
 
   Worker pods drain on SIGTERM before scale-in. Both autoscalers were exercised on GKE under the 100-task load
   (COMPLETION §9).
-- **MCP replicas.** Each MCP server runs a single replica. RollingUpdate prevents downtime during upgrades, but there is no automatic fallback if the server fails.
+- **MCP replicas** *(superseded)*. Each MCP server runs a single replica. RollingUpdate prevents downtime during upgrades, but there is no automatic fallback if the server fails. Since P1 (`p1-mcp`) both `ewallet-mcp` servers run 2 replicas with PDBs.
 - **Registry wording** *(resolved, 2026-11-16)*. The three Agent entries were republished from the live runtime: the Specialists are described as SandboxAgent-only without a `byo-image-digest` label, and the Coordinator label carries the deployed digest. Strict readback 8/8 ([AGENT_PLATFORM_COMPLETION.md](AGENT_PLATFORM_COMPLETION.md) §11.1).
 - **MCP credentials** *(2026-11-16)*. Only the SandboxAgent subjects and the list-only kagent controller hold MCP credentials (server set `fin-20261117`). The nine legacy Specialist credentials are revoked server-side and their client Secrets deleted (§11.2).
+- **MCP servers** *(2026-11-17)*. The only MCP servers are `ewallet-mcp/feature-rag-mcp` and `ewallet-mcp/drift-mcp`, 2 replicas each, both reached only through the MCP Gateway. The unused in-release `ewallet-agents/drift-mcp` and its exclusive objects were removed, and the obsolete auth tables (`legacy`, `r1-transition`, `sbx-20261115`) deleted. Every deploy and rollback script refuses a manifest that names a retired credential ([AGENT_PLATFORM_COMPLETION.md](AGENT_PLATFORM_COMPLETION.md) §12).

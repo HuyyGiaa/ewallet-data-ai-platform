@@ -1,0 +1,1 @@
+remove-ip rc=0 restored (exactly the 3 original CIDRs); count=3; temp-ip-present=0

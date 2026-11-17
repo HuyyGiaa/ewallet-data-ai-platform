@@ -1,5 +1,38 @@
 # Agent platform completion: campaign handoff
 
+## Legacy MCP infrastructure cleanup `lc-20261117T002220Z` (2026-11-17, unattended, owner directive)
+
+Evidence: `~/ewallet-evidence/agents/legacy-cleanup/lc-20261117T002220Z/` (`SHA256SUMS.txt`), mirrored in
+`docs/evidence/edai2/agents/lc-20261117T002220Z/`. Results: `AGENT_PLATFORM_COMPLETION.md` §12; procedure:
+runbook §2.6f.
+
+| Item | Value |
+|---|---|
+| `HARNESS_FIX_STATUS` | **PASS**: `mcp_credential_check.sh` exit code comes from `mcp_credential_verdict.py`; authn/authz/execution are separate layers |
+| `UNIT_TEST_STATUS` | **PASS**: 52 new tests plus 4 gate/CI tests; 378 offline tests pass. 4 unrelated files already failed at `0a40f0d9` |
+| `LEGACY_AUTH_TABLE_CLEANUP_STATUS` | **PASS**: 6 tables deleted per the reviewed matrix (`sbx-20261115` ×2, `r1-transition` ×2, ewallet-agents `legacy` ×2); 4 final tables kept and verified |
+| `LEGACY_MCP_SERVER_REMOVAL_STATUS` | **PASS**: `ewallet-agents/drift-mcp` and 7 exclusive objects removed via `lc-agents` (`llm-agent` rev 59); `lc-mcp` values-only (`llm-agent-mcp` rev 19, 0 object changes) |
+| `GKE_E2E_STATUS` / `SECURITY_STATUS` / `REGISTRY_STATUS` | **PASS** / **PASS** / **PASS**: 5/5, 3/3 AGI-08, strict readback 8/8, 6/6 concurrent, traces |
+| `COORDINATOR_KEDA_STATUS` / `WORKERPOOL_KEDA_STATUS` | **PASS** / **PASS** (both 2→3→2) |
+| `GUARDED_SLEEP_STATUS` | **PASS**: 0 nodes, 0 VMs, `verify --expect sleep`, /32 removed, the original 3 CIDRs |
+| Next wake | `cloud_lab wake-full --nodes 5 --manifest ~/ewallet-evidence/agents/legacy-cleanup/lc-20261117T002220Z/final-sleep/recovery-manifest` |
+| Cost (estimate) | about 1.07 h × 5 nodes × ~$0.165 ≈ $0.9 (list price, not billing) |
+
+**Rollback rules now:**
+- Direct historical `helm rollback` is prohibited. `llm-agent-mcp` ≤ 17 and `llm-agent` ≤ 57 reference deleted
+  tables or Secrets: they are intentionally nonfunctional, and the project scripts refuse them.
+- `LC-AGENTS-ROLLBACK` (rev 58) is accepted by the guard but recreates the old server; fix forward instead.
+- `LC-MCP-ROLLBACK` (rev 18) renders identically.
+
+**Remaining (each needs approval):**
+- the orphaned objects of the long-disabled in-release `feature-rag-mcp` (ServiceAccount, policies, including in
+  `feature-store`/`fraud-serving`): same `retired: true` mechanism;
+- the unused `fin-20261117`/`fin-20261117-b` tables in `ewallet-agents`;
+- the owner Evidence Replay.
+
+**Superseded below:** the closure's "Remaining" items for the old auth tables and the in-release
+`ewallet-agents/drift-mcp`, and its "Next wake" manifest.
+
 ## Final closure `closure-20261116T211833Z` (2026-11-16/17, unattended, owner directive)
 
 Evidence: `~/ewallet-evidence/agents/closure/closure-20261116T211833Z/` (`SHA256SUMS.txt`), mirrored in

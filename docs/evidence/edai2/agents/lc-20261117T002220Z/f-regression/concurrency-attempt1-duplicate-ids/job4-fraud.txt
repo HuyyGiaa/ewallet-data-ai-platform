@@ -1,0 +1,20 @@
+
+==================== 01:41:31Z  E2E fraud  request_id replay-fraud-014131  (Coordinator -> A2A Gateway -> Sandbox Specialist -> MCP Gateway -> backend) ====================
+state=completed  elapsed=16.224 s
+{"status": "ok", "contract_version": "g3-orchestration/v1", "fraud_score": {"feature_timestamp": "2026-05-31T23:59:56+00:00", "fraud_prediction": 0, "fraud_probability": 0.0639895560144887, "model_input_schema_sha256": "03c0ea040c59dd5bafd7e649a7cc8067b93f1971f8b0d3dfb2d3571268c43176", "model_name": "fraud-detector", "model_version": "1", "transaction_id": "dc58ff4e-b5f7-4486-b1f8-4c31383741a9"}, "features": {"account_behavior__account_tx_count_1h": {"event_timestamp": "2026-05-31T23:59:56+00:00", "value": 0}, "account_behavior__account_tx_count_24h": {"event_timestamp": "2026-05-31T23:59:56+00:00", "value": 0}, "merchant_behavior__merchant_tx_count_24h": {"event_timestamp": "2026-05-31T23:59:56+00:00", "value": 6}, "user_behavior__user_avg_amount_30d": {"event_timestamp": "2026-05-31T23:59:56+00:00", "value": 474960.33}}, "unavailable": []}
+
+==================== 01:41:48Z  HOPS for fraud (logs since 2026-11-17T01:41:31Z) ====================
+-- Coordinator (A2A Gateway sandbox route, LLM Gateway for NL)
+2026-11-17 01:41:47,994 - httpx - INFO - HTTP Request: POST http://a2a-gateway.ewallet-agents.svc.cluster.local:8083/api/a2a-sandboxes/ewallet-sandbox/feature-rag-specialist/ "HTTP/1.1 200 OK"
+2026-11-17 01:41:48,002 - ewallet.agent.audit - INFO - coordinator.task_completed request_id=replay-fraud-014131 task_id=8c91e62d-d994-437c-b1fe-b99b15163e23 mode=typed status=ok duration_ms=15835
+2026-11-17 01:41:48,906 - httpx - INFO - HTTP Request: POST http://a2a-gateway.ewallet-agents.svc.cluster.local:8083/api/a2a-sandboxes/ewallet-sandbox/feature-rag-specialist/ "HTTP/1.1 200 OK"
+2026-11-17 01:41:47,479 - ewallet.agent.audit - INFO - coordinator.task_failed request_id=replay-combined-014131 task_id=ec2577e4-042e-4624-8120-6334fb817461 mode=typed code=idempotency_in_progress
+2026-11-17 01:41:47,678 - ewallet.agent.audit - INFO - coordinator.task_failed request_id=replay-drift-014131 task_id=7556fb42-fdb6-41e8-a1f8-7c330570b52b mode=typed code=idempotency_in_progress
+2026-11-17 01:41:47,688 - ewallet.agent.audit - INFO - coordinator.task_failed request_id=replay-fraud-014131 task_id=b52324c7-9b17-453a-ae04-e65f98989b8e mode=typed code=idempotency_in_progress
+-- A2A Gateway routes
+      2 "route":"default/sandbox-feature-rag-specialist"
+-- MCP servers (actor_id = the Sandbox identity's credential subject)
+"actor_id": "sandbox-feature-rag" "status": "ok" "tool_name": "feature_lookup" "trace_id": "37bdc548645443dc273ce380fb655984" "actor_id": "sandbox-feature-rag" "status": "ok" "tool_name": "fraud_scoring" "trace_id": "37bdc548645443dc273ce380fb655984" "actor_id": "sandbox-feature-rag" "status": "ok" "tool_name": "knowledge_search" "trace_id": "37bdc548645443dc273ce380fb655984" "actor_id": "sandbox-
+-- Deployment Specialists must show no task for this request (0 = no fallback)
+none: legacy Specialist pods=0 deployments=0 (retired)
+saved under /home/huyy-giaa/ewallet-evidence/agents/legacy-cleanup/lc-20261117T002220Z/f-regression/concurrency/job4/e2e/replay-fraud-014131-*

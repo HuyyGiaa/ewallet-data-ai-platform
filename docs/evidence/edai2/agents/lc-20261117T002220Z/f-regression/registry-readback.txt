@@ -1,0 +1,12 @@
+
+==================== 01:41:14Z  AGI-13 Agent Registry readback (GET only), against what the cluster runs ====================
+SandboxAgent fleet image: g3-byo-feature-rag-specialist@sha256:29867794f67f103ed434110a6ad220347384a1f3f5cc8c3b77f1a4d9c4988b77
+verdict: PASS (PASS = the registry holds exactly what is deployed)
+  Prompt    drift-specialist-system          v2      matches
+  Prompt    feature-rag-specialist-system    v5      matches
+  Prompt    fraud-coordinator-system         v5      matches
+  MCPServer drift-mcp                        v1      matches
+  MCPServer feature-rag-mcp                  v1      matches
+  Agent     drift-specialist                 1.1.0   matches
+  Agent     feature-rag-specialist           1.0.0   matches
+  Agent     fraud-coordinator                1.1.0   matches

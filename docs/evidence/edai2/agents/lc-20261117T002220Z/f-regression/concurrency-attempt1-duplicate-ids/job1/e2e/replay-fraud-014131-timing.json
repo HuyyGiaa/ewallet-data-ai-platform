@@ -1,0 +1,7 @@
+{
+  "http_status": 200,
+  "elapsed_seconds": 15.914,
+  "polls": 0,
+  "terminal_state": "failed",
+  "response": "/home/huyy-giaa/ewallet-evidence/agents/legacy-cleanup/lc-20261117T002220Z/f-regression/concurrency/job1/e2e/replay-fraud-014131-task.json"
+}

@@ -1,0 +1,10 @@
+2026-11-17T00:22:20Z campaign lc-20261117T002220Z started from 0a40f0d9 (owner directive FINAL AGENT PLATFORM SECURITY & INFRASTRUCTURE CLEANUP, pasted; owner unavailable)
+2026-11-17T00:51:10Z E1 (directive §7): one bounded wake of ewallet-dev, 5 CPU nodes, closure recovery manifest; temporary laptop /32 added (original 3 CIDRs preserved)
+2026-11-17T00:51:21Z wake-full --nodes 5 --manifest /home/huyy-giaa/ewallet-evidence/agents/closure/closure-20261116T211833Z/final-sleep/recovery-manifest
+2026-11-17T01:17:45Z E3.1 (directive §5/§7): lc-agents gate PASS (8 removed, 1 changed, exact identities, server dry-run); helm upgrade --atomic llm-agent (AGI_APPROVAL=LC-AGENTS:agi-20261117T002220Z under the owner directive)
+2026-11-17T01:27:23Z lc-mcp preflight attempt 1 FAILED at P0.12 only because agi_probe evidence is create-only (file from the lc-agents preflight); archived it, remediation attempt 1
+2026-11-17T01:28:35Z E3.2: lc-mcp gate PASS (zero changed objects, server dry-run); helm upgrade --atomic llm-agent-mcp (AGI_APPROVAL=LC-MCP:agi-20261117T002220Z under the owner directive)
+2026-11-17T01:30:17Z E3.5 (directive §4 B2): delete exactly the 6 reviewed obsolete auth tables: ewallet-mcp/mcp-auth-drift-mcp-r1-transition ewallet-mcp/mcp-auth-drift-mcp-sbx-20261115 ewallet-mcp/mcp-auth-feature-rag-mcp-r1-transition ewallet-mcp/mcp-auth-feature-rag-mcp-sbx-20261115 ewallet-agents/mcp-auth-drift-mcp ewallet-agents/mcp-auth-feature-rag-mcp (LC_APPROVAL=AUTH-TABLES:lc-20261117T002220Z)
+2026-11-17T01:44:00Z concurrency attempt 1: 3/6 refused with idempotency_in_progress because parallel jobs launched in the same second reused request ids (harness collision; correct Coordinator behaviour); remediation attempt 1 = staggered launch
+2026-11-17T01:51:21Z §11 final guarded sleep under the owner directive: CLOUD_LAB_GUARDED_SLEEP_APPROVAL=ewallet-dev:lc-20261117T002220Z CLOUD_LAB_KEDA_PAUSE_APPROVAL=ewallet-dev:lc-20261117T002220Z; recovery manifest /home/huyy-giaa/ewallet-evidence/agents/legacy-cleanup/lc-20261117T002220Z/final-sleep/recovery-manifest
+2026-11-17T01:55:25Z final: /32 removed rc=0; restored (exactly the 3 original CIDRs)

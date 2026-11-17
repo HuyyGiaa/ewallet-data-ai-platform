@@ -1,0 +1,9 @@
+fraud rc=0 state=completed  elapsed=49.211 s "status": "ok" "unavailable": [] trace=3add855c796fdbb1c32f962d47db96a4
+3add855c796fdbb1c32f962d47db96a4
+3add855c796fdbb1c32f962d47db96a4
+drift rc=0 state=completed  elapsed=43.737 s "status": "complete" "unavailable": [] trace=a2cb2e6bafaaa487aedf31d9a760602b
+combined rc=0 state=completed  elapsed=22.306 s "status": "complete" "unavailable": [] trace=a56cd4030a9afb45b0b341649200d3fa
+nl-fraud rc=0 state=completed  elapsed=97.641 s "status": "ok" "unavailable": [] trace=1215629fe4eb4065d6b647e9cd7e0d6d
+1215629fe4eb4065d6b647e9cd7e0d6d
+1215629fe4eb4065d6b647e9cd7e0d6d
+nl-drift rc=0 state=completed  elapsed=52.424 s "status": "complete" "unavailable": [] trace=a3e9670dfbce7c840750cb36e4aee4eb

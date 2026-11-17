@@ -1,0 +1,10 @@
+01:41:31 coord=2 pool=2
+01:41:43 coord=2 pool=2
+01:41:55 coord=2 pool=3
+01:42:07 coord=2 pool=3
+01:42:20 coord=2 pool=3
+01:42:32 coord=2 pool=3
+01:42:44 coord=2 pool=3
+01:42:56 coord=2 pool=3
+01:43:09 coord=2 pool=3
+01:43:21 coord=2 pool=3

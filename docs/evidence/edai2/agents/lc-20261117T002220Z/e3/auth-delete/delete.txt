@@ -1,0 +1,6 @@
+secret "mcp-auth-drift-mcp-r1-transition" deleted from ewallet-mcp namespace
+secret "mcp-auth-drift-mcp-sbx-20261115" deleted from ewallet-mcp namespace
+secret "mcp-auth-feature-rag-mcp-r1-transition" deleted from ewallet-mcp namespace
+secret "mcp-auth-feature-rag-mcp-sbx-20261115" deleted from ewallet-mcp namespace
+secret "mcp-auth-drift-mcp" deleted from ewallet-agents namespace
+secret "mcp-auth-feature-rag-mcp" deleted from ewallet-agents namespace

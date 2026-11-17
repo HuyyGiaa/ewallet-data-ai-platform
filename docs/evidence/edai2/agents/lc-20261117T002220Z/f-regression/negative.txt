@@ -1,0 +1,6 @@
+
+==================== 01:40:44Z  AGI-08 negatives (each must observe its expected denial, with a passing control) ====================
+PASS sandbox-feature-rag credential refused by drift-mcp (401)
+PASS list-only principal cannot call drift_detection (ungranted call)
+PASS undeclared A2A host is not routed (404, control routed)
+evidence: /home/huyy-giaa/ewallet-evidence/agents/legacy-cleanup/lc-20261117T002220Z/f-regression/replay/negative/*.json

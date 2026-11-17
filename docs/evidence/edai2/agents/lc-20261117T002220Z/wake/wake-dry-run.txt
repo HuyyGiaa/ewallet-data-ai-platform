@@ -1,0 +1,18 @@
+PLAN: gcloud container clusters resize ewallet-dev --project ewallet-data-ai-platform-hg26 --location asia-southeast1-b --node-pool cpu-pool --num-nodes=5 --quiet
+PLAN: kubectl --kubeconfig /home/huyy-giaa/.cache/ewallet-cloud-lab/kubeconfig --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev label 'node/<new-node-0>' ewallet.io/g3-llm=true --overwrite
+PLAN: kubectl --kubeconfig /home/huyy-giaa/.cache/ewallet-cloud-lab/kubeconfig --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev label 'node/<new-node-1>' ewallet.io/g3-llm=true --overwrite
+PLAN: kubectl --kubeconfig /home/huyy-giaa/.cache/ewallet-cloud-lab/kubeconfig --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev label 'node/<new-node-2>' ewallet.io/g3-llm=true --overwrite
+PLAN: kubectl --kubeconfig /home/huyy-giaa/.cache/ewallet-cloud-lab/kubeconfig --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev -n ewallet-agents scale deployment drift-mcp --replicas=1
+PLAN: kubectl --kubeconfig /home/huyy-giaa/.cache/ewallet-cloud-lab/kubeconfig --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev -n ewallet-agents scale deployment fraud-coordinator --replicas=2
+PLAN: kubectl --kubeconfig /home/huyy-giaa/.cache/ewallet-cloud-lab/kubeconfig --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev -n ewallet-mcp scale deployment drift-mcp --replicas=2
+PLAN: kubectl --kubeconfig /home/huyy-giaa/.cache/ewallet-cloud-lab/kubeconfig --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev -n ewallet-mcp scale deployment feature-rag-mcp --replicas=2
+PLAN: kubectl --kubeconfig /home/huyy-giaa/.cache/ewallet-cloud-lab/kubeconfig --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev -n kube-system scale deployment calico-typha --replicas=2
+PLAN: kubectl --kubeconfig /home/huyy-giaa/.cache/ewallet-cloud-lab/kubeconfig --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev -n kube-system scale deployment konnectivity-agent --replicas=5
+PLAN: kubectl --kubeconfig /home/huyy-giaa/.cache/ewallet-cloud-lab/kubeconfig --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev -n ewallet-agents annotate scaledobject fraud-coordinator autoscaling.keda.sh/paused-replicas- ewallet.io/cloud-lab-paused-by-
+PLAN: kubectl --kubeconfig /home/huyy-giaa/.cache/ewallet-cloud-lab/kubeconfig --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev -n ewallet-sandbox annotate scaledobject business-agents-workerpool autoscaling.keda.sh/paused-replicas- ewallet.io/cloud-lab-paused-by-
+{
+  "keda_resumed": [
+    "ewallet-agents/fraud-coordinator",
+    "ewallet-sandbox/business-agents-workerpool"
+  ]
+}

@@ -1,0 +1,174 @@
+{
+  "verdict": "PASS",
+  "fatal": [],
+  "min_replicas": 2,
+  "servers": [
+    {
+      "server": "ewallet-mcp/feature-rag-mcp",
+      "mode": "active",
+      "verdict": "PASS",
+      "reasons": [],
+      "checks": [
+        {
+          "server": "ewallet-mcp/feature-rag-mcp",
+          "pod": "feature-rag-mcp-dc4bb7977-gnh6g",
+          "check": "active",
+          "verdict": "PASS",
+          "layers": {
+            "authentication": "pass",
+            "authorization": "granted",
+            "execution": "ok"
+          },
+          "reasons": []
+        },
+        {
+          "server": "ewallet-mcp/feature-rag-mcp",
+          "pod": "feature-rag-mcp-dc4bb7977-gnh6g",
+          "check": "discovery",
+          "verdict": "PASS",
+          "layers": {
+            "authentication": "pass",
+            "authorization": "denied",
+            "execution": "n/a"
+          },
+          "reasons": []
+        },
+        {
+          "server": "ewallet-mcp/feature-rag-mcp",
+          "pod": "feature-rag-mcp-dc4bb7977-gnh6g",
+          "check": "invalid",
+          "verdict": "PASS",
+          "layers": {
+            "authentication": "rejected",
+            "authorization": "n/a",
+            "execution": "n/a"
+          },
+          "reasons": []
+        },
+        {
+          "server": "ewallet-mcp/feature-rag-mcp",
+          "pod": "feature-rag-mcp-dc4bb7977-p8bh7",
+          "check": "active",
+          "verdict": "PASS",
+          "layers": {
+            "authentication": "pass",
+            "authorization": "granted",
+            "execution": "ok"
+          },
+          "reasons": []
+        },
+        {
+          "server": "ewallet-mcp/feature-rag-mcp",
+          "pod": "feature-rag-mcp-dc4bb7977-p8bh7",
+          "check": "discovery",
+          "verdict": "PASS",
+          "layers": {
+            "authentication": "pass",
+            "authorization": "denied",
+            "execution": "n/a"
+          },
+          "reasons": []
+        },
+        {
+          "server": "ewallet-mcp/feature-rag-mcp",
+          "pod": "feature-rag-mcp-dc4bb7977-p8bh7",
+          "check": "invalid",
+          "verdict": "PASS",
+          "layers": {
+            "authentication": "rejected",
+            "authorization": "n/a",
+            "execution": "n/a"
+          },
+          "reasons": []
+        }
+      ]
+    },
+    {
+      "server": "ewallet-mcp/drift-mcp",
+      "mode": "active",
+      "verdict": "PASS",
+      "reasons": [],
+      "checks": [
+        {
+          "server": "ewallet-mcp/drift-mcp",
+          "pod": "drift-mcp-5dfb65d6dc-8whk8",
+          "check": "active",
+          "verdict": "PASS",
+          "layers": {
+            "authentication": "pass",
+            "authorization": "granted",
+            "execution": "ok"
+          },
+          "reasons": []
+        },
+        {
+          "server": "ewallet-mcp/drift-mcp",
+          "pod": "drift-mcp-5dfb65d6dc-8whk8",
+          "check": "discovery",
+          "verdict": "PASS",
+          "layers": {
+            "authentication": "pass",
+            "authorization": "denied",
+            "execution": "n/a"
+          },
+          "reasons": []
+        },
+        {
+          "server": "ewallet-mcp/drift-mcp",
+          "pod": "drift-mcp-5dfb65d6dc-8whk8",
+          "check": "invalid",
+          "verdict": "PASS",
+          "layers": {
+            "authentication": "rejected",
+            "authorization": "n/a",
+            "execution": "n/a"
+          },
+          "reasons": []
+        },
+        {
+          "server": "ewallet-mcp/drift-mcp",
+          "pod": "drift-mcp-5dfb65d6dc-z4kfd",
+          "check": "active",
+          "verdict": "PASS",
+          "layers": {
+            "authentication": "pass",
+            "authorization": "granted",
+            "execution": "ok"
+          },
+          "reasons": []
+        },
+        {
+          "server": "ewallet-mcp/drift-mcp",
+          "pod": "drift-mcp-5dfb65d6dc-z4kfd",
+          "check": "discovery",
+          "verdict": "PASS",
+          "layers": {
+            "authentication": "pass",
+            "authorization": "denied",
+            "execution": "n/a"
+          },
+          "reasons": []
+        },
+        {
+          "server": "ewallet-mcp/drift-mcp",
+          "pod": "drift-mcp-5dfb65d6dc-z4kfd",
+          "check": "invalid",
+          "verdict": "PASS",
+          "layers": {
+            "authentication": "rejected",
+            "authorization": "n/a",
+            "execution": "n/a"
+          },
+          "reasons": []
+        }
+      ]
+    },
+    {
+      "server": "ewallet-agents/drift-mcp",
+      "mode": "absent",
+      "verdict": "PASS",
+      "reasons": [],
+      "checks": []
+    }
+  ]
+}

@@ -28,7 +28,8 @@ This page reports the final GKE integration of the EDAI-2 Agent Platform: campai
 | Coordinator Sandbox capacity metrics (P2-D) | **GKE_PASS** (§7.4): counter equals the logged capacity waits; gauge returns to 0 |
 | Natural-language combined prompts | Rejected by design (strict guard, owner decision) |
 | Legacy Specialist Deployment cleanup (`sp-cleanup`) | **GKE_PASS** (§10): 42 objects removed, 6 modified, 0 added (`llm-agent` rev 55); 5/5 E2E, 3/3 negatives, both KEDA healthy |
-| Legacy MCP credential retirement | **GKE_PASS** (§11.2): final server sets `fin-20261117`/`-b`; 9 retired credentials rejected on 5/5 replicas; 9 client Secrets deleted after zero references; old (unreferenced) server-set tables kept |
+| Legacy MCP credential retirement | **GKE_PASS** (§11.2): final server sets `fin-20261117`/`-b`; 9 retired credentials rejected on 5/5 replicas; 9 client Secrets deleted after zero references |
+| Legacy MCP infrastructure cleanup | **GKE_PASS** (§12): the in-release `ewallet-agents/drift-mcp` and its 7 exclusive objects removed (`llm-agent` rev 59); 6 obsolete auth tables deleted; KEEP fingerprints exact (270 unchanged); fail-closed credential harness; retired-credential guards on every deploy/rollback path |
 
 ## 1. Architecture
 
@@ -777,13 +778,14 @@ No privilege was added for testing.
 
 ### 11.4 Limitations
 
-- **Old server sets:** `sbx-20261115`, `r1-transition` (ewallet-mcp) and `legacy` (ewallet-agents) still contain
-  the retired tokens. They are no longer referenced, their client Secrets are gone, and `cr-*` refuse rollback. A raw
+- **Old server sets** *(resolved in §12: the six tables are deleted)*: `sbx-20261115`, `r1-transition` (ewallet-mcp)
+  and `legacy` (ewallet-agents) still contain the retired tokens. They are no longer referenced, their client Secrets are gone, and `cr-*` refuse rollback. A raw
   `helm rollback` of `llm-agent-mcp` to ≤ 17 or `llm-agent` to ≤ 57 would still re-select them. Deleting those
   tables needs a separate approval.
 - **Sp-cleanup rollback:** `SP-CLEANUP-ROLLBACK` (rev 54) is no longer a working path. The Specialist Deployments
   would come back without valid credentials.
-- **`ewallet-agents/drift-mcp`:** it keeps `sandbox-drift` because its image cannot run list-only. It has no route
+- **`ewallet-agents/drift-mcp`** *(resolved in §12: removed)*: it keeps `sandbox-drift` because its image cannot run
+  list-only. It has no route
   or ingress, and its drift backend artifacts are missing (pre-existing).
 
 ### 11.5 Final state
@@ -793,3 +795,130 @@ No privilege was added for testing.
 - **Nodes:** 0 nodes and 0 `cpu-pool` VMs; `verify --expect sleep` passed against the fresh recovery manifest.
 - **Network:** /32 removed; the authorized networks are the original 3 CIDRs.
 - **Cost:** about 1.5 h awake × 5 nodes × ~$0.165 ≈ $1.2 (list price, not billing).
+
+## 12. Legacy MCP infrastructure cleanup (`lc-20261117T002220Z`)
+
+Evidence: `~/ewallet-evidence/agents/legacy-cleanup/lc-20261117T002220Z/` (`SHA256SUMS.txt`), mirrored in
+[`docs/evidence/edai2/agents/lc-20261117T002220Z/`](../../evidence/edai2/agents/lc-20261117T002220Z/)
+(`SHA256SUMS.txt`; the temporary IP, the campaign env and private renders/fingerprints stay local).
+- Unattended owner directive; every step is recorded in `approvals.txt`.
+- Starting HEAD `0a40f0d9`; code `bf7ef691`.
+- One bounded wake, 00:51–01:55Z.
+- Procedure: runbook §2.6f.
+
+### 12.1 Verification harness (offline, before the wake)
+
+**Bug.** `mcp_credential_check.sh` `probe()` recorded each verdict but ended with `return 0`, so a failed probe
+could appear in `summary.tsv` while the script exited 0. The closure's accepted results are not affected: every row
+there was PASS and was read row by row (§11.2).
+
+**Fix.**
+- The shell harness now only collects observations (`records.jsonl`).
+- `ops/llm_agent/mcp_credential_verdict.py` decides and sets the exit code.
+- Each probe is classified on 3 separate layers: authentication (`pass`/`rejected`), authorization
+  (`granted`/`denied`) and execution (`ok`/`backend_unavailable`/`failed`).
+- A backend that is unavailable is never counted as success.
+- The run fails on any of:
+  - a failed, missing or malformed probe;
+  - a Ready-replica count different from the Deployment's `spec.replicas`/`readyReplicas`, or below 2;
+  - a stale port-forward (port already held) or a lost one (re-checked before every probe);
+  - a missing authorized control;
+  - an unreadable credential Secret;
+  - an API error during the absence check.
+- The deleted retired Secrets are no longer read. The negative is a locally generated invalid credential (401),
+  with the active credential as the control. The retired server is checked for absence.
+
+**Tests.** 52 new tests:
+- `test_mcp_credential_check.py` runs the real script against fake `kubectl`/`ss`/`curl`/probe and asserts exit
+  codes and verdicts: all pass → 0; failed probe, unexpected authorization or authentication success, missing
+  evidence, missing replica, stale forward, missing control, missing Secret, legacy server still present → non-zero;
+  legacy `backend_unavailable` reported, not claimed.
+- `test_auth_table_cleanup.py` covers the matrix rules, the token-free collector, the approval gate, the guard, the
+  chart retirement and the fingerprints.
+- 2 gate tests and 2 CI tests.
+
+### 12.2 Audit and implementation
+
+| Item | Result |
+|---|---|
+| In-release `ewallet-agents/drift-mcp` usage (C1, live) | MCP Gateway routes, both RemoteMCPServers and every cross-namespace policy target `ewallet-mcp/drift-mcp`. No Agent, SandboxAgent, ingress, HTTPRoute or other object names the in-release Service. Its only requests since the wake were this campaign's two probes |
+| Exclusive objects | Deployment, Service, PDB, ServiceAccount, `allow-ambient-probes-drift-mcp`, `allow-drift-mcp-to-otel-collector-{ingress,egress}` NetworkPolicies, `allow-drift-mcp-to-otel-collector` AuthorizationPolicy; the network-flows ConfigMap loses one flow |
+| Chart | `mcpServices.services.<name>.retired: true` drops the server and everything it exclusively owns; live revisions render byte-identically |
+| Packages | `lc-agents` (exact: 8 removed, 1 changed) and `lc-mcp` (values-only, exactly 0 changed objects; drops the retired Specialist `authHeaderSecrets` from the stored values) |
+| Auth-table matrix (token-free) | Scanned 488 live objects, both releases and every Helm revision. DELETE 6, KEEP 4, UNKNOWN 0 (below) |
+| Guards | `ops/llm_agent/retired_credentials.py` refuses any manifest naming a `legacy`/`r1-transition`/`sbx-20261115` auth table or a `mcp-token-*-specialist-*` Secret: `agi_campaign.sh` gate and rollback, `rollback.sh` (Jenkins), `deploy_atomic.sh`. Live check: rev 58 and rev 18 pass; rev 57 and rev 17 are refused |
+| Executable references | `g3/g3.yaml` marked as a legacy, non-deployable reference profile (still the chart-test base); `agi/agents.yaml` comment corrected; the retired server removed from two `cloud_lab` partial-wake profiles |
+
+| Auth table | Decision | Reason |
+|---|---|---|
+| `ewallet-mcp/mcp-auth-{drift,feature-rag}-mcp-sbx-20261115` | DELETE | obsolete set; zero live/current-Helm references; held Specialist subjects; history: `llm-agent-mcp` ≤ 17 and zero-replica ReplicaSets |
+| `ewallet-mcp/mcp-auth-{drift,feature-rag}-mcp-r1-transition` | DELETE | same |
+| `ewallet-agents/mcp-auth-{drift,feature-rag}-mcp` (`legacy`) | DELETE | same; server absent after `lc-agents`; history: `llm-agent` 49–57 |
+| `ewallet-mcp/mcp-auth-{drift,feature-rag}-mcp-fin-20261117` | KEEP | read by the live servers; verified (immutable, active credentials, no retired subject) |
+| `ewallet-agents/mcp-auth-drift-mcp-fin-20261117-b` | KEEP | protected final set (directive) |
+| `ewallet-agents/mcp-auth-drift-mcp-fin-20261117` (closure attempt 1, unused) | KEEP | protected name; only active kagent-controller credentials, no retired subject |
+
+### 12.3 GKE execution
+
+1. **Wake** with the closure recovery manifest; `verify --expect awake` passed.
+2. **Preflight:**
+   - `lc-agents` preflight 15/15;
+   - registry strict readback PASS;
+   - per-replica credential check PASS (5/5 replicas; legacy `backend_unavailable` reported);
+   - auth matrix equal to the reviewed list;
+   - 285 KEEP fingerprints recorded.
+3. **`lc-agents`:** exact gate and server dry run, then `helm upgrade --atomic` → `llm-agent` rev 59. All 8 objects
+   are gone, together with the pods and ReplicaSets, and nothing was recreated.
+4. **`lc-mcp`:** zero-object gate → `llm-agent-mcp` rev 19.
+   - Preflight attempt 1 failed only because the probe's create-only evidence file existed from step 2. The file
+     was archived (remediation 1/2).
+5. **Auth tables:**
+   - `mcp_auth_tables.sh delete` re-planned live, ran a server-side dry run, deleted the 6 tables by name and
+     re-planned again;
+   - 4 final tables remain, all verified.
+6. **KEEP fingerprints: PASS.** The differences are exactly the 14 reviewed removals and the network-flows ConfigMap;
+   270 objects are unchanged and 0 were added. The active `ewallet-mcp` Deployments are unchanged.
+7. **Credential check after the cleanup: PASS.** 4/4 active replicas pass all 3 checks (active: authn pass, authz
+   granted, exec ok; discovery: denied; invalid: 401), and the retired server is absent.
+
+### 12.4 Final Agent Platform regression
+
+| Check | Result |
+|---|---|
+| Typed Fraud | `ok`, probability 0.0639895560144887 (KServe), 49.2 s, trace `3add855c796fdbb1c32f962d47db96a4` (225 spans) |
+| Typed Drift | `complete`, 43.7 s, trace `a2cb2e6bafaaa487aedf31d9a760602b` (185 spans) |
+| Typed Combined | `complete`, `unavailable: []`, tools `feature_lookup`, `fraud_scoring`, `knowledge_search`, `drift_detection`; 22.3 s, trace `a56cd4030a9afb45b0b341649200d3fa` (228 spans) |
+| NL Fraud / NL Drift | `ok` 97.6 s, trace `1215629fe4eb4065d6b647e9cd7e0d6d` (333 spans) / `complete` 52.4 s, trace `a3e9670dfbce7c840750cb36e4aee4eb` (223 spans) |
+| Trace path | each trace holds agentgateway, `kagent-controller`, `fraud-coordinator`, the Sandbox Specialist(s) and the `ewallet-mcp` server(s) |
+| AGI-08 negatives | 3/3: `sandbox-feature-rag` credential refused by drift-mcp (401); list-only principal cannot call `drift_detection`; undeclared A2A host 404 with a routed control |
+| Registry | strict readback PASS (8/8) before and after the cleanup |
+| Concurrency | 6/6 (16–56 s). Attempt 1 launched parallel jobs in the same second with the same request IDs, and the Coordinator answered 3 of them `idempotency_in_progress` (correct behaviour). The rerun used unique IDs (remediation 1/2) |
+| KEDA | Coordinator 2→3→2 and WorkerPool 2→3→2; both ScaledObjects Ready, no fallback |
+| Workers | 214 `ResumeActor`, 0 restore errors; worker registry consistent (no stale record, no unregistered pod); 747 actors Suspended |
+| HTTP | non-2xx only from the negatives (401, 404) plus the expected 405s on the streamable-HTTP endpoints |
+| Runtime | no legacy Specialist Deployment, no `ewallet-agents/drift-mcp`, 0 non-running pods in the agent namespaces |
+
+### 12.5 Final state and remaining risks
+
+- **Cluster:**
+  - guarded sleep (campaign-scoped approvals) paused 2 ScaledObjects;
+  - 0 nodes and 0 `cpu-pool` VMs;
+  - `verify --expect sleep` passed against the fresh recovery manifest
+    `final-sleep/recovery-manifest` (75 workloads; no in-release `drift-mcp`);
+  - /32 removed; exactly the original 3 CIDRs.
+- **Releases:** `llm-agent` rev 59 and `llm-agent-mcp` rev 19.
+  - `llm-agent-mcp` ≤ 17 and `llm-agent` ≤ 57 are intentionally nonfunctional: they reference deleted tables or
+    Secrets, and every project script refuses them.
+  - `LC-AGENTS-ROLLBACK` (rev 58) would recreate the old server on the kept `fin-20261117-b` table. Fix forward
+    instead.
+- **Remaining risks:**
+  - A manual `helm rollback` or `kubectl rollout undo` outside the project scripts is still possible. It fails
+    closed (missing Secret) and cannot re-trust a retired credential.
+  - The already-disabled in-release `feature-rag-mcp` left orphan objects outside this directive's scope:
+    ServiceAccount, probe and otel flow policies, and Feast/KServe policies in `feature-store`/`fraud-serving`.
+    The same `retired: true` mechanism removes them.
+  - The unused `fin-20261117` (ewallet-agents) and `fin-20261117-b` tables are kept by directive.
+  - 4 unrelated offline test files already fail at `0a40f0d9` (missing modules or a stale assertion), unchanged
+    here.
+- **Cost:** about 1.07 h awake × 5 nodes × ~$0.165 ≈ $0.9 (list price, not billing).
+

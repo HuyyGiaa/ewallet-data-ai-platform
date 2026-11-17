@@ -1,0 +1,43 @@
+== C1 live usage audit of ewallet-agents/drift-mcp
+mcp-gateway routes (targets):
+          host: http://drift-mcp.ewallet-mcp.svc.cluster.local:8080/mcp
+          host: http://feature-rag-mcp.ewallet-mcp.svc.cluster.local:8080/mcp
+RemoteMCPServers urls:
+ewallet-agents/drift-mcp http://mcp-gateway.ewallet-agents.svc:8080/drift/mcp
+ewallet-agents/feature-rag-mcp http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp
+SandboxAgents referencing drift-mcp.ewallet-agents:
+0
+Agents referencing drift-mcp.ewallet-agents:
+0
+any object (all ns, workloads/configmaps/CRs) naming drift-mcp.ewallet-agents or ewallet-agents/drift-mcp service:
+  deploy: 0
+  sts: 0
+  ds: 0
+  cm: 0
+  remotemcpservers.kagent.dev: 0
+  agents.kagent.dev: 0
+  sandboxagents.kagent.dev: 0
+  networkpolicies: 0
+  authorizationpolicies.security.istio.io: 0
+  httproutes.gateway.networking.k8s.io: 0
+  ingress: 0
+ingress/httproutes:
+  none naming drift
+pods using SA ewallet-agents/drift-mcp:
+drift-mcp-5ff978c6d5-8f5dl drift-mcp
+AuthorizationPolicies naming principal ns/ewallet-agents/sa/drift-mcp (all ns):
+['ewallet-agents/allow-drift-mcp-to-otel-collector']
+NetworkPolicies selecting/allowing app=drift-mcp (all ns):
+  ewallet-agents/allow-ambient-probes-drift-mcp
+  ewallet-agents/allow-drift-mcp-to-otel-collector-egress
+  ewallet-agents/allow-drift-mcp-to-otel-collector-ingress
+  ewallet-agents/allow-ewallet-mcp-drift-mcp-to-shared-otel
+  ewallet-agents/allow-mcp-gateway-to-drift-mcp-cross-namespace-egress
+  ewallet-mcp/allow-ambient-probes-drift-mcp
+  ewallet-mcp/allow-drift-mcp-to-shared-otel-egress
+  ewallet-mcp/allow-mcp-gateway-to-drift-mcp-ingress
+drift-mcp Service endpoints ewallet-agents:
+Warning: v1 Endpoints is deprecated in v1.33+; use discovery.k8s.io/v1 EndpointSlice
+10.216.1.254
+drift-mcp (ewallet-agents) request log lines in last 24h (non-health):
+2

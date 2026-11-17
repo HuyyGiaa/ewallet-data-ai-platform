@@ -1,0 +1,6 @@
+port-forward ewallet-agents svc/a2a-gateway -> 127.0.0.1:18083 (pid 3281282)
+port-forward ewallet-agents svc/mcp-gateway -> 127.0.0.1:18082 (pid 3281342)
+port-forward kagent svc/kagent-controller -> 127.0.0.1:18383 (pid 3281415)
+port-forward kagent svc/kagent-ui -> 127.0.0.1:18300 (pid 3281478)
+port-forward ewallet-agents svc/grafana -> 127.0.0.1:13000 (pid 3281555)
+port-forward ewallet-prompts svc/prompt-registry-agentregistry -> 127.0.0.1:18121 (pid 3281616)

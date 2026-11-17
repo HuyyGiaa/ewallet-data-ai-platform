@@ -1,0 +1,15 @@
+2026-11-17T01:26:36Z
+ewallet-agents deploy/drift-mcp: 0
+ewallet-agents svc/drift-mcp: 0
+ewallet-agents pdb/drift-mcp: 0
+ewallet-agents sa/drift-mcp: 0
+ewallet-agents networkpolicy/allow-ambient-probes-drift-mcp: 0
+ewallet-agents networkpolicy/allow-drift-mcp-to-otel-collector-ingress: 0
+ewallet-agents networkpolicy/allow-drift-mcp-to-otel-collector-egress: 0
+ewallet-agents authorizationpolicies.security.istio.io/allow-drift-mcp-to-otel-collector: 0
+pods app=drift-mcp ewallet-agents: 0
+replicasets app=drift-mcp ewallet-agents: 0
+== active server ewallet-mcp/drift-mcp untouched:
+drift-mcp         47    2     mcp-auth-drift-mcp-fin-20261117
+feature-rag-mcp   43    2     mcp-auth-feature-rag-mcp-fin-20261117
+network-flows drift-mcp-to-otel: 0

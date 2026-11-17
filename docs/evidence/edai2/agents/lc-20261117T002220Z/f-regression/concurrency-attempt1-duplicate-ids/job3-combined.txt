@@ -1,0 +1,29 @@
+
+==================== 01:41:31Z  E2E combined  request_id replay-combined-014131  (Coordinator -> A2A Gateway -> Sandbox Specialist -> MCP Gateway -> backend) ====================
+state=completed  elapsed=33.19 s
+{"status": "complete", "workflow": "combined", "contract_version": "g3-orchestration/v2", "unavailable": []}
+  drift-specialist: status=ok fraud_probability=None psi=0.0004795543627041439
+  feature-rag-specialist: status=ok fraud_probability=0.0639895560144887 psi=None
+
+==================== 01:42:05Z  HOPS for combined (logs since 2026-11-17T01:41:31Z) ====================
+-- Coordinator (A2A Gateway sandbox route, LLM Gateway for NL)
+2026-11-17 01:41:47,994 - httpx - INFO - HTTP Request: POST http://a2a-gateway.ewallet-agents.svc.cluster.local:8083/api/a2a-sandboxes/ewallet-sandbox/feature-rag-specialist/ "HTTP/1.1 200 OK"
+2026-11-17 01:41:48,002 - ewallet.agent.audit - INFO - coordinator.task_completed request_id=replay-fraud-014131 task_id=8c91e62d-d994-437c-b1fe-b99b15163e23 mode=typed status=ok duration_ms=15835
+2026-11-17 01:41:48,906 - httpx - INFO - HTTP Request: POST http://a2a-gateway.ewallet-agents.svc.cluster.local:8083/api/a2a-sandboxes/ewallet-sandbox/feature-rag-specialist/ "HTTP/1.1 200 OK"
+2026-11-17 01:42:04,968 - httpx - INFO - HTTP Request: POST http://a2a-gateway.ewallet-agents.svc.cluster.local:8083/api/a2a-sandboxes/ewallet-sandbox/drift-specialist/ "HTTP/1.1 200 OK"
+2026-11-17 01:42:04,977 - ewallet.agent.audit - INFO - coordinator.task_completed request_id=replay-combined-014131 task_id=a5582361-723d-427d-ba2a-400172af36f7 mode=typed status=complete duration_ms=32794
+2026-11-17 01:41:47,479 - ewallet.agent.audit - INFO - coordinator.task_failed request_id=replay-combined-014131 task_id=ec2577e4-042e-4624-8120-6334fb817461 mode=typed code=idempotency_in_progress
+2026-11-17 01:41:47,678 - ewallet.agent.audit - INFO - coordinator.task_failed request_id=replay-drift-014131 task_id=7556fb42-fdb6-41e8-a1f8-7c330570b52b mode=typed code=idempotency_in_progress
+2026-11-17 01:41:47,688 - ewallet.agent.audit - INFO - coordinator.task_failed request_id=replay-fraud-014131 task_id=b52324c7-9b17-453a-ae04-e65f98989b8e mode=typed code=idempotency_in_progress
+2026-11-17 01:42:08,600 - httpx - INFO - HTTP Request: POST http://a2a-gateway.ewallet-agents.svc.cluster.local:8083/api/a2a-sandboxes/ewallet-sandbox/drift-specialist/ "HTTP/1.1 200 OK"
+2026-11-17 01:42:08,620 - ewallet.agent.audit - INFO - coordinator.task_completed request_id=replay-drift-014131 task_id=bab9f58e-0f8f-4a93-b43a-8e645a2285c0 mode=typed status=complete duration_ms=36065
+-- A2A Gateway routes
+      2 "route":"default/sandbox-drift-specialist"
+      2 "route":"default/sandbox-feature-rag-specialist"
+-- MCP servers (actor_id = the Sandbox identity's credential subject)
+"actor_id": "sandbox-drift" "status": "ok" "tool_name": "drift_detection" "trace_id": "c6f830d25d5a47eadad5c73c7d446ea7"
+"actor_id": "sandbox-drift" "status": "ok" "tool_name": "drift_detection" "trace_id": "8fca23b34f0a5c5a754e37371d47080d"
+"actor_id": "sandbox-feature-rag" "status": "ok" "tool_name": "feature_lookup" "trace_id": "37bdc548645443dc273ce380fb655984" "actor_id": "sandbox-feature-rag" "status": "ok" "tool_name": "fraud_scoring" "trace_id": "37bdc548645443dc273ce380fb655984" "actor_id": "sandbox-feature-rag" "status": "ok" "tool_name": "knowledge_search" "trace_id": "37bdc548645443dc273ce380fb655984" "actor_id": "sandbox-
+-- Deployment Specialists must show no task for this request (0 = no fallback)
+none: legacy Specialist pods=0 deployments=0 (retired)
+saved under /home/huyy-giaa/ewallet-evidence/agents/legacy-cleanup/lc-20261117T002220Z/f-regression/concurrency/job3/e2e/replay-combined-014131-*

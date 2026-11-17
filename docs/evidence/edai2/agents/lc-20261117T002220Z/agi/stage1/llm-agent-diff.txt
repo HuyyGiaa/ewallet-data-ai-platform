@@ -1,0 +1,23 @@
+added: 0
+removed: 8
+  AuthorizationPolicy ewallet-agents/allow-drift-mcp-to-otel-collector
+  Deployment ewallet-agents/drift-mcp
+  NetworkPolicy ewallet-agents/allow-ambient-probes-drift-mcp
+  NetworkPolicy ewallet-agents/allow-drift-mcp-to-otel-collector-egress
+  NetworkPolicy ewallet-agents/allow-drift-mcp-to-otel-collector-ingress
+  PodDisruptionBudget ewallet-agents/drift-mcp
+  Service ewallet-agents/drift-mcp
+  ServiceAccount ewallet-agents/drift-mcp
+changed: 1
+  ConfigMap ewallet-agents/llm-agent-network-flows
+
+### CHANGED ConfigMap ewallet-agents/llm-agent-network-flows
+--- 
++++ 
+@@ -2,3 +2,3 @@
+ data:
+-  enforced.json: '[{"from":"agentgateway","name":"agentgateway-to-vllm","port":8000,"to":"vllm"},{"from":"fraud-coordinator","name":"fraud-coordinator-to-agentgateway","port":4000,"to":"agentgateway"},{"from":"fraud-coordinator","name":"fraud-coordinator-to-a2a-gateway","port":8083,"to":"a2a-gateway"},{"from":"agentgateway","name":"agentgateway-to-otel-collector","port":4317,"to":"otel-collector"},{"from":"mcp-gateway","name":"mcp-gateway-to-otel-collector","port":4317,"to":"otel-collector"},{"from":"a2a-gateway","name":"a2a-gateway-to-otel-collector","port":4317,"to":"otel-collector"},{"from":"feature-rag-mcp","name":"feature-rag-mcp-to-otel-collector","port":4317,"to":"otel-collector"},{"from":"drift-mcp","name":"drift-mcp-to-otel-collector","port":4317,"to":"otel-collector"},{"from":"llmd-epp","name":"llmd-epp-to-otel-collector","port":4317,"to":"otel-collector"},{"from":"fraud-coordinator","name":"fraud-coordinator-to-otel-collector","port":4317,"to":"otel-collector"},{"from":"observability-prometheus","name":"prometheus-to-agentgateway","port":15020,"to":"agentgateway"},{"from":"observability-prometheus","name":"prometheus-to-vllm","port":8000,"to":"vllm"},{"from":"observability-prometheus","name":"prometheus-to-otel-collector","port":8889,"to":"otel-collector"},{"from":"otel-collector","name":"otel-collector-to-loki","port":3100,"to":"observability-loki"},{"from":"otel-collector","name":"otel-collector-to-tempo","port":4317,"to":"observability-tempo"},{"from":"observability-grafana","name":"grafana-to-prometheus","port":9090,"to":"observability-prometheus"},{"from":"observability-grafana","name":"grafana-to-loki","port":3100,"to":"observability-loki"},{"from":"observability-grafana","name":"grafana-to-tempo","port":3200,"to":"observability-tempo"},{"from":"fraud-coordinator","name":"fraud-coordinator-to-coordinator-idempotency-redis","port":6379,"to":"coordinator-idempotency-redis"},{"from":"observability-alloy","name":"observability-alloy-to-loki","port":3100,"to":"observability-loki"}]'
++  enforced.json: '[{"from":"agentgateway","name":"agentgateway-to-vllm","port":8000,"to":"vllm"},{"from":"fraud-coordinator","name":"fraud-coordinator-to-agentgateway","port":4000,"to":"agentgateway"},{"from":"fraud-coordinator","name":"fraud-coordinator-to-a2a-gateway","port":8083,"to":"a2a-gateway"},{"from":"agentgateway","name":"agentgateway-to-otel-collector","port":4317,"to":"otel-collector"},{"from":"mcp-gateway","name":"mcp-gateway-to-otel-collector","port":4317,"to":"otel-collector"},{"from":"a2a-gateway","name":"a2a-gateway-to-otel-collector","port":4317,"to":"otel-collector"},{"from":"feature-rag-mcp","name":"feature-rag-mcp-to-otel-collector","port":4317,"to":"otel-collector"},{"from":"llmd-epp","name":"llmd-epp-to-otel-collector","port":4317,"to":"otel-collector"},{"from":"fraud-coordinator","name":"fraud-coordinator-to-otel-collector","port":4317,"to":"otel-collector"},{"from":"observability-prometheus","name":"prometheus-to-agentgateway","port":15020,"to":"agentgateway"},{"from":"observability-prometheus","name":"prometheus-to-vllm","port":8000,"to":"vllm"},{"from":"observability-prometheus","name":"prometheus-to-otel-collector","port":8889,"to":"otel-collector"},{"from":"otel-collector","name":"otel-collector-to-loki","port":3100,"to":"observability-loki"},{"from":"otel-collector","name":"otel-collector-to-tempo","port":4317,"to":"observability-tempo"},{"from":"observability-grafana","name":"grafana-to-prometheus","port":9090,"to":"observability-prometheus"},{"from":"observability-grafana","name":"grafana-to-loki","port":3100,"to":"observability-loki"},{"from":"observability-grafana","name":"grafana-to-tempo","port":3200,"to":"observability-tempo"},{"from":"fraud-coordinator","name":"fraud-coordinator-to-coordinator-idempotency-redis","port":6379,"to":"coordinator-idempotency-redis"},{"from":"observability-alloy","name":"observability-alloy-to-loki","port":3100,"to":"observability-loki"}]'
+   unresolved.json: '[{"gate":"Read back the WorkerPool/SandboxAgent pod identity,
+
+RESULT: PASS

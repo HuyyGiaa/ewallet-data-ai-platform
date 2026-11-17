@@ -1,0 +1,17 @@
+
+==================== 01:35:46Z  E2E drift  request_id replay-drift-013546  (Coordinator -> A2A Gateway -> Sandbox Specialist -> MCP Gateway -> backend) ====================
+state=completed  elapsed=43.737 s
+{"status": "complete", "workflow": "drift", "contract_version": "g3-orchestration/v2", "unavailable": []}
+  drift-specialist: status=ok fraud_probability=None psi=0.0004795543627041439
+
+==================== 01:36:30Z  HOPS for drift (logs since 2026-11-17T01:35:46Z) ====================
+-- Coordinator (A2A Gateway sandbox route, LLM Gateway for NL)
+2026-11-17 01:36:30,540 - httpx - INFO - HTTP Request: POST http://a2a-gateway.ewallet-agents.svc.cluster.local:8083/api/a2a-sandboxes/ewallet-sandbox/drift-specialist/ "HTTP/1.1 200 OK"
+2026-11-17 01:36:30,547 - ewallet.agent.audit - INFO - coordinator.task_completed request_id=replay-drift-013546 task_id=9934db80-9bf9-437e-a199-3bdcb386f3d7 mode=typed status=complete duration_ms=43291
+-- A2A Gateway routes
+      1 "route":"default/sandbox-drift-specialist"
+-- MCP servers (actor_id = the Sandbox identity's credential subject)
+"actor_id": "sandbox-drift" "status": "ok" "tool_name": "drift_detection" "trace_id": "a2cb2e6bafaaa487aedf31d9a760602b"
+-- Deployment Specialists must show no task for this request (0 = no fallback)
+none: legacy Specialist pods=0 deployments=0 (retired)
+saved under /home/huyy-giaa/ewallet-evidence/agents/legacy-cleanup/lc-20261117T002220Z/f-regression/replay/e2e/replay-drift-013546-*

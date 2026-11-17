@@ -1,0 +1,7 @@
+{
+  "http_status": 200,
+  "elapsed_seconds": 40.497,
+  "polls": 0,
+  "terminal_state": "completed",
+  "response": "/home/huyy-giaa/ewallet-evidence/agents/legacy-cleanup/lc-20261117T002220Z/f-regression/concurrency/job2/e2e/replay-drift-014402-task.json"
+}

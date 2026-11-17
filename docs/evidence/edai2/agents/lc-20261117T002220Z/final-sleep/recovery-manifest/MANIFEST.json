@@ -1,0 +1,16 @@
+{
+  "purpose": "Recovery manifest recorded by cloud_lab record-manifest on the awake cluster: the replicas the next wake restores and verify --expect awake checks. Holds no Secret values or env.",
+  "project": "ewallet-data-ai-platform-hg26",
+  "cluster": "ewallet-dev",
+  "location": "asia-southeast1-b",
+  "node_pool": "cpu-pool",
+  "campaign": "lc-20261117T002220Z",
+  "recorded_at": "2026-11-17T01:50:58Z",
+  "source_commit": "bf7ef69124b11c9ca9317abfcf9ca406f240edec",
+  "pool_vms": 5,
+  "workloads": 75,
+  "not_ready_at_record": [
+    "kubeflow/ml-pipeline-persistenceagent",
+    "kubeflow/ml-pipeline-scheduledworkflow"
+  ]
+}

@@ -1,0 +1,7 @@
+campaign=agi-20261117T002220Z
+sha=bf7ef69124b11c9ca9317abfcf9ca406f240edec
+context=gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev
+snapshot_manifest_sha256=3aa7e2f2b017d7375eaa506974562929c0983077edfa3825a2babb9a81ed2bca
+LLM_AGENT_REVISION=59
+LLM_AGENT_MCP_REVISION=18
+RAG_REGISTRY_SHA256=2ca6829930f96f2189b929abe877f0149eb5335f17a38fb89f10d1500b715930

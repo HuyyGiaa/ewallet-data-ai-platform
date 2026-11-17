@@ -1,0 +1,19 @@
+ewallet-agents/fraud-coordinator Ready True Active False Fallback False Paused False
+ewallet-sandbox/business-agents-workerpool Ready True Active False Fallback False Paused False
+workerpool spec/status 3/3
+drift-specialist         True
+feature-rag-specialist   True
+legacy Specialist Deployments: 0; legacy ewallet-agents/drift-mcp: 0
+ateapi ResumeActor since start: 214
+ateapi restore errors since start: 0
+== HTTP status counts since start (non-2xx)
+a2a-gateway:      39 200       1 404 
+mcp-gateway:     136 200      98 202       1 401       1 404      25 405 
+ewallet-mcp/drift-mcp rejects: 
+ewallet-mcp/feature-rag-mcp rejects: 
+pods not Running/Completed in agent namespaces:
+ewallet-agents non-running: 0
+ewallet-mcp non-running: 0
+ewallet-sandbox non-running: 0
+kagent non-running: 0
+ate-system non-running: 0

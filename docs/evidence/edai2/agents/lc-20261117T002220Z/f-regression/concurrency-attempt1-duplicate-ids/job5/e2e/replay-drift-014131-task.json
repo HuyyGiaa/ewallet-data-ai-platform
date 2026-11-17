@@ -1,0 +1,39 @@
+{
+  "jsonrpc": "2.0",
+  "id": "replay-drift-014131",
+  "result": {
+    "kind": "task",
+    "id": "7556fb42-fdb6-41e8-a1f8-7c330570b52b",
+    "contextId": "68c40667-6ec0-4e0e-85d1-711cd4bc4ba0",
+    "history": [
+      {
+        "kind": "message",
+        "messageId": "replay-drift-014131",
+        "contextId": "68c40667-6ec0-4e0e-85d1-711cd4bc4ba0",
+        "parts": [
+          {
+            "kind": "text",
+            "text": "CALL_AGENT=drift-specialist\nREQUEST_JSON={\"baseline_id\":\"bl-r5gb-202604.account_tx_count_1h\",\"capabilities\":[\"drift\"],\"contract_version\":\"g3-drift-request/v1\",\"current_window\":{\"end\":\"2026-05-31T00:00:00Z\",\"start\":\"2026-05-01T00:00:00Z\"},\"feature_name\":\"account_behavior__account_tx_count_1h\",\"request_id\":\"replay-drift-014131\",\"requested_tools\":[\"drift_detection\"],\"target_agent\":\"drift-specialist\"}"
+          }
+        ],
+        "role": "user",
+        "taskId": "7556fb42-fdb6-41e8-a1f8-7c330570b52b"
+      }
+    ],
+    "status": {
+      "message": {
+        "kind": "message",
+        "messageId": "ead0e2eb-2288-4f28-9ea6-b745c08fe8f5",
+        "parts": [
+          {
+            "kind": "text",
+            "text": "{\"code\":\"idempotency_in_progress\",\"coordinator_revision\":\"programmatic-coordinator/byo-v1\",\"message\":\"Identical request is already in progress\",\"status\":\"error\"}"
+          }
+        ],
+        "role": "agent"
+      },
+      "state": "failed",
+      "timestamp": "2026-11-17T01:41:47.67975Z"
+    }
+  }
+}

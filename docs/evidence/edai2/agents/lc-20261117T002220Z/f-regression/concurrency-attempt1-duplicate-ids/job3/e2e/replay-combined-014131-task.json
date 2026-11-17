@@ -1,0 +1,40 @@
+{
+  "jsonrpc": "2.0",
+  "id": "replay-combined-014131",
+  "result": {
+    "kind": "task",
+    "id": "a5582361-723d-427d-ba2a-400172af36f7",
+    "artifacts": [
+      {
+        "artifactId": "result-a5582361-723d-427d-ba2a-400172af36f7",
+        "name": "validated-combined-investigation",
+        "parts": [
+          {
+            "kind": "text",
+            "text": "{\"contract_version\":\"g3-orchestration/v2\",\"coordinator_revision\":\"programmatic-coordinator/byo-workflow-v1\",\"decision_support\":\"Bằng chứng chuyên gia đã được xác thực; các giá trị nguồn được giữ nguyên bên dưới.\",\"request_id\":\"replay-combined-014131\",\"specialists\":{\"drift-specialist\":{\"agent\":\"drift-specialist\",\"drift\":[{\"baseline_id\":\"bl-r5gb-202604.account_tx_count_1h\",\"baseline_source\":{\"reference_count\":3695519,\"sha256\":\"4061359b93782a38ff22af635a45d131052980d23f477ac2b14d8ca9785e47da\",\"uri\":\"gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/features/offline/snapshots/rehearsal-5gb-v1/ab-20261110225456-optimized-feat-r261110225459/feast-r5gb-20261111-214544\"},\"bins\":[{\"contribution\":3.105302489878738e-06,\"current_proportion\":0.9943634295170132,\"reference_proportion\":0.9926069924143266,\"upper_bound\":0.0},{\"contribution\":0.0004764490602142651,\"current_proportion\":0.005636570482986865,\"reference_proportion\":0.007393007585673352}],\"current_count\":19338,\"current_source\":{\"excluded_null_count\":0,\"sha256\":\"fbad1a8a2383b4c5ebb834977b7834694ba6e0c7b6e0882a2343046530ad2aa0\"},\"current_window\":{\"end\":\"2026-05-31T00:00:00Z\",\"start\":\"2026-05-01T00:00:00Z\"},\"dataset_revisions\":{\"current\":\"feast-r5gb-20261111-214544\",\"reference\":\"feast-r5gb-20261111-214544\"},\"drift_status\":\"no_drift\",\"feature_name\":\"account_behavior__account_tx_count_1h\",\"live_metrics_verified\":false,\"method\":\"psi\",\"min_current_count\":100,\"psi\":0.0004795543627041439,\"reference_window\":{\"end\":\"2026-05-01T00:00:00Z\",\"start\":\"2026-04-01T00:00:00Z\"},\"thresholds\":{\"drift\":0.25,\"warning\":0.1},\"tool_versions\":{\"config_revision\":\"agi-20261115T145608Z\",\"git_sha\":\"fd2c49c9c1078724346747e480425cda5e8ac39b\",\"image_digest\":\"sha256:0e291f6582c698e3d8bd6ee213d04ca92227f354b4d2021b0cefc1c708d8a5f0\"}}],\"duration_ms\":32777,\"request_id\":\"replay-combined-014131.drift\",\"specialist_revision\":\"drift-specialist/byo-v1\",\"status\":\"ok\",\"unavailable\":[]},\"feature-rag-specialist\":{\"agent\":\"feature-rag-specialist\",\"citations\":[{\"chunk_id\":\"policy-payment-anomaly:0000\",\"corpus_revision\":\"fraud-policy-v1-20261030\",\"document_id\":\"policy-payment-anomaly\",\"embedding_revision\":\"1110a243fdf4706b3f48f1d95db1a4f5529b4d41\",\"feature_revision\":\"fraud-policy-feast-v1\",\"score\":0.49425804103295834,\"source_checksum\":\"sha256:b276f82cb7bd4b9f83654c0f5565457500cc2e8a12ba9724b30ee1ee844b2dcb\",\"source_uri\":\"repo://data/llm_agent/rag/fraud-policy-v1/policy-payment-anomaly.md\"},{\"chunk_id\":\"policy-account-takeover:0000\",\"corpus_revision\":\"fraud-policy-v1-20261030\",\"document_id\":\"policy-account-takeover\",\"embedding_revision\":\"1110a243fdf4706b3f48f1d95db1a4f5529b4d41\",\"feature_revision\":\"fraud-policy-feast-v1\",\"score\":0.4664269647229036,\"source_checksum\":\"sha256:c6265483448e7e0cd312a10586e6090cdff3113088c092b208196c1db590ad53\",\"source_uri\":\"repo://data/llm_agent/rag/fraud-policy-v1/policy-account-takeover.md\"},{\"chunk_id\":\"policy-account-takeover:0001\",\"corpus_revision\":\"fraud-policy-v1-20261030\",\"document_id\":\"policy-account-takeover\",\"embedding_revision\":\"1110a243fdf4706b3f48f1d95db1a4f5529b4d41\",\"feature_revision\":\"fraud-policy-feast-v1\",\"score\":0.4522020703117881,\"source_checksum\":\"sha256:c6265483448e7e0cd312a10586e6090cdff3113088c092b208196c1db590ad53\",\"source_uri\":\"repo://data/llm_agent/rag/fraud-policy-v1/policy-account-takeover.md\"}],\"duration_ms\":16717,\"features\":{\"account_behavior__account_tx_count_1h\":{\"event_timestamp\":\"2026-05-31T23:59:56+00:00\",\"value\":0},\"account_behavior__account_tx_count_24h\":{\"event_timestamp\":\"2026-05-31T23:59:56+00:00\",\"value\":0},\"merchant_behavior__merchant_tx_count_24h\":{\"event_timestamp\":\"2026-05-31T23:59:56+00:00\",\"value\":6},\"user_behavior__user_avg_amount_30d\":{\"event_timestamp\":\"2026-05-31T23:59:56+00:00\",\"value\":474960.33}},\"fraud_score\":{\"feature_timestamp\":\"2026-05-31T23:59:56+00:00\",\"fraud_prediction\":0,\"fraud_probability\":0.0639895560144887,\"model_input_schema_sha256\":\"03c0ea040c59dd5bafd7e649a7cc8067b93f1971f8b0d3dfb2d3571268c43176\",\"model_name\":\"fraud-detector\",\"model_version\":\"1\",\"transaction_id\":\"dc58ff4e-b5f7-4486-b1f8-4c31383741a9\"},\"request_id\":\"replay-combined-014131.fraud\",\"specialist_revision\":\"feature-rag-specialist/byo-v1\",\"status\":\"ok\",\"unavailable\":[]}},\"status\":\"complete\",\"unavailable\":[],\"workflow\":\"combined\"}"
+          }
+        ]
+      }
+    ],
+    "contextId": "0a6a545a-aecb-49ad-b356-40eb116699ed",
+    "history": [
+      {
+        "kind": "message",
+        "messageId": "replay-combined-014131",
+        "contextId": "0a6a545a-aecb-49ad-b356-40eb116699ed",
+        "parts": [
+          {
+            "kind": "text",
+            "text": "CALL_WORKFLOW=combined\nREQUEST_JSON={\"contract_version\":\"g3-workflow-request/v1\",\"drift\":{\"baseline_id\":\"bl-r5gb-202604.account_tx_count_1h\",\"capabilities\":[\"drift\"],\"contract_version\":\"g3-drift-request/v1\",\"current_window\":{\"end\":\"2026-05-31T00:00:00Z\",\"start\":\"2026-05-01T00:00:00Z\"},\"feature_name\":\"account_behavior__account_tx_count_1h\",\"request_id\":\"replay-combined-014131.drift\",\"requested_tools\":[\"drift_detection\"],\"target_agent\":\"drift-specialist\"},\"fraud\":{\"capabilities\":[\"fraud-evidence\"],\"contract_version\":\"g3-business-request/v1\",\"feature_names\":[\"account_behavior__account_tx_count_1h\",\"account_behavior__account_tx_count_24h\",\"user_behavior__user_avg_amount_30d\",\"merchant_behavior__merchant_tx_count_24h\"],\"knowledge_query\":\"payment anomaly policy and step-up authentication requirements\",\"request_id\":\"replay-combined-014131.fraud\",\"requested_tools\":[\"feature_lookup\",\"fraud_scoring\",\"knowledge_search\"],\"target_agent\":\"feature-rag-specialist\",\"transaction\":{\"account_id\":\"2d48f147-f98c-4819-b183-f94ca049c175\",\"amount\":275465.53,\"channel\":\"app\",\"counterparty_account_id\":null,\"currency\":\"VND\",\"device_id\":\"e7765b81-c9f9-4147-aa00-46f34de1d7da\",\"event_timestamp\":\"2026-06-01T00:00:00Z\",\"merchant_id\":\"e3e4aced-6b0d-40af-be5c-eef9255204c9\",\"transaction_id\":\"dc58ff4e-b5f7-4486-b1f8-4c31383741a9\",\"type\":\"payment\",\"user_id\":\"55561d92-d042-401c-b02a-b03e3ed280f7\"}},\"request_id\":\"replay-combined-014131\",\"workflow\":\"combined\"}"
+          }
+        ],
+        "role": "user",
+        "taskId": "a5582361-723d-427d-ba2a-400172af36f7"
+      }
+    ],
+    "status": {
+      "state": "completed",
+      "timestamp": "2026-11-17T01:42:04.97692Z"
+    }
+  }
+}

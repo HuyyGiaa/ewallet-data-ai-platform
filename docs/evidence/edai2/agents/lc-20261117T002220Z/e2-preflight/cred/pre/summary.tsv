@@ -1,0 +1,18 @@
+PASS	ewallet-mcp/feature-rag-mcp	active	
+  PASS	feature-rag-mcp-dc4bb7977-gnh6g	active	authn=pass	authz=granted	exec=ok	
+  PASS	feature-rag-mcp-dc4bb7977-gnh6g	discovery	authn=pass	authz=denied	exec=n/a	
+  PASS	feature-rag-mcp-dc4bb7977-gnh6g	invalid	authn=rejected	authz=n/a	exec=n/a	
+  PASS	feature-rag-mcp-dc4bb7977-p8bh7	active	authn=pass	authz=granted	exec=ok	
+  PASS	feature-rag-mcp-dc4bb7977-p8bh7	discovery	authn=pass	authz=denied	exec=n/a	
+  PASS	feature-rag-mcp-dc4bb7977-p8bh7	invalid	authn=rejected	authz=n/a	exec=n/a	
+PASS	ewallet-mcp/drift-mcp	active	
+  PASS	drift-mcp-5dfb65d6dc-8whk8	active	authn=pass	authz=granted	exec=ok	
+  PASS	drift-mcp-5dfb65d6dc-8whk8	discovery	authn=pass	authz=denied	exec=n/a	
+  PASS	drift-mcp-5dfb65d6dc-8whk8	invalid	authn=rejected	authz=n/a	exec=n/a	
+  PASS	drift-mcp-5dfb65d6dc-z4kfd	active	authn=pass	authz=granted	exec=ok	
+  PASS	drift-mcp-5dfb65d6dc-z4kfd	discovery	authn=pass	authz=denied	exec=n/a	
+  PASS	drift-mcp-5dfb65d6dc-z4kfd	invalid	authn=rejected	authz=n/a	exec=n/a	
+PASS	ewallet-agents/drift-mcp	legacy	
+  PASS	drift-mcp-5ff978c6d5-8f5dl	active	authn=pass	authz=granted	exec=backend_unavailable	
+  PASS	drift-mcp-5ff978c6d5-8f5dl	invalid	authn=rejected	authz=n/a	exec=n/a	
+VERDICT	PASS

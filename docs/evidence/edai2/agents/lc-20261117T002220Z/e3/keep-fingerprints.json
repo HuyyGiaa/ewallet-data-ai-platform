@@ -1,0 +1,27 @@
+{
+  "verdict": "PASS",
+  "problems": [],
+  "removed": [
+    "AuthorizationPolicy/ewallet-agents/allow-drift-mcp-to-otel-collector",
+    "Deployment/ewallet-agents/drift-mcp",
+    "NetworkPolicy/ewallet-agents/allow-ambient-probes-drift-mcp",
+    "NetworkPolicy/ewallet-agents/allow-drift-mcp-to-otel-collector-egress",
+    "NetworkPolicy/ewallet-agents/allow-drift-mcp-to-otel-collector-ingress",
+    "PodDisruptionBudget/ewallet-agents/drift-mcp",
+    "Secret/ewallet-agents/mcp-auth-drift-mcp",
+    "Secret/ewallet-agents/mcp-auth-feature-rag-mcp",
+    "Secret/ewallet-mcp/mcp-auth-drift-mcp-r1-transition",
+    "Secret/ewallet-mcp/mcp-auth-drift-mcp-sbx-20261115",
+    "Secret/ewallet-mcp/mcp-auth-feature-rag-mcp-r1-transition",
+    "Secret/ewallet-mcp/mcp-auth-feature-rag-mcp-sbx-20261115",
+    "Service/ewallet-agents/drift-mcp",
+    "ServiceAccount/ewallet-agents/drift-mcp"
+  ],
+  "added": [],
+  "changed": [
+    "ConfigMap/ewallet-agents/llm-agent-network-flows"
+  ],
+  "unchanged_objects": 270,
+  "objects_before": 285,
+  "objects_after": 271
+}

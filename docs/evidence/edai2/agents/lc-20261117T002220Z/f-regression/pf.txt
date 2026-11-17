@@ -1,0 +1,6 @@
+port 18083 already listening (ewallet-agents svc/a2a-gateway)
+port 18082 already listening (ewallet-agents svc/mcp-gateway)
+port 18383 already listening (kagent svc/kagent-controller)
+port 18300 already listening (kagent svc/kagent-ui)
+port 13000 already listening (ewallet-agents svc/grafana)
+port 18121 already listening (ewallet-prompts svc/prompt-registry-agentregistry)

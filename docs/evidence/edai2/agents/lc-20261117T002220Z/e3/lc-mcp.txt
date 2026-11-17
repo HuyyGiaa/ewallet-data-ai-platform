@@ -1,0 +1,25 @@
+2026-11-17T01:27:23Z PASS P0.1 tracked tree clean at SHA
+2026-11-17T01:27:23Z PASS P0.2 kube context
+2026-11-17T01:27:24Z PASS P0.3 llm-agent deployed
+2026-11-17T01:27:26Z PASS P0.3 llm-agent-mcp deployed
+2026-11-17T01:27:29Z PASS P0.4 live values saved (private)
+2026-11-17T01:27:32Z PASS P0.4 live values saved (private)
+2026-11-17T01:27:33Z PASS P0.5 chart reproduces llm-agent
+2026-11-17T01:27:33Z PASS P0.5 chart reproduces llm-agent-mcp
+2026-11-17T01:27:34Z PASS P0.6 agents available
+2026-11-17T01:27:35Z PASS P0.6 MCP servers available
+2026-11-17T01:27:37Z PASS P0.7 drift-specialist is Declarative before the campaign
+2026-11-17T01:27:47Z PASS P0.8 Redis DB 3 owned by the RAG Hybrid project
+2026-11-17T01:27:48Z PASS P0.9 drift snapshot manifest digest
+2026-11-17T01:27:50Z PASS P0.10 RAG registry recorded
+2026-11-17T01:27:50Z PASS P0.11 reference transaction input
+2026-11-17T01:27:54Z PASS P0.12 Fraud target read (feature_lookup)
+2026-11-17T01:27:56Z PASS P0.13 API server addresses
+2026-11-17T01:27:57Z PASS P0.14 drift-specialist egress to mcp-gateway
+2026-11-17T01:28:01Z PASS P0.15 MCP credential Secrets exist (names only)
+2026-11-17T01:28:01Z PREFLIGHT PASSED
+2026-11-17T01:28:35Z GATE PASS llm-agent-mcp: exact identities and server-side dry-run
+2026-11-17T01:29:10Z GATE PASS llm-agent-mcp: exact identities and server-side dry-run
+2026-11-17T01:29:10Z MUTATION helm upgrade llm-agent-mcp (ewallet-mcp)
+2026-11-17T01:30:08Z UPGRADED llm-agent-mcp
+lc-mcp rc=0

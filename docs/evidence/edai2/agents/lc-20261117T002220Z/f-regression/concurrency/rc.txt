@@ -1,0 +1,6 @@
+job1 fraud rc=0 request_id replay-fraud-014401 elapsed=16.4 s "status": "ok"
+job3 combined rc=0 request_id replay-combined-014403 elapsed=37.362 s "status": "complete"
+job2 drift rc=0 request_id replay-drift-014402 elapsed=40.497 s "status": "complete"
+job6 combined rc=0 request_id replay-combined-014407 elapsed=43.891 s "status": "complete"
+job5 drift rc=0 request_id replay-drift-014405 elapsed=52.406 s "status": "complete"
+job4 fraud rc=0 request_id replay-fraud-014404 elapsed=55.787 s "status": "ok"

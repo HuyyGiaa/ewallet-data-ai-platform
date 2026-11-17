@@ -1,0 +1,100 @@
+{
+  "problems": [],
+  "rows": [
+    {
+      "namespace": "ewallet-agents",
+      "name": "mcp-auth-drift-mcp-fin-20261117",
+      "server": "drift-mcp",
+      "server_set": "fin-20261117",
+      "decision": "KEEP",
+      "reasons": [
+        "protected final server set fin-20261117"
+      ],
+      "live_references": [],
+      "history_references": [],
+      "current_helm_references": [
+        "llm-agent-mcp"
+      ],
+      "historical_helm_revisions": [],
+      "retired_subjects": [],
+      "credential_ids": [
+        "kagent-controller.drift-mcp.r1-release1.active",
+        "kagent-controller.drift-mcp.sbx-20261115.active"
+      ]
+    },
+    {
+      "namespace": "ewallet-agents",
+      "name": "mcp-auth-drift-mcp-fin-20261117-b",
+      "server": "drift-mcp",
+      "server_set": "fin-20261117-b",
+      "decision": "KEEP",
+      "reasons": [
+        "protected final server set fin-20261117-b"
+      ],
+      "live_references": [],
+      "history_references": [],
+      "current_helm_references": [],
+      "historical_helm_revisions": [],
+      "retired_subjects": [],
+      "credential_ids": [
+        "sandbox-drift.drift-mcp.sbx-20261115.active"
+      ]
+    },
+    {
+      "namespace": "ewallet-mcp",
+      "name": "mcp-auth-drift-mcp-fin-20261117",
+      "server": "drift-mcp",
+      "server_set": "fin-20261117",
+      "decision": "KEEP",
+      "reasons": [
+        "read by a live server (verified final table)"
+      ],
+      "live_references": [
+        "Deployment/ewallet-mcp/drift-mcp",
+        "Pod/ewallet-mcp/drift-mcp-5dfb65d6dc-8whk8",
+        "Pod/ewallet-mcp/drift-mcp-5dfb65d6dc-z4kfd",
+        "ReplicaSet/ewallet-mcp/drift-mcp-5dfb65d6dc"
+      ],
+      "history_references": [],
+      "current_helm_references": [
+        "llm-agent-mcp"
+      ],
+      "historical_helm_revisions": [],
+      "retired_subjects": [],
+      "credential_ids": [
+        "kagent-controller.drift-mcp.r1-release1.active",
+        "kagent-controller.drift-mcp.sbx-20261115.active",
+        "sandbox-drift.drift-mcp.sbx-20261115.active"
+      ]
+    },
+    {
+      "namespace": "ewallet-mcp",
+      "name": "mcp-auth-feature-rag-mcp-fin-20261117",
+      "server": "feature-rag-mcp",
+      "server_set": "fin-20261117",
+      "decision": "KEEP",
+      "reasons": [
+        "read by a live server (verified final table)"
+      ],
+      "live_references": [
+        "Deployment/ewallet-mcp/feature-rag-mcp",
+        "Pod/ewallet-mcp/feature-rag-mcp-dc4bb7977-gnh6g",
+        "Pod/ewallet-mcp/feature-rag-mcp-dc4bb7977-p8bh7",
+        "ReplicaSet/ewallet-mcp/feature-rag-mcp-dc4bb7977"
+      ],
+      "history_references": [],
+      "current_helm_references": [
+        "llm-agent-mcp"
+      ],
+      "historical_helm_revisions": [],
+      "retired_subjects": [],
+      "credential_ids": [
+        "kagent-controller.feature-rag-mcp.r1-release1.active",
+        "kagent-controller.feature-rag-mcp.sbx-20261115.active",
+        "sandbox-feature-rag.feature-rag-mcp.sbx-20261115.active"
+      ]
+    }
+  ],
+  "delete": [],
+  "failures": []
+}

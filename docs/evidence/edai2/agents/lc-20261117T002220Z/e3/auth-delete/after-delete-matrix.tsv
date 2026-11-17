@@ -1,0 +1,5 @@
+decision	namespace	secret	server	set	live_refs	current_helm_refs	rollout_history_refs	historical_helm_revisions	retired_subjects	reasons
+KEEP	ewallet-agents	mcp-auth-drift-mcp-fin-20261117	drift-mcp	fin-20261117	-	llm-agent-mcp	-	-	-	protected final server set fin-20261117
+KEEP	ewallet-agents	mcp-auth-drift-mcp-fin-20261117-b	drift-mcp	fin-20261117-b	-	-	-	-	-	protected final server set fin-20261117-b
+KEEP	ewallet-mcp	mcp-auth-drift-mcp-fin-20261117	drift-mcp	fin-20261117	Deployment/ewallet-mcp/drift-mcp,Pod/ewallet-mcp/drift-mcp-5dfb65d6dc-8whk8,Pod/ewallet-mcp/drift-mcp-5dfb65d6dc-z4kfd,ReplicaSet/ewallet-mcp/drift-mcp-5dfb65d6dc	llm-agent-mcp	-	-	-	read by a live server (verified final table)
+KEEP	ewallet-mcp	mcp-auth-feature-rag-mcp-fin-20261117	feature-rag-mcp	fin-20261117	Deployment/ewallet-mcp/feature-rag-mcp,Pod/ewallet-mcp/feature-rag-mcp-dc4bb7977-gnh6g,Pod/ewallet-mcp/feature-rag-mcp-dc4bb7977-p8bh7,ReplicaSet/ewallet-mcp/feature-rag-mcp-dc4bb7977	llm-agent-mcp	-	-	-	read by a live server (verified final table)

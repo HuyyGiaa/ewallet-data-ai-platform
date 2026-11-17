@@ -1,0 +1,6 @@
+job6 combined rc=1  
+job5 drift rc=1  
+job1 fraud rc=1  
+job4 fraud rc=0 elapsed=16.224 s "status": "ok"
+job3 combined rc=0 elapsed=33.19 s "status": "complete"
+job2 drift rc=0 elapsed=36.841 s "status": "complete"
