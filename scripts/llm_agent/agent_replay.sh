@@ -1,23 +1,30 @@
 #!/usr/bin/env bash
 # Owner evidence replay for the EDAI-2 Agent Platform (docs/edai2/agents/OWNER_AGENT_PLATFORM_EVIDENCE_REPLAY.md).
 #
-# A thin, phased wrapper around the tools the campaign validated on GKE; it adds banners, port-forwards,
-# hop checks and one output directory per invocation. It never changes a Helm release, Secret, policy or
-# production Deployment. Commands that create load or experiment resources say so below.
+# A thin wrapper around the tools the campaigns validated on GKE. It collects observations (kubectl/helm JSON,
+# A2A responses, probe evidence) into one directory per invocation; ops/llm_agent/replay_verdict.py decides
+# PASS/FAIL and the exit code. It never changes a Helm release, Secret, policy, Registry entry or production
+# Deployment, and it never runs the lf-agents cleanup.
 #
-#   agent_replay.sh status                 [READ-ONLY]  releases, agents, MCP, sandbox fleet, KEDA, gateways
-#   agent_replay.sh pf                     [LOCAL]      start the port-forwards the UIs and probes need
-#   agent_replay.sh e2e <case>             [READ-ONLY data] one business request through the Coordinator, then its hops
-#                                          case: fraud | drift | combined | nl-fraud | nl-drift
-#   agent_replay.sh negative               [READ-ONLY]  wrong credential, ungranted tool, undeclared route (AGI-08)
-#   agent_replay.sh registry               [READ-ONLY]  Agent Registry readback against the deployed catalog (AGI-13)
-#   agent_replay.sh keda                   [LOAD]       KEDA 2 -> 3 -> 2: two bounded AGR-06 load runs + live timeline
-#   agent_replay.sh workers                [SESSIONS]   shared WorkerPool: sequential sessions of both Sandbox agents
-#   agent_replay.sh failover               [EXPERIMENT] isolated MCP failover (ewallet-mcp-exp), both arms, force failure
-#   agent_replay.sh stop-pf                [LOCAL]      stop the port-forwards this script started
+#   agent_replay.sh status              [READ-ONLY]  releases, Coordinator, gateways, SandboxAgents, WorkerPool, MCP,
+#                                                    KEDA, retired workloads absent
+#   agent_replay.sh pf                  [LOCAL]      start the port-forwards the UIs and probes need
+#   agent_replay.sh stop-pf             [LOCAL]      stop only the port-forwards this script started
+#   agent_replay.sh registry            [READ-ONLY]  strict Agent Registry readback against the live values (AGI-13)
+#   agent_replay.sh e2e <case>          [TRAFFIC]    one business request through the Coordinator, verdict, hops
+#                                                    case: fraud | drift | combined | nl-fraud | nl-drift
+#   agent_replay.sh negative            [READ-ONLY]  wrong credential, ungranted tool, undeclared route (AGI-08)
+#   agent_replay.sh keda                [READ-ONLY]  both ScaledObjects, HPAs, replicas, recent rescale events
+#   agent_replay.sh keda demo           [LOAD]       6 bounded typed requests + replica timeline of both autoscalers;
+#                                                    needs REPLAY_LOAD_APPROVED=yes
+#   agent_replay.sh workers             [SESSIONS]   Sandbox sessions of both agents + actor placement;
+#                                                    needs REPLAY_SESSIONS_APPROVED=yes
+#   agent_replay.sh failover            [EXPERIMENT] isolated MCP failover in ewallet-mcp-exp (pod force-deleted there);
+#                                                    needs REPLAY_EXPERIMENT_APPROVED=yes; never part of the default replay
 #
-# Env: AGI_ENV (default from ~/.cache/ewallet-agi/current.env), REPLAY_DIR (default
-#   ~/ewallet-evidence/agents/replay/<UTC timestamp>), UV (default uv on PATH or the fintech env).
+# Env: AGI_ENV (default from ~/.cache/ewallet-agi/current.env; needs CTX, EV with inputs/transaction.json, BASELINE),
+#   REPLAY_DIR (default ~/ewallet-evidence/agents/replay/<UTC timestamp>), UV (default uv on PATH or the fintech env).
+#   Test seams: KUBECTL, HELM, SS, PROC_ROOT, PF_SETTLE, HOPS_SETTLE, PF_PIDS, KEDA_SAMPLE, KEDA_POLL, KEDA_COOLDOWN.
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 die() { echo "agent_replay: $*" >&2; exit 1; }
@@ -27,18 +34,27 @@ banner() { printf '\n==================== %s  %s ====================\n' "$(date
 [ -f "${AGI_ENV:-}" ] || die "AGI_ENV must name the campaign env file"
 # shellcheck disable=SC1090
 source "$AGI_ENV"
-: "${CTX:?}" "${EV:?}" "${BASELINE:?}" "${CAMPAIGN:?}"
+: "${CTX:?}" "${EV:?}" "${BASELINE:?}"
+KUBECTL=${KUBECTL:-kubectl} HELM=${HELM:-helm} SS=${SS:-ss} PROC_ROOT=${PROC_ROOT:-/proc} PF_SETTLE=${PF_SETTLE:-10} HOPS_SETTLE=${HOPS_SETTLE:-5}
 UV=${UV:-$(command -v uv || echo "$HOME/miniconda3/envs/fintech/bin/uv")}
-[ -x "$UV" ] || die "uv not found; set UV"
-export PATH="$(dirname "$UV"):$PATH" PYTHONPATH="$ROOT${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH="$ROOT${PYTHONPATH:+:$PYTHONPATH}"
 AGENT_PY=("$UV" run --frozen --project "$ROOT/infra/docker/g3-byo-coordinator" python)
 TOOL_PY=("$UV" run --locked --project "$ROOT/infra/docker/llm-agent-tooling" python)
+VERDICT=(python3 -m ops.llm_agent.replay_verdict)   # stdlib only
 REPLAY_DIR=${REPLAY_DIR:-$HOME/ewallet-evidence/agents/replay/$(date -u +%Y%m%dT%H%M%SZ)}
-PF_PIDS="$HOME/.cache/ewallet-agi/replay-port-forwards.pids"
-k() { kubectl --context "$CTX" "$@"; }
-[ "$(kubectl config view -o jsonpath="{.contexts[?(@.name=='$CTX')].name}")" = "$CTX" ] || die "kube context $CTX missing"
+PF_PIDS=${PF_PIDS:-$HOME/.cache/ewallet-agi/replay-port-forwards.pids}
+TRANSACTION=${TRANSACTION:-$EV/inputs/transaction.json}
+k() { "$KUBECTL" --context "$CTX" "$@"; }
+verdict() { (cd "$ROOT" && "${VERDICT[@]}" "$@"); }
+need_uv() { [ -x "$UV" ] || die "uv not found; set UV"; }
+[ "$("$KUBECTL" config view -o jsonpath="{.contexts[?(@.name=='$CTX')].name}")" = "$CTX" ] || die "kube context $CTX missing"
 
-# --- port-forwards ------------------------------------------------------------------------------------
+# --- request ids --------------------------------------------------------------------------------------------
+# UTC second + PID + 32 random bits: jobs launched in the same second (keda demo) never share an id, so the
+# Coordinator never answers idempotency_in_progress for a different request.
+request_id() { printf 'replay-%s-%s-%s-%s' "$1" "$(date -u +%Y%m%dT%H%M%SZ)" "$$" "$(od -An -N4 -tx1 /dev/urandom | tr -d ' \n')"; }
+
+# --- port-forwards ------------------------------------------------------------------------------------------
 PORT_FORWARDS=(
   "ewallet-agents svc/a2a-gateway 18083:8083"
   "ewallet-agents svc/mcp-gateway 18082:8080"
@@ -48,111 +64,167 @@ PORT_FORWARDS=(
   "ewallet-prompts svc/prompt-registry-agentregistry 18121:12121"
 )
 listening() { (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null; }
+listener_pid() { "$SS" -ltnpH "sport = :$1" 2>/dev/null | grep -oE 'pid=[0-9]+' | head -1 | cut -d= -f2; }
+cmdline() { [ -r "$PROC_ROOT/$1/cmdline" ] && tr '\0' ' ' < "$PROC_ROOT/$1/cmdline"; }
+is_forward() {   # is_forward <pid> <ns> <target> <ports>: a kubectl port-forward to exactly this target
+  local line; line=$(cmdline "$1") || return 1
+  [[ "$line" == *kubectl* && "$line" == *" port-forward "* && "$line" == *" $3 "* && "$line" == *" $4"* \
+     && "$line" == *"$CTX"* && "$line" == *"-n $2 "* ]]
+}
+spec_for_port() { local spec; for spec in "${PORT_FORWARDS[@]}"; do [[ "$spec" == *" $1:"* ]] && echo "$spec"; done; return 0; }
+forward_ok() {   # forward_ok <local port>: the listener is this script's kind of port-forward for that port
+  local spec ns target ports pid; spec=$(spec_for_port "$1"); [ -n "$spec" ] || return 1
+  read -r ns target ports <<< "$spec"; pid=$(listener_pid "$1")
+  [ -n "$pid" ] && is_forward "$pid" "$ns" "$target" "$ports"
+}
 start_pf() {
   mkdir -p "$(dirname "$PF_PIDS")"
-  local spec ns target ports local_port
+  local spec ns target ports port pid failed=0 waited
   for spec in "${PORT_FORWARDS[@]}"; do
-    read -r ns target ports <<< "$spec"; local_port=${ports%%:*}
-    if listening "$local_port"; then echo "port $local_port already listening ($ns $target)"; continue; fi
-    if ! k -n "$ns" get "${target}" > /dev/null 2>&1; then echo "skip $ns $target (not present)"; continue; fi
-    nohup kubectl --context "$CTX" -n "$ns" port-forward "$target" "$ports" > /dev/null 2>&1 &
-    echo "$!" >> "$PF_PIDS"; echo "port-forward $ns $target -> 127.0.0.1:$local_port (pid $!)"
+    read -r ns target ports <<< "$spec"; port=${ports%%:*}
+    if listening "$port"; then
+      if forward_ok "$port"; then echo "OK      127.0.0.1:$port  existing port-forward $ns $target (pid $(listener_pid "$port"))"
+      else
+        pid=$(listener_pid "$port")
+        echo "FAIL    127.0.0.1:$port  held by another process (pid ${pid:-unknown}, $(cat "$PROC_ROOT/${pid:-0}/comm" 2>/dev/null || echo '?')); not a port-forward to $ns $target. Free the port; nothing was killed"
+        failed=1
+      fi
+      continue
+    fi
+    if ! k -n "$ns" get "$target" > /dev/null 2>&1; then echo "FAIL    127.0.0.1:$port  $ns $target does not exist"; failed=1; continue; fi
+    nohup "$KUBECTL" --context "$CTX" -n "$ns" port-forward "$target" "$ports" > /dev/null 2>&1 &
+    pid=$!
+    waited=0
+    while ! listening "$port" && kill -0 "$pid" 2>/dev/null && [ "$waited" -lt "$PF_SETTLE" ]; do sleep 1; waited=$((waited + 1)); done
+    if listening "$port" && kill -0 "$pid" 2>/dev/null; then
+      echo "$pid $port $ns $target $ports" >> "$PF_PIDS"; echo "OK      127.0.0.1:$port  port-forward $ns $target (pid $pid)"
+    else
+      kill "$pid" 2>/dev/null || true
+      echo "FAIL    127.0.0.1:$port  port-forward $ns $target did not start"; failed=1
+    fi
   done
-  sleep 3
+  [ "$failed" = 0 ] || die "port-forwards incomplete (see FAIL lines)"
 }
 stop_pf() {
   [ -f "$PF_PIDS" ] || { echo "no port-forwards recorded"; return; }
-  while read -r pid; do kill "$pid" 2>/dev/null && echo "stopped $pid"; done < "$PF_PIDS"
+  local pid port ns target ports
+  while read -r pid port ns target ports; do
+    [ -n "$pid" ] || continue
+    if [ -n "${target:-}" ] && is_forward "$pid" "$ns" "$target" "$ports"; then
+      kill "$pid" 2>/dev/null && echo "stopped $pid ($ns $target)"
+    else
+      echo "skipped $pid: not a port-forward this script started (PID reused or old record)"
+    fi
+  done < "$PF_PIDS"
   rm -f "$PF_PIDS"
 }
-need_port() { listening "$1" || die "nothing listens on 127.0.0.1:$1; run: $0 pf"; }
+need_port() { forward_ok "$1" || die "127.0.0.1:$1 is not this script's port-forward; run: $0 pf"; }
 token() { k -n "${2:-ewallet-agents}" get secret "$1" -o jsonpath='{.data.token}' | base64 -d; }
 
-# --- status -------------------------------------------------------------------------------------------
+# --- status -------------------------------------------------------------------------------------------------
 status() {
-  banner "REPLAY-01 cluster and platform state (Kubernetes readiness only, not business E2E)"
-  k get nodes -L ewallet.io/g3-llm
-  helm --kube-context "$CTX" -n default history llm-agent --max 1
-  helm --kube-context "$CTX" -n ewallet-mcp history llm-agent-mcp --max 1
-  banner "Agents (kagent), Deployments, KEDA"
-  k -n ewallet-agents get agents.kagent.dev,modelconfig
-  k -n ewallet-agents get deploy fraud-coordinator feature-rag-specialist drift-specialist a2a-gateway mcp-gateway agentgateway
-  k -n ewallet-agents get scaledobject,hpa
-  banner "MCP servers (2 replicas, PDB, RollingUpdate)"
-  k -n ewallet-mcp get deploy,pdb,pods -o wide
-  k -n ewallet-mcp get deploy feature-rag-mcp drift-mcp \
-    -o custom-columns=NAME:.metadata.name,REPLICAS:.spec.replicas,STRATEGY:.spec.strategy.type,MAXUNAVAILABLE:.spec.strategy.rollingUpdate.maxUnavailable
-  banner "Sandbox fleet (SandboxAgents, shared WorkerPool, gVisor ActorTemplates)"
-  k -n ewallet-sandbox get sandboxagent,workerpool,actortemplate
-  k -n ewallet-sandbox get pods -l ate.dev/worker-pool=business-agents -o wide
-  banner "Restarts in ewallet-agents / ewallet-mcp (expect 0)"
-  k -n ewallet-agents get pods --no-headers | awk '$4 != "0" {print "RESTARTED:", $0}'
-  k -n ewallet-mcp get pods --no-headers | awk '$4 != "0" {print "RESTARTED:", $0}'
-  echo "done"
+  local out="$REPLAY_DIR/status" ns
+  mkdir -p "$out"
+  "$HELM" --kube-context "$CTX" -n default history llm-agent --max 1 -o json > "$out/helm-llm-agent.json"
+  "$HELM" --kube-context "$CTX" -n ewallet-mcp history llm-agent-mcp --max 1 -o json > "$out/helm-llm-agent-mcp.json"
+  for ns in ewallet-agents ewallet-mcp; do k -n "$ns" get deployments -o json > "$out/deployments-$ns.json"; done
+  k -n ewallet-mcp get pdb -o json > "$out/pdb-ewallet-mcp.json"
+  k -n ewallet-agents get agents.kagent.dev -o json > "$out/agents.json"
+  k -n ewallet-sandbox get sandboxagents.kagent.dev -o json > "$out/sandboxagents.json"
+  k -n ewallet-sandbox get workerpools.ate.dev -o json > "$out/workerpools.json"
+  for ns in ewallet-agents ewallet-sandbox; do
+    k -n "$ns" get scaledobjects.keda.sh -o json > "$out/scaledobjects-$ns.json"
+    k -n "$ns" get hpa -o json > "$out/hpa-$ns.json"
+  done
+  for ns in ewallet-agents ewallet-mcp ewallet-sandbox; do k -n "$ns" get pods -o json > "$out/pods-$ns.json"; done
+  banner "REPLAY-01 platform state (read-only)"
+  {   # display only (for the screenshot); the checks below read the JSON snapshot
+    k get nodes -L ewallet.io/g3-llm
+    "$HELM" --kube-context "$CTX" -n default history llm-agent --max 1
+    "$HELM" --kube-context "$CTX" -n ewallet-mcp history llm-agent-mcp --max 1
+    banner "Coordinator, gateways and the BYO Agent (ewallet-agents)"
+    k -n ewallet-agents get deploy fraud-coordinator a2a-gateway mcp-gateway agentgateway
+    k -n ewallet-agents get agents.kagent.dev
+    banner "Sandbox fleet (SandboxAgents, shared WorkerPool, gVisor ActorTemplates)"
+    k -n ewallet-sandbox get sandboxagents.kagent.dev,workerpools.ate.dev,actortemplates.ate.dev
+    k -n ewallet-sandbox get pods -l ate.dev/worker-pool=business-agents -o wide
+    banner "MCP servers (ewallet-mcp: 2 replicas, PDB, RollingUpdate)"
+    k -n ewallet-mcp get deploy feature-rag-mcp drift-mcp \
+      -o custom-columns=NAME:.metadata.name,READY:.status.readyReplicas,REPLICAS:.spec.replicas,STRATEGY:.spec.strategy.type,MAXUNAVAILABLE:.spec.strategy.rollingUpdate.maxUnavailable
+    k -n ewallet-mcp get pdb
+    banner "KEDA (Coordinator and shared WorkerPool)"
+    k -n ewallet-agents get scaledobjects.keda.sh,hpa
+    k -n ewallet-sandbox get scaledobjects.keda.sh,hpa
+  } || true
+  banner "Checks"
+  verdict status --snapshot "$out" --out "$out/verdict.json"
 }
 
-# --- business E2E -------------------------------------------------------------------------------------
+# --- business E2E -------------------------------------------------------------------------------------------
 NL_FRAUD="Hãy đánh giá rủi ro gian lận cho giao dịch payment dc58ff4e-b5f7-4486-b1f8-4c31383741a9 (user 55561d92-d042-401c-b02a-b03e3ed280f7, account 2d48f147-f98c-4819-b183-f94ca049c175, device e7765b81-c9f9-4147-aa00-46f34de1d7da, merchant e3e4aced-6b0d-40af-be5c-eef9255204c9, amount 275465.53 VND, channel app, event_timestamp 2026-06-01T00:00:00Z): lấy feature của user/account, gọi mô hình dự đoán gian lận, giải thích mức rủi ro và trích dẫn chính sách liên quan."
 NL_DRIFT="Phân tích drift của account_behavior__account_tx_count_1h so với baseline bl-r5gb-202604.account_tx_count_1h trong window 2026-05-01T00:00:00Z to 2026-05-31T00:00:00Z."
 e2e() {
-  local case=${1:?case: fraud|drift|combined|nl-fraud|nl-drift} id out
-  need_port 18083
-  id="replay-$case-$(date -u +%H%M%S)"; out="$REPLAY_DIR/e2e"; mkdir -p "$out"
-  banner "E2E $case  request_id $id  (Coordinator -> A2A Gateway -> Sandbox Specialist -> MCP Gateway -> backend)"
+  local case=${1:?case: fraud|drift|combined|nl-fraud|nl-drift} id out rc
+  case "$case" in fraud|drift|combined|nl-fraud|nl-drift) ;; *) die "unknown e2e case $case" ;; esac
+  need_uv; need_port 18083
+  id=$(request_id "$case"); out="$REPLAY_DIR/e2e"; mkdir -p "$out"
+  banner "E2E $case  request_id $id  (Coordinator -> A2A Gateway -> SandboxAgent -> MCP Gateway -> ewallet-mcp)"
   local since; since=$(date -u +%FT%TZ)
   case "$case" in
     fraud|drift|combined)
       local args=(--request-id "$id")
-      [ "$case" != drift ] && args+=(--transaction "$EV/inputs/transaction.json" --policy-query "payment anomaly policy and step-up authentication requirements")
+      [ "$case" != drift ] && args+=(--transaction "$TRANSACTION" --policy-query "payment anomaly policy and step-up authentication requirements")
       [ "$case" != fraud ] && args+=(--feature account_behavior__account_tx_count_1h --baseline "$BASELINE" \
         --window-start 2026-05-01T00:00:00Z --window-end 2026-05-31T00:00:00Z)
       "${AGENT_PY[@]}" "$ROOT/scripts/llm_agent/agi_probe.py" request "$case" "${args[@]}" --out "$out/$id-request.json" > /dev/null
+      # The smoke's own exit code is advisory; the verdict below reads the saved response.
       "${AGENT_PY[@]}" "$ROOT/scripts/llm_agent/g3_a2a_smoke.py" --endpoint http://127.0.0.1:18083/api/a2a/ewallet-agents/fraud-coordinator/ \
-        --request "$out/$id-request.json" --response "$out/$id-task.json" --timing "$out/$id-timing.json" > /dev/null ;;
+        --request "$out/$id-request.json" --response "$out/$id-task.json" --timing "$out/$id-timing.json" > /dev/null || true ;;
     nl-fraud|nl-drift)
       local text=$NL_FRAUD; [ "$case" = nl-drift ] && text=$NL_DRIFT
       "${AGENT_PY[@]}" - "$out/$id-request.json" "$out/$id-task.json" "$out/$id-timing.json" "$id" "$text" <<'PY'
-import json, sys, time, urllib.request, uuid
+import json, sys, time, urllib.error, urllib.request, uuid
 req_path, task_path, timing_path, mid, text = sys.argv[1:6]
 req = {"jsonrpc": "2.0", "id": mid, "method": "message/send", "params": {"message": {
     "role": "user", "messageId": mid, "contextId": str(uuid.uuid4()), "parts": [{"kind": "text", "text": text}]}}}
 json.dump(req, open(req_path, "w"), ensure_ascii=False, indent=1)
-start = time.time()
+start, status, body = time.time(), None, None
 request = urllib.request.Request("http://127.0.0.1:18083/api/a2a/ewallet-agents/fraud-coordinator/",
                                  data=json.dumps(req).encode(), headers={"Content-Type": "application/json"}, method="POST")
-with urllib.request.urlopen(request, timeout=650) as response:
-    body = json.loads(response.read())
+try:
+    with urllib.request.urlopen(request, timeout=650) as response:
+        status, body = response.status, json.loads(response.read())
+except urllib.error.HTTPError as exc:   # recorded, then judged by the verdict
+    status, body = exc.code, {"error": {"http_status": exc.code}}
+except (OSError, ValueError) as exc:
+    body = {"error": {"transport": type(exc).__name__}}
 json.dump(body, open(task_path, "w"), ensure_ascii=False, indent=1)
-state = body.get("result", {}).get("status", {}).get("state")
-json.dump({"elapsed_seconds": round(time.time() - start, 3), "terminal_state": state}, open(timing_path, "w"))
+state = ((body.get("result") or {}).get("status") or {}).get("state") if isinstance(body, dict) else None
+json.dump({"http_status": status, "elapsed_seconds": round(time.time() - start, 3), "terminal_state": state}, open(timing_path, "w"))
 PY
       ;;
-    *) die "unknown e2e case $case" ;;
   esac
-  python3 - "$out/$id-task.json" "$out/$id-timing.json" <<'PY'
+  rc=0
+  verdict e2e --case "$case" --task "$out/$id-task.json" --timing "$out/$id-timing.json" --request-id "$id" \
+    --out "$out/$id-verdict.json" || rc=$?
+  python3 - "$out/$id-task.json" <<'PY' || true
 import json, sys
-body = json.load(open(sys.argv[1])); result = body.get("result", body); timing = json.load(open(sys.argv[2]))
-print(f"state={result.get('status', {}).get('state')}  elapsed={timing.get('elapsed_seconds')} s")
+try:
+    result = json.load(open(sys.argv[1])).get("result") or {}
+except (OSError, ValueError):
+    sys.exit(0)
+message = (result.get("status", {}).get("message") or {}).get("parts") or []
 for artifact in result.get("artifacts", []):
     for part in artifact.get("parts", []):
         text = part.get("text") or ""
-        try:
-            value = json.loads(text)
-        except ValueError:
-            print(text[:1500]); continue
-        keys = ("status", "workflow", "contract_version", "fraud_score", "features", "unavailable")
-        print(json.dumps({key: value.get(key) for key in keys if key in value}, ensure_ascii=False)[:1500])
-        for name, section in (value.get("specialists") or {}).items():
-            drift = (section.get("drift") or [{}])[0] if isinstance(section, dict) else {}
-            print(f"  {name}: status={section.get('status')} fraud_probability="
-                  f"{(section.get('fraud_score') or {}).get('fraud_probability')} psi={drift.get('psi')}")
-message = (result.get("status", {}).get("message") or {}).get("parts") or []
+        if not text.lstrip().startswith("{"):
+            print("answer:", text[:600].replace("\n", " "))
 if message:
-    print("message:", message[0].get("text", "")[:400])
+    print("message:", message[0].get("text", "")[:300])
 PY
   banner "HOPS for $case (logs since $since)"
-  sleep 5
-  echo "-- Coordinator (A2A Gateway sandbox route, LLM Gateway for NL)"
+  sleep "$HOPS_SETTLE"
+  echo "-- Coordinator (A2A Gateway sandbox route; LLM Gateway for NL)"
   local pod
   for pod in $(k -n ewallet-agents get pods -l ewallet.io/agent=fraud-coordinator -o name); do
     k -n ewallet-agents logs "$pod" --since-time="$since" 2>/dev/null \
@@ -160,177 +232,157 @@ PY
   done
   echo "-- A2A Gateway routes"
   k -n ewallet-agents logs deploy/a2a-gateway --since-time="$since" 2>/dev/null | grep -oE '"route":"default/sandbox-[a-z-]+"' | sort | uniq -c || true
-  echo "-- MCP servers (actor_id = the Sandbox identity's credential subject)"
+  echo "-- MCP servers in ewallet-mcp (actor_id = the SandboxAgent credential subject)"
   for pod in $(k -n ewallet-mcp get pods -o name); do
     k -n ewallet-mcp logs "$pod" --since-time="$since" 2>/dev/null | grep tool_call_completed \
       | grep -oE '"actor_id": "[^"]+"|"tool_name": "[a-z_]+"|"status": "[a-z_]+"|"trace_id": "[0-9a-f]+"' | paste -sd' ' | cut -c1-400 || true
   done | grep -v '^$' || true
-  echo "-- Deployment Specialists must show no task for this request (0 = no fallback)"
-  local legacy
-  legacy=$(k -n ewallet-agents get pods -l 'ewallet.io/agent in (feature-rag-specialist,drift-specialist)' -o name)
-  for pod in $legacy; do
-    printf '%s %s\n' "$pod" "$(k -n ewallet-agents logs "$pod" --since-time="$since" 2>/dev/null | grep -c 'specialist.task_started' || true)"
-  done
-  if [[ -z "$legacy" ]]; then   # after sp-cleanup there is nothing to fall back to
-    echo "none: legacy Specialist pods=0 deployments=$(k -n ewallet-agents get deployment feature-rag-specialist drift-specialist --ignore-not-found -o name | wc -l) (retired)"
-  fi
+  echo "-- retired Specialist Deployments (expected 0; Specialists run only as SandboxAgents): $(k -n ewallet-agents get deployment feature-rag-specialist drift-specialist --ignore-not-found -o name | wc -l)"
   echo "saved under $out/$id-*"
+  return "$rc"
 }
 
+# --- AGI-08 negatives ---------------------------------------------------------------------------------------
 negative() {
-  need_port 18082; need_port 18083
+  need_uv; need_port 18082; need_port 18083
   banner "AGI-08 negatives (each must observe its expected denial, with a passing control)"
-  local out="$REPLAY_DIR/negative" mcp=http://127.0.0.1:18082 window drift_args fraud_args rag drift controller
+  local out="$REPLAY_DIR/negative" mcp=http://127.0.0.1:18082 window drift_args rag drift controller controller_secret
+  local codes=() rc
   mkdir -p "$out"
   window='{"start":"2026-05-01T00:00:00Z","end":"2026-05-31T00:00:00Z"}'
   drift_args="{\"feature_name\":\"account_behavior__account_tx_count_1h\",\"baseline_id\":\"${BASELINE}\",\"current_window\":${window}}"
-  fraud_args="{\"transaction\":$(cat "$EV/inputs/transaction.json")}"
-  # Live principals only (no retired Specialist credential): the SandboxAgent subjects and the
-  # kagent controller's list-only credential, read from its RemoteMCPServer.
+  # Live principals only: the SandboxAgent subjects and the kagent controller's list-only credential, read from its
+  # RemoteMCPServer. The guard refuses the run if any of these names is a retired credential.
+  controller_secret=$(k -n ewallet-agents get remotemcpservers.kagent.dev drift-mcp -o jsonpath='{.spec.headersFrom[0].valueFrom.name}')
+  printf '%s\n' mcp-token-sandbox-feature-rag-feature-rag-mcp-sbx-20261115 mcp-token-sandbox-drift-drift-mcp-sbx-20261115 \
+    "$controller_secret" | (cd "$ROOT" && python3 -m ops.llm_agent.retired_credentials check - --label "replay negative credentials") \
+    || die "a negative would use a retired credential"
   rag=$(token mcp-token-sandbox-feature-rag-feature-rag-mcp-sbx-20261115 ewallet-sandbox)
   drift=$(token mcp-token-sandbox-drift-drift-mcp-sbx-20261115 ewallet-sandbox)
-  controller=$(token "$(k -n ewallet-agents get remotemcpservers.kagent.dev drift-mcp -o jsonpath='{.spec.headersFrom[0].valueFrom.name}')")
-  probe() { local label=$1; shift; if "$@" > /dev/null 2>&1; then echo "PASS $label"; else echo "FAIL $label"; fi; }
-  # Tokens reach the probe through its environment, never argv (as agi_campaign.sh negative does).
-  EWALLET_MCP_SERVICE_TOKEN=$rag AGI_CONTROL_TOKEN=$drift probe "sandbox-feature-rag credential refused by drift-mcp (401)" \
-    "${AGENT_PY[@]}" "$ROOT/scripts/llm_agent/agi_probe.py" mcp --endpoint "$mcp/drift/mcp" --tool drift_detection \
-    --arguments-json "$drift_args" --expect unauthenticated --control-token-env AGI_CONTROL_TOKEN \
-    --tested-valid-endpoint "$mcp/feature-rag/mcp" --evidence "$out/wrong-server-credential.json"
-  EWALLET_MCP_SERVICE_TOKEN=$controller AGI_CONTROL_TOKEN=$drift probe "list-only principal cannot call drift_detection (ungranted call)" \
-    "${AGENT_PY[@]}" "$ROOT/scripts/llm_agent/agi_probe.py" mcp --endpoint "$mcp/drift/mcp" --tool drift_detection \
-    --arguments-json "$drift_args" --expect call-denied --control-token-env AGI_CONTROL_TOKEN --evidence "$out/ungranted-tool.json"
-  "${AGENT_PY[@]}" "$ROOT/scripts/llm_agent/agi_probe.py" request drift --request-id "replay-a2a-neg-$(date -u +%H%M%S)" \
+  controller=$(token "$controller_secret")
+  # Tokens reach the probe through its environment, never argv or output (as agi_campaign.sh negative does).
+  rc=0; EWALLET_MCP_SERVICE_TOKEN=$rag AGI_CONTROL_TOKEN=$drift "${AGENT_PY[@]}" "$ROOT/scripts/llm_agent/agi_probe.py" mcp \
+    --endpoint "$mcp/drift/mcp" --tool drift_detection --arguments-json "$drift_args" --expect unauthenticated \
+    --control-token-env AGI_CONTROL_TOKEN --tested-valid-endpoint "$mcp/feature-rag/mcp" \
+    --evidence "$out/wrong-server-credential.json" > "$out/wrong-server-credential.log" 2>&1 || rc=$?
+  codes+=(--exit-code "wrong-server-credential.json=$rc")
+  rc=0; EWALLET_MCP_SERVICE_TOKEN=$controller AGI_CONTROL_TOKEN=$drift "${AGENT_PY[@]}" "$ROOT/scripts/llm_agent/agi_probe.py" mcp \
+    --endpoint "$mcp/drift/mcp" --tool drift_detection --arguments-json "$drift_args" --expect call-denied \
+    --control-token-env AGI_CONTROL_TOKEN --evidence "$out/ungranted-tool.json" > "$out/ungranted-tool.log" 2>&1 || rc=$?
+  codes+=(--exit-code "ungranted-tool.json=$rc")
+  unset rag drift controller
+  "${AGENT_PY[@]}" "$ROOT/scripts/llm_agent/agi_probe.py" request drift --request-id "$(request_id a2a-neg)" \
     --feature account_behavior__account_tx_count_1h --baseline "$BASELINE" \
     --window-start 2026-05-01T00:00:00Z --window-end 2026-05-31T00:00:00Z --out "$out/a2a-request.json" > /dev/null
-  probe "undeclared A2A host is not routed (404, control routed)" \
-    "${AGENT_PY[@]}" "$ROOT/scripts/llm_agent/agi_probe.py" a2a-route --endpoint http://127.0.0.1:18083/ \
+  rc=0; "${AGENT_PY[@]}" "$ROOT/scripts/llm_agent/agi_probe.py" a2a-route --endpoint http://127.0.0.1:18083/ \
     --kagent-host payments-agent.ewallet-agents --control-path /api/a2a-sandboxes/ewallet-sandbox/drift-specialist/ \
-    --request "$out/a2a-request.json" --expect no-route --evidence "$out/a2a-unrouted.json"
-  unset rag drift drift_on_rag
-  echo "evidence: $out/*.json"
+    --request "$out/a2a-request.json" --expect no-route --evidence "$out/a2a-unrouted.json" > "$out/a2a-unrouted.log" 2>&1 || rc=$?
+  codes+=(--exit-code "a2a-unrouted.json=$rc")
+  verdict negative --dir "$out" "${codes[@]}" --out "$out/verdict.json"
 }
 
+# --- Agent Registry -----------------------------------------------------------------------------------------
 registry() {
-  need_port 18121
-  banner "AGI-13 Agent Registry readback (GET only), against what the cluster runs"
-  local out="$REPLAY_DIR/registry" sandbox_image
+  need_uv; need_port 18121
+  banner "AGI-13 Agent Registry strict readback (GET only; nothing is published)"
+  local out="$REPLAY_DIR/registry" sandbox_image rc=0
   mkdir -p "$out"
-  # The catalog is rendered from the live Helm values and the live SandboxAgent fleet image, not from files.
-  helm --kube-context "$CTX" -n default get values llm-agent -o yaml > "$out/llm-agent-live-values.yaml"
-  sandbox_image=$(k -n ewallet-sandbox get sandboxagent feature-rag-specialist -o json \
+  # The catalog is rendered from the live Helm values and the live SandboxAgent fleet image, not from files alone.
+  "$HELM" --kube-context "$CTX" -n default get values llm-agent -o yaml > "$out/llm-agent-live-values.yaml"
+  sandbox_image=$(k -n ewallet-sandbox get sandboxagents.kagent.dev feature-rag-specialist -o json \
     | grep -oE '[a-z0-9.-]+/[a-z0-9./-]+@sha256:[0-9a-f]{64}' | head -1)
+  [ -n "$sandbox_image" ] || die "cannot read the SandboxAgent fleet image"
   echo "SandboxAgent fleet image: ${sandbox_image##*/}"
   (cd "$ROOT" && "${TOOL_PY[@]}" -m ops.llm_agent.registry_catalog readback --registry http://127.0.0.1:18121 \
      --values-overlay infra/helm/llm-agent-platform/g3/g3.yaml --values-overlay infra/helm/llm-agent-platform/agi/agents.yaml \
      --values-overlay "$out/llm-agent-live-values.yaml" --sandbox-image "$sandbox_image" \
-     --evidence "$out/readback.json") > /dev/null || true
-  python3 - "$out/readback.json" <<'PY'
-import json, sys
-report = json.load(open(sys.argv[1]))
-print("verdict:", report["verdict"], "(PASS = the registry holds exactly what is deployed)")
-for e in report["entries"]:
-    state = "matches" if e["matches"] else ("NOT REGISTERED" if not e["registered"] else "; ".join(e["differences"][:3]))
-    print(f"  {e['kind']:9} {e['name']:32} {e['tag']:7} {state}")
-PY
+     --evidence "$out/readback.json") > "$out/readback.log" 2>&1 || rc=$?
+  verdict registry --readback "$out/readback.json" --exit-code "$rc" --out "$out/verdict.json"
 }
 
-# --- KEDA 2 -> 3 -> 2 ---------------------------------------------------------------------------------
-timeline() {   # timeline <file>: one line every 5 s until killed
-  while true; do
-    printf '%s ' "$(date -u +%H:%M:%SZ)"
-    k -n ewallet-agents get hpa fraud-coordinator feature-rag-specialist --no-headers \
-      | awk '{printf "%s target=%s replicas=%s | ", $1, $3, $(NF-1)}'
-    k -n ewallet-agents get pods -l 'ewallet.io/agent in (fraud-coordinator,feature-rag-specialist)' --no-headers \
-      | awk '{n[$2]++} END {for (s in n) printf "%s pods %s; ", n[s], s}'
-    echo; sleep 5
-  done >> "$1"
+# --- KEDA: Coordinator and shared WorkerPool ----------------------------------------------------------------
+replicas_sample() {
+  printf '%s coord=%s pool=%s\n' "$(date -u +%H:%M:%SZ)" \
+    "$(k -n ewallet-agents get deploy fraud-coordinator -o jsonpath='{.spec.replicas}')" \
+    "$(k -n ewallet-sandbox get workerpools.ate.dev business-agents -o jsonpath='{.spec.replicas}')"
 }
-keda() {
-  local out="$REPLAY_DIR/keda" since load
+keda_status() {
+  banner "KEDA (read-only): Coordinator and shared WorkerPool"
+  {
+    k -n ewallet-agents get scaledobjects.keda.sh fraud-coordinator
+    k -n ewallet-sandbox get scaledobjects.keda.sh business-agents-workerpool
+    k -n ewallet-agents get hpa; k -n ewallet-sandbox get hpa
+    replicas_sample
+    echo "-- recent rescale events"
+    k -n ewallet-agents get events --field-selector reason=SuccessfulRescale \
+      -o custom-columns=TIME:.lastTimestamp,OBJECT:.involvedObject.name,MESSAGE:.message | tail -4
+    k -n ewallet-sandbox get events --field-selector reason=SuccessfulRescale \
+      -o custom-columns=TIME:.lastTimestamp,OBJECT:.involvedObject.name,MESSAGE:.message | tail -4
+  } || true
+  echo "Read-only: READY/ACTIVE show configuration and current state; they are not a scale-out result (keda demo)."
+}
+keda_demo() {
+  [ "${REPLAY_LOAD_APPROVED:-}" = yes ] || die "keda demo sends 6 business requests; set REPLAY_LOAD_APPROVED=yes to run it"
+  need_uv; need_port 18083
+  local out="$REPLAY_DIR/keda" tl i case pids=() verdicts=() waited=0 limit=${SCALE_IN_WAIT:-600}
+  local sample=${KEDA_SAMPLE:-10} poll=${KEDA_POLL:-15} cooldown=${KEDA_COOLDOWN:-300}
   mkdir -p "$out"
-  banner "BASELINE: expect 2/2 replicas, metric 0/2 (screenshot AGENT_09a_KEDA_BASELINE)"
-  k -n ewallet-agents get scaledobject,hpa
-  k -n ewallet-agents get deploy fraud-coordinator feature-rag-specialist
-  timeline "$out/timeline.txt" & local tl=$!
+  keda_status | tee "$out/before.txt"
+  ( while true; do replicas_sample; sleep "$sample"; done > "$out/timeline.txt" ) & tl=$!
   trap 'kill $tl 2>/dev/null' EXIT
-  echo "live timeline: tail -f $out/timeline.txt   (or: watch -n2 kubectl --context $CTX -n ewallet-agents get hpa)"
-  # The accepted AGR-06 profile: 100 typed tasks at concurrency 8. Since P4 each task runs on a Sandbox actor
-  # (~25 s), so the run needs up to the harness maximum of 900 s to finish all 100; the load itself is unchanged.
-  export KUBE_CONTEXT=$CTX EXP_APPROVED=yes EXP_CONCURRENCY=8 EXP_MAX_REQUESTS=100 EXP_DURATION=900 EXP_SCALE_IN_WAIT=420
-  since=$(date -u +%FT%TZ)
-  banner "LOAD: 100 typed tasks, concurrency 8 (~10 min). SCALE_OUT within ~1 min: HPA target > 2, desired 3, a third Coordinator pod (screenshot AGENT_09b_KEDA_SCALEOUT while it appears)"
-  bash "$ROOT/scripts/experiments/agent_experiment.sh" exp-c5-keda optimized run "$out/agr06" > "$out/load.log" 2>&1 &
-  load=$!
-  sleep 240
-  banner "NEW POD SERVES REAL TASKS: completed tasks per Coordinator pod so far (the youngest pod must be > 0) (screenshot AGENT_09c_KEDA_NEW_POD_WORK)"
-  per_pod "$since" | tee "$out/per-pod-during-load.txt"
-  banner "LOAD continues; when it ends, SCALE_IN follows after the 300 s window (screenshot AGENT_10_KEDA_SCALEIN at 2/2)"
-  wait "$load" || true
-  tail -1 "$out/load.log"
-  kill "$tl" 2>/dev/null; trap - EXIT
-  k -n ewallet-agents get hpa
-  k -n ewallet-agents get events --field-selector reason=SuccessfulRescale \
-    -o custom-columns=TIME:.lastTimestamp,OBJECT:.involvedObject.name,MESSAGE:.message | tail -6 | tee "$out/rescale-events.txt"
-  per_pod "$since" | tee "$out/per-pod.txt"
-  banner "Sandbox admission waits (Coordinator waited for a free Sandbox worker instead of failing)"
-  local pod
-  for pod in $(k -n ewallet-agents get pods -l ewallet.io/agent=fraud-coordinator -o name); do
-    k -n ewallet-agents logs "$pod" --since-time="$since" 2>/dev/null | grep -oE "coordinator.delegation_wait code=[a-z_]+ attempt=[0-9]+ wait_ms=[0-9]+" || true
-  done | awk '{split($2,c,"="); split($4,w,"="); n[c[2]]++; t[c[2]]+=w[2]} END {for (k in n) printf "%s waits=%d total_wait_s=%.1f\n", k, n[k], t[k]/1000; if (!length(n)) print "no waits"}' \
-    | tee "$out/admission-waits.txt"
-  for run in "$out"/agr06/optimized/raw/run-*; do
-    python3 -c "import json,sys;d=json.load(open(sys.argv[1]))['levels']['load'];print(sys.argv[1].rsplit('/',1)[-1], {k:d.get(k) for k in ('requests','succeeded','states','availability_percent','peak_replicas','e2e_ms')})" "$run/summary.json"
+  banner "LOAD: 6 typed requests (fraud, drift, combined x2), launched 1.2 s apart (the lc-20261117T002220Z profile)"
+  echo "watch: tail -f $out/timeline.txt"
+  i=0
+  for case in fraud drift combined fraud drift combined; do
+    i=$((i + 1))
+    ( REPLAY_DIR="$out/job$i" "$0" e2e "$case" > "$out/job$i-$case.txt" 2>&1 ) & pids+=($!)
+    sleep 1.2
   done
-  echo "timeline: $out/timeline.txt"
-}
-per_pod() {
-  local since=$1 agent pod
-  for agent in fraud-coordinator feature-rag-specialist; do
-    for pod in $(k -n ewallet-agents get pods -l "ewallet.io/agent=$agent" -o name); do
-      printf '%s created=%s tasks_completed=%s\n' "${pod#pod/}" \
-        "$(k -n ewallet-agents get "$pod" -o jsonpath='{.metadata.creationTimestamp}')" \
-        "$(k -n ewallet-agents logs "$pod" --since-time="$since" 2>/dev/null | grep -cE 'task_completed' || true)"
-    done
+  for i in "${pids[@]}"; do wait "$i" || true; done
+  banner "Requests done; waiting up to ${limit} s for both autoscalers to return to 2 (cooldown ${cooldown} s)"
+  while [ "$waited" -lt "$limit" ]; do
+    replicas_sample | grep -q ' coord=2 pool=2$' && [ "$waited" -ge "$cooldown" ] && break
+    sleep "$poll"; waited=$((waited + poll))
   done
+  sleep "$sample"; kill "$tl" 2>/dev/null || true; trap - EXIT
+  for i in "$out"/job*/e2e/*-verdict.json; do [ -f "$i" ] && verdicts+=(--verdict "$i"); done
+  keda_status | tee "$out/after.txt"
+  verdict keda --timeline "$out/timeline.txt" "${verdicts[@]}" --out "$out/verdict.json"
 }
+keda() { case "${1:-}" in "") keda_status ;; demo) keda_demo ;; *) die "keda takes no argument or 'demo'" ;; esac; }
 
-# --- shared workers -----------------------------------------------------------------------------------
+# --- shared workers -----------------------------------------------------------------------------------------
 workers() {
-  need_port 18383
-  local out="$REPLAY_DIR/workers"; mkdir -p "$out"
-  banner "SHARED WORKERS: sequential sessions of both Sandbox agents on the 2-worker pool (~6 min)"
+  [ "${REPLAY_SESSIONS_APPROVED:-}" = yes ] || die "workers creates Sandbox session actors; set REPLAY_SESSIONS_APPROVED=yes to run it"
+  need_uv; need_port 18383
+  local out="$REPLAY_DIR/workers" agent rec
+  mkdir -p "$out"
+  banner "SHARED WORKERS: sequential sessions of both SandboxAgents on the shared WorkerPool (~6 min)"
+  k -n ewallet-sandbox get sandboxagents.kagent.dev,workerpools.ate.dev | tee "$out/fleet.txt"
   "${TOOL_PY[@]}" -m ops.experiments.substrate_fleet record --url http://127.0.0.1:18383 --namespace ewallet-sandbox \
-    --out "$out/status.jsonl" --interval 1 --duration 1200 > "$out/record.log" 2>&1 & local rec=$!
-  local agent
+    --out "$out/status.jsonl" --interval 1 --duration 1200 > "$out/record.log" 2>&1 & rec=$!
   for agent in feature-rag-specialist drift-specialist feature-rag-specialist; do
-    "${TOOL_PY[@]}" -m ops.experiments.sandbox_sessions --url http://127.0.0.1:18383 --run-id "replay-$agent-$RANDOM" \
-      --agents "$agent" --contexts 4 --messages 1 >> "$out/sessions.log" 2>&1
-    echo "$agent: $(grep -c '"ok": true' "$out/sessions.log") ok session turns so far"
+    "${TOOL_PY[@]}" -m ops.experiments.sandbox_sessions --url http://127.0.0.1:18383 --run-id "$(request_id "$agent")" \
+      --agents "$agent" --contexts 4 --messages 1 >> "$out/sessions.log" 2>&1 || true
+    echo "$agent: $(grep -c '"ok": true' "$out/sessions.log" || true) ok session turns so far"
   done
   sleep 5; kill "$rec" 2>/dev/null || true
-  k -n ewallet-sandbox get actortemplate -o 'jsonpath={range .items[*]}{.status.goldenActorID}{"\n"}{end}' > "$out/golden-ids.txt"
-  banner "Actor -> worker assignment, golden snapshot actors excluded (screenshot AGENT_11_SHARED_WORKERS)"
-  python3 - "$out/status.jsonl" "$out/golden-ids.txt" <<'PY' | tee "$out/sharing.txt"
-import collections, json, sys
-golden = {line.strip() for line in open(sys.argv[2]) if line.strip()}
-seen = collections.defaultdict(lambda: collections.defaultdict(set))
-for line in open(sys.argv[1]):
-    for agent, actors in json.loads(line).get("actors", {}).items():
-        for actor in actors:
-            if actor["actor"] not in golden and actor.get("pod"):
-                seen[actor["pod"]][agent].add(actor["actor"])
-for pod, agents in sorted(seen.items()):
-    print(pod, {agent: len(ids) for agent, ids in agents.items()})
-shared = len(seen) >= 2 and all(len(agents) == 2 for agents in seen.values())
-print("verdict:", "SHARED_WORKERS_OBSERVED" if shared else "NOT_OBSERVED (placement varies: run again)")
-PY
+  k -n ewallet-sandbox get actortemplates.ate.dev -o 'jsonpath={range .items[*]}{.status.goldenActorID}{"\n"}{end}' > "$out/golden-ids.txt"
+  replicas_sample | tee "$out/replicas.txt"
+  banner "Session outcomes and actor -> worker placement (golden snapshot actors excluded)"
+  verdict workers --status-rows "$out/status.jsonl" --golden "$out/golden-ids.txt" --sessions "$out/sessions.log" \
+    --out "$out/verdict.json"
 }
 
+# --- optional experiment: isolated MCP failover ---------------------------------------------------------------
 failover() {
+  [ "${REPLAY_EXPERIMENT_APPROVED:-}" = yes ] || die "failover creates ewallet-mcp-exp and force-deletes a pod there; set REPLAY_EXPERIMENT_APPROVED=yes (separate owner approval)"
+  : "${MCP_IMAGE:?MCP_IMAGE (campaign env)}" "${COORDINATOR_IMAGE:?COORDINATOR_IMAGE (campaign env)}"
+  need_uv
   local out="$REPLAY_DIR/failover"; mkdir -p "$out"
   export KUBE_CONTEXT=$CTX MCP_IMAGE PROBE_IMAGE=$COORDINATOR_IMAGE EXP_APPROVED=yes EXP_FAILURE_MODE=force EXP_RATE=10
   EXP_PYTHON=$("${TOOL_PY[@]}" -c 'import sys; print(sys.executable)'); export EXP_PYTHON
-  local arm
+  local arm failed=0
   for arm in baseline optimized; do
     banner "FAILOVER $arm: ewallet-mcp-exp only; one pod force-deleted at 40 s (watch: kubectl --context $CTX -n ewallet-mcp-exp get pods -w)"
     bash "$ROOT/scripts/experiments/mcp_experiment.sh" "$arm" run "$out" | tail -1
@@ -342,9 +394,11 @@ rows = [json.loads(line.split(" ", 1)[1]) for line in open(sys.argv[2]) if line.
 print({key: load.get(key) for key in ("requests", "succeeded", "availability_percent", "recovery_seconds")},
       "client_retries:", sum(row.get("retries", 0) for row in rows))
 PY
-    cmp -s "$out/$arm/logs/$(basename "$run")/production-before.txt" "$out/$arm/logs/$(basename "$run")/production-after.txt" \
-      && echo "production ewallet-mcp unchanged" || echo "WARNING: production ewallet-mcp differs"
+    if cmp -s "$out/$arm/logs/$(basename "$run")/production-before.txt" "$out/$arm/logs/$(basename "$run")/production-after.txt"; then
+      echo "production ewallet-mcp unchanged"
+    else echo "FAIL: production ewallet-mcp differs"; failed=1; fi
   done
+  return "$failed"
 }
 
 case "${1:-}" in
@@ -354,8 +408,9 @@ case "${1:-}" in
   e2e) shift; e2e "$@" ;;
   negative) negative ;;
   registry) registry ;;
-  keda) keda ;;
+  keda) shift; keda "$@" ;;
   workers) workers ;;
   failover) failover ;;
-  *) sed -n '2,20p' "$0"; exit 2 ;;
+  __request-id) request_id "${2:?case}"; echo ;;   # test seam
+  *) sed -n '2,27p' "$0"; exit 2 ;;
 esac

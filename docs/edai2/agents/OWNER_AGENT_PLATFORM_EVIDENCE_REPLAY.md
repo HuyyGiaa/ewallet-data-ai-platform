@@ -1,550 +1,543 @@
 # Owner evidence replay: Agent Platform on GKE
 
-This runbook is for the owner. You run every demonstration yourself on the real
-`ewallet-dev` cluster and capture your own screenshots. Nothing here produces images or
-imitates UI output. Each command was run on GKE on 2026-11-15 by campaign
-`agi-20261115T145608Z`. Those results are in the
-[completion report](AGENT_PLATFORM_COMPLETION.md#3-results-on-gke).
+This is the single guide for the owner's evidence replay on the real `ewallet-dev` cluster. You run every
+demonstration yourself and capture your own screenshots. Nothing in this guide produces images or imitates
+terminal output.
 
-> **Current state, read first (as of 2026-11-17, after `lc-20261117T002220Z`).** Sections 1 and 12 show the
-> 2026-11-06 manifest and the pre-cleanup runtime. Use these instead:
-> - **Manifest:** `M=~/ewallet-evidence/agents/legacy-cleanup/lc-20261117T002220Z/final-sleep/recovery-manifest`
->   with `wake-full --nodes 5`. It records 5 VMs and 75 workloads, with both `ewallet-mcp` servers at 2 replicas,
->   so the `kubectl scale` step in section 1 is not needed.
-> - **Agents:** since `sp-cleanup` (`llm-agent` rev 55) the Specialists run only as SandboxAgents on the shared
->   WorkerPool. Expect 1 BYO Agent (`fraud-coordinator`), 2 SandboxAgents and 2 ScaledObjects:
->   `ewallet-agents/fraud-coordinator` and `ewallet-sandbox/business-agents-workerpool`.
-> - **MCP servers:** only `ewallet-mcp/feature-rag-mcp` and `ewallet-mcp/drift-mcp`. The in-release
->   `ewallet-agents/drift-mcp` was removed in rev 59.
-> - **Sleep:** use the KEDA-aware guarded sleep (`--pause-keda`, both campaign-scoped approvals) with the same
->   `$M`. Pass `--also-approve` only for a PDB that `plan-sleep` lists under `not_covered`.
-> - **Pending cleanup:** a final cleanup is prepared but not executed
->   ([completion report §13](AGENT_PLATFORM_COMPLETION.md#13-offline-audit-and-final-cleanup-proposal-lf-offline-20261117)).
->   Replay after it if the owner approves it.
+- **Runtime it describes:** the state verified by campaign `lc-20261117T002220Z` (2026-11-17): `llm-agent`
+  rev 59, `llm-agent-mcp` rev 19, registry 8/8, 5/5 business E2E, 3/3 security negatives, Coordinator and
+  WorkerPool KEDA 2→3→2, guarded sleep. Results are in
+  [AGENT_PLATFORM_COMPLETION.md §12](AGENT_PLATFORM_COMPLETION.md#12-legacy-mcp-infrastructure-cleanup-lc-20261117t002220z).
+- **Guide status:** `OWNER_REPLAY_RUNBOOK_READY` means the guide and the helper are correct offline, against
+  the source and mocked tests. It does not mean the replay has been executed. Anything marked
+  `LIVE_VERIFICATION_PENDING` has not been observed on the cluster yet.
+- **Helper:** `scripts/llm_agent/agent_replay.sh` collects observations. `ops/llm_agent/replay_verdict.py` decides
+  PASS/FAIL and sets the exit code. A non-zero exit always means a failed check.
+- **Output:** each helper call writes raw output under `~/ewallet-evidence/agents/replay/<UTC timestamp>/`, or
+  under `$REPLAY_DIR` if you set it.
+- **Screenshots:** save them in `~/Pictures/Screenshots/` with the names in the
+  [checklist](#screenshot-checklist).
 
-- **Helper:** `scripts/llm_agent/agent_replay.sh`. It is a thin wrapper around the
-  campaign's validated tools. It changes no Helm release, Secret, policy or production
-  Deployment.
-- **Output:** each helper call writes raw output under
-  `~/ewallet-evidence/agents/replay/<UTC timestamp>/`. You can choose the folder with
-  `REPLAY_DIR`.
-- **Screenshots:** save them in `~/Pictures/Screenshots/` with the names given below.
-- **Status labels:** the report marks every screenshot `OWNER_CAPTURE_PENDING` until you
-  add it.
+## Current architecture
 
-| Label | What it does |
+```text
+Owner / test client -> A2A Gateway -> fraud-coordinator (BYO Agent, KEDA 2-3)
+  -> A2A Gateway /api/a2a-sandboxes/ewallet-sandbox/<agent>/ -> kagent controller
+  -> feature-rag-specialist | drift-specialist (SandboxAgents, gVisor) on the shared WorkerPool
+     ewallet-sandbox/business-agents (Substrate, KEDA 2-3)
+  -> MCP Gateway -> ewallet-mcp/feature-rag-mcp | ewallet-mcp/drift-mcp (2 replicas each, PDB)
+  -> Feast online store / KServe fraud-detector / RAG index / drift artifacts
+```
+
+| Expected | Value |
 |---|---|
-| `[READ-ONLY]` | Reads state. |
-| `[LOAD]` | Sends bounded real traffic through production agents. |
-| `[SESSIONS]` | Creates Sandbox session actors. |
-| `[EXPERIMENT]` | Creates and deletes the isolated `ewallet-mcp-exp` namespace. |
+| BYO Agent | 1: `ewallet-agents/fraud-coordinator`, 2 replicas at rest |
+| SandboxAgents | 2: `feature-rag-specialist` and `drift-specialist` in `ewallet-sandbox` |
+| Specialist Deployments | 0. Retired by `sp-cleanup` (rev 55). Their absence is expected, not an error |
+| WorkerPool | 1 shared pool: `ewallet-sandbox/business-agents`, 2 workers at rest |
+| MCP servers | 2 in `ewallet-mcp`, 2 replicas each, `RollingUpdate maxUnavailable 0`, PDB. The in-release `ewallet-agents/drift-mcp` was removed in rev 59 |
+| KEDA ScaledObjects | 2: `ewallet-agents/fraud-coordinator` and `ewallet-sandbox/business-agents-workerpool` |
 
-## 0. Before you start (once)
+## Roles and the pending cleanup
 
-```bash
-cd ~/Develop/ewallet-data-ai-platform && git checkout feature/edai2-agent-platform-integration && git pull --ff-only
-source ~/.cache/ewallet-agi/current.env && source "$AGI_ENV"      # CAMPAIGN, EV, CTX, BASELINE, image digests
-export PATH=~/miniconda3/envs/fintech/bin:$PATH                    # uv
-curl -s https://api.ipify.org; echo                                # your public IP
-gcloud container clusters describe ewallet-dev --zone asia-southeast1-b \
-  --format="value(masterAuthorizedNetworksConfig.cidrBlocks.cidrBlock.list())"
-```
+The next wake combines five separate responsibilities. Each has its own approval.
 
-- If your IP is not in the list, `kubectl` times out.
-- The campaign removed its temporary `/32` at sleep.
-- If you add your IP, keep the existing CIDRs in the list:
+| Step | Who | Approval | Where |
+|---|---|---|---|
+| 1. `lf-agents` cleanup (9 orphan objects of the disabled in-release `feature-rag-mcp`) | Claude | `LF-AGENTS:<campaign>` | runbook [§2.6g](../../runbooks/edai2/AGENT_PLATFORM_MASTER_EVIDENCE_RUNBOOK.md#26g-final-orphan-and-auth-table-cleanup-lf-agents-proposed-not-executed) |
+| 2. Delete the 2 unused `ewallet-agents` final auth tables | Claude | `AUTH-TABLES:<campaign>` | runbook §2.6g |
+| 3. Final GKE regression | Claude | part of the campaign | completion report §13.4 |
+| 4. Owner Evidence Replay (this guide) | owner | none beyond the cluster wake | Phases 1–6 |
+| 5. Guarded sleep | owner or Claude | guarded-sleep and KEDA-pause approvals | Phase 7 |
 
-```bash
-gcloud container clusters update ewallet-dev --zone asia-southeast1-b --enable-master-authorized-networks \
-  --master-authorized-networks <existing CIDRs>,<your IP>/32
-```
+- **The helper never runs the cleanup.** `agent_replay.sh` changes no Helm release, Secret, policy or Registry
+  entry.
+- **Replay after the cleanup.** Run Phases 2–6 after steps 1–3 pass. `status` then shows `llm-agent` rev 60
+  (`LIVE_VERIFICATION_PENDING`: the expected revision, not yet observed).
+- **If the cleanup is blocked**, `llm-agent` stays at rev 59. `status` accepts 59 as "before the lf-agents
+  cleanup", and every replay check in this guide still applies: the 9 orphan objects select no pod, and the
+  2 unused tables are read by nothing. Only the post-cleanup evidence waits for the next approved attempt:
+  rev 60 and the absence of the 9 objects.
+- **If `helm --atomic` rolled back**, Helm shows a higher revision (for example 61) whose manifest equals rev 59.
+  `status` reports that revision as unexpected. Stop and review it with Claude before replaying.
 
-This is Terraform drift; remove it again when you finish.
+## Helper commands
 
-**Do not modify** during the replay:
+| Command | Class | Approval flag | In the default replay | PASS means | Fails when |
+|---|---|---|---|---|---|
+| `status` | read-only | — | yes | every readiness check PASS; retired workloads absent | wrong Helm revision; Coordinator, gateway, SandboxAgent, WorkerPool or MCP server not ready; MCP not 2/2 with PDB and `maxUnavailable 0`; a ScaledObject not Ready, paused or in fallback; a retired workload present |
+| `pf` | local | — | yes | the 6 port-forwards listen and belong to this script | a port held by another process (nothing is killed); a missing Service; a forward that does not start |
+| `stop-pf` | local | — | yes | it stops only the recorded forwards whose command line still matches | — (it never kills other processes) |
+| `registry` | read-only (GET) | — | yes | strict readback exits 0, verdict PASS, exactly 3 Agents, 2 MCPServers and 3 Prompts, all `matches` | any mismatch, missing entry, non-zero readback, missing or malformed evidence |
+| `e2e <case>` | business traffic (1 request) | — | yes | `verdict: COMPLETE` for the case's contract | failed or canceled task, partial result, missing specialist, backend unavailable, invalid or incomplete response, another request's result |
+| `negative` | read-only probes | — | yes | 3 denials, each with a working control | any probe or evidence check fails; a retired credential would be used |
+| `keda` | read-only | — | yes | shows both ScaledObjects, HPAs, replicas and events | — (it makes no scale claim) |
+| `keda demo` | load (6 requests) | `REPLAY_LOAD_APPROVED=yes` | optional | 6/6 COMPLETE, scale-out above 2 and back to 2 observed for both autoscalers | any request fails, or scaling is not observed (`NOT_OBSERVED`) |
+| `workers` | Sandbox sessions | `REPLAY_SESSIONS_APPROVED=yes` | optional | every session turn ok; placement printed per worker | a session turn fails; no actor placed |
+| `failover` | experiment (`ewallet-mcp-exp`, pod force-deleted there) | `REPLAY_EXPERIMENT_APPROVED=yes` | **no** (separate owner approval) | optimized arm 0 failed calls; production `ewallet-mcp` unchanged | production differs; experiment error |
 
-- Helm releases `llm-agent` (namespace `default`) and `llm-agent-mcp` (`ewallet-mcp`);
-- the `ewallet-mcp` MCP Deployments and their PDBs;
-- the `ewallet-sandbox` SandboxAgents, WorkerPool `business-agents` and ActorTemplates;
-- the AuthorizationPolicies and NetworkPolicies;
-- the Agent Registry data.
+Credentials are read inside the helper and passed to probes through the environment only. They never appear in
+argv, output or evidence. The probes use the active Sandbox credentials and the kagent controller's list-only
+credential, never a retired one: the guard refuses the run otherwise.
 
-Never delete or restart a production MCP pod to make a screenshot. REPLAY-04 uses the
-isolated namespace for that.
-
-## 1. Wake the cluster and verify (REPLAY-01) `[READ-ONLY]` after the wake
-
-The recovery manifest records the replicas to restore. The campaign woke from it and
-slept back to it.
-
-```bash
-M=docs/evidence/edai2/cloud_lab/sleep_20261106T163042Z
-python3 ops/gcp/cloud_lab.py plan-wake --mode full --manifest "$M"          # read-only: nodes, replicas
-CLOUD_LAB_APPROVED=yes python3 ops/gcp/cloud_lab.py wake-full --manifest "$M" --execute --confirm-cluster ewallet-dev
-# The manifest dates from 2026-11-06 and records the MCP servers at 1 replica. Restore the 2 replicas
-# that Helm release llm-agent-mcp declares (PKG-P1). This matches the release; it does not change it:
-kubectl --context "$CTX" -n ewallet-mcp scale deploy/feature-rag-mcp deploy/drift-mcp --replicas=2
-kubectl --context "$CTX" -n ewallet-mcp rollout status deploy/feature-rag-mcp && kubectl --context "$CTX" -n ewallet-mcp rollout status deploy/drift-mcp
-```
-
-- This wakes 4 nodes. That is enough for every scenario except REPLAY-04, which needs 5
-  (PKG-C, section 4).
-- The CPU vLLM needs about 10 minutes before natural-language requests work.
-- KEDA brings the agents back to their minimum of 2 by itself. If the last sleep paused the ScaledObjects,
-  `wake-full` prints `keda_resumed` and unpauses them.
-- Check that none is left paused:
-  `kubectl --context "$CTX" -n ewallet-agents get scaledobject -o custom-columns=NAME:.metadata.name,PAUSED:.metadata.annotations.autoscaling\.keda\.sh/paused-replicas`
-  must show `<none>`.
+## Phase 0: preparation (read-only, local)
 
 ```bash
-scripts/llm_agent/agent_replay.sh pf        # port-forwards: 18083 A2A GW, 18082 MCP GW, 18383 kagent API,
-                                            #   18300 kagent UI, 13000 Grafana, 18121 Agent Registry
-scripts/llm_agent/agent_replay.sh status    # nodes, Helm, Agents, MCP, Sandbox fleet, KEDA, restarts
+cd ~/Develop/ewallet-data-ai-platform
+git switch feature/edai2-agent-platform-integration && git pull --ff-only && git log -1 --oneline
+export PATH=~/miniconda3/envs/fintech/bin:$PATH                          # uv (the helper's Python environments)
+gcloud auth print-access-token > /dev/null && echo "gcloud authenticated"
+gcloud container clusters get-credentials ewallet-dev --zone asia-southeast1-b --project ewallet-data-ai-platform-hg26
+RC=replay-$(date -u +%Y%m%dT%H%M%SZ); echo "$RC"                        # your campaign id for approvals and the manifest
+M=~/ewallet-evidence/agents/legacy-cleanup/lc-20261117T002220Z/final-sleep/recovery-manifest   # wake and verify
+P=docs/evidence/edai2/cloud_lab/sleep_20261106T163042Z                    # approved PDB record for the guarded sleep only
 ```
 
-**PASS when all of these hold.** This is Kubernetes readiness only. It is not business
-E2E, which REPLAY-06 to 08 prove.
+**Replay env file.** The helper needs `CTX`, `EV` (with `inputs/transaction.json`, the reviewed fixture) and
+`BASELINE`. It holds no secret:
 
-- 3 Agents `BYO` Ready.
-- `feature-rag-mcp` and `drift-mcp` at 2/2 with `RollingUpdate`, `maxUnavailable 0`.
-- SandboxAgents `drift-specialist` and `feature-rag-specialist` are Ready and Accepted.
-- WorkerPool `business-agents` is 2/2.
-- 3 ScaledObjects are Ready, each with HPA min 2 / max 3.
-- No `RESTARTED` lines.
+```bash
+mkdir -p ~/.cache/ewallet-agi
+cat > ~/.cache/ewallet-agi/replay.env <<EOF
+CTX=gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev
+EV=$HOME/ewallet-evidence/agents/legacy-cleanup/lc-20261117T002220Z/agi
+BASELINE=bl-r5gb-202604.account_tx_count_1h
+EOF
+export AGI_ENV=~/.cache/ewallet-agi/replay.env && source "$AGI_ENV"   # CTX for the kubectl commands below
+```
 
-**Screenshot `AGENT_01_PLATFORM_STATE.png`:** the `status` output, sections Agents, MCP
-and Sandbox.
+**Network access.**
+- `cloud_lab.py` reaches the cluster through its own kubeconfig on the IAM DNS endpoint, so it needs no IP
+  allow-list.
+- `kubectl`, `helm` and the helper use the default kubeconfig, which points at the public endpoint. That endpoint
+  answers only the authorized CIDRs.
 
-## 2. Agent Registry (REPLAY-02) `[READ-ONLY]`
+```bash
+MYIP=$(curl -s https://api.ipify.org)       # keep it in this shell; do not paste it into notes or docs
+ORIG=$(gcloud container clusters describe ewallet-dev --zone asia-southeast1-b \
+  --format='value(masterAuthorizedNetworksConfig.cidrBlocks[].cidrBlock)' | tr ';' ',')
+umask 077; echo "$ORIG" > ~/.cache/ewallet-agi/$RC-original-cidrs.txt
+echo "$ORIG" | tr ',' '\n' | wc -l          # expect 3
+echo ",$ORIG," | grep -q ",$MYIP/32," && echo "already authorized" || echo "not authorized: add a temporary /32 after the wake"
+```
 
-- **UI:** open http://127.0.0.1:18121 (Agent Registry, `ewallet-prompts/prompt-registry-agentregistry`).
-  Open Agents, Prompts and MCP Servers.
-- **Comparison with what is deployed (GET only):**
+**Do not modify during the replay:**
+- the Helm releases `llm-agent` (namespace `default`) and `llm-agent-mcp` (`ewallet-mcp`);
+- the MCP Deployments and their PDBs;
+- the SandboxAgents, the WorkerPool and the ActorTemplates;
+- the AuthorizationPolicies and NetworkPolicies, the Secrets and the Agent Registry.
+
+Never restart or delete a production MCP pod for a screenshot.
+
+## Phase 1: wake and platform readiness
+
+**Read-only plan first:**
+
+```bash
+python3 ops/gcp/cloud_lab.py status                                      # pool size (expect 0 VMs)
+python3 ops/gcp/cloud_lab.py plan-wake --mode full --manifest "$M"       # nodes and replicas to restore
+python3 ops/gcp/cloud_lab.py wake-full --manifest "$M" --nodes 5         # dry run: prints PLAN lines only
+```
+
+**Wake (cost starts here; about $0.8/h for 5 nodes at list price):**
+
+```bash
+CLOUD_LAB_APPROVED=yes python3 ops/gcp/cloud_lab.py wake-full --manifest "$M" --nodes 5 --execute --confirm-cluster ewallet-dev
+python3 ops/gcp/cloud_lab.py verify --expect awake --manifest "$M"
+```
+
+- `wake-full` resizes `cpu-pool` to 5 nodes, labels the LLM nodes, restores the manifest's 75 workloads, and
+  unpauses the ScaledObjects the last guarded sleep paused (`keda_resumed`). The manifest already records both
+  MCP servers at 2 replicas; no manual scaling is needed.
+- `verify --expect awake` fails while a ScaledObject is still paused or a workload is below its manifest replicas.
+- **Temporary /32** (cloud mutation; only if Phase 0 said "not authorized"):
+  ```bash
+  gcloud container clusters update ewallet-dev --zone asia-southeast1-b --enable-master-authorized-networks \
+    --master-authorized-networks "$ORIG,$MYIP/32"
+  ```
+- **Wait for readiness.** The Coordinator and the gateways need about 2–5 minutes. The CPU vLLM needs about
+  10 minutes before natural-language requests work.
+  ```bash
+  kubectl --context "$CTX" -n ewallet-agents rollout status deploy/fraud-coordinator --timeout=10m
+  kubectl --context "$CTX" -n ewallet-mcp rollout status deploy/feature-rag-mcp && kubectl --context "$CTX" -n ewallet-mcp rollout status deploy/drift-mcp
+  ```
+
+```bash
+scripts/llm_agent/agent_replay.sh pf                # 18083 A2A GW, 18082 MCP GW, 18383 kagent API, 18300 kagent UI,
+                                                    # 13000 Grafana, 18121 Agent Registry; exits 1 on any FAIL line
+scripts/llm_agent/agent_replay.sh status            # tables + checks; exit 0 only when every check passes
+```
+
+**PASS:**
+- `verdict: PASS`;
+- `Helm llm-agent` shows rev 59 before the cleanup, or rev 60 after it;
+- `kagent Agents: only the BYO Coordinator`;
+- both SandboxAgents and the WorkerPool PASS;
+- both MCP servers `ready 2/2, RollingUpdate maxUnavailable=0, PDB=yes`;
+- both ScaledObjects `Ready=True Paused=False`;
+- the 6 `retired … absent (expected)` lines.
+
+`container restarts` is reported as `INFO`/`WARN`. A restart during the wake is normal; one during the replay
+needs a look.
+
+**Screenshot `AGENT_01_PLATFORM_STATE.png`:** the `status` checks block. Use a second screenshot only if the
+tables above it do not fit.
+
+## Phase 2: Agent Registry
+
+1. **UI:** open http://127.0.0.1:18121 (`ewallet-prompts/prompt-registry-agentregistry`), with the Agents, MCP
+   Servers and Prompts pages.
+2. **Strict readback** (GET only; it renders the catalog from the live Helm values and the live SandboxAgent image,
+   then compares it entry by entry):
 
 ```bash
 scripts/llm_agent/agent_replay.sh registry
-kubectl --context "$CTX" -n ewallet-agents get agents.kagent.dev -o custom-columns=NAME:.metadata.name,TYPE:.spec.type,VERSION:.spec.version
 ```
 
-**Expected after the 2026-11-16 publish:**
+**PASS:** `verdict: PASS`, with 11 PASS lines:
+- Agents `fraud-coordinator 1.1.0`, `feature-rag-specialist 1.0.0`, `drift-specialist 1.1.0`;
+- MCPServers `feature-rag-mcp v1`, `drift-mcp v1`;
+- Prompts `fraud-coordinator-system v5`, `feature-rag-specialist-system v5`, `drift-specialist-system v2`.
 
-- `agent_replay.sh registry` prints `verdict: PASS`, 8/8 `matches`.
-- The Agents list shows `drift-specialist 1.1.0` and `feature-rag-specialist 1.0.0` with label
-  `ewallet.io/runtime=kagent-sandboxagent-byo` and both image digests, plus `fraud-coordinator 1.1.0` `kagent-byo`.
-- The older `1.0.0` entries remain as history.
+In the registry the Specialists are described as SandboxAgent runtimes (published 2026-11-16, §11.1). Older
+`1.0.0` entries remain as history.
 
-The helper renders the catalog from the live Helm values and the live SandboxAgent image, so the comparison is against
-what runs.
+**If it fails, do not publish anything from this guide.** A mismatch means the registry and the runtime differ.
+Record the output and raise it with Claude; a registry write is a separate approval.
 
-**History, 2026-11-15, before the publish:**
+**Screenshots:** `AGENT_02_REGISTRY_AGENTS.png` (UI Agents), `AGENT_02b_REGISTRY_MCP_PROMPTS.png` (UI MCP
+servers and prompts), `AGENT_02c_REGISTRY_READBACK.png` (terminal verdict).
 
-- Prompts `fraud-coordinator-system v5`, `feature-rag-specialist-system v5` and
-  `drift-specialist-system v2` match.
-- MCP servers `feature-rag-mcp v1` and `drift-mcp v1` match. Both point at the MCP
-  Gateway routes.
-- The registry is **stale for agents**. It holds all three only at `1.0.0` with runtime
-  `kagent-sandboxagent`, published on 2026-11-03.
-- The deployed agents are BYO `fraud-coordinator 1.1.0`, `feature-rag-specialist 1.0.0`
-  and `drift-specialist 1.1.0`. So `readback` prints `FAIL`.
-- The corrective publish passed a server-side dry-run. It is a registry write, so it needs
-  your approval.
+## Phase 3: business workflows (Coordinator → SandboxAgent → MCP)
 
-If you approve it, run:
+Each `e2e` call sends one request with a unique id (`replay-<case>-<UTC>-<pid>-<random>`), saves the request,
+the raw response, the timing and the verdict, then prints the hops from the logs.
 
 ```bash
-uv run --locked --project infra/docker/llm-agent-tooling python -m ops.llm_agent.registry_catalog publish --registry http://127.0.0.1:18121 \
-  --confirm-live-write http://127.0.0.1:18121 \
-  --values-overlay infra/helm/llm-agent-platform/g3/g3.yaml --values-overlay infra/helm/llm-agent-platform/agi/agents.yaml
+scripts/llm_agent/agent_replay.sh e2e fraud        # typed, no LLM, ~15-50 s
+scripts/llm_agent/agent_replay.sh e2e drift        # typed, ~40 s
+scripts/llm_agent/agent_replay.sh e2e combined     # typed fraud + drift, both SandboxAgents in parallel
+scripts/llm_agent/agent_replay.sh e2e nl-fraud     # natural language through the LLM Gateway, ~60-100 s
+scripts/llm_agent/agent_replay.sh e2e nl-drift     # natural language, ~50 s
 ```
 
-Then run `agent_replay.sh registry` again; it should print `PASS`.
+| Case | Verdict line must show | Hops must show |
+|---|---|---|
+| `fraud` / `nl-fraud` | `COMPLETE`, `g3-orchestration/v1`, `status ok`, `unavailable []`, `fraud_probability 0.0639895560144887` | `POST …/api/a2a-sandboxes/ewallet-sandbox/feature-rag-specialist/ 200`; route `default/sandbox-feature-rag-specialist`; MCP `"actor_id": "sandbox-feature-rag"` with `feature_lookup`, `fraud_scoring`, `knowledge_search` all `ok` on one `trace_id` |
+| `drift` / `nl-drift` | `COMPLETE`, `g3-orchestration/v2`, `status complete`, `workflow drift`, `drift-specialist ok`, `psi 0.0004795543627041439` | route `default/sandbox-drift-specialist`; MCP `"actor_id": "sandbox-drift"`, `drift_detection ok` |
+| `combined` | `COMPLETE`, `status complete`, `workflow combined`, `unavailable []`, both specialists `ok`, `fraud_probability` and `psi` as above | routes and actor ids for both SandboxAgents |
 
-**Screenshots:**
+These values match the 2026-11-17 regression. They come from pinned feature, model and drift revisions, so a
+different value means the data path changed. Do not treat that as a pass.
 
-- `AGENT_02_REGISTRY_AGENTS.png`: the UI Agents list.
-- `AGENT_02b_REGISTRY_MCP_PROMPTS.png`: MCP servers and prompts.
-- `AGENT_02c_REGISTRY_READBACK.png`: the terminal readback.
+Every hop block ends with `retired Specialist Deployments (expected 0…): 0`.
 
-**What this shows:** it separates *registered* (registry), *deployed* (`kubectl`) and
-*working* (REPLAY-06 to 08).
-
-## 3. MCP multi-replica and rolling update (REPLAY-03) `[READ-ONLY]`
-
-```bash
-kubectl --context "$CTX" -n ewallet-mcp get deploy,pdb,pods -o wide
-kubectl --context "$CTX" -n ewallet-mcp get endpointslices -l kubernetes.io/service-name=feature-rag-mcp
-kubectl --context "$CTX" -n ewallet-mcp get endpointslices -l kubernetes.io/service-name=drift-mcp
-scripts/llm_agent/agent_replay.sh e2e drift      # a real MCP tool call through the MCP Gateway
-```
-
-**PASS when:**
-
-- each server has 2 Ready pods on different nodes;
-- PDB `ALLOWED DISRUPTIONS 1`;
-- 2 endpoints per server;
-- the e2e run shows `"tool_name": "drift_detection" "status": "ok"`.
-
-**Screenshot:** `AGENT_03_MCP_REPLICAS.png`.
-
-**Rolling update:**
-
-- It was proven on GKE as AGR-03: 170/170 typed calls succeeded during a rolling update
-  (evidence in `$EV/agr`).
-- Repeating it means a `kubectl rollout restart` of a production Deployment. Do that only
-  if you decide to: `kubectl -n ewallet-mcp rollout restart deploy/drift-mcp` while
-  `agent_replay.sh e2e drift` runs in a loop.
-- The safe alternative is REPLAY-04, which kills a pod of the isolated copy.
-
-## 4. MCP failover (REPLAY-04) `[EXPERIMENT]`, needs 5 nodes
-
-The optimized arm needs two nodes without the `ewallet.io/g3-llm` label. Resize the pool
-to 5 nodes, using the same step `cloud_lab` uses. Do not use `wake-full` on an awake
-cluster: it re-applies the manifest replica counts.
-
-```bash
-gcloud container clusters resize ewallet-dev --project ewallet-data-ai-platform-hg26 --location asia-southeast1-b \
-  --node-pool cpu-pool --num-nodes=5 --quiet
-```
-
-Run two terminals:
-
-- **Terminal 2:** `watch -n1 kubectl --context "$CTX" -n ewallet-mcp-exp get pods -o wide`
-- **Terminal 1:** `scripts/llm_agent/agent_replay.sh failover`. It runs baseline, then
-  optimized. Each arm takes about 3 minutes.
-
-What happens in each arm:
-
-1. The helper creates `ewallet-mcp-exp`, with its own copy of drift-mcp and its own
-   token.
-2. A probe sends 10 calls/s for 120 s.
-3. At 40 s one pod is force-deleted (`--grace-period=0`), so live connections drop.
-4. The namespace is then removed.
-
-The helper compares production `ewallet-mcp` before and after the run.
-
-**Capture these screenshots:**
-
-- `AGENT_04a_FAILOVER_POD_KILLED.png`: Terminal 2 while a pod is Terminating and a new
-  one starts.
-- `AGENT_04b_FAILOVER_RESULTS.png`: the two summaries.
-
-**Measured 2026-11-15 (run-04):**
-
-- Baseline, 1 replica, no retry: 1129/1189 (94.95 %), outage 12.0 s.
-- Optimized, 2 replicas, client retry: 1188/1188 (100 %), with 1 call recovered by the
-  client's own retry (`client_retries: 1`).
-- **PASS:** the optimized arm has 0 failed calls and retries > 0, the baseline shows
-  failures, and the helper prints `production ewallet-mcp unchanged`.
-- Retries depend on timing. A run with `client_retries: 0` and 0 failures is still valid
-  Service-level failover. Run it again if you want a visible retry.
-
-Return to 4 nodes afterwards with `--num-nodes=4`, or let the final sleep do it.
-
-## 5. Sandbox security (REPLAY-05) `[READ-ONLY]`
-
-```bash
-kubectl --context "$CTX" -n ewallet-sandbox get sandboxagent,workerpool,actortemplate -o wide
-kubectl --context "$CTX" -n ewallet-sandbox get pods -l ate.dev/worker-pool=business-agents -o wide
-kubectl --context "$CTX" -n ewallet-sandbox get sa default -o jsonpath='automount={.automountServiceAccountToken}{"\n"}'
-kubectl --context "$CTX" auth can-i --list --as=system:serviceaccount:ewallet-sandbox:default -n ewallet-sandbox
-kubectl --context "$CTX" -n ewallet-agents get authorizationpolicy allow-sandbox-workers-to-mcp-gateway \
-  allow-sandbox-workers-to-otel-collector -o yaml | grep -A3 principals
-scripts/llm_agent/agent_replay.sh negative     # wrong credential 401, ungranted tool hidden, undeclared route 404
-```
-
-**PASS when:**
-
-- the ActorTemplates show class `gvisor`;
-- `automount=false`;
-- RBAC is discovery only;
-- the policies admit only `cluster.local/ns/ewallet-sandbox/sa/default` on 8080
-  (MCP Gateway) and 4317 (OTLP);
-- the three negatives print `PASS`.
-
-For the allowed request, REPLAY-06 shows the MCP server logging
-`"actor_id": "sandbox-feature-rag"` for a Sandbox call.
-
-**Screenshots:** `AGENT_05a_SANDBOX_GVISOR_RBAC.png` and `AGENT_05b_SANDBOX_NEGATIVES.png`.
-
-**Limitation:** the egress proxy refuses non-cluster hosts. That is proven by unit tests
-(`infra/kubernetes/kagent-pilot/patches/substrate-0.0.9-sandbox-egress-proxy.patch`). The
-worker image is distroless, so there is no shell to prove it on GKE.
-
-## 6. Feature-RAG Specialist through the Coordinator (REPLAY-06) `[READ-ONLY]` data
-
-1. **kagent UI:** open http://127.0.0.1:18300 and choose **Skip wizard**.
-2. Go to **Agents** → `ewallet-agents/fraud-coordinator` → **Chat**.
-3. Paste this prompt. It is the reviewed test fixture: payment `dc58ff4e-…`.
+**kagent UI (natural language).** Open http://127.0.0.1:18300, choose **Skip wizard**, then **Agents** →
+`ewallet-agents/fraud-coordinator` → **Chat**, and paste:
 
 ```
 Hãy đánh giá rủi ro gian lận cho giao dịch payment dc58ff4e-b5f7-4486-b1f8-4c31383741a9 (user 55561d92-d042-401c-b02a-b03e3ed280f7, account 2d48f147-f98c-4819-b183-f94ca049c175, device e7765b81-c9f9-4147-aa00-46f34de1d7da, merchant e3e4aced-6b0d-40af-be5c-eef9255204c9, amount 275465.53 VND, channel app, event_timestamp 2026-06-01T00:00:00Z): lấy feature của user/account, gọi mô hình dự đoán gian lận, giải thích mức rủi ro và trích dẫn chính sách liên quan.
 ```
 
-**Expected answer** (CPU LLM, about 60–75 s). These values were verified on 2026-11-15:
+**Expected:**
+- `fraud-detector` v1 with `fraud_probability = 0.0639895560144887`;
+- features `account_tx_count_1h = 0`, `account_tx_count_24h = 0`, `merchant_tx_count_24h = 6`,
+  `user_avg_amount_30d = 474960.33`;
+- policy citations.
 
-- `fraud-detector` v1, `fraud_probability = 0.0639895560144887`, prediction 0.
-- Features: `account_tx_count_1h = 0`, `account_tx_count_24h = 0`,
-  `merchant_tx_count_24h = 6`, `user_avg_amount_30d = 474960.33`, all at
-  `2026-05-31T23:59:56Z`.
-- 3 policy citations (`policy-payment-anomaly:0000`, `policy-account-takeover:0000/0001`).
-
-**Independent proof of the path.** Run the same request through the API; the helper then
-prints the hops:
-
-```bash
-scripts/llm_agent/agent_replay.sh e2e nl-fraud     # or: e2e fraud (typed, no LLM, ~15-30 s)
-```
-
-The hops must show:
-
-- `POST …/api/a2a-sandboxes/ewallet-sandbox/feature-rag-specialist/ 200`;
-- the A2A Gateway route `default/sandbox-feature-rag-specialist`;
-- MCP `"actor_id": "sandbox-feature-rag"`, with `feature_lookup`, `fraud_scoring` and
-  `knowledge_search` all `ok`, on one `trace_id`;
-- Deployment Specialists `0`, meaning no fallback was used.
-
-**Screenshots:**
-
-- `AGENT_06a_COORDINATOR_UI_FRAUD.png`: the UI answer.
-- `AGENT_06b_FRAUD_HOPS.png`: the helper hops.
-
-**Backend comparison:** the direct MCP results from the campaign are in
-`$EV/stage2/AGI-04-feature-lookup.json` and `AGI-05-fraud-scoring.json`. They hold the
-same values.
-
-## 7. Drift Specialist (REPLAY-07) `[READ-ONLY]` data
-
-Same chat. Prompt:
+The drift prompt is:
 
 ```
 Phân tích drift của account_behavior__account_tx_count_1h so với baseline bl-r5gb-202604.account_tx_count_1h trong window 2026-05-01T00:00:00Z to 2026-05-31T00:00:00Z.
 ```
 
-**Expected** (about 35–50 s):
+Its expected answer is the section "Từ drift-specialist", `PSI = 0.0004795…`, `no_drift`, 19338 observations.
 
-- section "Từ drift-specialist";
-- `PSI = 0.0004795543627041439`, `no_drift`, 19338 observations;
-- reference and current `feast-r5gb-20261111-214544`;
-- thresholds 0.1 / 0.25.
+**Known limitation:** a combined natural-language prompt is rejected with `ungrounded_argument`. This is the
+strict fail-closed grounding kept by owner decision. Only the typed `combined` case is required.
 
-Run `scripts/llm_agent/agent_replay.sh e2e nl-drift`. The hops show the route
-`sandbox-drift-specialist` and `"actor_id": "sandbox-drift"`. The independent value is in
-`$EV/stage2/AGI-07-drift.json`.
+**Screenshots:**
+- `AGENT_06a_COORDINATOR_UI_FRAUD.png` (UI answer);
+- `AGENT_06b_FRAUD_HOPS.png` (`e2e fraud` or `nl-fraud`: verdict and hops);
+- `AGENT_07b_DRIFT_HOPS.png` (`e2e drift`);
+- `AGENT_08_COMBINED_WORKFLOW.png` (`e2e combined`);
+- optional `AGENT_07a_COORDINATOR_UI_DRIFT.png`.
 
-**Screenshots:** `AGENT_07a_COORDINATOR_UI_DRIFT.png` and `AGENT_07b_DRIFT_HOPS.png`.
-
-## 8. Coordinator multi-agent workflow (REPLAY-08)
+## Phase 4: security
 
 ```bash
-scripts/llm_agent/agent_replay.sh e2e combined     # typed fraud + drift, both Sandboxes in parallel
+kubectl --context "$CTX" -n ewallet-sandbox get sandboxagents.kagent.dev,workerpools.ate.dev,actortemplates.ate.dev -o wide
+kubectl --context "$CTX" -n ewallet-sandbox get pods -l ate.dev/worker-pool=business-agents -o wide
+kubectl --context "$CTX" -n ewallet-sandbox get sa default -o jsonpath='automount={.automountServiceAccountToken}{"\n"}'
+kubectl --context "$CTX" auth can-i --list --as=system:serviceaccount:ewallet-sandbox:default -n ewallet-sandbox
+kubectl --context "$CTX" -n ewallet-agents get authorizationpolicy allow-sandbox-workers-to-mcp-gateway \
+  allow-sandbox-workers-to-otel-collector -o yaml | grep -A3 principals
+kubectl --context "$CTX" -n ewallet-mcp get networkpolicy,authorizationpolicy
+scripts/llm_agent/agent_replay.sh negative
 ```
 
-**PASS when:**
+**PASS:**
+- the ActorTemplates show the `gvisor` class;
+- `automount=false`;
+- RBAC is discovery only;
+- the sandbox policies admit only `cluster.local/ns/ewallet-sandbox/sa/default` on 8080 (MCP Gateway) and 4317
+  (OTLP);
+- `negative` ends `verdict: PASS` with 3 PASS lines:
+  - `wrong-server-credential.json: expected unauthenticated`: the `sandbox-feature-rag` credential gets 401 from
+    drift-mcp; the control `sandbox-drift` is listed;
+  - `ungranted-tool.json: expected call-denied`: the kagent controller's list-only credential cannot call
+    `drift_detection`; the control is listed;
+  - `a2a-unrouted.json: expected no-route`: an undeclared A2A host returns 404; the control route returns 200.
 
-- `status complete`, `workflow combined`;
-- `feature-rag-specialist: status=ok fraud_probability=0.0639…`;
-- `drift-specialist: status=ok psi=0.000479…`;
-- routes for both Sandbox agents and actor IDs `sandbox-feature-rag` and `sandbox-drift`.
+**Limitations:**
+- Laptop port-forwards bypass the Ambient L4 caller check. The negatives therefore prove gateway routes and server
+  credentials and grants. The SPIFFE caller policies are the policy objects above.
+- The Sandbox egress proxy's refusal of non-cluster hosts is proven by unit tests, not on GKE. The worker image is
+  distroless.
 
-**Screenshot:** `AGENT_08_COMBINED_WORKFLOW.png`.
+**Screenshots:** `AGENT_05a_SANDBOX_GVISOR_RBAC.png`, `AGENT_05b_SANDBOX_NEGATIVES.png`.
 
-**Known limitation:** a combined natural-language prompt is rejected with
-`ungrounded_argument`. The 0.6B CPU model returns drift arguments that differ from the
-text. Strict fail-closed grounding is kept by owner decision. Show it if you want, as
-correct rejection behaviour.
+## Phase 5: reliability and autoscaling
 
-## 9. KEDA Agent autoscaling 2 → 3 → 2 (REPLAY-09) `[LOAD]`
-
-This is time-sensitive. Use three terminals and Grafana.
-
-- **Terminal 2**, split in two panes and leave both running:
-  - `watch -n2 kubectl --context "$CTX" -n ewallet-agents get hpa`
-  - `watch -n2 kubectl --context "$CTX" -n ewallet-agents get pods -l 'ewallet.io/agent in (fraud-coordinator,feature-rag-specialist)'`
-- **Terminal 3:** `tail -f <REPLAY_DIR>/keda/timeline.txt`. The helper prints the path.
-- **Grafana:** open http://127.0.0.1:13000 and log in. Read the password without printing
-  it to the terminal history:
-  `kubectl -n ewallet-agents get secret ewallet-grafana-admin -o jsonpath='{.data.password}' | base64 -d | xclip -sel clip`.
-  Then go to Explore → datasource `prometheus` → time range *Last 15 minutes*, refresh 5 s.
-  There is no dedicated agent-KEDA dashboard. Use these queries:
-  - in-flight tasks per agent, the KEDA trigger:
-    `sum by (agent) (ewallet_agent_inflight_tasks{agent=~"fraud-coordinator|feature-rag-specialist"})`
-  - replicas reporting:
-    `count by (agent) (ewallet_agent_inflight_tasks{agent=~"fraud-coordinator|feature-rag-specialist"})`
-  - outcomes: `sum by (agent, outcome) (increase(ewallet_agent_invocations_total[1m]))`
-- **Terminal 1:** `scripts/llm_agent/agent_replay.sh keda`. It takes about 12 minutes.
-
-| Phase (helper banner) | What you see | Capture |
-|---|---|---|
-| `BASELINE` | HPA `0/2 (avg)`, `REPLICAS 2`; 2 pods per agent | `AGENT_09a_KEDA_BASELINE.png` |
-| `LOAD 1` (100 tasks, concurrency 8, ~45 s) | after ~30–40 s HPA target goes above 2 (e.g. `4500m/2`), desired 3, a third pod `ContainerCreating` → `Running 1/1` | **`AGENT_09b_KEDA_SCALEOUT.png` while the third pod appears**; Grafana in-flight graph `AGENT_09c_GRAFANA_INFLIGHT.png` |
-| `LOAD 2 on 3 replicas` | the 3 pods serve; at +120 s the helper prints tasks per pod, the youngest pod > 0 | `AGENT_09d_KEDA_NEW_POD_WORK.png` |
-| `SCALE_IN` (~5 min after load) | HPA target `0/2`, after the 300 s window `REPLICAS 2`, the extra pod Terminating; events `New size: 2; reason: … below target` | `AGENT_10_KEDA_SCALEIN.png` |
-
-**Expected with the remediated deployment (measured 2026-11-16, `rem-20261116T050511Z`):**
-
-- The helper runs one AGR-06 load: 100 typed tasks at concurrency 8. Each runs on a Sandbox actor, about 10 minutes
-  in total.
-- KEDA scales **the Coordinator** 2 → 3 within about a minute. The `NEW POD SERVES REAL TASKS` banner, at +240 s,
-  shows the youngest Coordinator pod with completed tasks.
-- **100/100 tasks complete.** The fixed 2-worker Sandbox pool admits a few actors at a time; the Coordinator waits for
-  a free worker instead of failing. The helper's last banner sums these waits (`sandbox_capacity_exhausted waits=…`).
-- Measured: p50 46.7 s, p95 158.8 s, 97 waits, 0.128 tasks/s.
-- About 5 minutes after the load, the replicas return to 2.
-- Known side effect: the idle fallback Deployment `feature-rag-specialist` may also show 3 replicas. Sandbox actors
-  report in-flight work under the same agent label; it runs 0 tasks.
-
-**PASS for the autoscaling claim when:**
-
-- desired and Ready reach 3;
-- the new Coordinator pod completes tasks;
-- replicas return to 2;
-- the load summary shows 100/100.
-
-The events print `New size: 3 … above target` and `New size: 2 … below target`.
-
-**Not shown here:**
-
-- WorkerPool autoscaling (B′) is out of scope.
-- Throughput is capped by the MCP Gateway rate limit (about 2.2–2.5 tasks/s). Extra
-  replicas add concurrency headroom, not throughput.
-
-## 10. Agent Fleet: shared Substrate workers (REPLAY-10) `[SESSIONS]`
+**MCP replicas and rollout safety (read-only):**
 
 ```bash
-watch -n2 'kubectl --context "$CTX" -n ewallet-sandbox get pods -l ate.dev/worker-pool=business-agents -o wide'   # terminal 2
-scripts/llm_agent/agent_replay.sh workers                                                                         # terminal 1, ~6 min
+kubectl --context "$CTX" -n ewallet-mcp get deploy,pdb,pods -o wide
+kubectl --context "$CTX" -n ewallet-mcp get endpointslices -l kubernetes.io/service-name=feature-rag-mcp
+kubectl --context "$CTX" -n ewallet-mcp get endpointslices -l kubernetes.io/service-name=drift-mcp
 ```
 
-The helper runs sessions one agent type at a time: 4 Feature-RAG, then 4 Drift, then 4
-Feature-RAG. It prints actor → worker assignments with the golden snapshot actors
-excluded.
+**PASS:** each server has 2 Ready pods on different nodes, PDB `ALLOWED DISRUPTIONS 1`, and 2 endpoints. The
+Phase 3 hops already show real tool calls on these pods.
 
-**PASS when:**
+**Screenshot:** `AGENT_03_MCP_REPLICAS.png`.
 
-- the output ends `verdict: SHARED_WORKERS_OBSERVED`;
-- each of the 2 worker pods lists both `feature-rag-specialist` and `drift-specialist`.
-
-On 2026-11-15: feature-rag 4 + drift 2 actors on each worker. Placement varies: a run where
-both agents started in parallel ended `NOT_OBSERVED`. Run it again if you see that.
-
-**Screenshot:** `AGENT_11_SHARED_WORKERS.png`, showing the sharing table.
-
-This is a **fixed** 2-worker pool shared by many session actors. It is not WorkerPool
-autoscaling.
-
-## 11. Observability (REPLAY-11) `[READ-ONLY]`
-
-First run fresh requests: `agent_replay.sh e2e nl-fraud` and `agent_replay.sh e2e drift`.
-In Grafana (time range *Last 30 minutes*):
-
-- **Dashboard "E-Wallet Agent & MCP"** (uid `ewallet-agent-mcp`): agent calls by outcome,
-  MCP tool calls per tool and MCP latency p95.
-  - The MCP series are named `ewallet_ewallet_mcp_tool_calls_total`. The collector's
-    `namespace: ewallet` prefixes a name that already contains `ewallet_`, and the
-    dashboard queries that real name.
-  - Screenshot: `AGENT_12a_GRAFANA_AGENT_MCP.png`.
-- **Dashboard "E-Wallet LLM Runtime"**: tokens, time to first token, end-to-end latency.
-  Screenshot: `AGENT_12b_GRAFANA_LLM.png`.
-- **Loki** (Explore → `loki`): `{namespace="ewallet-agents"} |= "coordinator.task_completed"`.
-  Screenshot: `AGENT_12c_LOKI_AUDIT.png`.
-- **Tempo** (Explore → `tempo` → TraceQL):
-  `{ resource.service.name = "fraud-coordinator" && name = "g3.coordinator.execute" }`.
-  Open the newest trace and expand the waterfall. Screenshot:
-  `AGENT_13_TEMPO_TRACE.png`. One trace holds:
-  - the A2A Gateway entry and `g3.coordinator.nl_intake.llm_tool_selection`, with
-    `gen_ai.usage.*` and `ewallet.intake.offered_tools`;
-  - the LLM Gateway call to vLLM;
-  - `g3.coordinator.delegate`;
-  - the A2A Gateway `POST /api/a2a-sandboxes/…`;
-  - the MCP Gateway `tools/call feature-rag_*`;
-  - feature-rag-mcp `mcp.tool *`, `feast-online.get_features` and `kserve.infer`.
-
-**Sandbox spans:** since the 2026-11-16 fleet image, the trace also holds the Sandbox Feature-RAG Specialist's own
-spans. These are `g3.feature_rag_specialist.execute`, with children `MCP send initialize`, `tools/list` and
-`tools/call …`.
-
-- Verified trace: `a38538611be4ffd81b5ae2d2e4402742`.
-- Query them with
-  `{ resource.service.name = "feature-rag-specialist" && name = "g3.feature_rag_specialist.execute" }`.
-- **Disclose:** the kagent controller hop between the A2A Gateway and the actor has no span. The kagent release
-  exports to an empty OTLP endpoint, so the execute span's parent is not in Tempo.
-
-## 12. Final check, cleanup and sleep (REPLAY-12)
+**KEDA, read-only (required):**
 
 ```bash
-scripts/llm_agent/agent_replay.sh status        # no RESTARTED, HPAs back at 2
-kubectl --context "$CTX" get ns ewallet-mcp-exp  # NotFound
-kubectl --context "$CTX" -n ewallet-agents get job agent-load   # NotFound (the load Job removes itself)
+scripts/llm_agent/agent_replay.sh keda
+```
+
+**PASS:**
+- both ScaledObjects are `READY True`, `PAUSED` empty, with min 2 / max 3;
+- the HPAs are at 2;
+- `coord=2 pool=2` at rest.
+
+This proves configuration and current state, not a scale-out.
+
+**Screenshot:** `AGENT_09a_KEDA_STATE.png`.
+
+**Autoscaling evidence.**
+- **Existing GKE evidence (no rerun needed):**
+  - Coordinator and WorkerPool 2→3→2 in the 2026-11-17 regression (§12.4);
+  - B′ WorkerPool scaling 2→3→2 with 100/100 tasks at 0.185 task/s, and drain-safe scale-in (§9).
+- **Optional live demonstration** (`[LOAD]`: 6 typed requests, the profile that scaled both on 2026-11-17;
+  about 10 minutes including the 300 s cooldown):
+
+```bash
+REPLAY_LOAD_APPROVED=yes scripts/llm_agent/agent_replay.sh keda demo
+watch -n2 'kubectl --context "$CTX" -n ewallet-agents get hpa; kubectl --context "$CTX" -n ewallet-sandbox get hpa'   # second terminal
+```
+
+The verdict claims scale-out only from observed replica counts (`coord=` and `pool=` in `keda/timeline.txt`). It
+never claims it from `Ready=True`.
+- **PASS:** 6/6 COMPLETE, and for each autoscaler a scale-out above 2 and a scale-in to 2.
+- **`NOT_OBSERVED`:** the run is valid but too small to scale, and the run exits 1. Do not repeat it in a loop.
+  Use the existing evidence instead.
+
+Screenshots `AGENT_09b_KEDA_SCALEOUT.png` (HPA at 3 during the run) and `AGENT_10_KEDA_SCALEIN.png` (back at 2) are
+optional and need this run.
+
+**Shared WorkerPool sessions (optional, `[SESSIONS]`):**
+
+```bash
+REPLAY_SESSIONS_APPROVED=yes scripts/llm_agent/agent_replay.sh workers    # ~6 min
+```
+
+The command runs 4 Feature-RAG sessions, then 4 Drift sessions, then 4 Feature-RAG sessions. It then prints
+session outcomes and actor → worker placement (golden snapshot actors excluded).
+- **PASS:** every session turn is ok.
+- **Placement:** the line "one worker hosted actors of both Specialists" is `PASS` when observed. Placement varies
+  with timing, so `NOT_OBSERVED` there is not a failure.
+- **Scope:** this shows sharing of one pool by many session actors. It does not show WorkerPool autoscaling, which
+  `keda demo` and §9 show.
+
+Optional screenshot: `AGENT_11_SHARED_WORKERS.png`.
+
+**MCP failover (optional experiment, separate approval):**
+- Existing evidence: 2026-11-15 run-04. The baseline with 1 replica and no retry was 1129/1189 (94.95 %). The
+  optimized arm with 2 replicas and client retry was 1188/1188 (100 %), with 1 client retry.
+- `REPLAY_EXPERIMENT_APPROVED=yes scripts/llm_agent/agent_replay.sh failover` creates `ewallet-mcp-exp`,
+  force-deletes a pod there and removes the namespace. It never touches `ewallet-mcp`, and it exits 1 if
+  production differs.
+- Do not run it in the default replay. Five nodes are already enough for its optimized arm.
+
+## Phase 6: observability
+
+First run fresh requests, for example `e2e nl-fraud` and `e2e combined`: in-cluster metrics, logs and traces do not
+survive a sleep. Open Grafana at http://127.0.0.1:13000 and copy the admin password to the clipboard without
+printing it:
+
+```bash
+kubectl --context "$CTX" -n ewallet-agents get secret ewallet-grafana-admin -o jsonpath='{.data.password}' | base64 -d | xclip -sel clip
+```
+
+| View | What to open | Must show | Screenshot |
+|---|---|---|---|
+| Agent and MCP metrics | dashboard **E-Wallet Agent & MCP** (`ewallet-agent-mcp`), last 30 min | agent calls by outcome, MCP tool calls per tool (`ewallet_ewallet_mcp_tool_calls_total`), MCP latency p95 | `AGENT_12a_GRAFANA_AGENT_MCP.png` |
+| LLM | dashboard **E-Wallet LLM Runtime** | tokens, time to first token, end-to-end latency for the NL request | `AGENT_12b_GRAFANA_LLM.png` |
+| Logs | Explore → `loki`: `{namespace="ewallet-agents"} \|= "coordinator.task_completed"` | your request ids and their status | `AGENT_12c_LOKI_AUDIT.png` |
+| Trace | Explore → `tempo`: search the `trace_id` printed in the `e2e combined` hops, or TraceQL `{ resource.service.name = "fraud-coordinator" && name = "g3.coordinator.execute" }` | one trace with the services below | `AGENT_13_TEMPO_TRACE.png` |
+
+A `combined` trace holds the services `agentgateway`, `kagent-controller`, `fraud-coordinator`,
+`feature-rag-specialist`, `drift-specialist`, `feature-rag-mcp` and `drift-mcp`. On 2026-11-17 one had 228 spans,
+21 of them from the kagent controller.
+
+In the waterfall:
+- the A2A Gateway entry, then `g3.coordinator.delegate`;
+- the A2A Gateway `POST /api/a2a-sandboxes/…`;
+- the kagent controller hop;
+- the SandboxAgent's `g3.feature_rag_specialist.execute`, with `MCP send initialize`, `tools/list` and
+  `tools/call …`;
+- the MCP Gateway `tools/call`;
+- the server spans `mcp.tool *`, `feast-online.get_features` and `kserve.infer`.
+
+An NL trace also holds `g3.coordinator.nl_intake.llm_tool_selection`, with `gen_ai.usage.*`, and the LLM Gateway
+call to vLLM.
+
+## Phase 7: final verification and sleep
+
+**1. Stop traffic and local tools:**
+
+```bash
+scripts/llm_agent/agent_replay.sh status                                  # verdict PASS, KEDA back at 2
+kubectl --context "$CTX" get ns ewallet-mcp-exp                           # NotFound
 scripts/llm_agent/agent_replay.sh stop-pf
-M=docs/evidence/edai2/cloud_lab/sleep_20261106T163042Z
-python3 ops/gcp/cloud_lab.py plan-sleep --manifest "$M"         # read-only: active_work must be empty
+pgrep -af "port-forward" || echo "no port-forwards left"                 # stop any others you started by hand
 ```
 
-The MCP and agent PDBs block a plain sleep, so sleep takes the guarded path. It is a
-separate owner approval. Write a new campaign id; the approval is per campaign.
+**2. Preserve evidence** (raw output, no secret values):
 
 ```bash
-CLOUD_LAB_APPROVED=yes CLOUD_LAB_GUARDED_SLEEP_APPROVAL=ewallet-dev:<your-campaign-id> \
-  python3 ops/gcp/cloud_lab.py sleep --execute --confirm-cluster ewallet-dev \
-  --scale-pdb-guarded --manifest "$M" --campaign <your-campaign-id> --also-approve ewallet-mcp/feature-rag-mcp
-python3 ops/gcp/cloud_lab.py verify --expect sleep --manifest "$M"   # no failures, cpu-pool at 0
+(cd ~/ewallet-evidence/agents/replay && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt)
 ```
 
-- `--also-approve ewallet-mcp/feature-rag-mcp` is the PDB that PKG-P1 added after the
-  manifest was recorded. `plan-sleep` lists it under `not_covered`.
-
-**KEDA-aware sleep (`cloud_lab` since `21994c03`):**
-
-- `plan-sleep --manifest "$M"` lists the ScaledObjects to pause under `guarded_preparation.keda_pause`.
-- The guarded sleep refuses them before any change, unless it gets `--pause-keda` and its own approval:
+**3. Record a fresh recovery manifest** (reads the cluster and writes local files only). The next wake uses this
+manifest:
 
 ```bash
-CLOUD_LAB_APPROVED=yes CLOUD_LAB_GUARDED_SLEEP_APPROVAL=ewallet-dev:<campaign> CLOUD_LAB_KEDA_PAUSE_APPROVAL=ewallet-dev:<campaign> \
-  python3 ops/gcp/cloud_lab.py sleep --execute --confirm-cluster ewallet-dev --scale-pdb-guarded --pause-keda \
-  --manifest "$M" --campaign <campaign> --also-approve ewallet-mcp/feature-rag-mcp
-python3 ops/gcp/cloud_lab.py verify --expect sleep --manifest "$M"
+python3 ops/gcp/cloud_lab.py record-manifest --out ~/ewallet-evidence/agents/replay/$RC-recovery-manifest \
+  --campaign "$RC" --source-commit "$(git rev-parse HEAD)"
 ```
 
-- It pauses with a cloud-lab marker, then scales.
-- If the preparation fails, it restores the pauses and the replicas.
-- `wake-full` unpauses only the ScaledObjects it paused.
-- `verify --expect awake` fails while one of them is still paused.
-
-**History, 2026-11-16 before this change (`SLEEP_BLOCKED`):**
-
-- The guarded sleep scales the PDB-guarded agent Deployments to 0.
-- Since P2, their KEDA ScaledObjects (`minReplicaCount 2`) put them straight back, so the PDBs still protect pods.
-  `cloud_lab` then refuses to resize, which is correct.
-- The way through is to pause the 3 ScaledObjects first. That changes Helm-managed objects, so it is a **separate
-  owner approval**, and it is untested on this cluster:
+**4. Plan the sleep (read-only).**
+- The guarded sleep's `--manifest` is the approved PDB record `$P`, which has `pdb-after-scale.txt`. It is not
+  the recovery manifest.
 
 ```bash
-kubectl --context "$CTX" -n ewallet-agents annotate scaledobject fraud-coordinator feature-rag-specialist drift-specialist \
-  autoscaling.keda.sh/paused-replicas=0 --overwrite     # KEDA holds them at 0 and stops scaling
-# ... guarded sleep as above, then verify --expect sleep ...
-# after the next wake:
-kubectl --context "$CTX" -n ewallet-agents annotate scaledobject fraud-coordinator feature-rag-specialist drift-specialist \
-  autoscaling.keda.sh/paused-replicas-
+python3 ops/gcp/cloud_lab.py plan-sleep --manifest "$P"
 ```
 
-The durable fix is for `cloud_lab sleep --scale-pdb-guarded` to pause the ScaledObjects that target a guarded
-Deployment, and for `wake-full` to unpause them. That is not implemented yet.
-- Remove any `/32` you added in section 0.
-- Metrics, logs and traces live in in-cluster Prometheus, Loki and Tempo. They do not
-  survive a sleep, so generate fresh data after each wake (section 11).
+- Expect `active_work: []`.
+- `pdb_blockers` lists the MCP and Coordinator PDBs; `guarded_preparation` splits them into `covered_by_manifest`
+  and `not_covered`.
+- Pass `--also-approve <ns/name>` only for each PDB listed under `not_covered`, after checking that it is a
+  current platform PDB. On 2026-11-17 that was `ewallet-mcp/feature-rag-mcp`, added by P1 after `$P` was
+  recorded.
+- The WorkerPool and the Coordinator ScaledObjects need `--pause-keda`.
+
+**5. Dry run, then the guarded sleep.** Both approvals are scoped to your campaign `$RC`; never reuse an older
+campaign's tokens.
+
+```bash
+python3 ops/gcp/cloud_lab.py sleep --scale-pdb-guarded --pause-keda --manifest "$P" --campaign "$RC" \
+  --also-approve ewallet-mcp/feature-rag-mcp                              # dry run; keep --also-approve only if not_covered listed it
+CLOUD_LAB_APPROVED=yes CLOUD_LAB_GUARDED_SLEEP_APPROVAL=ewallet-dev:$RC CLOUD_LAB_KEDA_PAUSE_APPROVAL=ewallet-dev:$RC \
+  python3 ops/gcp/cloud_lab.py sleep --scale-pdb-guarded --pause-keda --manifest "$P" --campaign "$RC" \
+  --also-approve ewallet-mcp/feature-rag-mcp --execute --confirm-cluster ewallet-dev
+python3 ops/gcp/cloud_lab.py verify --expect sleep --manifest ~/ewallet-evidence/agents/replay/$RC-recovery-manifest
+```
+
+What the guarded sleep does, in order:
+1. It pauses `ewallet-sandbox/business-agents-workerpool` at 2 and `ewallet-agents/fraud-coordinator` at 0, each
+   with a cloud-lab marker.
+2. It scales the PDB-guarded Deployments to 0 and waits for their PDBs to release.
+3. It resizes `cpu-pool` to 0.
+
+If the preparation fails, it restores the pauses and the replicas. The next `wake-full` unpauses only what it
+paused.
+
+**The sleep is done only when `verify --expect sleep` passes:** no failures, `cpu-pool` at 0.
+
+**If the guard refuses** (`REFUSED: SLEEP_BLOCKED …`, exit 2):
+- Do not force the sleep, do not scale or annotate anything by hand, and do not drop `--scale-pdb-guarded` or
+  `--pause-keda`.
+- Save the output. The cluster stays awake and keeps costing money.
+- Fix the reason it names, then rerun the dry run:
+  - **active work:** wait for it to finish;
+  - **a PDB not in the approved manifest:** add `--also-approve` only for a known platform PDB;
+  - **missing approval:** set the campaign-scoped variable.
+- If you cannot resolve it, tell Claude and keep the cluster awake. A failed preparation has already restored
+  KEDA and the replicas; `verify --expect awake --manifest "$M"` confirms it.
+
+**6. Remove the temporary /32 and confirm the original CIDRs:**
+
+```bash
+ORIG=$(cat ~/.cache/ewallet-agi/$RC-original-cidrs.txt)
+gcloud container clusters update ewallet-dev --zone asia-southeast1-b --enable-master-authorized-networks \
+  --master-authorized-networks "$ORIG"
+NOW=$(gcloud container clusters describe ewallet-dev --zone asia-southeast1-b \
+  --format='value(masterAuthorizedNetworksConfig.cidrBlocks[].cidrBlock)' | tr ';' ',')
+[ "$NOW" = "$ORIG" ] && echo "restored: exactly the original $(echo "$NOW" | tr ',' '\n' | wc -l) CIDRs" || echo "MISMATCH: fix before leaving"
+python3 ops/gcp/cloud_lab.py status                                       # pool_vms: 0
+```
 
 ## Screenshot checklist
 
-| File | Scenario | Status |
-|---|---|---|
-| `AGENT_01_PLATFORM_STATE.png` | 1 | OWNER_CAPTURE_PENDING |
-| `AGENT_02_REGISTRY_AGENTS.png`, `AGENT_02b_REGISTRY_MCP_PROMPTS.png`, `AGENT_02c_REGISTRY_READBACK.png` | 2 | OWNER_CAPTURE_PENDING |
-| `AGENT_03_MCP_REPLICAS.png` | 3 | OWNER_CAPTURE_PENDING |
-| `AGENT_04a_FAILOVER_POD_KILLED.png`, `AGENT_04b_FAILOVER_RESULTS.png` | 4 | OWNER_CAPTURE_PENDING |
-| `AGENT_05a_SANDBOX_GVISOR_RBAC.png`, `AGENT_05b_SANDBOX_NEGATIVES.png` | 5 | OWNER_CAPTURE_PENDING |
-| `AGENT_06a_COORDINATOR_UI_FRAUD.png`, `AGENT_06b_FRAUD_HOPS.png` | 6 | OWNER_CAPTURE_PENDING |
-| `AGENT_07a_COORDINATOR_UI_DRIFT.png`, `AGENT_07b_DRIFT_HOPS.png` | 7 | OWNER_CAPTURE_PENDING |
-| `AGENT_08_COMBINED_WORKFLOW.png` | 8 | OWNER_CAPTURE_PENDING |
-| `AGENT_09a…09d`, `AGENT_10_KEDA_SCALEIN.png` | 9 | OWNER_CAPTURE_PENDING |
-| `AGENT_11_SHARED_WORKERS.png` | 10 | OWNER_CAPTURE_PENDING |
-| `AGENT_12a…12c`, `AGENT_13_TEMPO_TRACE.png` | 11 | OWNER_CAPTURE_PENDING |
+The rubric rows follow the evidence matrix in
+[AGENT_INTEGRATION_CONTRACTS.md §8](AGENT_INTEGRATION_CONTRACTS.md#8-evidence-to-rubric-matrix). The rubric sheet
+remains the authority. Every screenshot is `OWNER_CAPTURE_PENDING` until you add it.
+
+| File | Type | Phase: command or page | Must be visible | Proves | Required | Rows |
+|---|---|---|---|---|---|---|
+| `AGENT_01_PLATFORM_STATE.png` | deployment | 1: `status` | `verdict: PASS`, Helm revisions, 1 BYO Agent, 2 SandboxAgents, WorkerPool, MCP 2/2, 2 ScaledObjects, retired workloads absent | the deployed runtime is the final architecture | yes | 16, 20, 22 |
+| `AGENT_02_REGISTRY_AGENTS.png` | deployment | 2: registry UI, Agents | the 3 Agents with versions and runtime labels | agents are registered | yes | 8, 21, 26 |
+| `AGENT_02b_REGISTRY_MCP_PROMPTS.png` | deployment | 2: registry UI, MCP servers and Prompts | 2 MCP servers, 3 prompts with versions | tools and prompts are registered | yes | 8, 21, 26 |
+| `AGENT_02c_REGISTRY_READBACK.png` | deployment | 2: `registry` | 11 PASS lines, `verdict: PASS` | registered equals deployed | yes | 8, 21, 26 |
+| `AGENT_03_MCP_REPLICAS.png` | reliability | 5: `kubectl … ewallet-mcp get deploy,pdb,pods -o wide` | 2 Ready pods per server on different nodes, PDB allowed 1 | MCP multi-replica | yes | 16, 18 |
+| `AGENT_05a_SANDBOX_GVISOR_RBAC.png` | security | 4: sandbox commands | `gvisor`, `automount=false`, discovery-only RBAC, principals | Sandbox isolation | yes | 20 |
+| `AGENT_05b_SANDBOX_NEGATIVES.png` | security | 4: `negative` | 3 PASS lines with controls, `verdict: PASS` | MCP and A2A gateways deny as designed | yes | 23, 24 |
+| `AGENT_06a_COORDINATOR_UI_FRAUD.png` | business | 3: kagent UI chat | the fraud answer: probability, features, citations | NL workflow through the UI | yes | 22, 25 |
+| `AGENT_06b_FRAUD_HOPS.png` | business | 3: `e2e fraud` or `nl-fraud` | `COMPLETE`, Sandbox route, `actor_id sandbox-feature-rag`, 3 tools ok | Coordinator → SandboxAgent → MCP path | yes | 22, 20 |
+| `AGENT_07a_COORDINATOR_UI_DRIFT.png` | business | 3: kagent UI chat | the drift answer, PSI | NL drift through the UI | optional | 22 |
+| `AGENT_07b_DRIFT_HOPS.png` | business | 3: `e2e drift` | `COMPLETE`, `psi`, route, `actor_id sandbox-drift` | drift via SandboxAgent and MCP | yes | 18, 20 |
+| `AGENT_08_COMBINED_WORKFLOW.png` | business | 3: `e2e combined` | `COMPLETE`, `workflow combined`, both specialists ok, `unavailable []` | multi-agent orchestration | yes | 25 |
+| `AGENT_09a_KEDA_STATE.png` | autoscaling | 5: `keda` | both ScaledObjects Ready, not paused, min 2 / max 3, HPAs | autoscaling configured on both | yes | 19, 25 |
+| `AGENT_09b_KEDA_SCALEOUT.png` | autoscaling | 5: `keda demo` + `watch` | HPA desired 3 / a third pod or worker | live scale-out | optional | 19, 25 |
+| `AGENT_10_KEDA_SCALEIN.png` | autoscaling | 5: `keda demo` end | back at 2, `verdict: PASS` | scale-in | optional | 19, 25 |
+| `AGENT_11_SHARED_WORKERS.png` | autoscaling | 5: `workers` | session outcomes, placement per worker | one pool shared by both Specialists | optional | 27 |
+| `AGENT_12a_GRAFANA_AGENT_MCP.png` | observability | 6: dashboard | calls by outcome, tool calls, p95 | metrics | yes | 51 |
+| `AGENT_12b_GRAFANA_LLM.png` | observability | 6: dashboard | tokens, TTFT, latency | LLM metrics | yes | 50 |
+| `AGENT_12c_LOKI_AUDIT.png` | observability | 6: Loki | `coordinator.task_completed` for your request ids | audit logs | yes | 47 |
+| `AGENT_13_TEMPO_TRACE.png` | observability | 6: Tempo | one waterfall with agentgateway, kagent-controller, Coordinator, SandboxAgent(s), MCP server(s) | end-to-end distributed trace | yes | 49 |
+
+`AGENT_04a/04b` (failover) exist only if you approve and run the optional experiment.
+
+## Reference: history
+
+The procedures above replaced the following earlier steps. Do not use them in the current replay.
+- The 2026-11-06 recovery manifest and a 4-node wake.
+- Manually scaling the MCP Deployments after the wake.
+- Three BYO Agents and three agent ScaledObjects. These were before `sp-cleanup` (rev 55), when the Specialists
+  were Deployments with a fallback path.
+- The 100-task AGR-06 load in `keda`.
+- Manually annotating ScaledObjects before a sleep (superseded by `cloud_lab sleep --pause-keda`).
+- Publishing the registry from this guide.
+
+Measured results of those runs:
+- **AGR-06 (2026-11-16, `rem-20261116T050511Z`):** Coordinator 2→3→2, 100/100 tasks, p95 158.8 s, 0.128 task/s
+  on the fixed 2-worker pool.
+- **B′ (§9):** WorkerPool autoscaling, 100/100 at 0.185 task/s.
+- **AGR-03:** rolling update, 170/170 calls during a production `rollout restart`.
+
+The full record is in [AGENT_PLATFORM_COMPLETION.md](AGENT_PLATFORM_COMPLETION.md) §3–§12.
