@@ -1,5 +1,11 @@
 # CI/CD with Jenkins
 
+> **Rebuild in progress (branch `feature/edai2-cicd-rebuild`).** Deployments now come from typed release
+> units, not from component handlers. The runtime evidence below (RAG CD #8, N9 CI) predates the
+> rebuild and is historical. Current mechanism, local verification and the pending owner rehearsal:
+> [CICD_REHEARSAL_RUNBOOK.md](CICD_REHEARSAL_RUNBOOK.md). This page will be rewritten from that
+> rehearsal's real results.
+
 This report covers:
 
 - how the platform is built, tested and released with Jenkins;
