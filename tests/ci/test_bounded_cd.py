@@ -11,6 +11,7 @@ from pathlib import Path
 import yaml
 
 from scripts.ci.bounded_cd import (
+    ApiKube,
     CD_NAMESPACE,
     Contract,
     ReleaseError,
@@ -21,15 +22,16 @@ from scripts.ci.bounded_cd import (
     run_release,
     verify_summary,
 )
-from scripts.ci.catalog import load_catalog
-from scripts.ci.release_policy import ReleasePolicyError, ReleaseRequest, build_release_plan
 
 
 ROOT = Path(__file__).resolve().parents[2]
 SHA = "a" * 40
 IMAGE = "registry.example/ewallet/x@sha256:" + "b" * 64
 OLD_IMAGE = "registry.example/ewallet/x@sha256:" + "c" * 64
-CONTRACTS = ("mcp-agents", "agents", "streaming")
+CONTRACTS = ("mcp-servers", "agent-fleet", "coordinator", "streaming")
+WORKLOADS = ("mcp-cd-feature-rag", "mcp-cd-drift", "fleet-cd-feature-rag-specialist", "fleet-cd-drift-specialist",
+             "coordinator-cd")
+STORES = {"coordinator-cd-redis"}  # ephemeral stores run their own pinned image
 
 
 def contract(name: str) -> Contract:
@@ -55,7 +57,7 @@ class FakeKube:
         self.objects: dict[tuple[str, str], dict] = {}
         self.calls: list[tuple] = []
         if previous_image:
-            for name in ("mcp-cd-drift", "agent-cd-coordinator", "agent-cd-specialist"):  # workloads under test
+            for name in WORKLOADS:  # workloads under test
                 self.objects[("Deployment", name)] = {
                     "metadata": {"name": name, "namespace": CD_NAMESPACE},
                     "spec": {"replicas": 0, "template": {"spec": {"containers": [{"image": previous_image}]}}},
@@ -108,7 +110,7 @@ class ContractTest(unittest.TestCase):
     def test_a_contract_for_another_namespace_is_refused(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "x.json"
-            value = json.loads((ROOT / "jenkins/cd/agents.contract.json").read_text())
+            value = json.loads((ROOT / "jenkins/cd/coordinator.contract.json").read_text())
             path.write_text(json.dumps({**value, "namespace": "ewallet-agents"}))
             with self.assertRaisesRegex(ReleaseError, "targets ewallet-agents"):
                 Contract.load(path)
@@ -143,7 +145,7 @@ class ContractTest(unittest.TestCase):
     def test_every_workload_runs_the_released_digest(self):
         for name in CONTRACTS:
             for item in rendered(name):
-                if item["kind"] in {"Deployment", "Job"} and item["metadata"]["name"] != "agent-cd-redis":
+                if item["kind"] in {"Deployment", "Job"} and item["metadata"]["name"] not in STORES:
                     self.assertEqual(IMAGE, deployment_image(item))
 
     def test_requests_fit_the_namespace_quota(self):
@@ -159,7 +161,7 @@ class ContractTest(unittest.TestCase):
             self.assertLessEqual(total, 2.0)
 
     def test_no_source_file_holds_a_token(self):
-        text = (ROOT / contract("mcp-agents").manifest).read_text()
+        text = (ROOT / contract("mcp-servers").manifest).read_text()
         self.assertIn("__SMOKE_TOKEN__", text)
         self.assertNotIn('"token":"', text.replace('"token":"__SMOKE_TOKEN__"', ""))
 
@@ -199,137 +201,144 @@ class SummaryTest(unittest.TestCase):
 
 class ReleaseFlowTest(ReleaseCase):
     def test_a_passing_release_parks_the_workload_and_removes_transients(self):
-        kube = FakeKube(passing_log("mcp-agents"))
-        verdict = self.run_it("mcp-agents", kube)
+        kube = FakeKube(passing_log("mcp-servers"))
+        verdict = self.run_it("mcp-servers", kube)
         self.assertEqual("PASS", verdict["verdict"])
         self.assertIn(("apply", "Deployment", "mcp-cd-drift", 0), kube.calls)
-        self.assertIn(("remove", "ConfigMap", "mcp-cd-auth"), kube.calls)
+        self.assertIn(("remove", "ConfigMap", "mcp-cd-auth-drift"), kube.calls)
         self.assertIn(("remove", "Job", "mcp-cd-smoke"), kube.calls)
-        self.assertNotIn(("ConfigMap", "mcp-cd-auth"), kube.objects)
+        self.assertNotIn(("ConfigMap", "mcp-cd-auth-drift"), kube.objects)
+        self.assertNotIn(("ConfigMap", "mcp-cd-auth-feature-rag"), kube.objects)
+        self.assertIn(("apply", "Deployment", "mcp-cd-feature-rag", 0), kube.calls)
 
     def test_the_verdict_records_the_rollback_target(self):
-        kube = FakeKube(passing_log("mcp-agents"), previous_image=OLD_IMAGE)
-        verdict = self.run_it("mcp-agents", kube)
-        self.assertEqual({"mcp-cd-drift": OLD_IMAGE}, verdict["previous_images"])
+        kube = FakeKube(passing_log("mcp-servers"), previous_image=OLD_IMAGE)
+        verdict = self.run_it("mcp-servers", kube)
+        self.assertEqual({"mcp-cd-feature-rag": OLD_IMAGE, "mcp-cd-drift": OLD_IMAGE}, verdict["previous_images"])
+        self.assertEqual("rehearsal", verdict["environment"])
+        self.assertFalse(verdict["production_changed"])
         self.assertTrue((self.evidence / "verdict.json").is_file())
 
     def test_a_job_only_release_works(self):
         self.assertEqual("PASS", self.run_it("streaming", FakeKube(passing_log("streaming")))["verdict"])
 
     def test_a_failed_job_restores_the_previous_workload(self):
-        kube = FakeKube(passing_log("mcp-agents"), previous_image=OLD_IMAGE, job_passes=False)
+        kube = FakeKube(passing_log("mcp-servers"), previous_image=OLD_IMAGE, job_passes=False)
         with self.assertRaises(ReleaseError):
-            self.run_it("mcp-agents", kube)
+            self.run_it("mcp-servers", kube)
         self.assertEqual(OLD_IMAGE, deployment_image(kube.objects[("Deployment", "mcp-cd-drift")]))
         self.assertEqual(0, kube.objects[("Deployment", "mcp-cd-drift")]["spec"]["replicas"])
         self.assertEqual("FAIL", json.loads((self.evidence / "verdict.json").read_text())["verdict"])
 
     def test_a_failed_first_release_removes_the_workload(self):
-        kube = FakeKube(passing_log("mcp-agents"), job_passes=False)
+        kube = FakeKube(passing_log("mcp-servers"), job_passes=False)
         with self.assertRaises(ReleaseError):
-            self.run_it("mcp-agents", kube)
+            self.run_it("mcp-servers", kube)
         self.assertNotIn(("Deployment", "mcp-cd-drift"), kube.objects)
 
     def test_a_contract_mismatch_fails_even_when_the_job_succeeds(self):
-        log = 'CD_SMOKE_SUMMARY {"release_sha": "%s", "tool_found": false}\n' % SHA
+        expected = contract("mcp-servers").expected
+        log = "CD_SMOKE_SUMMARY " + json.dumps({**expected, "release_sha": SHA, "drift-mcp": {
+            **expected["drift-mcp"], "tools_missing": ["drift_detection"]}}) + "\n"
         with self.assertRaises(ReleaseError):
-            self.run_it("mcp-agents", FakeKube(log))
+            self.run_it("mcp-servers", FakeKube(log))
 
     def test_another_digest_in_the_cluster_fails(self):
-        kube = FakeKube(passing_log("mcp-agents"), drift_image=OLD_IMAGE)
+        kube = FakeKube(passing_log("mcp-servers"), drift_image=OLD_IMAGE)
         with self.assertRaisesRegex(ReleaseError, "does not run"):
-            self.run_it("mcp-agents", kube)
+            self.run_it("mcp-servers", kube)
 
     def test_transients_are_removed_after_a_failure(self):
         kube = FakeKube("no summary")
         with self.assertRaises(ReleaseError):
-            self.run_it("mcp-agents", kube)
-        self.assertIn(("remove", "ConfigMap", "mcp-cd-auth"), kube.calls)
+            self.run_it("mcp-servers", kube)
+        self.assertIn(("remove", "ConfigMap", "mcp-cd-auth-drift"), kube.calls)
 
-    def test_agents_need_a_verified_prompt_registry(self):
-        kube = FakeKube(passing_log("agents"))
+    def registry_contract(self):
+        value = json.loads((ROOT / "jenkins/cd/coordinator.contract.json").read_text())
+        path = self.evidence / "registry.contract.json"
+        path.write_text(json.dumps({**value, "requires_prompt_registry": True}))
+        return Contract.load(path)
+
+    def test_a_contract_requiring_the_prompt_registry_fails_without_it(self):
+        kube = FakeKube(passing_log("coordinator"))
         with self.assertRaisesRegex(ReleaseError, "prompt registry"):
-            self.run_it("agents", kube, prompt_registry_ok=False)
+            run_release(self.registry_contract(), kube, rendered("coordinator"), image=IMAGE, git_sha=SHA,
+                        evidence=self.evidence, prompt_registry_ok=False)
         self.assertNotIn("wait", [call[0] for call in kube.calls])
 
-    def test_agents_pass_with_a_verified_prompt_registry(self):
-        kube = FakeKube(passing_log("agents"))
-        verdict = self.run_it("agents", kube, prompt_registry_ok=True)
-        self.assertTrue(verdict["prompt_registry_verified"])
-        self.assertNotIn(("Deployment", "agent-cd-redis"), kube.objects)
-        self.assertNotIn(("Service", "agent-cd-redis"), kube.objects)
-        self.assertNotIn(("ConfigMap", "agent-cd-env"), kube.objects)
-        self.assertEqual(0, kube.objects[("Deployment", "agent-cd-coordinator")]["spec"]["replicas"])
+    def test_coordinator_rehearsal_parks_and_removes_its_store(self):
+        kube = FakeKube(passing_log("coordinator"))
+        verdict = self.run_it("coordinator", kube)
+        self.assertEqual("PASS", verdict["verdict"])
+        self.assertNotIn(("Deployment", "coordinator-cd-redis"), kube.objects)
+        self.assertNotIn(("Service", "coordinator-cd-redis"), kube.objects)
+        self.assertNotIn(("ConfigMap", "coordinator-cd-env"), kube.objects)
+        self.assertEqual(0, kube.objects[("Deployment", "coordinator-cd")]["spec"]["replicas"])
 
     def test_a_parked_workload_keeps_no_token(self):
-        kube = FakeKube(passing_log("agents"))
-        run_release(contract("agents"), kube, rendered("agents", "s3cret-token"), image=IMAGE, git_sha=SHA,
-                    evidence=self.evidence, prompt_registry_ok=True)
+        kube = FakeKube(passing_log("coordinator"))
+        run_release(contract("coordinator"), kube, rendered("coordinator", "s3cret-token"), image=IMAGE, git_sha=SHA,
+                    evidence=self.evidence)
         self.assertNotIn("s3cret-token", str(kube.objects))
 
+    def test_fleet_rehearsal_covers_both_specialists(self):
+        kube = FakeKube(passing_log("agent-fleet"))
+        self.assertEqual("PASS", self.run_it("agent-fleet", kube)["verdict"])
+        for name in ("fleet-cd-feature-rag-specialist", "fleet-cd-drift-specialist"):
+            self.assertIn(("wait", name), kube.calls)
+            self.assertEqual(0, kube.objects[("Deployment", name)]["spec"]["replicas"])
+
+    def test_one_specialist_failing_fails_the_fleet(self):
+        expected = contract("agent-fleet").expected
+        log = "CD_SMOKE_SUMMARY " + json.dumps({**expected, "release_sha": SHA, "drift_specialist": {
+            **expected["drift_specialist"], "card_status": 503}}) + "\n"
+        with self.assertRaisesRegex(ReleaseError, "drift_specialist"):
+            self.run_it("agent-fleet", FakeKube(log))
+
+    def test_a_deployment_that_never_becomes_ready_fails_the_rehearsal(self):
+        class NeverReady(FakeKube):
+            def wait_deployment(self, name, timeout):
+                raise ReleaseError(f"Deployment {name} did not become ready within 300 s")
+
+        kube = NeverReady(passing_log("mcp-servers"), previous_image=OLD_IMAGE)
+        with self.assertRaisesRegex(ReleaseError, "did not become ready"):
+            self.run_it("mcp-servers", kube)
+        self.assertEqual(OLD_IMAGE, deployment_image(kube.objects[("Deployment", "mcp-cd-drift")]))
+
     def test_a_token_never_reaches_the_verdict(self):
-        kube = FakeKube(passing_log("mcp-agents"))
-        run_release(contract("mcp-agents"), kube, rendered("mcp-agents", "s3cret-token"), image=IMAGE, git_sha=SHA,
+        kube = FakeKube(passing_log("mcp-servers"))
+        run_release(contract("mcp-servers"), kube, rendered("mcp-servers", "s3cret-token"), image=IMAGE, git_sha=SHA,
                     evidence=self.evidence)
         self.assertNotIn("s3cret-token", (self.evidence / "verdict.json").read_text())
 
 
-class CatalogIntegrationTest(unittest.TestCase):
-    def setUp(self):
-        self.catalog = load_catalog(ROOT / "jenkins/catalog/components.json")
+class ApiKubeTest(unittest.TestCase):
+    def test_wait_ready_timeout_is_an_error_not_a_pass(self):
+        """``wait_ready`` reports a timeout by returning False; the driver used to ignore it."""
 
-    def request(self, branch, components=("mcp-agents",), sha=SHA, checkout=SHA, approved=True):
-        return ReleaseRequest(True, approved, "owner" if approved else "", branch, sha, checkout, "gke-cpu",
-                              "in-cluster", components, "manifest.json", "evidence")
+        class Client:
+            def request(self, method, path, body=None, content_type="", raw=False):
+                return {"metadata": {"generation": 2}, "spec": {"replicas": 1},
+                        "status": {"observedGeneration": 1, "readyReplicas": 0}}
 
-    def manifest(self, sha=SHA, image="mcp-tools", reference=IMAGE):
-        return {"git_sha": sha, "images": {image: {"digest_ref": reference}}}
+        with self.assertRaisesRegex(ReleaseError, "did not become ready"):
+            ApiKube(Client(), CD_NAMESPACE).wait_deployment("x", 0)
 
-    def test_each_component_has_a_handler_contract_and_target(self):
-        self.catalog.validate(ROOT)
-        for name in CONTRACTS:
-            component = self.catalog.components[name]
-            self.assertTrue((ROOT / component.deploy_handler).is_file())
-            self.assertTrue(component.release_artifact_selector.startswith("images/"))
 
-    def test_a_handler_is_allowlisted_by_the_dispatcher(self):
-        text = (ROOT / "scripts/ci/deploy_release.sh").read_text()
-        for name in CONTRACTS:
-            self.assertIn(self.catalog.components[name].deploy_handler, text)
-
-    def test_a_release_branch_ships_only_its_component(self):
-        plan = build_release_plan(self.catalog, self.request("release/mcp-agents", ("mcp-agents", "rag-pipeline")),
-                                  self.manifest())
-        self.assertEqual(["mcp-agents"], [unit["component"] for unit in plan["units"]])
-
-    def test_a_sha_mismatch_is_refused(self):
-        with self.assertRaisesRegex(ReleasePolicyError, "checkout SHA"):
-            build_release_plan(self.catalog, self.request("release/mcp-agents", checkout="f" * 40), self.manifest())
-        with self.assertRaisesRegex(ReleasePolicyError, "manifest git SHA"):
-            build_release_plan(self.catalog, self.request("release/mcp-agents"), self.manifest(sha="f" * 40))
-
-    def test_a_tag_instead_of_a_digest_is_refused(self):
-        with self.assertRaisesRegex(ReleasePolicyError, "immutable digest"):
-            build_release_plan(self.catalog, self.request("release/mcp-agents"),
-                               self.manifest(reference="registry.example/x:latest"))
-
-    def test_an_unapproved_release_is_refused(self):
-        with self.assertRaisesRegex(ReleasePolicyError, "owner approval"):
-            build_release_plan(self.catalog, self.request("release/mcp-agents", approved=False), self.manifest())
-
-    def test_a_non_release_branch_is_refused(self):
-        with self.assertRaisesRegex(ReleasePolicyError, "release/"):
-            build_release_plan(self.catalog, self.request("feature/x"), self.manifest())
-
+class SeedingTest(unittest.TestCase):
     def test_jenkins_rbac_is_not_broadened(self):
         bindings = subprocess.run(["git", "grep", "-l", "kind: ClusterRoleBinding", "--", "infra/kubernetes/jenkins"],
                                   cwd=ROOT, capture_output=True, text=True).stdout.split()
         for path in bindings:
             self.assertIn("PROPOSAL", "\n".join((ROOT / path).read_text().splitlines()[:3]))
 
-    def test_the_agents_job_is_seeded_from_its_release_branch(self):
+    def test_every_release_group_has_one_seeded_job(self):
         text = (ROOT / "infra/kubernetes/jenkins/jenkins.yaml").read_text()
-        self.assertIn("createPipeline('edai2-cd-agents', '*/release/agents'", text)
+        groups = json.loads((ROOT / "jenkins/catalog/release-units.json").read_text())["groups"]
+        for branch in groups:
+            self.assertEqual(1, text.count(f"'*/{branch}'"), branch)
+        self.assertNotIn("'*/release/agents'", text)
 
 
 class SmokeManifestTest(unittest.TestCase):

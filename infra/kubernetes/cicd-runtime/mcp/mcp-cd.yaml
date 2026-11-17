@@ -1,12 +1,28 @@
-# Row 34 bounded CD target: the drift MCP server from the released image, with its
-# real authentication and transport stack. Its tool backends stay unavailable here,
-# because this namespace reaches neither Feast nor production data. Placeholders are
-# filled by scripts/ci/bounded_cd.py.
+# Row 34 rehearsal of both MCP servers from the released mcp-server image, each with its
+# production factory and real authentication/authorization stack (per-run token, tool grants).
+# Backends stay unreachable on purpose: this namespace reaches neither Feast, KServe, Redis nor
+# production data (default-deny NetworkPolicy), so the smoke proves readiness, refusal of an
+# anonymous call and authenticated tool discovery for each server, not a business answer.
+# feature-rag-mcp gets a throwaway local Feast registry path and an unresolvable Redis address;
+# its factory builds without contacting them (checked offline by tests/ci/test_cd_rehearsals.py).
+# Placeholders are filled by scripts/ci/bounded_cd.py.
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: mcp-cd-auth
+  name: mcp-cd-auth-feature-rag
+  namespace: ewallet-cicd
+  labels: {app.kubernetes.io/part-of: ewallet-cicd}
+data:
+  # Per-run throwaway token for this isolated workload; removed during cleanup.
+  CD_SMOKE_TOKEN: "__SMOKE_TOKEN__"
+  EWALLET_MCP_SERVICE_TOKENS: '{"version":1,"credentials":[{"id":"cd-smoke","subject":"cd-smoke","token":"__SMOKE_TOKEN__","status":"active"}]}'
+  EWALLET_MCP_TOOL_GRANTS: '{"cd-smoke":["feature_lookup","fraud_scoring","knowledge_search"]}'
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mcp-cd-auth-drift
   namespace: ewallet-cicd
   labels: {app.kubernetes.io/part-of: ewallet-cicd}
 data:
@@ -15,14 +31,79 @@ data:
   EWALLET_MCP_SERVICE_TOKENS: '{"version":1,"credentials":[{"id":"cd-smoke","subject":"cd-smoke","token":"__SMOKE_TOKEN__","status":"active"}]}'
   EWALLET_MCP_TOOL_GRANTS: '{"cd-smoke":["drift_detection"]}'
 ---
-apiVersion: v1
-kind: ConfigMap
+apiVersion: apps/v1
+kind: Deployment
 metadata:
-  name: mcp-cd-smoke-script
+  name: mcp-cd-feature-rag
+  namespace: ewallet-cicd
+  labels: {app.kubernetes.io/name: mcp-cd-feature-rag, app.kubernetes.io/part-of: ewallet-cicd}
+  annotations: {ewallet.io/release-sha: "__RELEASE_SHA__"}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app.kubernetes.io/name: mcp-cd-feature-rag}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: mcp-cd-feature-rag, app.kubernetes.io/part-of: ewallet-cicd}
+      annotations: {ewallet.io/release-sha: "__RELEASE_SHA__"}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: mcp-server
+          image: __IMAGE__
+          # The production factory (infra/helm/llm-agent-platform/values.yaml mcpServices.services.*.app).
+          command: ["python", "-m", "uvicorn", "--factory", "ai_platform.llm_agent.tools.service:create_feature_rag_app",
+                    "--host", "0.0.0.0", "--port", "8080", "--no-access-log"]
+          env:
+            - {name: EWALLET_GIT_SHA, value: "__RELEASE_SHA__"}
+            - {name: EWALLET_IMAGE_DIGEST, value: "__IMAGE_DIGEST__"}
+            - {name: EWALLET_CONFIG_REVISION, value: cd-smoke}
+            - {name: EWALLET_PROMPT_REVISION, value: cd-smoke}
+            - {name: EWALLET_MODEL_REVISION, value: cd-smoke}
+            - {name: EWALLET_FEATURE_REVISION, value: cd-smoke}
+            - {name: EWALLET_CORPUS_REVISION, value: cd-smoke}
+            - {name: EWALLET_FEAST_REPO_PATH, value: ai_platform/features/feast/online_repo}
+            - {name: EWALLET_FEAST_REGISTRY, value: /tmp/cd-smoke-registry.db}
+            - {name: EWALLET_REDIS_CONNECTION_STRING, value: cd-smoke-redis.invalid:6379}
+            - {name: EWALLET_KSERVE_BASE_URL, value: http://cd-smoke-kserve.invalid}
+            - {name: EWALLET_MODEL_NAME, value: fraud-detector}
+            - {name: EWALLET_MODEL_VERSION, value: "1"}
+            - {name: EWALLET_RAG_MANIFEST, value: data/llm_agent/rag/fraud-policy-v1/manifest.json}
+            - {name: EWALLET_RAG_ONLINE_STORE, value: redis}
+          envFrom:
+            - configMapRef: {name: mcp-cd-auth-feature-rag}
+          ports: [{name: http, containerPort: 8080}]
+          readinessProbe:
+            httpGet: {path: /health/ready, port: http}
+            periodSeconds: 5
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: 500m, memory: 768Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: tmp
+          emptyDir: {sizeLimit: 64Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-cd-feature-rag
   namespace: ewallet-cicd
   labels: {app.kubernetes.io/part-of: ewallet-cicd}
-data:
-  cd_smoke.py: ""
+spec:
+  selector: {app.kubernetes.io/name: mcp-cd-feature-rag}
+  ports:
+    - {name: http, port: 8080, targetPort: http}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -49,6 +130,7 @@ spec:
       containers:
         - name: mcp-server
           image: __IMAGE__
+          # The production factory (infra/helm/llm-agent-platform/values.yaml mcpServices.services.*.app).
           command: ["python", "-m", "uvicorn", "--factory", "ai_platform.llm_agent.tools.service:create_drift_app",
                     "--host", "0.0.0.0", "--port", "8080", "--no-access-log"]
           env:
@@ -60,14 +142,14 @@ spec:
             - {name: EWALLET_FEATURE_REVISION, value: cd-smoke}
             - {name: EWALLET_CORPUS_REVISION, value: cd-smoke}
           envFrom:
-            - configMapRef: {name: mcp-cd-auth}
+            - configMapRef: {name: mcp-cd-auth-drift}
           ports: [{name: http, containerPort: 8080}]
           readinessProbe:
             httpGet: {path: /health/ready, port: http}
             periodSeconds: 5
           resources:
             requests: {cpu: 100m, memory: 256Mi}
-            limits: {cpu: 500m, memory: 512Mi}
+            limits: {cpu: 500m, memory: 768Mi}
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -88,6 +170,15 @@ spec:
   selector: {app.kubernetes.io/name: mcp-cd-drift}
   ports:
     - {name: http, port: 8080, targetPort: http}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mcp-cd-smoke-script
+  namespace: ewallet-cicd
+  labels: {app.kubernetes.io/part-of: ewallet-cicd}
+data:
+  cd_smoke.py: ""
 ---
 apiVersion: batch/v1
 kind: Job
@@ -113,10 +204,13 @@ spec:
       containers:
         - name: smoke
           image: __IMAGE__
-          command: ["python", "/cd-smoke/cd_smoke.py", "--mode", "mcp", "--target", "http://mcp-cd-drift:8080",
-                    "--tool", "drift_detection", "--release-sha", "__RELEASE_SHA__"]
+          command: ["python", "/cd-smoke/cd_smoke.py", "--mode", "mcp", "--release-sha", "__RELEASE_SHA__",
+                    "--target", "feature-rag-mcp=http://mcp-cd-feature-rag:8080",
+                    "--tool", "feature-rag-mcp=feature_lookup,fraud_scoring,knowledge_search",
+                    "--target", "drift-mcp=http://mcp-cd-drift:8080",
+                    "--tool", "drift-mcp=drift_detection"]
           envFrom:
-            - configMapRef: {name: mcp-cd-auth}
+            - configMapRef: {name: mcp-cd-auth-drift}
           resources:
             requests: {cpu: 50m, memory: 128Mi}
             limits: {cpu: 250m, memory: 256Mi}

@@ -1,0 +1,24 @@
+{
+  "component": "agent-fleet",
+  "namespace": "ewallet-cicd",
+  "manifest": "infra/kubernetes/cicd-runtime/agents/agent-fleet-cd.yaml",
+  "deployments": [
+    "fleet-cd-feature-rag-specialist",
+    "fleet-cd-drift-specialist"
+  ],
+  "smoke_job": "fleet-cd-smoke",
+  "uses_token": true,
+  "expected": {
+    "mode": "agent",
+    "feature_rag_specialist": {
+      "card_status": 200,
+      "card_name_matches": true,
+      "malformed_task_rejected": true
+    },
+    "drift_specialist": {
+      "card_status": 200,
+      "card_name_matches": true,
+      "malformed_task_rejected": true
+    }
+  }
+}

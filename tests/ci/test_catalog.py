@@ -205,11 +205,19 @@ class CommandEnvironmentTests(unittest.TestCase):
 
     def test_streaming_runs_with_the_locked_flink_extra(self) -> None:
         # Without pyflink, test_source_wiring_contract is skipped as NOT_EXECUTED.
-        (command,) = self.catalog.components["streaming"].commands
-        argv = shlex.split(command)
-        self.assertEqual(_project_of(command), "infra/docker/flink-benchmark")
+        flink, sinks = self.catalog.components["streaming"].commands
+        argv = shlex.split(flink)
+        self.assertEqual(_project_of(flink), "infra/docker/flink-benchmark")
         self.assertEqual(argv[argv.index("--extra") + 1], "flink")
         self.assertIn("apache-flink", _locked_packages("infra/docker/flink-benchmark"))
+        # The sink and dual-store tests import the GCS/Feast stack, which only the sinks image locks.
+        self.assertEqual(_project_of(sinks), "infra/docker/streaming-sinks")
+
+    def test_every_streaming_test_module_runs_exactly_once(self) -> None:
+        modules = sorted(f"tests.streaming.{path.stem}" for path in (ROOT / "tests/streaming").glob("test_*.py"))
+        selected = [item for command in self.catalog.components["streaming"].commands
+                    for item in shlex.split(command) if item.startswith("tests.streaming.")]
+        self.assertEqual(sorted(selected), modules)
 
 
 class InvalidCatalogTests(unittest.TestCase):
@@ -281,6 +289,33 @@ class InvalidCatalogTests(unittest.TestCase):
         data["components"]["one"]["build_artifact"] = "missing/Dockerfile"
         with self.assertRaisesRegex(CatalogError, "build artifact does not exist"):
             load_catalog(self.write_catalog(data)).validate(ROOT)
+
+    def test_rejects_a_component_that_deploys(self) -> None:
+        data = self.base()
+        data["components"]["one"]["deploy_handler"] = "scripts/llm_agent/deploy_atomic.sh"
+        with self.assertRaisesRegex(CatalogError, "deployments are release units"):
+            load_catalog(self.write_catalog(data)).validate(ROOT)
+
+    def test_rejects_missing_or_duplicate_images(self) -> None:
+        data = self.base()
+        data["components"]["one"]["images"] = [{"name": "missing-image", "dockerfile": "missing/Dockerfile"}]
+        with self.assertRaisesRegex(CatalogError, "Dockerfile does not exist"):
+            load_catalog(self.write_catalog(data)).validate(ROOT)
+        data = self.base()
+        image = {"name": "rag-ingestion", "dockerfile": "infra/docker/rag-ingestion/Dockerfile"}
+        data["components"]["one"]["images"] = [image]
+        data["components"]["two"] = {**data["components"]["one"], "images": [image]}
+        with self.assertRaisesRegex(CatalogError, "built by both"):
+            load_catalog(self.write_catalog(data)).validate(ROOT)
+
+    def test_repository_images_cover_every_release_artifact(self) -> None:
+        catalog = load_catalog(CATALOG)
+        self.assertEqual(
+            {name: owner for name, (owner, _) in catalog.images.items()},
+            {"rag-ingestion": "rag-pipeline", "mcp-tools": "mcp-agents", "g3-byo-coordinator": "agents",
+             "flink-block-a": "streaming", "streaming-sinks": "streaming"})
+        for component in catalog.components.values():
+            self.assertIsNone(component.deploy_handler)
 
     def test_rejects_duplicate_component_identifier(self) -> None:
         text = json.dumps(self.base())

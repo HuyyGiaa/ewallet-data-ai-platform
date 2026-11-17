@@ -124,15 +124,21 @@ class FakeHelm:
         raise AssertionError(command)
 
 
+def overlay(tmp_path, image: str = NEW):
+    path = tmp_path / "promotion.yaml"
+    path.write_text(yaml.safe_dump(rs.promotion_values("llm-agent-mcp", {"mcp-tools": image}, SHA)))
+    return path
+
+
 def test_chart_that_differs_from_the_deployed_release_is_refused(tmp_path) -> None:
     deployed, local = yaml.safe_dump(deployment()), yaml.safe_dump(deployment(replicas=2))
-    problems = rs.check_promotion(FakeHelm(deployed, [local, local]), "llm-agent-mcp", "c", tmp_path / "p", tmp_path / "v")
+    problems = rs.check_promotion(FakeHelm(deployed, [local, local]), "llm-agent-mcp", "c", overlay(tmp_path), tmp_path / "v")
     assert problems and "differs from the deployed release" in problems[0]
 
 
 def test_clean_promotion_passes_and_never_writes(tmp_path) -> None:
     helm = FakeHelm(yaml.safe_dump(deployment()), [yaml.safe_dump(deployment()), yaml.safe_dump(deployment(NEW))])
-    assert rs.check_promotion(helm, "llm-agent-mcp", "c", tmp_path / "p", tmp_path / "v") == []
+    assert rs.check_promotion(helm, "llm-agent-mcp", "c", overlay(tmp_path), tmp_path / "v") == []
     assert not [call for call in helm.calls if "upgrade" in call]
 
 
@@ -140,8 +146,35 @@ def test_problems_never_print_values(tmp_path, capsys) -> None:
     after = deployment()
     after["spec"]["template"]["spec"]["containers"][0]["env"][1]["value"] = "super-secret-value"
     helm = FakeHelm(yaml.safe_dump(deployment()), [yaml.safe_dump(deployment()), yaml.safe_dump(after)])
-    rs.report(rs.check_promotion(helm, "llm-agent-mcp", "c", tmp_path / "p", tmp_path / "v"))
+    rs.report(rs.check_promotion(helm, "llm-agent-mcp", "c", overlay(tmp_path), tmp_path / "v"))
     assert "super-secret-value" not in capsys.readouterr().out
+
+
+def test_a_promotion_that_changes_no_image_is_refused_as_a_no_op(tmp_path) -> None:
+    # The removed feature-rag-specialist mapping rendered nothing under the Sandbox-only chart, so
+    # check and promote reported success without changing anything (P0 CICD-P0-F04).
+    same = yaml.safe_dump(deployment())
+    problems = rs.check_promotion(FakeHelm(same, [same, same]), "llm-agent-mcp", "c", overlay(tmp_path), tmp_path / "v")
+    assert any("NO_OP_PROMOTION" in item for item in problems)
+
+
+def test_a_release_already_running_the_digest_is_already_current(tmp_path) -> None:
+    current = yaml.safe_dump(deployment(NEW))
+    assert rs.check_promotion(FakeHelm(current, [current, current]), "llm-agent-mcp", "c", overlay(tmp_path),
+                              tmp_path / "v") == []
+    documents = rs.load_documents(current)
+    assert rs.promotion_effect(documents, documents, [NEW]) == "ALREADY_CURRENT"
+
+
+def test_only_the_coordinator_and_mcp_images_are_promotable() -> None:
+    assert rs.PROMOTABLE == {"llm-agent": {"coordinator": ("agents", "coordinator", "byo", "image")},
+                             "llm-agent-mcp": {"mcp-tools": ("mcpServices", "image")}}
+    with pytest.raises(rs.ReleaseStateError):
+        rs.promotion_values("llm-agent", {"feature-rag-specialist": NEW}, SHA)
+
+
+def test_sandbox_agents_count_as_declared_images() -> None:
+    assert rs.declared_images({"kind": "SandboxAgent", "spec": {"byo": {"deployment": {"image": NEW}}}}) == [NEW]
 
 
 @pytest.mark.parametrize("arguments", [["promote"], ["promote", "--execute"]])

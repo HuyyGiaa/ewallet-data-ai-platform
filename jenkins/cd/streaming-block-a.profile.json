@@ -1,0 +1,19 @@
+{
+  "description": "Non-secret bindings of the isolated Block A verification campaign that the streaming release unit runs (docs/runbooks/edai2/FEATURE_STORE_RUNBOOK.md section 4). Every storage path is derived from the per-build verify-* namespace, so a run never reads or overwrites another run's data. The bucket is the one data_platform/config/dataset_identity.py binds to rehearsal-5gb-v1; the owner supplies the snapshot and feature-run ids named in owner_parameters.",
+  "namespace_prefix": "verify-cicd-",
+  "dataset_version": "rehearsal-5gb-v1",
+  "bucket": "ewallet-data-ai-platform-hg26-rehearsal-5gb-data",
+  "online_store_id": "rehearsal-stream",
+  "feast_redis_secret": "feast-online-redis-stream",
+  "estimated_redis_bytes": 10000000,
+  "owner_parameters": [
+    "FEAST_SNAPSHOT_ID",
+    "FEATURE_RUN_ID"
+  ],
+  "paths": {
+    "OFFLINE_FEATURE_ROOT": "gs://{bucket}/streaming-features",
+    "FEAST_OFFLINE_DATA_ROOT": "gs://{bucket}/streaming-features/campaigns/{namespace}/runs/{namespace}/offline",
+    "HISTORY_ROOT": "gs://{bucket}/streaming-history/{namespace}",
+    "ONLINE_REGISTRY_URI": "gs://{bucket}/features/registries/{dataset_version}/online/{namespace}/registry.db"
+  }
+}

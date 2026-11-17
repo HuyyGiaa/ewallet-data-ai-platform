@@ -1,4 +1,10 @@
-"""Load and validate the authoritative CI/CD component catalog."""
+"""Load and validate the authoritative CI/CD component catalog.
+
+A component is a CI unit: source ownership, locked Python projects, test commands and the
+container images built from it. Components never deploy anything. Deployment is described
+by typed release units (``jenkins/catalog/release-units.json``, ``scripts/ci/release_units.py``),
+so a change-detection scope can no longer turn into a deployment by itself.
+"""
 
 from __future__ import annotations
 
@@ -6,8 +12,11 @@ import argparse
 from dataclasses import dataclass
 import json
 from pathlib import Path
+import re
 import shlex
 from typing import Any
+
+IMAGE_NAME = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
 
 
 class CatalogError(ValueError):
@@ -24,6 +33,15 @@ def _object_without_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, An
 
 
 @dataclass(frozen=True)
+class ImageSpec:
+    """One container image built from a component at the release SHA."""
+
+    name: str
+    dockerfile: str
+    target: str | None = None
+
+
+@dataclass(frozen=True)
 class Component:
     name: str
     maturity: str
@@ -36,6 +54,7 @@ class Component:
     deploy_handler: str | None
     release_artifact_selector: str | None = None
     build_target: str | None = None
+    images: tuple[ImageSpec, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -48,6 +67,13 @@ class Catalog:
     profiles: dict[str, tuple[str, ...]]
     runtime_units: dict[str, str]
     non_runtime_paths: tuple[str, ...] = ()
+
+    @property
+    def images(self) -> dict[str, tuple[str, ImageSpec]]:
+        """Every buildable image, keyed by image name: (owning component, spec)."""
+
+        return {spec.name: (name, spec) for name, component in sorted(self.components.items())
+                for spec in component.images}
 
     @property
     def active_components(self) -> tuple[str, ...]:
@@ -83,22 +109,20 @@ class Catalog:
         for name, component in self.components.items():
             if component.maturity not in {"active", "extension-only"}:
                 raise CatalogError(f"component {name} has invalid maturity {component.maturity}")
-            if component.maturity == "extension-only" and (
-                component.deployment_target or component.deploy_handler
-            ):
-                raise CatalogError(f"extension-only component {name} cannot define a deployment target")
-            if component.deploy_handler and not component.deployment_target:
-                raise CatalogError(f"component {name} deploy handler requires a deployment target")
-            if component.deploy_handler and not component.release_artifact_selector:
-                raise CatalogError(f"component {name} deploy handler requires a release artifact selector")
-            if component.release_artifact_selector and not component.deploy_handler:
-                raise CatalogError(f"component {name} release artifact selector requires a deploy handler")
-            if component.release_artifact_selector:
-                selector = component.release_artifact_selector.split("/", 1)
-                if len(selector) != 2 or selector[0] not in {"artifacts", "images"} or not selector[1]:
-                    raise CatalogError(f"component {name} has invalid release artifact selector")
-            if component.deploy_handler and not (root / component.deploy_handler).is_file():
-                raise CatalogError(f"component {name} deploy handler does not exist: {component.deploy_handler}")
+            if component.deploy_handler or component.deployment_target or component.release_artifact_selector:
+                if component.maturity == "extension-only":
+                    raise CatalogError(f"extension-only component {name} cannot define a deployment target")
+                raise CatalogError(
+                    f"component {name} declares a deployment; components only test and build, "
+                    "deployments are release units (jenkins/catalog/release-units.json)"
+                )
+            for spec in component.images:
+                if not IMAGE_NAME.fullmatch(spec.name):
+                    raise CatalogError(f"component {name} has invalid image name {spec.name!r}")
+                if not (root / spec.dockerfile).is_file():
+                    raise CatalogError(f"component {name} image {spec.name} Dockerfile does not exist: {spec.dockerfile}")
+                if component.maturity != "active":
+                    raise CatalogError(f"extension-only component {name} cannot build release image {spec.name}")
             if component.build_artifact and not (root / component.build_artifact).is_file():
                 raise CatalogError(
                     f"component {name} build artifact does not exist: {component.build_artifact}"
@@ -121,6 +145,12 @@ class Catalog:
                     raise CatalogError(f"component {name} has an empty command")
                 if "|| true" in command:
                     raise CatalogError(f"component {name} command hides failures")
+        image_owners: dict[str, str] = {}
+        for name, component in self.components.items():
+            for spec in component.images:
+                if spec.name in image_owners:
+                    raise CatalogError(f"image {spec.name} is built by both {image_owners[spec.name]} and {name}")
+                image_owners[spec.name] = name
         self._validate_acyclic()
 
     def runtime_units_for_components(
@@ -130,19 +160,6 @@ class Catalog:
         return tuple(sorted(
             name for name, owner in self.runtime_units.items() if owner in selected
         ))
-
-    def release_components(self, components: tuple[str, ...] | list[str], branch: str) -> tuple[str, ...]:
-        """Narrow a change-detection scope to what one release branch may ship.
-
-        Scope follows dependencies, so a RAG change also selects the agents that use
-        RAG. Those agents must not ship with it: ``release/<component>`` releases that
-        component alone. A branch not named after a component keeps the whole scope.
-        """
-
-        name = branch.removeprefix("release/")
-        if name in self.components:
-            return tuple(item for item in components if item == name)
-        return tuple(components)
 
     def _validate_acyclic(self) -> None:
         state: dict[str, int] = {}
@@ -184,6 +201,24 @@ def _strings(data: Any, field: str, context: str) -> tuple[str, ...]:
     return tuple(data)
 
 
+def _images(data: Any, context: str) -> tuple[ImageSpec, ...]:
+    if data is None:
+        return ()
+    if not isinstance(data, list):
+        raise CatalogError(f"{context}.images must be a list")
+    specs = []
+    for item in data:
+        if not isinstance(item, dict) or set(item) - {"name", "dockerfile", "target"}:
+            raise CatalogError(f"{context}.images entries take only name, dockerfile and target")
+        name, dockerfile, target = item.get("name"), item.get("dockerfile"), item.get("target")
+        if not isinstance(name, str) or not isinstance(dockerfile, str) or not dockerfile:
+            raise CatalogError(f"{context}.images entries need a name and a dockerfile")
+        if target is not None and (not isinstance(target, str) or not target):
+            raise CatalogError(f"{context}.images target must be a non-empty string")
+        specs.append(ImageSpec(name, dockerfile, target))
+    return tuple(specs)
+
+
 def load_catalog(path: Path) -> Catalog:
     try:
         raw = json.loads(
@@ -210,6 +245,7 @@ def load_catalog(path: Path) -> Catalog:
             deploy_handler=item.get("deploy_handler"),
             release_artifact_selector=item.get("release_artifact_selector"),
             build_target=item.get("build_target"),
+            images=_images(item.get("images"), name),
         )
     return Catalog(
         schema_version=raw.get("schema_version"),
@@ -240,12 +276,20 @@ def main() -> int:
     parser.add_argument("command", choices=("validate", "matrix", "json"))
     parser.add_argument("--catalog", type=Path, default=Path("jenkins/catalog/components.json"))
     parser.add_argument("--root", type=Path, default=Path.cwd())
+    parser.add_argument("--units", type=Path, default=Path("jenkins/catalog/release-units.json"))
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     catalog = load_catalog(args.catalog)
     catalog.validate(args.root)
     if args.command == "validate":
-        content = json.dumps({"status": "PASS", "components": len(catalog.components), "python_projects": len(catalog.python_projects)}, sort_keys=True) + "\n"
+        from scripts.ci.release_units import load_release_units
+
+        units = load_release_units(args.units)
+        units.validate(args.root, catalog)
+        content = json.dumps({"status": "PASS", "components": len(catalog.components),
+                              "python_projects": len(catalog.python_projects),
+                              "images": len(catalog.images), "release_units": len(units.units),
+                              "release_groups": len(units.groups)}, sort_keys=True) + "\n"
     elif args.command == "matrix":
         content = catalog.matrix_markdown()
     else:

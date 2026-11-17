@@ -1,0 +1,132 @@
+{
+  "schema_version": 1,
+  "lock_namespace": "ewallet-cicd",
+  "units": {
+    "rag-pipeline": {
+      "description": "RAG ingestion task image: suspended CronJob in ewallet-cicd and one smoke Job against an ephemeral Redis (rubric row 33).",
+      "kind": "rag-rehearsal",
+      "stage": "rehearsal",
+      "components": ["rag-pipeline"],
+      "images": ["rag-ingestion"],
+      "depends_on": [],
+      "prerequisites": [],
+      "contract": "jenkins/cd/rag-pipeline.contract.json",
+      "target_namespace": "ewallet-cicd",
+      "lock": "cicd-rag-pipeline",
+      "verify": ["rag-smoke-contract", "cronjob-digest-readback"]
+    },
+    "prompt-registry-gate": {
+      "description": "Read-only Prompt Management gate: every Git-pinned prompt version is byte-identical in agentregistry (rubric row 34). It does not prove runtime consumption.",
+      "kind": "registry-gate",
+      "stage": "rehearsal",
+      "components": ["prompt-management"],
+      "images": [],
+      "depends_on": [],
+      "prerequisites": ["prompt-registry-reachable"],
+      "target_namespace": "ewallet-prompts",
+      "lock": "prompt-registry",
+      "verify": ["prompt-registry-matches-git", "chart-prompt-checksums-match-manifest"]
+    },
+    "mcp-servers": {
+      "description": "Both MCP servers (feature-rag-mcp, drift-mcp) from the released mcp-server image with their real authentication stack (rubric row 34).",
+      "kind": "bounded-rehearsal",
+      "stage": "rehearsal",
+      "components": ["mcp-agents"],
+      "images": ["mcp-tools"],
+      "depends_on": [],
+      "prerequisites": [],
+      "contract": "jenkins/cd/mcp-servers.contract.json",
+      "target_namespace": "ewallet-cicd",
+      "lock": "cicd-agent-platform",
+      "verify": ["mcp-ready", "mcp-anonymous-refused", "mcp-tools-list"]
+    },
+    "agent-fleet": {
+      "description": "Feature-RAG and Drift Specialists run with the SandboxAgent actor contract of infra/kubernetes/agent-sandbox/fleet.yaml.tmpl (cmd, args, port 80, PATH/PYTHONPATH) from the released image (rubric row 34).",
+      "kind": "bounded-rehearsal",
+      "stage": "rehearsal",
+      "components": ["agents"],
+      "images": ["g3-byo-coordinator"],
+      "depends_on": ["mcp-servers"],
+      "prerequisites": [],
+      "contract": "jenkins/cd/agent-fleet.contract.json",
+      "target_namespace": "ewallet-cicd",
+      "lock": "cicd-agent-platform",
+      "verify": ["sandbox-actor-contract", "agent-card", "malformed-task-rejected"]
+    },
+    "coordinator": {
+      "description": "Fraud Coordinator (BYO Agent) from the released image with its idempotency Redis and the Sandbox-only specialist routing configuration (rubric row 35).",
+      "kind": "bounded-rehearsal",
+      "stage": "rehearsal",
+      "components": ["agents"],
+      "images": ["g3-byo-coordinator"],
+      "depends_on": ["mcp-servers", "agent-fleet"],
+      "prerequisites": [],
+      "contract": "jenkins/cd/coordinator.contract.json",
+      "target_namespace": "ewallet-cicd",
+      "lock": "cicd-agent-platform",
+      "verify": ["agent-card", "malformed-task-rejected"]
+    },
+    "streaming-block-a": {
+      "description": "Flink and sink images: image smoke in ewallet-cicd, then the real Block A topology (Redpanda, Flink, sink Jobs) for one verify-* campaign with dedicated GCS prefixes and the rehearsal-stream Online Store, with Offline/Online parity (rubric row 36).",
+      "kind": "streaming-verification",
+      "stage": "rehearsal",
+      "components": ["streaming"],
+      "images": ["flink-block-a", "streaming-sinks"],
+      "depends_on": [],
+      "prerequisites": ["rehearsal-stream-online-store", "dedicated-gcs-prefixes"],
+      "contract": "jenkins/cd/streaming.contract.json",
+      "profile": "jenkins/cd/streaming-block-a.profile.json",
+      "target_namespace": "ml-platform",
+      "lock": "block-a-verification",
+      "verify": ["image-smoke", "flink-job-running", "offline-written", "online-written", "offline-online-parity", "run-identity"]
+    },
+    "mcp-servers-production": {
+      "description": "Image-only promotion of llm-agent-mcp through Helm (scripts/ci/release_state.py checks, helm upgrade --atomic).",
+      "kind": "helm-image-promotion",
+      "stage": "production",
+      "components": ["mcp-agents"],
+      "images": ["mcp-tools"],
+      "depends_on": [],
+      "prerequisites": ["platform-status"],
+      "helm": {"release": "llm-agent-mcp", "namespace": "ewallet-mcp", "image_values": {"mcp-tools": "mcp-tools"}},
+      "target_namespace": "ewallet-mcp",
+      "lock": "production-release",
+      "verify": ["platform-status"]
+    },
+    "agent-fleet-production": {
+      "description": "The production SandboxAgent fleet (ewallet-sandbox) is not Helm-managed; its image promotion stays an owner-approved operation.",
+      "kind": "fleet-image-promotion",
+      "stage": "production",
+      "components": ["agents"],
+      "images": ["g3-byo-coordinator"],
+      "depends_on": ["mcp-servers-production"],
+      "prerequisites": ["platform-status"],
+      "automation": "blocked",
+      "blocked_reason": "The SandboxAgent fleet is created outside Helm and the live WorkerPool must not be migrated into a release (frozen platform; owner decision D3). Promote it with the reviewed operator procedure.",
+      "target_namespace": "ewallet-sandbox",
+      "lock": "production-release",
+      "verify": ["platform-status"]
+    },
+    "coordinator-production": {
+      "description": "Image-only promotion of the Coordinator in llm-agent through Helm, then business E2E against the live Sandbox fleet.",
+      "kind": "helm-image-promotion",
+      "stage": "production",
+      "components": ["agents"],
+      "images": ["g3-byo-coordinator"],
+      "depends_on": ["mcp-servers-production"],
+      "prerequisites": ["platform-status", "sandbox-fleet-live"],
+      "helm": {"release": "llm-agent", "namespace": "default", "image_values": {"g3-byo-coordinator": "coordinator"}},
+      "target_namespace": "ewallet-agents",
+      "lock": "production-release",
+      "verify": ["platform-status", "registry-readback", "e2e-fraud", "e2e-drift", "e2e-combined", "security-negatives"]
+    }
+  },
+  "groups": {
+    "release/rag-pipeline": {"rehearsal": ["rag-pipeline"], "production": []},
+    "release/prompt-management": {"rehearsal": ["prompt-registry-gate"], "production": []},
+    "release/mcp-agents": {"rehearsal": ["prompt-registry-gate", "mcp-servers", "agent-fleet"], "production": ["mcp-servers-production"]},
+    "release/agent-fleet": {"rehearsal": ["mcp-servers", "agent-fleet"], "production": ["mcp-servers-production", "agent-fleet-production"]},
+    "release/coordinator": {"rehearsal": ["mcp-servers", "agent-fleet", "coordinator"], "production": ["mcp-servers-production", "coordinator-production"]},
+    "release/streaming": {"rehearsal": ["streaming-block-a"], "production": []}
+  }
+}

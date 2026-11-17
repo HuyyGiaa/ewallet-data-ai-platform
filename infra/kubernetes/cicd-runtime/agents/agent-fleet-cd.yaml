@@ -1,0 +1,195 @@
+# Row 34 rehearsal of the Agent fleet: the Feature-RAG and Drift Specialists from the released
+# image, started exactly as their production SandboxAgents start them
+# (infra/kubernetes/agent-sandbox/fleet.yaml.tmpl: cmd, args, port 80, PATH, PYTHONPATH and the
+# typed-only flags; tests/ci/test_cd_rehearsals.py fails if the two drift apart).
+#
+# What this does NOT reproduce: the Substrate WorkerPool, gVisor, actor suspend/resume and the
+# kagent A2A sandbox route. A rehearsal Substrate pool needs separate staging infrastructure and
+# approval (docs/edai2/cicd/CICD_REHEARSAL_RUNBOOK.md). The live fleet is checked after promotion by
+# scripts/ci/runtime_verify.py (agent_replay status + business E2E).
+# The Specialists' MCP Gateway URL is fixed in the frozen application, so here it is unreachable
+# (default-deny); the smoke proves the actor boots with its contract, serves its Agent Card and
+# rejects a malformed task without executing it.
+# Placeholders are filled by scripts/ci/bounded_cd.py.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fleet-cd-feature-rag-specialist
+  namespace: ewallet-cicd
+  labels: {app.kubernetes.io/name: fleet-cd-feature-rag-specialist, app.kubernetes.io/part-of: ewallet-cicd}
+  annotations: {ewallet.io/release-sha: "__RELEASE_SHA__", ewallet.io/actor-contract: infra/kubernetes/agent-sandbox/fleet.yaml.tmpl}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app.kubernetes.io/name: fleet-cd-feature-rag-specialist}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: fleet-cd-feature-rag-specialist, app.kubernetes.io/part-of: ewallet-cicd}
+      annotations: {ewallet.io/release-sha: "__RELEASE_SHA__"}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
+        # The actor listens on port 80 (EWALLET_AGENT_PORT); a safe sysctl lets a non-root user bind it.
+        sysctls: [{name: net.ipv4.ip_unprivileged_port_start, value: "0"}]
+      containers:
+        - name: actor
+          image: __IMAGE__
+          # Actor contract of the production SandboxAgent: kagent copies cmd/args verbatim, with no
+          # image entrypoint, so PATH and PYTHONPATH are explicit (agent-sandbox/README.md).
+          command: ["/opt/venv/bin/python"]
+          args: ["-m", "ai_platform.llm_agent.byo_feature_rag_specialist"]
+          env:
+            - {name: EWALLET_AGENT_PORT, value: "80"}
+            - {name: PYTHONPATH, value: /workspace}
+            - {name: PATH, value: /opt/venv/bin:/usr/local/bin:/usr/bin:/bin}
+            - {name: PYTHONUNBUFFERED, value: "1"}
+            - {name: EWALLET_NL_INTAKE_ENABLED, value: "false"}
+            - {name: EWALLET_MCP_MAX_ATTEMPTS, value: "3"}
+            - {name: EWALLET_MCP_SERVICE_TOKEN, value: "__SMOKE_TOKEN__"}
+          ports: [{name: a2a, containerPort: 80}]
+          readinessProbe:
+            tcpSocket: {port: a2a}
+            periodSeconds: 5
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: 500m, memory: 512Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: tmp
+          emptyDir: {sizeLimit: 64Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fleet-cd-feature-rag-specialist
+  namespace: ewallet-cicd
+  labels: {app.kubernetes.io/part-of: ewallet-cicd}
+spec:
+  selector: {app.kubernetes.io/name: fleet-cd-feature-rag-specialist}
+  ports:
+    - {name: a2a, port: 80, targetPort: a2a}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fleet-cd-drift-specialist
+  namespace: ewallet-cicd
+  labels: {app.kubernetes.io/name: fleet-cd-drift-specialist, app.kubernetes.io/part-of: ewallet-cicd}
+  annotations: {ewallet.io/release-sha: "__RELEASE_SHA__", ewallet.io/actor-contract: infra/kubernetes/agent-sandbox/fleet.yaml.tmpl}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app.kubernetes.io/name: fleet-cd-drift-specialist}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: fleet-cd-drift-specialist, app.kubernetes.io/part-of: ewallet-cicd}
+      annotations: {ewallet.io/release-sha: "__RELEASE_SHA__"}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
+        # The actor listens on port 80 (EWALLET_AGENT_PORT); a safe sysctl lets a non-root user bind it.
+        sysctls: [{name: net.ipv4.ip_unprivileged_port_start, value: "0"}]
+      containers:
+        - name: actor
+          image: __IMAGE__
+          # Actor contract of the production SandboxAgent: kagent copies cmd/args verbatim, with no
+          # image entrypoint, so PATH and PYTHONPATH are explicit (agent-sandbox/README.md).
+          command: ["/opt/venv/bin/python"]
+          args: ["-m", "ai_platform.llm_agent.byo_drift_specialist"]
+          env:
+            - {name: EWALLET_AGENT_PORT, value: "80"}
+            - {name: PYTHONPATH, value: /workspace}
+            - {name: PATH, value: /opt/venv/bin:/usr/local/bin:/usr/bin:/bin}
+            - {name: PYTHONUNBUFFERED, value: "1"}
+            - {name: EWALLET_MCP_MAX_ATTEMPTS, value: "3"}
+            - {name: EWALLET_MCP_SERVICE_TOKEN, value: "__SMOKE_TOKEN__"}
+          ports: [{name: a2a, containerPort: 80}]
+          readinessProbe:
+            tcpSocket: {port: a2a}
+            periodSeconds: 5
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: 500m, memory: 512Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: tmp
+          emptyDir: {sizeLimit: 64Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fleet-cd-drift-specialist
+  namespace: ewallet-cicd
+  labels: {app.kubernetes.io/part-of: ewallet-cicd}
+spec:
+  selector: {app.kubernetes.io/name: fleet-cd-drift-specialist}
+  ports:
+    - {name: a2a, port: 80, targetPort: a2a}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fleet-cd-smoke-script
+  namespace: ewallet-cicd
+  labels: {app.kubernetes.io/part-of: ewallet-cicd}
+data:
+  cd_smoke.py: ""
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: fleet-cd-smoke
+  namespace: ewallet-cicd
+  labels: {app.kubernetes.io/part-of: ewallet-cicd}
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 300
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels: {app.kubernetes.io/part-of: ewallet-cicd}
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: smoke
+          image: __IMAGE__
+          command: ["/opt/venv/bin/python", "/cd-smoke/cd_smoke.py", "--mode", "agent", "--release-sha", "__RELEASE_SHA__",
+                    "--target", "feature_rag_specialist=http://fleet-cd-feature-rag-specialist:80",
+                    "--target", "drift_specialist=http://fleet-cd-drift-specialist:80"]
+          resources:
+            requests: {cpu: 50m, memory: 128Mi}
+            limits: {cpu: 250m, memory: 256Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: script, mountPath: /cd-smoke, readOnly: true}
+      volumes:
+        - name: script
+          configMap: {name: fleet-cd-smoke-script}

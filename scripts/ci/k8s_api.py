@@ -35,6 +35,7 @@ KINDS: dict[str, tuple[str, str]] = {
     "StatefulSet": ("apis/apps/v1", "statefulsets"),
     "Job": ("apis/batch/v1", "jobs"),
     "CronJob": ("apis/batch/v1", "cronjobs"),
+    "Lease": ("apis/coordination.k8s.io/v1", "leases"),
 }
 
 
@@ -120,6 +121,20 @@ def apply(client: Client, documents: list[dict[str, Any]]) -> list[str]:
         )
         applied.append(f"{document['kind']}/{metadata['namespace']}/{metadata['name']}")
     return applied
+
+
+def create(client: Client, document: dict[str, Any]) -> dict[str, Any]:
+    """Create-only (POST): an existing object is an HTTP 409 ``KubeError``, never an overwrite."""
+
+    metadata = document["metadata"]
+    return client.request("POST", _path(document["kind"], metadata["namespace"]), document)
+
+
+def delete_exact(client: Client, kind: str, namespace: str, name: str, resource_version: str) -> None:
+    """Delete only the observed version of an object (precondition), so a newer holder is never removed."""
+
+    client.request("DELETE", _path(kind, namespace, name),
+                   {"preconditions": {"resourceVersion": resource_version}, "propagationPolicy": "Background"})
 
 
 def get(client: Client, kind: str, namespace: str, name: str) -> dict[str, Any]:

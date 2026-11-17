@@ -7,8 +7,8 @@ and decides the verdict. It exits non-zero only when a check could not run.
 
 Each mode proves real behaviour rather than a process start:
 
-* ``mcp``: an unauthenticated tool request is refused, an authenticated MCP
-  ``tools/list`` returns the expected tool, and the service reports the release SHA.
+* ``mcp``: for every server, readiness, an unauthenticated tool request is refused and an
+  authenticated MCP ``tools/list`` returns every expected tool (``tools_missing`` is empty).
 * ``agent``: both Agent Cards are served and a malformed A2A task is rejected rather
   than executed.
 * ``streaming``: the released image runs Block A's event semantics on a deterministic
@@ -45,7 +45,7 @@ def http(url: str, *, body: Any = None, headers: Mapping[str, str] | None = None
         return error.code, error.read().decode(errors="replace")
 
 
-def check_mcp(base: str, token: str, expected_tool: str) -> dict[str, object]:
+def check_mcp(base: str, token: str, expected_tools: list[str]) -> dict[str, object]:
     """Check authentication and tool discovery on a running MCP server."""
 
     payload = {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}
@@ -59,7 +59,7 @@ def check_mcp(base: str, token: str, expected_tool: str) -> dict[str, object]:
         "ready_status": ready,
         "anonymous_status": anonymous,
         "tools_list_status": status,
-        "tool_found": expected_tool in tools,
+        "tools_missing": sorted(set(expected_tools) - set(tools)) if status == 200 else sorted(expected_tools),
     }
 
 
@@ -177,14 +177,17 @@ def main() -> int:
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mode", choices=("mcp", "agent", "streaming"), required=True)
-    parser.add_argument("--target", action="append", default=[], help="name=url for each agent or the MCP url")
-    parser.add_argument("--tool", default="")
+    parser.add_argument("--target", action="append", default=[], help="name=url for each agent or MCP server")
+    parser.add_argument("--tool", action="append", default=[], help="mcp: name=tool[,tool...] for each server")
     parser.add_argument("--release-sha", required=True)
     args = parser.parse_args()
     summary: dict[str, object] = {"mode": args.mode, "release_sha": args.release_sha}
     try:
         if args.mode == "mcp":
-            summary.update(check_mcp(args.target[0], os.environ["CD_SMOKE_TOKEN"], args.tool))
+            tools = {name: value.split(",") for name, _, value in (item.partition("=") for item in args.tool)}
+            for item in args.target:
+                name, url = item.split("=", 1)
+                summary[name] = check_mcp(url, os.environ["CD_SMOKE_TOKEN"], tools[name])
         elif args.mode == "agent":
             for item in args.target:
                 name, url = item.split("=", 1)

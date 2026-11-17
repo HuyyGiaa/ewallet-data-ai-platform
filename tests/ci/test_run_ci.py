@@ -6,16 +6,30 @@ import tempfile
 import unittest
 
 from scripts.ci.catalog import Catalog, Component
-from scripts.ci.run_ci import execute_components, worktree_metadata
+from scripts.ci.run_ci import (
+    EMPTY_SCOPE, NO_TESTS, execute_components, junit_counts, selection_status, worktree_metadata, write_verdict,
+)
 
 
 class RecordingExecutor:
-    def __init__(self, exit_codes: list[int] | None = None) -> None:
+    """Records commands; a test command writes a JUnit report with ``tests`` cases, like the real runners."""
+
+    def __init__(self, exit_codes: list[int] | None = None, tests: int = 2) -> None:
         self.calls: list[tuple[list[str], Path]] = []
         self.exit_codes = list(exit_codes or [])
+        self.tests = tests
 
     def __call__(self, argv: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
         self.calls.append((argv, cwd))
+        report = None
+        if "--junit-xml" in argv:
+            report = Path(argv[argv.index("--junit-xml") + 1])
+        for item in argv:
+            if item.startswith("--junitxml="):
+                report = Path(item.split("=", 1)[1])
+        if report is not None and self.tests >= 0:
+            report.parent.mkdir(parents=True, exist_ok=True)
+            report.write_text(f'<testsuite name="s" tests="{self.tests}" failures="0" errors="0" skipped="0"/>')
         code = self.exit_codes.pop(0) if self.exit_codes else 0
         return subprocess.CompletedProcess(argv, code, stdout="out\n", stderr="err\n" if code else "")
 
@@ -209,6 +223,90 @@ class RunnerTests(unittest.TestCase):
         state = worktree_metadata(repository)
         self.assertTrue(state["working_tree_dirty"])
         self.assertRegex(state["working_tree_status_sha256"], r"^[0-9a-f]{64}$")
+
+
+class TestCountingTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        self.catalog = Catalog(
+            schema_version=1, shared_paths=(), python_projects=(), legacy_path_components={"x/": ("x",)},
+            profiles={"all": ("one",)}, runtime_units={"u": "one"},
+            components={"one": Component(name="one", maturity="active", source_paths=("x",), dependencies=(),
+                                         python_projects=(), commands=("python3 -m unittest tests.a",),
+                                         build_artifact=None, deployment_target=None, deploy_handler=None)})
+
+    def run_one(self, executor):  # type: ignore[no-untyped-def]
+        return execute_components(self.catalog, ("one",), self.root, self.root / "ev", executor=executor,
+                                  tool_lookup=lambda name: f"/tools/{name}", metadata={})
+
+    def test_a_green_test_command_without_test_cases_fails(self) -> None:
+        for tests in (0, -1):  # an empty report, and no report at all
+            with self.subTest(tests=tests):
+                outcome = self.run_one(RecordingExecutor(tests=tests))
+                self.assertEqual(NO_TESTS, outcome.exit_code)
+                self.assertEqual("NO_TESTS_EXECUTED", outcome.results[-1]["classification"])
+
+    def test_test_cases_are_counted_from_junit(self) -> None:
+        outcome = self.run_one(RecordingExecutor(tests=5))
+        self.assertEqual(0, outcome.exit_code)
+        self.assertEqual({"tests": 5, "failures": 0, "errors": 0, "skipped": 0}, outcome.results[-1]["test_cases"])
+        self.assertEqual("test", outcome.results[-1]["kind"])
+
+    def test_junit_counts_reads_testsuites(self) -> None:
+        path = self.root / "j.xml"
+        path.write_text('<testsuites><testsuite tests="2" failures="1"/><testsuite tests="3" skipped="1"/></testsuites>')
+        self.assertEqual({"tests": 5, "failures": 1, "errors": 0, "skipped": 1}, junit_counts(path))
+        path.write_text("<broken")
+        self.assertIsNone(junit_counts(path))
+
+
+class ProjectEnvironmentTests(unittest.TestCase):
+    def test_each_project_gets_a_stable_environment_outside_the_checkout(self) -> None:
+        from scripts.ci.run_ci import project_environment
+
+        root = Path("/work/repo")
+        a = project_environment(["/x/uv", "run", "--locked", "--project", "infra/docker/llm-agent-tooling"], root, root)
+        b = project_environment(["/x/uv", "sync", "--locked"], root / "infra/docker/llm-agent-tooling", root)
+        c = project_environment(["/x/uv", "run", "--project", "infra/docker/streaming-sinks"], root, root)
+        self.assertEqual(a, b)
+        self.assertNotEqual(a, c)
+        self.assertNotIn("llm-agent", str(a))
+        self.assertFalse(str(a).startswith(str(root)))
+        self.assertIsNone(project_environment(["/x/python3", "-c", "1"], root, root))
+
+
+class SelectionStatusTests(unittest.TestCase):
+    def test_documentation_only_is_not_applicable_not_a_pass(self) -> None:
+        status, reason, code, _ = selection_status({"full_validation_reason": "non_runtime_paths_only"}, (), (), None)
+        self.assertEqual(("NOT_APPLICABLE", 0), (status, code))
+        self.assertIn("documentation-only", reason)
+
+    def test_profile_that_owns_nothing_is_not_applicable(self) -> None:
+        status, reason, code, _ = selection_status({}, ("streaming",), (), "llm-agent")
+        self.assertEqual(("NOT_APPLICABLE", 0), (status, code))
+        self.assertIn("streaming", reason)
+
+    def test_an_unexplained_empty_scope_fails(self) -> None:
+        status, reason, code, _ = selection_status({"full_validation_reason": None}, (), (), None)
+        self.assertEqual(("FAILED", EMPTY_SCOPE), (status, code))
+        self.assertIn("EMPTY_SCOPE", reason)
+
+    def test_a_selection_runs(self) -> None:
+        self.assertIsNone(selection_status({}, ("one",), ("one",), None)[0])
+
+    def test_the_verdict_separates_commands_from_test_cases(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            verdict = write_verdict(Path(tmp), status="PASS", reason=None, scope_components=("one",),
+                                    selected=("one",), profile=None, results=[
+                                        {"stage": "uv-sync:x", "kind": "environment", "exit_code": 0},
+                                        {"stage": "component:one:1", "kind": "test", "exit_code": 0,
+                                         "test_cases": {"tests": 3, "failures": 0, "errors": 0, "skipped": 1}},
+                                        {"stage": "component:one:2", "kind": "check", "exit_code": 0}])
+            self.assertTrue((Path(tmp) / "ci-verdict.json").is_file())
+        self.assertEqual((3, 1, 1), (verdict["commands_executed"], verdict["test_commands"], verdict["check_commands"]))
+        self.assertEqual(3, verdict["test_cases"]["tests"])
 
 
 if __name__ == "__main__":

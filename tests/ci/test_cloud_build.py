@@ -14,8 +14,9 @@ from urllib.error import HTTPError
 
 from scripts.ci.catalog import load_catalog
 from scripts.ci.cloud_build import (
-    DOCKER_BUILDER, BuildError, Http, ImageSpec, Settings, build_image, build_request, release_image_specs,
-    source_archive,
+    DOCKER_BUILDER, LABEL_BUILDER, LABEL_DOCKERFILE, LABEL_REVISION, LABEL_TARGET, BuildError, Http, ImageSpec,
+    Registry, RegistryImage, Settings, build_image, build_or_reuse, build_request, expected_labels, image_specs,
+    reuse_existing, source_archive,
 )
 
 
@@ -29,6 +30,10 @@ TAG = f"asia-southeast1-docker.pkg.dev/proj-1/ewallet-platform/rag-ingestion:{SH
 
 
 class Response(io.BytesIO):
+    def __init__(self, data: bytes = b"", headers: dict | None = None) -> None:
+        super().__init__(data)
+        self.status, self.headers = 200, dict(headers or {})
+
     def __enter__(self):  # type: ignore[no-untyped-def]
         return self
 
@@ -78,6 +83,10 @@ class CloudBuildTests(unittest.TestCase):
         self.assertEqual(request["logsBucket"], "gs://proj-1-cicd-build-logs")
         self.assertEqual(request["steps"][0]["name"], DOCKER_BUILDER)
         self.assertIn(f"EWALLET_RELEASE_SHA={SHA}", request["steps"][0]["args"])
+        args = request["steps"][0]["args"]
+        for label in (f"{LABEL_REVISION}={SHA}", f"{LABEL_DOCKERFILE}=infra/docker/rag-ingestion/Dockerfile",
+                      f"{LABEL_TARGET}=", f"{LABEL_BUILDER}={DOCKER_BUILDER}"):
+            self.assertIn(label, args)
         self.assertEqual(request["images"], [TAG])
 
     def test_successful_build_returns_digest_and_source_provenance(self) -> None:
@@ -111,16 +120,16 @@ class CloudBuildTests(unittest.TestCase):
                     build_image(Http(google), SETTINGS, ImageSpec("rag-ingestion", "Dockerfile"), SHA,
                                 b"archive", Path(tmp), sleep=lambda _: None)
 
-    def test_release_specs_come_only_from_selected_deployable_catalog_components(self) -> None:
-        scope = ["rag-pipeline", "mcp-agents", "agents", "fraud-api"]
-        specs = release_image_specs(CATALOG, scope, "llm-agent", "release/rag-pipeline")
-        self.assertEqual(specs, [ImageSpec("rag-ingestion", "infra/docker/rag-ingestion/Dockerfile")])
-        self.assertEqual(release_image_specs(CATALOG, scope, "llm-agent", "release/mcp-agents"),
-                         [ImageSpec("mcp-tools", "infra/docker/llm-agent-tooling/Dockerfile", "mcp-server")])
-        self.assertEqual(release_image_specs(CATALOG, scope, "llm-agent", "release/agents"),
-                         [ImageSpec("g3-byo-coordinator", "infra/docker/g3-byo-coordinator/Dockerfile")])
-        self.assertEqual(release_image_specs(CATALOG, ["fraud-api"], "llm-agent"), [])
-        self.assertEqual(release_image_specs(CATALOG, ["llm-serving"], "llm-agent"), [])
+    def test_image_specs_come_from_the_catalog_for_exactly_the_planned_images(self) -> None:
+        self.assertEqual(image_specs(CATALOG, ["rag-ingestion"]),
+                         [ImageSpec("rag-ingestion", "infra/docker/rag-ingestion/Dockerfile")])
+        self.assertEqual(image_specs(CATALOG, ["mcp-tools", "g3-byo-coordinator"]),
+                         [ImageSpec("g3-byo-coordinator", "infra/docker/g3-byo-coordinator/Dockerfile"),
+                          ImageSpec("mcp-tools", "infra/docker/llm-agent-tooling/Dockerfile", "mcp-server")])
+        self.assertEqual([spec.name for spec in image_specs(CATALOG, ["streaming-sinks", "flink-block-a"])],
+                         ["flink-block-a", "streaming-sinks"])
+        with self.assertRaisesRegex(BuildError, "no catalog component builds"):
+            image_specs(CATALOG, ["g3-byo-feature-rag-specialist"])
 
     def test_operator_token_command_replaces_the_metadata_server(self) -> None:
         opened = []
@@ -142,6 +151,103 @@ class CloudBuildTests(unittest.TestCase):
             run("-c", "user.name=t", "-c", "user.email=t@e.invalid", "commit", "-q", "--allow-empty", "-m", "x")
             with self.assertRaisesRegex(BuildError, "not the release SHA"):
                 source_archive(Path(tmp), "f" * 40)
+
+
+SPEC = ImageSpec("mcp-tools", "infra/docker/llm-agent-tooling/Dockerfile", "mcp-server")
+DIGEST = "sha256:" + "2" * 64
+
+
+class StubRegistry:
+    def __init__(self, *answers: RegistryImage | None) -> None:
+        self.answers = list(answers)
+        self.lookups: list[tuple[str, str]] = []
+
+    def lookup(self, name: str, tag: str) -> RegistryImage | None:
+        self.lookups.append((name, tag))
+        return self.answers.pop(0)
+
+
+class ArtifactReuseTests(unittest.TestCase):
+    def test_an_existing_image_with_matching_provenance_is_reused_without_building(self) -> None:
+        registry = StubRegistry(RegistryImage(DIGEST, expected_labels(SPEC, SHA)))
+        google = FakeGoogle()
+        with tempfile.TemporaryDirectory() as tmp:
+            result = build_or_reuse(Http(google), registry, SETTINGS, SPEC, SHA, b"archive", Path(tmp))
+        self.assertTrue(result["reused"])
+        self.assertEqual(result["digest_ref"], f"asia-southeast1-docker.pkg.dev/proj-1/ewallet-platform/mcp-tools@{DIGEST}")
+        self.assertEqual("VERIFIED", result["registry_readback"])
+        self.assertFalse([call for call in google.calls if "cloudbuild" in call[1]], "nothing was built")
+
+    def test_conflicting_or_missing_provenance_is_refused(self) -> None:
+        cases = (
+            ({**expected_labels(SPEC, SHA), LABEL_REVISION: "f" * 40}, "built from"),
+            ({**expected_labels(SPEC, SHA), LABEL_TARGET: "runtime"}, "conflicting provenance"),
+            ({LABEL_REVISION: SHA}, "without build provenance labels"),
+        )
+        for labels, message in cases:
+            with self.subTest(message=message), self.assertRaisesRegex(BuildError, message):
+                reuse_existing(RegistryImage(DIGEST, labels), SETTINGS, SPEC, SHA)
+
+    def test_a_new_build_is_read_back_and_must_match(self) -> None:
+        reported = "sha256:" + "1" * 64
+        with tempfile.TemporaryDirectory() as tmp:
+            ok = build_or_reuse(Http(FakeGoogle()), StubRegistry(None, RegistryImage(reported, {})), SETTINGS,
+                                ImageSpec("rag-ingestion", "Dockerfile"), SHA, b"archive", Path(tmp), sleep=lambda _: None)
+            self.assertFalse(ok["reused"])
+            self.assertEqual("VERIFIED", ok["registry_readback"])
+            with self.assertRaisesRegex(BuildError, "does not resolve"):
+                build_or_reuse(Http(FakeGoogle()), StubRegistry(None, RegistryImage(DIGEST, {})), SETTINGS,
+                               ImageSpec("rag-ingestion", "Dockerfile"), SHA, b"archive", Path(tmp), sleep=lambda _: None)
+
+    def test_lookup_off_builds_and_records_the_skipped_readback(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            result = build_or_reuse(Http(FakeGoogle()), None, SETTINGS, ImageSpec("rag-ingestion", "Dockerfile"), SHA,
+                                    b"archive", Path(tmp), sleep=lambda _: None)
+        self.assertEqual("SKIPPED_BY_PARAMETER", result["registry_readback"])
+
+
+class FakeRegistryHttp:
+    """Docker Registry v2 responses; the token is never sent to the blob storage redirect."""
+
+    def __init__(self, status: int = 200, index: bool = False) -> None:
+        self.status, self.index = status, index
+        self.urls: list[str] = []
+
+    def opener(self, request, timeout):  # type: ignore[no-untyped-def]
+        url = request.full_url
+        self.urls.append(url)
+        assert request.get_header("Authorization", "").startswith("Basic "), url
+        if self.status != 200:
+            raise HTTPError(url, self.status, "x", {}, io.BytesIO(b""))
+        if "/blobs/" in url:
+            raise HTTPError(url, 307, "redirect", {"Location": "https://storage.example/blob"}, io.BytesIO(b""))
+        if url.endswith(f"/manifests/{SHA}") and self.index:
+            body = {"manifests": [{"digest": "sha256:" + "3" * 64, "platform": {"os": "linux", "architecture": "amd64"}}]}
+            return Response(json.dumps(body).encode(), headers={"Docker-Content-Digest": DIGEST})
+        return Response(json.dumps({"config": {"digest": "sha256:" + "4" * 64}}).encode(),
+                        headers={"Docker-Content-Digest": DIGEST})
+
+    def blob(self, request, timeout):  # type: ignore[no-untyped-def]
+        assert request.get_header("Authorization") is None
+        return Response(json.dumps({"config": {"Labels": {LABEL_REVISION: SHA}}}).encode())
+
+
+class RegistryClientTests(unittest.TestCase):
+    def registry(self, fake: FakeRegistryHttp) -> Registry:
+        http = Http(token_command=[sys.executable, "-c", "print('tok')"])
+        return Registry(http, SETTINGS, opener=fake.opener, blob_opener=fake.blob)
+
+    def test_reads_digest_and_labels_through_an_index(self) -> None:
+        fake = FakeRegistryHttp(index=True)
+        image = self.registry(fake).lookup("mcp-tools", SHA)
+        self.assertEqual(DIGEST, image.digest)
+        self.assertEqual({LABEL_REVISION: SHA}, image.labels)
+        self.assertTrue(fake.urls[0].startswith("https://asia-southeast1-docker.pkg.dev/v2/proj-1/ewallet-platform/mcp-tools/"))
+
+    def test_absent_tag_is_none_and_a_permission_error_fails_closed(self) -> None:
+        self.assertIsNone(self.registry(FakeRegistryHttp(status=404)).lookup("mcp-tools", SHA))
+        with self.assertRaisesRegex(BuildError, "artifactregistry.reader"):
+            self.registry(FakeRegistryHttp(status=403)).lookup("mcp-tools", SHA)
 
 
 if __name__ == "__main__":

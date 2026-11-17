@@ -233,7 +233,10 @@ class JenkinsfileTests(unittest.TestCase):
                 scripts.add(handler)
 
         self.assertIn("scripts/ci/deploy_release.sh", scripts)
-        self.assertIn("scripts/llm_agent/deploy_atomic.sh", scripts)
+        # deploy_atomic.sh stays an operator script (checked above) but is no longer a CD
+        # dispatch target: it upgraded the production llm-agent release from values-<env>.yaml
+        # alone (CI/CD rebuild, P0 finding CICD-P0-F01).
+        self.assertNotIn("scripts/llm_agent/deploy_atomic.sh", scripts)
         for script in scripts:
             path = ROOT / script
             self.assertTrue(path.exists(), script)

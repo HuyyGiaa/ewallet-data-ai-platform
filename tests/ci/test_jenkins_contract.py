@@ -63,11 +63,32 @@ class JenkinsSharedPipelineTests(unittest.TestCase):
     def test_shells_are_strict_and_evidence_archive_cannot_be_empty(self) -> None:
         self.assertGreaterEqual(self.text.count("set -euo pipefail"), 3)
         self.assertRegex(self.text, r"archiveArtifacts[^\n]+allowEmptyArchive: false")
-        self.assertIn("junit allowEmptyResults: true", self.text)
+        # Empty JUnit results are tolerated only when CI itself decided nothing needed testing.
+        self.assertIn("junit allowEmptyResults: (ciStatus == 'NOT_APPLICABLE')", self.text)
+        self.assertNotIn("junit allowEmptyResults: true", self.text)
 
-    def test_pipeline_records_missing_jenkins_runtime_as_unverified(self) -> None:
-        self.assertIn("jenkins_runtime_verified", self.text)
-        self.assertNotIn('"jenkins_runtime_verified": true', self.text)
+    def test_pipeline_records_build_identity_not_a_constant_runtime_flag(self) -> None:
+        self.assertNotIn("jenkins_runtime_verified", self.text)
+        self.assertIn("jenkins-build.txt", self.text)
+        self.assertIn("ci-verdict.json", self.text)
+
+    def test_a_release_needs_a_passing_ci_with_executed_tests(self) -> None:
+        self.assertIn("if (ciStatus != 'PASS')", self.text)
+        self.assertLess(self.text.index("if (ciStatus != 'PASS')"), self.text.index("stage('Controlled release gate')"))
+
+    def test_release_stages_plan_then_build_then_scan_then_rehearse(self) -> None:
+        order = [self.text.index(name) for name in (
+            "stage('Plan release units')", "stage('Build or reuse images (Cloud Build)')", "stage('Scan images')",
+            "stage('Rehearse release units')", "stage('Production approval')", "stage('Promote to production')")]
+        self.assertEqual(order, sorted(order))
+        self.assertIn("python3 -m scripts.ci.image_scan", self.text)
+        self.assertIn("--images-file", self.text)
+
+    def test_production_needs_its_own_flag_and_a_distinct_approver(self) -> None:
+        self.assertIn("if (params.PROMOTE_TO_PRODUCTION)", self.text)
+        self.assertIn("productionApprover == triggeredBy", self.text)
+        self.assertIn("--stage production --production-identity", self.text)
+        self.assertNotIn("deploy_atomic", self.text)
 
     def test_controlled_release_uses_owner_input_and_shared_policy_dispatcher(self) -> None:
         self.assertIn("input(", self.text)

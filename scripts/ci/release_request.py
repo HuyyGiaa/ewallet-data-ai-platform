@@ -3,7 +3,9 @@
 It replaces an inline heredoc in jenkins/pipeline/componentPipeline.groovy that
 had never executed until edai2-cd-rag-pipeline #5 (it passed a str to
 load_catalog). Components come from the change-detection scope, restricted to
-the job profile; approval, branch and SHA come from the Jenkins gate.
+the job profile; approval, branch and SHA come from the Jenkins gate. The stage is
+``rehearsal`` unless the production promotion gate set it; production also records who
+triggered the build (the approver must differ) and the deployer identity in use.
 """
 
 from __future__ import annotations
@@ -17,7 +19,8 @@ from scripts.ci.catalog import load_catalog
 
 def build_request(*, scope: dict, catalog_path: Path, profile: str, approved_by: str, branch: str,
                   git_sha: str, environment: str, kube_context: str, image_manifest: str,
-                  evidence_dir: str) -> dict:
+                  evidence_dir: str, stage: str = "rehearsal", triggered_by: str = "",
+                  production_identity: str = "") -> dict:
     catalog = load_catalog(catalog_path)
     selected = list(scope["components"])
     if profile != "platform":
@@ -34,6 +37,9 @@ def build_request(*, scope: dict, catalog_path: Path, profile: str, approved_by:
         "components": selected,
         "image_manifest_path": image_manifest,
         "evidence_dir": evidence_dir,
+        "stage": stage,
+        "triggered_by": triggered_by,
+        "production_identity": production_identity,
     }
 
 
@@ -49,13 +55,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--kube-context", required=True)
     parser.add_argument("--image-manifest", required=True)
     parser.add_argument("--evidence-dir", required=True)
+    parser.add_argument("--stage", choices=("rehearsal", "production"), default="rehearsal")
+    parser.add_argument("--triggered-by", default="")
+    parser.add_argument("--production-identity", default="")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
     request = build_request(
         scope=json.loads(args.scope.read_text(encoding="utf-8")), catalog_path=args.catalog,
         profile=args.profile, approved_by=args.approved_by, branch=args.branch, git_sha=args.git_sha,
         environment=args.environment, kube_context=args.kube_context, image_manifest=args.image_manifest,
-        evidence_dir=args.evidence_dir,
+        evidence_dir=args.evidence_dir, stage=args.stage, triggered_by=args.triggered_by,
+        production_identity=args.production_identity,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(request, indent=2, sort_keys=True) + "\n", encoding="utf-8")

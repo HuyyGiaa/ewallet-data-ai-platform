@@ -137,9 +137,15 @@ class ApiKube:
         delete(self.client, kind, self.namespace, name)
 
     def wait_deployment(self, name: str, timeout: float) -> None:
-        """Wait until a Deployment is available."""
+        """Wait until a Deployment is available.
 
-        wait_ready(self.client, "Deployment", self.namespace, name, timeout)
+        Raises:
+            ReleaseError: The Deployment did not become ready in time. ``wait_ready`` reports a
+                timeout by returning ``False``; ignoring it let a never-ready rehearsal continue.
+        """
+
+        if not wait_ready(self.client, "Deployment", self.namespace, name, timeout):
+            raise ReleaseError(f"Deployment {name} did not become ready within {timeout:.0f} s")
 
     def wait_for_job(self, name: str, timeout: float) -> bool:
         """Wait for a Job and return whether it succeeded."""
@@ -315,6 +321,9 @@ def run_release(
             kube.remove(kind, name)
     verdict = {
         "component": contract.component,
+        "environment": "rehearsal",
+        "namespace": contract.namespace,
+        "production_changed": False,
         "verdict": "FAIL" if failures else "PASS",
         "failures": failures,
         "release_sha": git_sha,
@@ -359,12 +368,18 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--contract", type=Path, required=True)
-    parser.add_argument("--image", required=True)
+    parser.add_argument("--image", action="append", required=True,
+                        help="the released digest reference, or NAME=REF as the release dispatcher passes it")
+    parser.add_argument("--unit", default="", help="release unit name (recorded only)")
     parser.add_argument("--git-sha", required=True)
     parser.add_argument("--evidence-dir", type=Path, required=True)
     parser.add_argument("--api", help="local API proxy, for dry runs")
     parser.add_argument("--prompt-registry", default="")
     args = parser.parse_args(argv)
+    references = {item.split("=", 1)[1] if "=" in item else item for item in args.image}
+    if len(references) != 1:
+        parser.error("a bounded rehearsal releases exactly one image")
+    args.image = references.pop()
     if not DIGEST_PATTERN.fullmatch(args.image):
         parser.error("image must be a digest reference")
     if not SHA_PATTERN.fullmatch(args.git_sha):

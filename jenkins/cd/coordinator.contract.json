@@ -1,0 +1,28 @@
+{
+  "component": "coordinator",
+  "namespace": "ewallet-cicd",
+  "manifest": "infra/kubernetes/cicd-runtime/agents/coordinator-cd.yaml",
+  "deployments": [
+    "coordinator-cd"
+  ],
+  "smoke_job": "coordinator-cd-smoke",
+  "uses_token": true,
+  "ephemeral": [
+    [
+      "Deployment",
+      "coordinator-cd-redis"
+    ],
+    [
+      "Service",
+      "coordinator-cd-redis"
+    ]
+  ],
+  "expected": {
+    "mode": "agent",
+    "fraud_coordinator": {
+      "card_status": 200,
+      "card_name_matches": true,
+      "malformed_task_rejected": true
+    }
+  }
+}

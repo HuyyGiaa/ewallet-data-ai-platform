@@ -1,0 +1,26 @@
+{
+  "component": "mcp-servers",
+  "namespace": "ewallet-cicd",
+  "manifest": "infra/kubernetes/cicd-runtime/mcp/mcp-cd.yaml",
+  "deployments": [
+    "mcp-cd-feature-rag",
+    "mcp-cd-drift"
+  ],
+  "smoke_job": "mcp-cd-smoke",
+  "uses_token": true,
+  "expected": {
+    "mode": "mcp",
+    "feature-rag-mcp": {
+      "ready_status": 200,
+      "anonymous_status": 401,
+      "tools_list_status": 200,
+      "tools_missing": []
+    },
+    "drift-mcp": {
+      "ready_status": 200,
+      "anonymous_status": 401,
+      "tools_list_status": 200,
+      "tools_missing": []
+    }
+  }
+}

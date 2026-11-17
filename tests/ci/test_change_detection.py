@@ -194,3 +194,23 @@ class GitScopeTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_sandbox_agent_platform_paths_have_owners() -> None:
+    """Both Specialists, the fleet manifest and the rehearsal contracts select the agents CI."""
+
+    from pathlib import Path as _Path
+
+    from scripts.ci.catalog import load_catalog as _load
+    from scripts.ci.change_detection import detect_scope as _detect
+
+    catalog = _load(_Path(__file__).resolve().parents[2] / "jenkins/catalog/components.json")
+    for path in ("ai_platform/llm_agent/byo_drift_specialist.py", "ai_platform/llm_agent/byo_feature_rag_specialist.py",
+                 "infra/kubernetes/agent-sandbox/fleet.yaml.tmpl", "infra/kubernetes/cicd-runtime/agents/agent-fleet-cd.yaml"):
+        scope = _detect(catalog, [path])
+        assert scope.full_validation_reason is None, path
+        assert "agents" in scope.components, path
+    scope = _detect(catalog, ["infra/docker/streaming-sinks/Dockerfile"])
+    assert scope.components == ("streaming",)
+    # jenkins/ is a shared path: a contract change validates everything, by design.
+    assert _detect(catalog, ["jenkins/cd/agent-fleet.contract.json"]).full_validation_reason == "shared_path_changed"

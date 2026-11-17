@@ -6,6 +6,15 @@ only) to the build bucket, and asks Cloud Build to run the repository
 Dockerfile as ``ewallet-cloudbuild``, which may push only to the approved
 Artifact Registry repository. The image manifest records the source object,
 its sha256 and generation, the build ID and the pushed digest.
+
+Artifact Registry tags are immutable (``immutable_tags = true``), so a rerun of
+the same SHA cannot push ``<name>:<sha>`` again. Before building, the tag is
+looked up: an existing image is reused only if its labels prove it was built
+from this SHA, Dockerfile, target and builder; a conflicting image fails the
+release. After a build, the tag is read back and must resolve to the digest
+Cloud Build reported. Reading the registry needs ``artifactregistry.reader`` for
+the Jenkins identity; without it the lookup fails closed, unless the job is run
+with ``--registry-lookup off`` (no reuse, no readback, recorded in the manifest).
 """
 
 from __future__ import annotations
@@ -24,7 +33,9 @@ import time
 from typing import Any, Callable
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
+
+from scripts.ci.catalog import ImageSpec  # one image description for the catalog and the build
 
 
 METADATA_TOKEN = ("http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token")
@@ -34,6 +45,13 @@ SHA = re.compile(r"^[0-9a-f]{40}$")
 IMAGE_NAME = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
 DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 TERMINAL = {"SUCCESS", "FAILURE", "INTERNAL_ERROR", "TIMEOUT", "CANCELLED", "EXPIRED"}
+LABEL_REVISION = "org.opencontainers.image.revision"
+LABEL_DOCKERFILE = "io.ewallet.build.dockerfile"
+LABEL_TARGET = "io.ewallet.build.target"
+LABEL_BUILDER = "io.ewallet.build.builder"
+MANIFEST_TYPES = ", ".join((
+    "application/vnd.oci.image.index.v1+json", "application/vnd.docker.distribution.manifest.list.v2+json",
+    "application/vnd.oci.image.manifest.v1+json", "application/vnd.docker.distribution.manifest.v2+json"))
 
 
 class BuildError(RuntimeError):
@@ -52,13 +70,6 @@ class Settings:
     @property
     def registry(self) -> str:
         return f"{self.region}-docker.pkg.dev/{self.project}/{self.repository}"
-
-
-@dataclass(frozen=True)
-class ImageSpec:
-    name: str
-    dockerfile: str
-    target: str | None = None
 
 
 class Http:
@@ -117,12 +128,21 @@ def source_archive(root: Path, sha: str) -> bytes:
                           check=True).stdout
 
 
+def expected_labels(spec: ImageSpec, sha: str) -> dict[str, str]:
+    """The provenance labels every release image carries, and a reused image must match."""
+
+    return {LABEL_REVISION: sha, LABEL_DOCKERFILE: spec.dockerfile, LABEL_TARGET: spec.target or "",
+            LABEL_BUILDER: DOCKER_BUILDER}
+
+
 def build_request(settings: Settings, spec: ImageSpec, sha: str, source: dict[str, Any]) -> dict[str, Any]:
     if not IMAGE_NAME.fullmatch(spec.name):
         raise BuildError(f"invalid image name {spec.name}")
     tag = f"{settings.registry}/{spec.name}:{sha}"
-    args = ["build", "-f", spec.dockerfile, "--build-arg", f"EWALLET_RELEASE_SHA={sha}",
-            "--label", f"org.opencontainers.image.revision={sha}", "-t", tag]
+    args = ["build", "-f", spec.dockerfile, "--build-arg", f"EWALLET_RELEASE_SHA={sha}"]
+    for key, value in expected_labels(spec, sha).items():
+        args += ["--label", f"{key}={value}"]
+    args += ["-t", tag]
     if spec.target:
         args += ["--target", spec.target]
     return {
@@ -199,28 +219,116 @@ def build_image(http: Http, settings: Settings, spec: ImageSpec, sha: str, archi
     }
 
 
-def release_image_specs(catalog: Any, components: list[str], profile: str, branch: str = "") -> list[ImageSpec]:
-    """Images to build: selected, profile-allowed, active components whose release reads ``images/<name>``.
+class _NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        return None
 
-    ``branch`` narrows the scope exactly as the release plan does, so a release never
-    builds an image it will not deploy.
+
+@dataclass(frozen=True)
+class RegistryImage:
+    digest: str
+    labels: dict[str, str]
+
+
+class Registry:
+    """Read-only Docker Registry v2 client for the release repository (manifest + config labels).
+
+    Authenticates with the same OAuth token as the Google APIs (``oauth2accesstoken``). Blob
+    redirects to storage are followed without the registry credential.
     """
 
-    allowed = set(catalog.profiles[profile]) if profile != "platform" else set(catalog.components)
-    specs = []
-    for name in sorted(set(catalog.release_components(components, branch)) & allowed):
-        component = catalog.components[name]
-        selector = component.release_artifact_selector or ""
-        if component.maturity != "active" or not component.deploy_handler or not selector.startswith("images/"):
-            continue
-        image = selector.split("/", 1)[1]
-        if image == "*":
-            # images/* releases take a reviewed IMAGE_MANIFEST; release_policy fails closed without it.
-            continue
-        if not component.build_artifact:
-            raise BuildError(f"component {name} needs a Dockerfile to build image {image}")
-        specs.append(ImageSpec(image, component.build_artifact, component.build_target))
-    return specs
+    def __init__(self, http: Http, settings: Settings, opener: Callable[..., Any] | None = None,
+                 blob_opener: Callable[..., Any] = urlopen) -> None:
+        self.http, self.settings = http, settings
+        self.opener = opener or build_opener(_NoRedirect).open
+        self.blob_opener = blob_opener
+
+    def _get(self, path: str, accept: str) -> tuple[int, dict[str, str], bytes]:
+        token = base64.b64encode(f"oauth2accesstoken:{self.http.token()}".encode()).decode()
+        url = (f"https://{self.settings.region}-docker.pkg.dev/v2/{self.settings.project}/"
+               f"{self.settings.repository}/{path}")
+        request = Request(url, headers={"Authorization": f"Basic {token}", "Accept": accept})
+        try:
+            with self.opener(request, timeout=60) as response:
+                return response.status, dict(response.headers), response.read()
+        except HTTPError as error:
+            if error.code in {301, 302, 303, 307, 308} and error.headers.get("Location"):
+                with self.blob_opener(Request(error.headers["Location"]), timeout=60) as response:
+                    return response.status, dict(response.headers), response.read()
+            if error.code == 404:
+                return 404, {}, b""
+            raise BuildError(f"registry GET {path} -> HTTP {error.code}"
+                             + (" (the Jenkins identity needs artifactregistry.reader on the repository)"
+                                if error.code in {401, 403} else "")) from error
+
+    def lookup(self, name: str, tag: str) -> RegistryImage | None:
+        status, headers, body = self._get(f"{name}/manifests/{tag}", MANIFEST_TYPES)
+        if status == 404:
+            return None
+        digest = {key.lower(): value for key, value in headers.items()}.get("docker-content-digest", "")
+        if not DIGEST.fullmatch(digest):
+            raise BuildError(f"registry did not report a digest for {name}:{tag}")
+        manifest = json.loads(body)
+        if "manifests" in manifest:  # an index: take the linux/amd64 image
+            chosen = [item for item in manifest["manifests"]
+                      if (item.get("platform") or {}).get("os") == "linux"
+                      and (item.get("platform") or {}).get("architecture") == "amd64"]
+            if len(chosen) != 1:
+                raise BuildError(f"{name}:{tag} has no single linux/amd64 image")
+            _, _, body = self._get(f"{name}/manifests/{chosen[0]['digest']}", MANIFEST_TYPES)
+            manifest = json.loads(body)
+        config_digest = (manifest.get("config") or {}).get("digest", "")
+        if not DIGEST.fullmatch(config_digest):
+            raise BuildError(f"{name}:{tag} has no image config")
+        _, _, config = self._get(f"{name}/blobs/{config_digest}", "application/json")
+        labels = (json.loads(config).get("config") or {}).get("Labels") or {}
+        return RegistryImage(digest, {str(key): str(value) for key, value in labels.items()})
+
+
+def reuse_existing(existing: RegistryImage, settings: Settings, spec: ImageSpec, sha: str) -> dict[str, Any]:
+    """Accept an image already at ``<name>:<sha>`` only if its provenance labels match exactly."""
+
+    expected = expected_labels(spec, sha)
+    if existing.labels.get(LABEL_REVISION) != sha:
+        raise BuildError(f"{spec.name}:{sha} exists but was built from {existing.labels.get(LABEL_REVISION)!r}")
+    missing = [key for key in expected if key not in existing.labels]
+    if missing:
+        raise BuildError(f"{spec.name}:{sha} exists without build provenance labels {missing}; the immutable tag "
+                         "cannot be rebuilt, supply a reviewed IMAGE_MANIFEST")
+    conflicts = [key for key, value in expected.items() if existing.labels[key] != value]
+    if conflicts:
+        raise BuildError(f"{spec.name}:{sha} exists with conflicting provenance {conflicts}")
+    return {"digest_ref": f"{settings.registry}/{spec.name}@{existing.digest}", "revision": sha,
+            "dockerfile": spec.dockerfile, "target": spec.target, "reused": True, "build_id": None,
+            "registry_readback": "VERIFIED"}
+
+
+def build_or_reuse(http: Http, registry: Registry | None, settings: Settings, spec: ImageSpec, sha: str,
+                   archive: bytes, evidence: Path, sleep: Callable[[float], None] = time.sleep) -> dict[str, Any]:
+    if registry is not None:
+        existing = registry.lookup(spec.name, sha)
+        if existing is not None:
+            return reuse_existing(existing, settings, spec, sha)
+    built = build_image(http, settings, spec, sha, archive, evidence, sleep)
+    built.update({"revision": sha, "reused": False})
+    if registry is None:
+        built["registry_readback"] = "SKIPPED_BY_PARAMETER"
+        return built
+    after = registry.lookup(spec.name, sha)
+    if after is None or built["digest_ref"] != f"{settings.registry}/{spec.name}@{after.digest}":
+        raise BuildError(f"{spec.name}:{sha} does not resolve to the digest Cloud Build reported")
+    built["registry_readback"] = "VERIFIED"
+    return built
+
+
+def image_specs(catalog: Any, names: list[str]) -> list[ImageSpec]:
+    """The catalog's build specs for exactly the images the planned release units consume."""
+
+    available = catalog.images
+    unknown = sorted(set(names) - set(available))
+    if unknown:
+        raise BuildError(f"no catalog component builds {unknown}")
+    return [available[name][1] for name in sorted(set(names))]
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -229,9 +337,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--git-sha", required=True)
     selection = parser.add_mutually_exclusive_group(required=True)
     selection.add_argument("--image", action="append", help="name=dockerfile[:target]")
-    selection.add_argument("--scope", type=Path, help="scope.json; build every released catalog image in it")
-    parser.add_argument("--profile", default="platform")
-    parser.add_argument("--release-branch", default="", help="release/<name> ref that narrows the scope")
+    selection.add_argument("--images-file", type=Path,
+                           help="output of release_policy images: build exactly the images the planned units need")
     parser.add_argument("--catalog", type=Path, default=Path("jenkins/catalog/components.json"))
     parser.add_argument("--project", default="ewallet-data-ai-platform-hg26")
     parser.add_argument("--region", default="asia-southeast1")
@@ -239,34 +346,38 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--bucket", default="ewallet-data-ai-platform-hg26-cicd-builds")
     parser.add_argument("--logs-bucket", default="ewallet-data-ai-platform-hg26-cicd-build-logs")
     parser.add_argument("--runner", default="ewallet-cloudbuild@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com")
+    parser.add_argument("--registry-lookup", choices=("required", "off"), default="required",
+                        help="off: always build, no reuse and no digest readback (recorded in the manifest)")
     parser.add_argument("--token-command", default="",
                         help="operator run outside Jenkins, e.g. 'gcloud auth print-access-token'")
     parser.add_argument("--evidence-dir", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
     settings = Settings(args.project, args.region, args.repository, args.bucket, args.runner, args.logs_bucket)
-    if args.scope:
-        from scripts.ci.catalog import load_catalog
+    try:
+        if args.images_file:
+            from scripts.ci.catalog import load_catalog
 
-        scope = json.loads(args.scope.read_text(encoding="utf-8"))
-        specs = release_image_specs(
-            load_catalog(args.catalog), list(scope.get("components", [])), args.profile, args.release_branch
-        )
-        if not specs:
-            parser.error("the release scope selects no buildable deployable component")
-    else:
-        specs = []
-        for item in args.image:
-            name, _, rest = item.partition("=")
-            dockerfile, _, target = rest.partition(":")
-            specs.append(ImageSpec(name, dockerfile, target or None))
+            names = json.loads(args.images_file.read_text(encoding="utf-8")).get("images", [])
+            specs = image_specs(load_catalog(args.catalog), names)
+        else:
+            specs = []
+            for item in args.image:
+                name, _, rest = item.partition("=")
+                dockerfile, _, target = rest.partition(":")
+                specs.append(ImageSpec(name, dockerfile, target or None))
+    except BuildError as error:
+        parser.error(str(error))
+    if not specs:
+        parser.error("the release needs no image; nothing to build")
     for spec in specs:
         if not (args.root / spec.dockerfile).is_file():
             parser.error(f"Dockerfile does not exist: {spec.dockerfile}")
     try:
         archive = source_archive(args.root, args.git_sha)
         http = Http(token_command=shlex.split(args.token_command) or None)
-        images = {spec.name: build_image(http, settings, spec, args.git_sha, archive, args.evidence_dir)
+        registry = Registry(http, settings) if args.registry_lookup == "required" else None
+        images = {spec.name: build_or_reuse(http, registry, settings, spec, args.git_sha, archive, args.evidence_dir)
                   for spec in specs}
     except (BuildError, subprocess.CalledProcessError, URLError, OSError) as error:
         print(f"cloud_build: {error}", file=sys.stderr)

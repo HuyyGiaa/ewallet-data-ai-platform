@@ -9,7 +9,8 @@ set -euo pipefail
 image="" git_sha="" evidence=""
 while (($#)); do
   case "$1" in
-    --image) image=$2; shift 2 ;;
+    --image) image=${2#rag-ingestion=}; shift 2 ;;   # bare digest, or NAME=REF from the release dispatcher
+    --unit) [[ $2 == rag-pipeline ]] || { echo "unexpected release unit: $2" >&2; exit 2; }; shift 2 ;;
     --git-sha) git_sha=$2; shift 2 ;;
     --evidence-dir) evidence=$2; shift 2 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;

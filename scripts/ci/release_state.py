@@ -11,6 +11,11 @@ nothing else, and whoever is approved to deploy runs it through these checks:
 * ``promote``: runs both, then ``helm upgrade --atomic``, and refuses without
   ``--execute`` and ``PROMOTION_APPROVED=yes``.
 
+A promotion that renders no image change is refused (``NO_OP_PROMOTION``) unless every running
+image already equals the requested digest (``ALREADY_CURRENT``): a silent no-op can never be
+reported as a release. The Feature-RAG and Drift Specialists are SandboxAgents outside these Helm
+releases, so they are not promotable here (release unit ``agent-fleet-production``).
+
 ``drift`` and ``check`` are read-only. Manifests and values can hold sensitive settings, so
 they stay in memory or in a private temporary file, and only object names and paths are
 printed.
@@ -39,8 +44,7 @@ IDENTITY_ENV = frozenset({"EWALLET_IMAGE_DIGEST", "EWALLET_GIT_SHA"})
 IDENTITY_ANNOTATIONS = frozenset({"ewallet.io/release-sha"})
 # Promotion may set exactly these values, per Helm release.
 PROMOTABLE = {
-    "llm-agent": {"coordinator": ("agents", "coordinator", "byo", "image"),
-                  "feature-rag-specialist": ("agents", "specialists", "feature-rag-specialist", "byo", "image")},
+    "llm-agent": {"coordinator": ("agents", "coordinator", "byo", "image")},
     "llm-agent-mcp": {"mcp-tools": ("mcpServices", "image")},
 }
 RELEASE_NAMESPACE = {"llm-agent": "default", "llm-agent-mcp": "ewallet-mcp"}
@@ -81,9 +85,9 @@ def load_documents(text: str) -> dict[Key, dict[str, Any]]:
 
 
 def declared_images(document: Mapping[str, Any]) -> list[str]:
-    """Return the images an object declares, for Deployments and BYO Agents."""
+    """Return the images an object declares, for Deployments, BYO Agents and SandboxAgents."""
 
-    if document.get("kind") == "Agent":
+    if document.get("kind") in {"Agent", "SandboxAgent"}:
         image = document.get("spec", {}).get("byo", {}).get("deployment", {}).get("image")
         return [image] if image else []
     if document.get("kind") in {"Deployment", "StatefulSet"}:
@@ -148,6 +152,34 @@ def non_image_changes(before: Mapping[Key, Any], after: Mapping[Key, Any]) -> li
     """Return every change a promotion isn't allowed to make."""
 
     return [item for item in changes(before, after) if not is_identity_path(item.path)]
+
+
+def image_changes(before: Mapping[Key, Any], after: Mapping[Key, Any]) -> list[Change]:
+    """Every change a promotion makes to an image field."""
+
+    return [item for item in changes(before, after)
+            if re.search(r"\.(containers|initContainers)\[[^\]]+\]\.image$", item.path)
+            or item.path.endswith(".byo.deployment.image")]
+
+
+def rendered_images(documents: Mapping[Key, Any]) -> set[str]:
+    return {image for document in documents.values() for image in declared_images(document)}
+
+
+def promotion_effect(before: Mapping[Key, Any], after: Mapping[Key, Any], requested: Iterable[str]) -> str:
+    """``CHANGES`` when the promotion changes an image to each requested digest, ``ALREADY_CURRENT`` when
+    every requested digest is already what the release renders, otherwise :class:`ReleaseStateError`."""
+
+    wanted = set(requested)
+    present_after = rendered_images(after)
+    missing = sorted(wanted - present_after)
+    if missing:
+        raise ReleaseStateError(f"NO_OP_PROMOTION: the release would not run {missing}")
+    if image_changes(before, after):
+        return "CHANGES"
+    if wanted <= rendered_images(before):
+        return "ALREADY_CURRENT"
+    raise ReleaseStateError("NO_OP_PROMOTION: the promotion changes no image")
 
 
 def promotion_values(release: str, images: Mapping[str, str], git_sha: str) -> dict[str, Any]:
@@ -224,7 +256,21 @@ def check_promotion(run: Runner, release: str, context: str, promotion: Path, li
                 for item in changes(deployed, before)]
     problems += [f"promotion changes more than images: {item.key[0]} {item.key[2]}{item.path}"
                  for item in non_image_changes(before, after)]
+    requested = [value for value in _leaf_values(yaml.safe_load(promotion.read_text(encoding="utf-8")) or {})
+                 if DIGEST_REF.fullmatch(value)]
+    try:
+        promotion_effect(before, after, requested)
+    except ReleaseStateError as error:
+        problems.append(str(error))
     return problems
+
+
+def _leaf_values(node: Any) -> Iterator[str]:
+    if isinstance(node, dict):
+        for value in node.values():
+            yield from _leaf_values(value)
+    elif isinstance(node, str):
+        yield node
 
 
 def promote(run: Runner, release: str, context: str, promotion: Path, live_values: Path) -> None:

@@ -1,34 +1,40 @@
-# Rows 34 and 35 bounded CD target: the Coordinator and Feature-RAG Specialist from
-# the released image, with a throwaway idempotency Redis. They reach no LLM or MCP, so
-# the smoke proves the A2A surface and request validation, not a business answer.
-# Placeholders are filled by scripts/ci/bounded_cd.py.
+# Row 35 rehearsal of the Fraud Coordinator (BYO Agent) from the released image, with a throwaway
+# idempotency Redis and the production Sandbox-only routing configuration (both Specialists are
+# SandboxAgents in ewallet-sandbox). It reaches no LLM, kagent or Specialist here, so the smoke
+# proves the Coordinator boots with that configuration, serves its Agent Card and rejects a
+# malformed task; the business workflows (fraud, drift, combined) are verified after promotion by
+# scripts/ci/runtime_verify.py. Placeholders are filled by scripts/ci/bounded_cd.py.
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: agent-cd-env
+  name: coordinator-cd-env
   namespace: ewallet-cicd
   labels: {app.kubernetes.io/part-of: ewallet-cicd}
 data:
   # Per-run throwaway password for this isolated Redis; removed during cleanup.
   REDIS_PASSWORD: "__SMOKE_TOKEN__"
-  EWALLET_IDEMPOTENCY_REDIS_URL: "redis://:__SMOKE_TOKEN__@agent-cd-redis:6379/0"
+  EWALLET_IDEMPOTENCY_REDIS_URL: "redis://:__SMOKE_TOKEN__@coordinator-cd-redis:6379/0"
   EWALLET_IDEMPOTENCY_TENANT: cd-smoke
   EWALLET_IDEMPOTENCY_PRINCIPAL: cd-smoke
+  # Production routing shape (templates/agents.yaml): both Specialists are SandboxAgents.
+  EWALLET_COORDINATOR_WORKFLOWS: fraud,drift
+  EWALLET_SANDBOX_SPECIALISTS: drift-specialist,feature-rag-specialist
+  EWALLET_SANDBOX_NAMESPACE: ewallet-sandbox
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: agent-cd-redis
+  name: coordinator-cd-redis
   namespace: ewallet-cicd
-  labels: {app.kubernetes.io/name: agent-cd-redis, app.kubernetes.io/part-of: ewallet-cicd}
+  labels: {app.kubernetes.io/name: coordinator-cd-redis, app.kubernetes.io/part-of: ewallet-cicd}
 spec:
   replicas: 1
   selector:
-    matchLabels: {app.kubernetes.io/name: agent-cd-redis}
+    matchLabels: {app.kubernetes.io/name: coordinator-cd-redis}
   template:
     metadata:
-      labels: {app.kubernetes.io/name: agent-cd-redis, app.kubernetes.io/part-of: ewallet-cicd}
+      labels: {app.kubernetes.io/name: coordinator-cd-redis, app.kubernetes.io/part-of: ewallet-cicd}
     spec:
       automountServiceAccountToken: false
       securityContext:
@@ -43,7 +49,7 @@ spec:
           image: docker.io/library/redis:7.4.2-alpine@sha256:02419de7eddf55aa5bcf49efb74e88fa8d931b4d77c07eff8a6b2144472b6952
           args: ["--save", "", "--appendonly", "no", "--requirepass", "$(REDIS_PASSWORD)"]
           envFrom:
-            - configMapRef: {name: agent-cd-env}
+            - configMapRef: {name: coordinator-cd-env}
           ports: [{name: redis, containerPort: 6379}]
           readinessProbe:
             tcpSocket: {port: redis}
@@ -64,37 +70,38 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: agent-cd-redis
+  name: coordinator-cd-redis
   namespace: ewallet-cicd
   labels: {app.kubernetes.io/part-of: ewallet-cicd}
 spec:
-  selector: {app.kubernetes.io/name: agent-cd-redis}
+  selector: {app.kubernetes.io/name: coordinator-cd-redis}
   ports:
     - {name: redis, port: 6379, targetPort: redis}
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: agent-cd-smoke-script
+  name: coordinator-cd-smoke-script
   namespace: ewallet-cicd
   labels: {app.kubernetes.io/part-of: ewallet-cicd}
 data:
   cd_smoke.py: ""
 ---
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: agent-cd-coordinator
+  name: coordinator-cd
   namespace: ewallet-cicd
-  labels: {app.kubernetes.io/name: agent-cd-coordinator, app.kubernetes.io/part-of: ewallet-cicd}
+  labels: {app.kubernetes.io/name: coordinator-cd, app.kubernetes.io/part-of: ewallet-cicd}
   annotations: {ewallet.io/release-sha: "__RELEASE_SHA__"}
 spec:
   replicas: 1
   selector:
-    matchLabels: {app.kubernetes.io/name: agent-cd-coordinator}
+    matchLabels: {app.kubernetes.io/name: coordinator-cd}
   template:
     metadata:
-      labels: {app.kubernetes.io/name: agent-cd-coordinator, app.kubernetes.io/part-of: ewallet-cicd}
+      labels: {app.kubernetes.io/name: coordinator-cd, app.kubernetes.io/part-of: ewallet-cicd}
       annotations: {ewallet.io/release-sha: "__RELEASE_SHA__"}
     spec:
       automountServiceAccountToken: false
@@ -106,9 +113,10 @@ spec:
       containers:
         - name: agent
           image: __IMAGE__
+          # The image entrypoint is "python -m"; the module is the production Coordinator.
           args: ["ai_platform.llm_agent.byo_coordinator"]
           envFrom:
-            - configMapRef: {name: agent-cd-env}
+            - configMapRef: {name: coordinator-cd-env}
           ports: [{name: http, containerPort: 8080}]
           readinessProbe:
             tcpSocket: {port: http}
@@ -129,72 +137,18 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: agent-cd-coordinator
+  name: coordinator-cd
   namespace: ewallet-cicd
   labels: {app.kubernetes.io/part-of: ewallet-cicd}
 spec:
-  selector: {app.kubernetes.io/name: agent-cd-coordinator}
-  ports:
-    - {name: http, port: 8080, targetPort: http}
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: agent-cd-specialist
-  namespace: ewallet-cicd
-  labels: {app.kubernetes.io/name: agent-cd-specialist, app.kubernetes.io/part-of: ewallet-cicd}
-  annotations: {ewallet.io/release-sha: "__RELEASE_SHA__"}
-spec:
-  replicas: 1
-  selector:
-    matchLabels: {app.kubernetes.io/name: agent-cd-specialist}
-  template:
-    metadata:
-      labels: {app.kubernetes.io/name: agent-cd-specialist, app.kubernetes.io/part-of: ewallet-cicd}
-      annotations: {ewallet.io/release-sha: "__RELEASE_SHA__"}
-    spec:
-      automountServiceAccountToken: false
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 10001
-        runAsGroup: 10001
-        seccompProfile: {type: RuntimeDefault}
-      containers:
-        - name: agent
-          image: __IMAGE__
-          args: ["ai_platform.llm_agent.byo_feature_rag_specialist"]
-          ports: [{name: http, containerPort: 8080}]
-          readinessProbe:
-            tcpSocket: {port: http}
-            periodSeconds: 5
-          resources:
-            requests: {cpu: 100m, memory: 256Mi}
-            limits: {cpu: 500m, memory: 512Mi}
-          securityContext:
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
-            capabilities: {drop: [ALL]}
-          volumeMounts:
-            - {name: tmp, mountPath: /tmp}
-      volumes:
-        - name: tmp
-          emptyDir: {sizeLimit: 64Mi}
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: agent-cd-specialist
-  namespace: ewallet-cicd
-  labels: {app.kubernetes.io/part-of: ewallet-cicd}
-spec:
-  selector: {app.kubernetes.io/name: agent-cd-specialist}
+  selector: {app.kubernetes.io/name: coordinator-cd}
   ports:
     - {name: http, port: 8080, targetPort: http}
 ---
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: agent-cd-smoke
+  name: coordinator-cd-smoke
   namespace: ewallet-cicd
   labels: {app.kubernetes.io/part-of: ewallet-cicd}
 spec:
@@ -215,10 +169,8 @@ spec:
       containers:
         - name: smoke
           image: __IMAGE__
-          command: ["python", "/cd-smoke/cd_smoke.py", "--mode", "agent",
-                    "--target", "fraud_coordinator=http://agent-cd-coordinator:8080",
-                    "--target", "feature_rag_specialist=http://agent-cd-specialist:8080",
-                    "--release-sha", "__RELEASE_SHA__"]
+          command: ["python", "/cd-smoke/cd_smoke.py", "--mode", "agent", "--release-sha", "__RELEASE_SHA__",
+                    "--target", "fraud_coordinator=http://coordinator-cd:8080"]
           resources:
             requests: {cpu: 50m, memory: 128Mi}
             limits: {cpu: 250m, memory: 256Mi}
@@ -230,4 +182,4 @@ spec:
             - {name: script, mountPath: /cd-smoke, readOnly: true}
       volumes:
         - name: script
-          configMap: {name: agent-cd-smoke-script}
+          configMap: {name: coordinator-cd-smoke-script}

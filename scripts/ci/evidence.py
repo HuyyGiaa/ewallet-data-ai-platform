@@ -65,12 +65,12 @@ class EvidenceWriter:
             **self.metadata,
             "status": status,
             "results": results,
+            # The runner knows only its own outcome. Whether this ran on Jenkins or reached a cluster
+            # is recorded by the pipeline (build URL, release verdict), never as a constant here.
             "verification": {
-                "source_ready": True,
-                "static_validation_pass": status == "PASS",
-                "local_ci_verified": status == "PASS",
-                "jenkins_runtime_verified": False,
-                "cd_runtime_verified": False,
+                "ci_status": status,
+                "tests_passed": status == "PASS",
+                "runtime_verification": "NOT_ASSESSED_BY_CI",
             },
         }
         self.write_json("manifest.json", manifest)
