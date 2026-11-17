@@ -35,6 +35,7 @@ from dataclasses import dataclass
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 from typing import Any, Callable, Mapping, Sequence
 
@@ -97,35 +98,93 @@ def _running_images(snapshot: Path, key: str) -> list[str]:
     return [c.get("image") for c in containers if c.get("image")]
 
 
-def reconcile_status(replay_dir: Path, expected: Mapping[str, Any]) -> list[dict[str, Any]]:
-    """Rows that reconcile the frozen status verdict with this transaction; ``status`` PASS or FAIL each."""
+# The only frozen-verdict failure CI/CD may accept: a Helm revision row of replay_verdict.status, whose
+# detail it writes as "revision <n> <state>; expected [<campaign revisions>]".
+HELM_ROW = re.compile(r"^Helm (llm-agent|llm-agent-mcp)$")
+HELM_DETAIL = re.compile(r"^revision ([0-9]+) ([a-z-]+); expected \[[0-9, ]*\]$")
+FROZEN_FAILURE_EXIT = 1  # replay_verdict exits 1 when a row fails; any other nonzero code is a command failure
+
+
+def _frozen_rows(path: Path) -> tuple[str | None, list[tuple[str, str, str]], str | None]:
+    """(frozen verdict, rows, problem) of a status verdict file; any malformation is a problem."""
+
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except OSError:
+        return None, [], "MISSING_VERDICT: no status/verdict.json"
+    except ValueError:
+        return None, [], "MALFORMED_VERDICT: status/verdict.json is not JSON"
+    if not isinstance(data, dict) or data.get("verdict") not in {"PASS", "FAIL"}:
+        return None, [], "MALFORMED_VERDICT: verdict is not PASS or FAIL"
+    rows = data.get("rows")
+    if not isinstance(rows, list) or not rows or not all(
+            isinstance(r, list) and len(r) == 3 and all(isinstance(x, str) for x in r) and r[0] in {"PASS", "FAIL", "INFO"}
+            for r in rows):
+        return None, [], "MALFORMED_VERDICT: rows are missing or not [verdict, check, detail]"
+    failed = any(r[0] == "FAIL" for r in rows)
+    if (data["verdict"] == "FAIL") != failed:
+        return None, [], "INCONSISTENT_VERDICT: the verdict does not match its rows"
+    return data["verdict"], [tuple(r) for r in rows], None  # type: ignore[misc]
+
+
+def reconcile_status(replay_dir: Path, expected: Mapping[str, Any], exit_code: int) -> dict[str, Any]:
+    """Fail-closed decision on the frozen status verdict after a promotion.
+
+    Outcome ``PASS``, ``PASS_WITH_ACCEPTED_EXCEPTIONS`` (each exception listed) or ``FAIL``. A failing
+    frozen row is accepted only when it is a ``Helm <release>`` revision row whose frozen detail and the
+    snapshot's Helm history both show exactly the revision this transaction recorded, ``deployed``.
+    Everything else fails: other failing rows, a missing, malformed or inconsistent verdict, an exit
+    code other than 0 (PASS) or 1 (FAIL), no runtime row besides Helm, and any image identity mismatch.
+    """
 
     snapshot = replay_dir / "status"
     rows: list[dict[str, Any]] = []
-    try:
-        frozen = json.loads((snapshot / "verdict.json").read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return [{"check": "status verdict", "status": "FAIL", "detail": "no readable status/verdict.json"}]
+    accepted: list[dict[str, Any]] = []
+    reasons: list[str] = []
+    frozen, frozen_rows, problem = _frozen_rows(snapshot / "verdict.json")
+    if problem:
+        reasons.append(problem)
+    elif exit_code != (0 if frozen == "PASS" else FROZEN_FAILURE_EXIT):
+        reasons.append(f"UNEXPECTED_COMMAND_FAILURE: exit {exit_code} with frozen verdict {frozen}")
     revisions = expected.get("helm_revisions") or {}
-    for verdict, check, detail in frozen.get("rows", []):
+    meaningful = [r for r in frozen_rows if r[0] == "PASS" and not HELM_ROW.fullmatch(r[1])]
+    if frozen_rows and not meaningful:
+        reasons.append("NO_RUNTIME_ROWS: the frozen verdict has no passing runtime check besides Helm")
+    for verdict, check, detail in frozen_rows:
         if verdict != "FAIL":
             continue
-        release = check.removeprefix("Helm ") if check.startswith("Helm ") else None
-        if release in revisions:
+        match, detail_match = HELM_ROW.fullmatch(check), HELM_DETAIL.fullmatch(detail)
+        release = match.group(1) if match else None
+        if release in revisions and detail_match:
             history = _items(snapshot / f"helm-{release}.json")
             last = history[-1] if history else {}
-            ok = last.get("revision") == revisions[release] and last.get("status") == "deployed"
-            rows.append({"check": f"RECONCILED {check}", "status": "PASS" if ok else "FAIL",
-                         "detail": f"snapshot revision {last.get('revision')} {last.get('status')}; this transaction "
-                                   f"produced {revisions[release]} (frozen expectation: {detail})"})
+            ok = (int(detail_match.group(1)) == revisions[release] == last.get("revision")
+                  and detail_match.group(2) == "deployed" and last.get("status") == "deployed")
+            row = {"check": f"RECONCILED {check}", "status": "PASS" if ok else "FAIL",
+                   "detail": f"frozen row: {detail}; snapshot {last.get('revision')} {last.get('status')}; "
+                             f"this transaction recorded {revisions[release]}"}
+            rows.append(row)
+            if ok:
+                accepted.append({"kind": "HISTORICAL_HELM_REVISION", "check": check, "frozen_detail": detail,
+                                 "accepted_revision": revisions[release]})
+            else:
+                reasons.append(f"HELM_REVISION_NOT_RECONCILED: {check}")
         else:
             rows.append({"check": check, "status": "FAIL", "detail": detail})
-    for key, image in sorted((expected.get("images") or {}).items()):
+            reasons.append(f"RUNTIME_FAILURE: {check} ({detail[:120]})")
+    images = expected.get("images") or {}
+    if not images:
+        reasons.append("NO_IDENTITY_EXPECTATION: the transaction declared no running image to verify")
+    for key, image in sorted(images.items()):
         running = _running_images(snapshot, key)
         ok = bool(running) and all(item == image for item in running)
         rows.append({"check": f"IDENTITY {key}", "status": "PASS" if ok else "FAIL",
                      "detail": "runs the plan digest" if ok else f"runs {running or 'nothing'}"})
-    return rows
+        if not ok:
+            reasons.append(f"IDENTITY_MISMATCH: {key}")
+    status = "FAIL" if reasons else ("PASS_WITH_ACCEPTED_EXCEPTIONS" if accepted else "PASS")
+    return {"status": status, "frozen_verdict": frozen, "exit_code": exit_code, "rows": rows,
+            "accepted_exceptions": accepted, "reasons": reasons}
 
 
 @dataclass
@@ -162,7 +221,7 @@ def run_checks(names: Sequence[str], replay_dir: Path, *, helper: Path = HELPER,
     if production_context is not None:
         guard_target(env, production_context)
     results: list[CheckResult] = []
-    reconciled_rows: list[dict[str, Any]] = []
+    reconciliations: list[dict[str, Any]] = []
     done: dict[tuple[str, ...], CheckResult] = {}
     for name in names:
         arguments, pattern = CHECKS[name]
@@ -182,17 +241,26 @@ def run_checks(names: Sequence[str], replay_dir: Path, *, helper: Path = HELPER,
             except (OSError, ValueError):
                 verdicts.append("UNREADABLE")
         status = "PASS" if code == 0 and verdicts and all(item in PASSING for item in verdicts) else "FAIL"
-        if arguments == ("status",) and expected is not None and verdicts:
-            reconciliation = reconcile_status(replay_dir, expected)
-            reconciled_rows.extend(reconciliation)
-            # The frozen verdict may fail only on Helm revisions this transaction moved; identity must hold.
-            status = "PASS" if all(row["status"] == "PASS" for row in reconciliation) else "FAIL"
+        if arguments == ("status",) and expected is not None:
+            # The reconciliation replaces the plain rule only through its own fail-closed decision; a verdict
+            # this command did not (re)write is never reconciled.
+            if not new:
+                reconciliation = {"status": "FAIL", "reasons": ["MISSING_VERDICT: the status command wrote no verdict"],
+                                  "rows": [], "accepted_exceptions": [], "exit_code": code}
+            else:
+                reconciliation = reconcile_status(replay_dir, expected, code)
+            reconciliations.append(reconciliation)
+            status = reconciliation["status"]
         result = CheckResult(name, " ".join(arguments), code, verdicts, status)
         done[arguments] = result
         results.append(result)
-    verdict = "PASS" if results and all(item.status == "PASS" for item in results) else "FAIL"
+    passing = {"PASS", "PASS_WITH_ACCEPTED_EXCEPTIONS"}
+    verdict = "PASS" if results and all(item.status in passing for item in results) else "FAIL"
     return {"verdict": verdict, "replay_dir": str(replay_dir), "checks": [item.__dict__ for item in results],
-            "reconciliation": reconciled_rows, "expected": dict(expected) if expected is not None else None}
+            "reconciliation": reconciliations,
+            # Visible in the release verdict: every frozen failure that was accepted, and why.
+            "accepted_exceptions": [item for r in reconciliations for item in r.get("accepted_exceptions", [])],
+            "expected": dict(expected) if expected is not None else None}
 
 
 def main(argv: list[str] | None = None) -> int:

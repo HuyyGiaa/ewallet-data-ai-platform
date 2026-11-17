@@ -64,10 +64,35 @@ class Change:
     path: str
 
 
-def run_command(command: Sequence[str]) -> str:
-    """Run a command; its output is never printed, and neither is its error text."""
+# Helm mutations wait up to 15 minutes themselves (--wait --timeout 15m). The process timeout must be
+# longer, or Python kills Helm mid-upgrade and leaves an ambiguous (pending) release behind.
+MUTATION_TIMEOUT = 1500
+READ_TIMEOUT = 300
 
-    result = subprocess.run(list(command), capture_output=True, text=True, timeout=300, check=False)
+
+class AmbiguousMutationError(ReleaseStateError):
+    """A mutation's outcome is unknown (timeout, lost connection); inspect before acting."""
+
+
+def command_timeout(command: Sequence[str]) -> int:
+    """A command that waits for the cluster (``--wait``, every Helm mutation here) gets the long timeout."""
+
+    return MUTATION_TIMEOUT if "--wait" in command else READ_TIMEOUT
+
+
+def run_command(command: Sequence[str]) -> str:
+    """Run a command; its output is never printed, and neither is its error text.
+
+    A timed-out mutation raises :class:`AmbiguousMutationError`: the cluster may or may not have
+    changed, so callers must inspect the release before deciding on a rollback.
+    """
+
+    try:
+        result = subprocess.run(list(command), capture_output=True, text=True, timeout=command_timeout(command),
+                                check=False)
+    except subprocess.TimeoutExpired as error:
+        raise AmbiguousMutationError(f"{command[0]} {command[1]} timed out after {error.timeout}s; "
+                                     "the release state is unknown") from error
     if result.returncode:
         raise ReleaseStateError(f"{command[0]} {command[1]} failed with exit {result.returncode}")
     return result.stdout

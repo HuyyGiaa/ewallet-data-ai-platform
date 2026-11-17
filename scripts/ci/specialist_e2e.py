@@ -12,7 +12,21 @@ per Specialist:
 * Drift: ``configs/experiments/fixtures/agent-load-drift-request.json`` must return the pinned PSI.
 
 A task counts only when it reaches ``completed`` and its artifact is a ``g3-orchestration/v1``
-SpecialistEvidence object with no unknown fields; HTTP 200 alone is never a pass. Endpoints are
+SpecialistEvidence object with no unknown fields; HTTP 200 alone is never a pass. Each verdict names
+the gate that decided it, in order: ``TRANSPORT`` (no HTTP exchange), ``PROTOCOL`` (JSON-RPC error,
+non-terminal or failed task, timeout), ``SCHEMA`` (no or invalid SpecialistEvidence), ``BUSINESS``
+(status, this request's id, features/citations/drift, prompt revision), ``REGRESSION`` (the pinned
+numbers), then ``PASS``.
+
+Numerical tolerance: the pinned values are float64 results of a deterministic computation on fixed
+inputs (one model version on fixed features; PSI over fixed reference and current snapshots), and they
+reproduced bit-for-bit in every recorded run (2026-10-31, 2026-11-02, 2026-11-16). A relative tolerance
+of 1e-9 absorbs only platform-level floating-point noise (BLAS or CPU differences of a few ulps) and is
+orders of magnitude below any business meaning (a probability or PSI change in the 9th significant
+digit). A different model or baseline is a deliberate change that must update the contract. The
+candidate runs before any production mutation, so a regression here stops the release; it never
+triggers a rollback. The post-promotion business E2E is the frozen replay verdict, which checks
+validity, not exact numbers. Endpoints are
 allowlisted (loopback port-forward only), so a typo can never send a request elsewhere. Each
 verdict records the environment, endpoint, agent, SHA, image and the declared side effects.
 """
@@ -37,7 +51,8 @@ CONTRACT_VERSION = "g3-orchestration/v1"
 TERMINAL = frozenset({"completed", "failed", "canceled", "rejected", "unknown"})
 LOOPBACK = re.compile(r"^http://127\.0\.0\.1:([0-9]{2,5})/?$")
 AGENT = re.compile(r"^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$")
-TOLERANCE = 1e-12
+RELATIVE_TOLERANCE = 1e-9
+ABSOLUTE_TOLERANCE = 1e-15  # only matters for an expected value of exactly 0
 Post = Callable[[str, Mapping[str, Any], Mapping[str, str], float], Mapping[str, Any]]
 SIDE_EFFECTS = ("one A2A session actor per request on the shared WorkerPool (suspended after the reply)",
                 "read-only MCP tool calls (feature_lookup, fraud_scoring, knowledge_search | drift_detection)",
@@ -59,6 +74,7 @@ class SpecialistVerdict:
     git_sha: str
     image: str
     state: str | None = None
+    gate: str = "TRANSPORT"
     reasons: list[str] = field(default_factory=list)
     observed: dict[str, Any] = field(default_factory=dict)
     elapsed_seconds: float | None = None
@@ -120,38 +136,40 @@ def evidence_of(reply: Mapping[str, Any]) -> dict[str, Any] | None:
 
 def _close(value: Any, expected: float) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isclose(
-        float(value), expected, rel_tol=0, abs_tol=TOLERANCE)
+        float(value), expected, rel_tol=RELATIVE_TOLERANCE, abs_tol=ABSOLUTE_TOLERANCE)
 
 
-def classify(reply: Mapping[str, Any], request_id: str, expect: Mapping[str, Any]) -> tuple[str, list[str], dict]:
-    """PASS only for a completed task with a valid SpecialistEvidence artifact matching the known answers."""
+def classify(reply: Mapping[str, Any], request_id: str,
+             expect: Mapping[str, Any]) -> tuple[str, str, list[str], dict]:
+    """(verdict, gate, reasons, observed): PASS only for a completed task whose SpecialistEvidence matches."""
 
     observed: dict[str, Any] = {}
     if reply.get("timeout"):
-        return "A2A_TIMEOUT", ["the task did not reach a terminal state in time"], observed
+        return "A2A_TIMEOUT", "PROTOCOL", ["the task did not reach a terminal state in time"], observed
     if "error" in reply or not isinstance(reply.get("result"), dict):
-        return "FAILED_TASK", [f"JSON-RPC error or no result: {json.dumps(reply.get('error'))[:300]}"], observed
+        return "FAILED_TASK", "PROTOCOL", [f"JSON-RPC error or no result: {json.dumps(reply.get('error'))[:300]}"], observed
     state = (reply["result"].get("status") or {}).get("state")
     observed["state"] = state
     if state != "completed":
-        return "FAILED_TASK", [f"task state {state} (expected completed)"], observed
+        return "FAILED_TASK", "PROTOCOL", [f"task state {state} (expected completed)"], observed
     evidence = evidence_of(reply)
     if evidence is None:
-        return "INVALID_VERDICT", ["no SpecialistEvidence artifact (contract_version) in the task"], observed
-    unknown = set(evidence) - EVIDENCE_FIELDS
+        return "INVALID_VERDICT", "SCHEMA", ["no SpecialistEvidence artifact (contract_version) in the task"], observed
     observed.update({k: evidence.get(k) for k in ("status", "request_id", "contract_version", "unavailable",
                                                   "prompt_revision")})
-    reasons = []
+    unknown = set(evidence) - EVIDENCE_FIELDS
     if unknown:
-        reasons.append(f"unknown evidence fields {sorted(unknown)}")
+        return "INVALID_VERDICT", "SCHEMA", [f"unknown evidence fields {sorted(unknown)}"], observed
     if evidence.get("contract_version") != CONTRACT_VERSION:
-        return "INVALID_VERDICT", [f"contract {evidence.get('contract_version')} (expected {CONTRACT_VERSION})"], observed
+        return "INVALID_VERDICT", "SCHEMA", [f"contract {evidence.get('contract_version')} (expected {CONTRACT_VERSION})"], observed
     if evidence.get("status") in {"partial", "unavailable"} or evidence.get("unavailable"):
-        return "PARTIAL", [f"status {evidence.get('status')}; unavailable={evidence.get('unavailable')}"], observed
+        return "PARTIAL", "BUSINESS", [f"status {evidence.get('status')}; unavailable={evidence.get('unavailable')}"], observed
+    reasons = []
+    if evidence.get("request_id") != request_id:
+        # A stale or replayed answer (another execution's request) never counts.
+        reasons.append(f"request_id {evidence.get('request_id')} is not this request's {request_id}")
     if evidence.get("status") != "ok":
         reasons.append(f"status {evidence.get('status')} (expected ok)")
-    if evidence.get("request_id") != request_id:
-        reasons.append(f"request_id {evidence.get('request_id')} is not this request's {request_id}")
     if not evidence.get("prompt_revision"):
         reasons.append("no prompt_revision")
     elif "prompt_revision" in expect and evidence["prompt_revision"] != expect["prompt_revision"]:
@@ -160,18 +178,22 @@ def classify(reply: Mapping[str, Any], request_id: str, expect: Mapping[str, Any
     for key in ("features", "citations", "drift"):
         if key in expect and bool(evidence.get(key)) != bool(expect[key]):
             reasons.append(f"{key} {'missing' if expect[key] else 'unexpected'}")
+    if reasons:
+        return "BUSINESS_MISMATCH", "BUSINESS", reasons, observed
     if "fraud_probability" in expect:
         value = (evidence.get("fraud_score") or {}).get("fraud_probability")
         observed["fraud_probability"] = value
         if not _close(value, expect["fraud_probability"]):
-            reasons.append(f"fraud_probability {value} is not the pinned {expect['fraud_probability']}")
+            reasons.append(f"fraud_probability {value} is not the pinned {expect['fraud_probability']} (rel 1e-9)")
     if "psi" in expect:
         drift = evidence.get("drift") or [{}]
         value = drift[0].get("psi") if isinstance(drift[0], dict) else None
         observed["psi"] = value
         if not _close(value, expect["psi"]):
-            reasons.append(f"psi {value} is not the pinned {expect['psi']}")
-    return ("PASS" if not reasons else "KNOWN_ANSWER_MISMATCH"), reasons, observed
+            reasons.append(f"psi {value} is not the pinned {expect['psi']} (rel 1e-9)")
+    if reasons:
+        return "KNOWN_ANSWER_MISMATCH", "REGRESSION", reasons, observed
+    return "PASS", "PASS", [], observed
 
 
 def verify(*, contract: Mapping[str, Any], agent: str, target: str, endpoint: str, environment: str, git_sha: str,
@@ -187,10 +209,10 @@ def verify(*, contract: Mapping[str, Any], agent: str, target: str, endpoint: st
         reply, elapsed = run_task(post, url, payload(ROOT / spec["fixture"], request_id), headers,
                                   timeout=timeout or contract["timeouts"]["task_seconds"], clock=clock, sleep=sleep)
     except (HTTPError, URLError, OSError, ValueError) as error:
-        result.verdict, result.reasons = "TRANSPORT_ERROR", [type(error).__name__]
+        result.verdict, result.gate, result.reasons = "TRANSPORT_ERROR", "TRANSPORT", [type(error).__name__]
         return result
     result.elapsed_seconds = round(elapsed, 3)
-    result.verdict, result.reasons, result.observed = classify(reply, request_id, spec["expect"])
+    result.verdict, result.gate, result.reasons, result.observed = classify(reply, request_id, spec["expect"])
     result.state = result.observed.get("state")
     return result
 

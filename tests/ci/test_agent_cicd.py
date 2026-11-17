@@ -29,6 +29,7 @@ OLD = f"{REG}/g3-byo-feature-rag-specialist@sha256:" + "a" * 64
 NEW = f"{REG}/g3-byo-coordinator@sha256:" + "b" * 64
 MCP_NEW = f"{REG}/mcp-tools@sha256:" + "b" * 64
 CONTRACT = sa.load_contract()
+EXEC = "20261118t101500-abc123"
 ANSWERS = {"feature-rag-specialist": {"fraud_probability": 0.0639895560144887},
            "drift-specialist": {"psi": 0.0004795543627041439}}
 
@@ -54,8 +55,14 @@ def production_plan(*units: dict, sha: str = SHA) -> dict:
 class FakeKube:
     def __init__(self, *, crds: bool = True, pool: dict | None | str = "default", mcp_ready: bool = True,
                  secrets: bool = True, accounts: bool = True, fleet: bool = True, behavior: str = "ready",
-                 delete_fails: bool = False, delete_sticks: bool = False, touch_production: bool = False) -> None:
+                 delete_fails: bool = False, delete_sticks: bool = False, touch_production: bool = False,
+                 create_fails_for: str | None = None, create_lost_for: str | None = None,
+                 patch_fails_for: str | None = None, patch_lost_for: str | None = None,
+                 list_errors: int = 0, rollback_never_ready: bool = False) -> None:
         self.crds, self.mcp_ready, self.behavior = crds, mcp_ready, behavior
+        self.create_fails_for, self.create_lost_for = create_fails_for, create_lost_for
+        self.patch_fails_for, self.patch_lost_for = patch_fails_for, patch_lost_for
+        self.list_errors, self.rollback_never_ready = list_errors, rollback_never_ready
         self.delete_fails, self.delete_sticks, self.touch_production = delete_fails, delete_sticks, touch_production
         self.objects: dict[tuple[str, str, str], dict] = {}
         self.calls: list[tuple] = []
@@ -126,6 +133,9 @@ class FakeKube:
         return (kind, namespace, name) in self.objects
 
     def list(self, kind: str, namespace: str) -> list[dict]:
+        if self.list_errors and any(c[0] == "delete" for c in self.calls):
+            self.list_errors -= 1
+            raise KubeError("GET -> timed out")  # an API timeout during cleanup
         return [copy.deepcopy(v) for (k, n, _), v in self.objects.items() if k == kind and n == namespace]
 
     def create(self, document: dict) -> dict:
@@ -133,7 +143,11 @@ class FakeKube:
         key = ("SandboxAgent", document["metadata"]["namespace"], document["metadata"]["name"])
         if key in self.objects:
             raise KubeError("POST -> HTTP 409: AlreadyExists")
+        if document["metadata"]["name"] == self.create_fails_for:
+            raise KubeError("POST -> HTTP 500: internal error")
         item = self._admit(document, ready=self.behavior == "ready")
+        if document["metadata"]["name"] == self.create_lost_for:
+            raise KubeError("POST -> connection reset")  # the object exists; the response was lost
         if self.behavior == "rejected":
             self._status(self.objects[key], False, accepted="False")
         if self.behavior == "actor-fails":
@@ -157,6 +171,8 @@ class FakeKube:
 
     def patch(self, kind: str, namespace: str, name: str, operations: list[dict]) -> dict:
         self.calls.append(("patch", name, json.dumps(operations)))
+        if name == self.patch_fails_for and operations[-1]["value"] == NEW:
+            raise KubeError("PATCH -> HTTP 500: internal error")
         item = self.objects[(kind, namespace, name)]
         for op in operations:
             target = {"/metadata/uid": item["metadata"]["uid"],
@@ -166,9 +182,12 @@ class FakeKube:
         image = operations[-1]["value"]
         item["spec"]["byo"]["deployment"]["image"] = image
         item["metadata"]["generation"] += 1
-        ready = not (self.behavior == "patch-not-ready" and image == NEW)
+        ready = not (self.behavior == "patch-not-ready" and image == NEW) and not (
+            self.rollback_never_ready and image != NEW)
         self._status(item, ready)
         self._template(item, ready)
+        if name == self.patch_lost_for and image == NEW:
+            raise KubeError("PATCH -> connection reset")  # applied, response lost
         return copy.deepcopy(item)
 
 
@@ -207,19 +226,25 @@ def run_candidate(kube: FakeKube, *, execute: bool = True, post=None, plan: dict
     ticks = iter(range(0, 100000, 7))
     return sandbox_candidate.run(kube, candidate or unit(), plan or production_plan(unit()), data or manifest(),
                                  execute=execute, forward=loopback, contract=CONTRACT, post=post or fake_post(),
-                                 clock=lambda: next(ticks), sleep=lambda s: None)
+                                 execution_id=EXEC, clock=lambda: next(ticks), sleep=lambda s: None)
 
 
 # --- rendering: the frozen deployment contract -----------------------------------------------------------------
 def test_candidate_differs_from_the_frozen_fleet_only_in_name_labels_image_and_snapshot_prefix() -> None:
     for agent in sa.production_agents(CONTRACT):
-        candidate = sa.render_candidate(CONTRACT, agent, NEW, SHA)
+        candidate = sa.render_candidate(CONTRACT, agent, NEW, SHA, EXEC)
         frozen = sa.frozen_documents(NEW, CONTRACT["credential_release"])[agent]
         assert candidate["metadata"]["name"] == f"{agent}-cicd"
         assert candidate["metadata"]["namespace"] == "ewallet-sandbox"
         assert candidate["metadata"]["labels"][sa.RELEASE_SHA_LABEL] == SHA
+        assert candidate["metadata"]["labels"][sa.EXECUTION_LABEL] == EXEC
         assert candidate["spec"]["substrate"]["snapshotsConfig"]["location"] == \
-            f"gs://ate-snapshots/ewallet-sandbox/cicd-{SHA[:12]}/{agent}-cicd/"
+            f"gs://ate-snapshots/ewallet-sandbox/cicd-{SHA[:12]}/{EXEC}/{agent}-cicd/"
+        # Security posture and network restrictions are the frozen ones, untouched.
+        deployment_spec = candidate["spec"]["byo"]["deployment"]
+        assert deployment_spec["podSecurityContext"] == {"runAsNonRoot": True, "seccompProfile": {"type": "RuntimeDefault"}}
+        assert deployment_spec["securityContext"] == {"allowPrivilegeEscalation": False, "capabilities": {"drop": ["ALL"]}}
+        assert candidate["spec"]["sandbox"] == frozen["spec"]["sandbox"]
         assert candidate["spec"]["substrate"]["workerPoolRef"] == sa.POOL_REF
         deployment = candidate["spec"]["byo"]["deployment"]
         assert deployment["image"] == NEW and deployment["cmd"] == "/opt/venv/bin/python"
@@ -234,7 +259,22 @@ def test_candidate_differs_from_the_frozen_fleet_only_in_name_labels_image_and_s
 
 def test_contract_drift_and_unsafe_inputs_are_refused() -> None:
     frozen = sa.frozen_documents(NEW, CONTRACT["credential_release"])["drift-specialist"]
-    candidate = sa.render_candidate(CONTRACT, "drift-specialist", NEW, SHA)
+    candidate = sa.render_candidate(CONTRACT, "drift-specialist", NEW, SHA, EXEC)
+    privileged = copy.deepcopy(candidate)
+    privileged["spec"]["byo"]["deployment"]["securityContext"]["allowPrivilegeEscalation"] = True
+    assert any("differs from the frozen fleet" in p for p in sa.contract_differences(privileged, frozen))
+    wider = copy.deepcopy(candidate)
+    wider["spec"]["sandbox"]["network"]["allowedDomains"].append("example.com")
+    assert any("differs from the frozen fleet" in p for p in sa.contract_differences(wider, frozen))
+    labelled = copy.deepcopy(candidate)
+    labelled["metadata"]["labels"]["ewallet.io/campaign"] = "agi-x"
+    assert any("labels must be exactly" in p for p in sa.contract_differences(labelled, frozen))
+    tagged = copy.deepcopy(candidate)
+    tagged["spec"]["byo"]["deployment"]["image"] = f"{REG}/g3:latest"
+    assert any("immutable digest" in p for p in sa.contract_differences(tagged, frozen))
+    shared = copy.deepcopy(candidate)
+    shared["spec"]["substrate"]["snapshotsConfig"]["location"] = f"gs://ate-snapshots/ewallet-sandbox/cicd-{SHA[:12]}/drift-specialist-cicd/"
+    assert any("cicd-<sha12>/<execution>" in p for p in sa.contract_differences(shared, frozen))
     tampered = copy.deepcopy(candidate)
     tampered["spec"]["byo"]["deployment"]["serviceAccountName"] = "default"
     assert any("differs from the frozen fleet" in p for p in sa.contract_differences(tampered, frozen))
@@ -247,9 +287,10 @@ def test_contract_drift_and_unsafe_inputs_are_refused() -> None:
     campaign = copy.deepcopy(candidate)
     campaign["spec"]["substrate"]["snapshotsConfig"]["location"] = "gs://ate-snapshots/ewallet-sandbox/agi-x/drift-specialist/"
     assert any("cicd-<sha12>" in p for p in sa.contract_differences(campaign, frozen))
-    for args, message in (((CONTRACT, "fraud-coordinator", NEW, SHA), "not a production Specialist"),
-                          ((CONTRACT, "drift-specialist", f"{REG}/g3:latest", SHA), "immutable digest"),
-                          ((CONTRACT, "drift-specialist", NEW, "abc"), "full lowercase SHA")):
+    for args, message in (((CONTRACT, "fraud-coordinator", NEW, SHA, EXEC), "not a production Specialist"),
+                          ((CONTRACT, "drift-specialist", f"{REG}/g3:latest", SHA, EXEC), "immutable digest"),
+                          ((CONTRACT, "drift-specialist", NEW, "abc", EXEC), "full lowercase SHA"),
+                          ((CONTRACT, "drift-specialist", NEW, SHA, "run-1"), "execution id")):
         with pytest.raises(sa.SandboxContractError, match=message):
             sa.render_candidate(*args)
 
@@ -359,10 +400,12 @@ def test_known_answers_pass_for_both_specialists_with_the_real_fixtures() -> Non
 
 @pytest.mark.parametrize(("reply", "verdict"), [
     (lambda rid: specialist_reply("feature-rag-specialist", rid, fraud_score={"fraud_probability": 0.5}), "KNOWN_ANSWER_MISMATCH"),
-    (lambda rid: specialist_reply("feature-rag-specialist", "other"), "KNOWN_ANSWER_MISMATCH"),
-    (lambda rid: specialist_reply("feature-rag-specialist", rid, citations=[]), "KNOWN_ANSWER_MISMATCH"),
-    (lambda rid: specialist_reply("feature-rag-specialist", rid, debug="x"), "KNOWN_ANSWER_MISMATCH"),
-    (lambda rid: specialist_reply("feature-rag-specialist", rid, prompt_revision="other/v9"), "KNOWN_ANSWER_MISMATCH"),
+    # A stale answer from an earlier execution (its request id) never counts.
+    (lambda rid: specialist_reply("feature-rag-specialist", "cicd-20261117t090000-000000-feature-rag-specialist"), "BUSINESS_MISMATCH"),
+    (lambda rid: specialist_reply("feature-rag-specialist", rid, citations=[]), "BUSINESS_MISMATCH"),
+    (lambda rid: specialist_reply("feature-rag-specialist", rid, debug="x"), "INVALID_VERDICT"),
+    (lambda rid: specialist_reply("feature-rag-specialist", rid, prompt_revision="other/v9"), "BUSINESS_MISMATCH"),
+    (lambda rid: specialist_reply("feature-rag-specialist", rid, status="error"), "BUSINESS_MISMATCH"),
     (lambda rid: specialist_reply("feature-rag-specialist", rid, status="partial"), "PARTIAL"),
     (lambda rid: specialist_reply("feature-rag-specialist", rid, unavailable=["fraud_scoring"]), "PARTIAL"),
     (lambda rid: specialist_reply("feature-rag-specialist", rid, contract_version="g3-orchestration/v2"), "INVALID_VERDICT"),
@@ -373,7 +416,18 @@ def test_known_answers_pass_for_both_specialists_with_the_real_fixtures() -> Non
     (lambda rid: {"jsonrpc": "2.0", "id": rid, "result": {"kind": "task", "id": "t", "status": {"state": "working"}}}, "A2A_TIMEOUT"),
 ])
 def test_anything_but_a_completed_known_answer_fails(reply, verdict) -> None:
-    assert verify_with(reply).verdict == verdict
+    result = verify_with(reply)
+    assert result.verdict == verdict
+    assert result.gate == {"KNOWN_ANSWER_MISMATCH": "REGRESSION", "BUSINESS_MISMATCH": "BUSINESS", "PARTIAL": "BUSINESS",
+                           "INVALID_VERDICT": "SCHEMA", "FAILED_TASK": "PROTOCOL", "A2A_TIMEOUT": "PROTOCOL"}[verdict]
+
+
+def test_numeric_tolerance_absorbs_ulp_noise_but_not_a_real_change() -> None:
+    pinned = 0.0639895560144887
+    noisy = lambda rid: specialist_reply("feature-rag-specialist", rid, fraud_score={"fraud_probability": pinned * (1 + 4e-16)})  # noqa: E731
+    assert verify_with(noisy).verdict == "PASS"
+    changed = lambda rid: specialist_reply("feature-rag-specialist", rid, fraud_score={"fraud_probability": pinned * (1 + 1e-6)})  # noqa: E731
+    assert verify_with(changed).verdict == "KNOWN_ANSWER_MISMATCH"
 
 
 def test_drift_psi_is_checked_against_the_pinned_value() -> None:
@@ -385,7 +439,8 @@ def test_drift_psi_is_checked_against_the_pinned_value() -> None:
 def test_transport_errors_are_failures_not_passes() -> None:
     def refuse(rid):  # type: ignore[no-untyped-def]
         raise ConnectionRefusedError("no route")
-    assert verify_with(refuse).verdict == "TRANSPORT_ERROR"
+    result = verify_with(refuse)
+    assert (result.verdict, result.gate) == ("TRANSPORT_ERROR", "TRANSPORT")
 
 
 def test_evidence_fields_match_the_frozen_specialist_contract() -> None:
@@ -441,9 +496,10 @@ def test_preflight_refusals_create_nothing(kube, code) -> None:
 
 def test_a_leftover_candidate_is_never_overwritten_or_adopted() -> None:
     kube = FakeKube()
-    kube._admit(sa.render_candidate(CONTRACT, "drift-specialist", NEW, "d" * 40), ready=True)
+    kube._admit(sa.render_candidate(CONTRACT, "drift-specialist", NEW, "d" * 40, "20261117t090000-000000"), ready=True)
     report = run_candidate(kube)
     assert report.failure_code == "STALE_CANDIDATE" and kube.calls == []
+    assert "20261117t090000-000000" in report.problems[0] and "uid-" in report.problems[0]  # identity for recovery
 
 
 @pytest.mark.parametrize(("plan", "candidate", "code"), [
@@ -491,8 +547,102 @@ def test_an_a2a_timeout_or_a_wrong_answer_fails_and_cleans_up() -> None:
 @pytest.mark.parametrize("kube", [lambda: FakeKube(delete_fails=True), lambda: FakeKube(delete_sticks=True)])
 def test_a_cleanup_failure_is_its_own_verdict(kube) -> None:
     report = run_candidate(kube())
-    assert report.status == "CLEANUP_FAILED"
-    assert any("still present after cleanup" in p for p in report.problems)
+    assert report.status == "CLEANUP_INCOMPLETE" and report.failure_code == "CLEANUP_INCOMPLETE"
+    left = {(r["kind"], r["name"]) for r in report.cleanup_incomplete}
+    assert ("SandboxAgent", "drift-specialist-cicd") in left and ("SandboxAgent", "feature-rag-specialist-cicd") in left
+    assert all(r.get("uid") or r.get("owner_uid") for r in report.cleanup_incomplete)  # exact identities
+
+
+def test_a_partial_creation_cleans_up_the_candidate_that_was_created() -> None:
+    kube = FakeKube(create_fails_for="feature-rag-specialist-cicd")
+    report = run_candidate(kube)
+    assert report.failure_code == "CANDIDATE_ERROR"
+    assert report.cleanup == {"drift-specialist-cicd": "DELETED"} and report.cleanup_incomplete == []
+    assert ("SandboxAgent", "ewallet-sandbox", "drift-specialist-cicd") not in kube.objects
+
+
+def test_a_lost_create_response_is_resolved_by_the_execution_label() -> None:
+    kube = FakeKube(create_lost_for="drift-specialist-cicd")
+    events: list = []
+    report = sandbox_candidate.run(kube, unit(), production_plan(unit()), manifest(), execute=True, forward=loopback,
+                                   contract=CONTRACT, post=fake_post(), execution_id=EXEC, emit=events.append,
+                                   sleep=lambda s: None)
+    assert report.failure_code == "CANDIDATE_ERROR"
+    assert report.cleanup["drift-specialist-cicd"] == "DELETED"  # adopted only because it carries this execution
+    assert any(e.get("recovered") for e in events)
+    assert not [k for k in kube.objects if k[0] == "SandboxAgent" and k[2].endswith("-cicd")]
+
+
+def test_cleanup_never_deletes_an_object_it_does_not_own() -> None:
+    kube = FakeKube()
+    document = sa.render_candidate(CONTRACT, "drift-specialist", NEW, SHA, EXEC)
+    created = kube.create(document)
+    # Someone deleted it and created another object with the same name: another uid.
+    del kube.objects[("SandboxAgent", "ewallet-sandbox", "drift-specialist-cicd")]
+    kube._admit(sa.render_candidate(CONTRACT, "drift-specialist", NEW, SHA, "20261118t111111-ffffff"), ready=True)
+    state, remaining = sandbox_candidate.cleanup(kube, CONTRACT, {"drift-specialist-cicd": created["metadata"]["uid"]},
+                                                 EXEC, sleep=lambda s: None)
+    assert state == {"drift-specialist-cicd": "NOT_OURS_LEFT_UNTOUCHED"} and remaining == []
+    assert not [c for c in kube.calls if c[0] == "delete"]
+    assert ("SandboxAgent", "ewallet-sandbox", "drift-specialist-cicd") in kube.objects
+
+
+def test_cleanup_retries_through_api_timeouts_and_is_idempotent() -> None:
+    kube = FakeKube(list_errors=2)
+    report = run_candidate(kube)
+    assert report.status == "PASS" and set(report.cleanup.values()) == {"DELETED"}
+    created = {name: "uid-x" for name in report.cleanup}
+    state, remaining = sandbox_candidate.cleanup(kube, CONTRACT, created, EXEC, sleep=lambda s: None)
+    assert remaining == [] and set(state.values()) == {"DELETED"}  # already gone counts as deleted
+
+
+def test_an_unexpected_exception_in_cleanup_is_recorded_not_hidden(monkeypatch) -> None:
+    def explode(*args, **kwargs):  # type: ignore[no-untyped-def]
+        raise RuntimeError("cleanup bug")
+    monkeypatch.setattr(sandbox_candidate, "cleanup", explode)
+    report = run_candidate(FakeKube())
+    assert report.status == "CLEANUP_INCOMPLETE" and len(report.cleanup_incomplete) == 2
+
+
+def test_the_port_forward_reads_its_own_announced_port(monkeypatch) -> None:
+    """A fixed port could be held by another listener; kubectl's own announcement is the only source."""
+
+    import io
+    import socket as socket_module
+
+    listener = socket_module.socket()
+    listener.bind(("127.0.0.1", 0))
+    listener.listen(1)
+    port = listener.getsockname()[1]
+
+    class Child:
+        def __init__(self, argv, **kwargs):  # type: ignore[no-untyped-def]
+            self.argv, self.terminated, self.waited = argv, False, False
+            self.stdout = io.StringIO(f"Forwarding from 127.0.0.1:{port} -> 8083\n")
+            Child.instance = self
+
+        def poll(self):  # type: ignore[no-untyped-def]
+            return None
+
+        def terminate(self):  # type: ignore[no-untyped-def]
+            self.terminated = True
+
+        def wait(self, timeout=None):  # type: ignore[no-untyped-def]
+            self.waited = True
+            return 0
+
+    monkeypatch.setattr(sandbox_candidate.subprocess, "Popen", Child)
+    monkeypatch.setattr(sandbox_candidate, "_forwarded_port",
+                        lambda process, remote, timeout: int(sandbox_candidate.FORWARD_LINE.search(
+                            process.stdout.readline()).group(1)))
+    try:
+        with sandbox_candidate.kubectl_forward("gke-prod", CONTRACT) as endpoint:
+            assert endpoint == f"http://127.0.0.1:{port}/"
+            assert ":8083" in Child.instance.argv and "--address" in Child.instance.argv
+            assert not any(arg.startswith("18") and ":" in arg for arg in Child.instance.argv)  # no fixed local port
+        assert Child.instance.terminated and Child.instance.waited  # terminated and reaped
+    finally:
+        listener.close()
 
 
 def test_a_change_to_a_production_sandbox_agent_during_the_run_is_reported() -> None:
@@ -501,10 +651,16 @@ def test_a_change_to_a_production_sandbox_agent_during_the_run_is_reported() -> 
 
 
 def test_candidate_evidence_is_written(tmp_path) -> None:
-    sandbox_candidate.run(FakeKube(), unit(), production_plan(unit()), manifest(), execute=True, forward=loopback,
-                          contract=CONTRACT, post=fake_post(), evidence=tmp_path, sleep=lambda s: None)
-    data = json.loads((tmp_path / "candidate-verdict.json").read_text())
-    assert data["status"] == "PASS" and data["e2e"][0]["git_sha"] == SHA and data["e2e"][0]["image"] == NEW
+    for _ in range(2):  # two executions of the same SHA: two fresh evidence sets, distinct request ids
+        sandbox_candidate.run(FakeKube(), unit(), production_plan(unit()), manifest(), execute=True, forward=loopback,
+                              contract=CONTRACT, post=fake_post(), evidence=tmp_path, sleep=lambda s: None)
+    runs = sorted(tmp_path.glob("*/candidate-verdict.json"))
+    assert len(runs) == 2
+    data = [json.loads(path.read_text()) for path in runs]
+    assert all(d["status"] == "PASS" and d["e2e"][0]["git_sha"] == SHA and d["e2e"][0]["image"] == NEW for d in data)
+    assert data[0]["execution_id"] != data[1]["execution_id"]
+    assert data[0]["e2e"][0]["request_id"] != data[1]["e2e"][0]["request_id"]
+    assert data[0]["snapshot_prefix"] != data[1]["snapshot_prefix"]
 
 
 # --- fleet promotion ------------------------------------------------------------------------------------------
@@ -513,7 +669,7 @@ def promote_fleet(kube: FakeKube, execute: bool = True) -> tuple[list, Exception
     try:
         fleet_promote.promote(kube, unit("fleet-image-promotion"), execute=execute, record=record, contract=CONTRACT,
                               clock=iter(range(0, 100000, 7)).__next__, sleep=lambda s: None)
-    except fleet_promote.FleetPromotionError as error:
+    except Exception as error:  # promotion or API errors; the transaction catches every exception the same way
         return record, error
     return record, None
 
@@ -562,217 +718,46 @@ def test_a_fleet_that_does_not_become_ready_is_patched_back() -> None:
     assert kube.get("SandboxAgent", "ewallet-sandbox", "feature-rag-specialist")["spec"]["byo"]["deployment"]["image"] == OLD
 
 
+def test_first_specialist_patched_second_fails_rolls_back_the_first() -> None:
+    kube = FakeKube(patch_fails_for="drift-specialist")
+    record, error = promote_fleet(kube)
+    assert error is not None and [r.status for r in record] == ["PROMOTED", "PATCH_ATTEMPTED"]
+    errors = fleet_promote.rollback(kube, CONTRACT, record, clock=iter(range(0, 100000, 7)).__next__, sleep=lambda s: None)
+    assert errors == [] and [r.status for r in record] == ["ROLLED_BACK", "NOT_CHANGED"]
+    assert kube.get("SandboxAgent", "ewallet-sandbox", "feature-rag-specialist")["spec"]["byo"]["deployment"]["image"] == OLD
+
+
+def test_a_lost_patch_response_is_inspected_and_rolled_back() -> None:
+    kube = FakeKube(patch_lost_for="feature-rag-specialist")
+    record, error = promote_fleet(kube)
+    assert error is not None and record[0].status == "PATCH_ATTEMPTED"
+    errors = fleet_promote.rollback(kube, CONTRACT, record, clock=iter(range(0, 100000, 7)).__next__, sleep=lambda s: None)
+    assert errors == [] and record[0].status == "ROLLED_BACK"
+    assert kube.get("SandboxAgent", "ewallet-sandbox", "feature-rag-specialist")["spec"]["byo"]["deployment"]["image"] == OLD
+
+
+def test_a_recreated_agent_is_never_overwritten_by_the_rollback() -> None:
+    kube = FakeKube(patch_lost_for="feature-rag-specialist")
+    record, _ = promote_fleet(kube)
+    kube.objects[("SandboxAgent", "ewallet-sandbox", "feature-rag-specialist")]["metadata"]["uid"] = "uid-recreated"
+    errors = fleet_promote.rollback(kube, CONTRACT, record, clock=iter(range(0, 100000, 7)).__next__, sleep=lambda s: None)
+    assert errors and "changed concurrently" in errors[0] and record[0].status == "ROLLBACK_FAILED"
+    assert len([c for c in kube.calls if c[0] == "patch"]) == 1  # only the original attempt
+
+
+def test_a_rollback_that_never_becomes_ready_is_a_rollback_failure() -> None:
+    kube = FakeKube(behavior="patch-not-ready", rollback_never_ready=True)
+    record, _ = promote_fleet(kube)
+    errors = fleet_promote.rollback(kube, CONTRACT, record, clock=iter(range(0, 100000, 7)).__next__, sleep=lambda s: None)
+    assert errors and "not Ready" in errors[0] and record[0].status == "ROLLBACK_NOT_READY"
+
+
 def test_a_concurrent_change_makes_the_rollback_fail_loudly() -> None:
     kube = FakeKube(behavior="patch-not-ready")
     record, _ = promote_fleet(kube)
     kube.objects[("SandboxAgent", "ewallet-sandbox", "feature-rag-specialist")]["spec"]["byo"]["deployment"]["image"] = "x"
     errors = fleet_promote.rollback(kube, CONTRACT, record, clock=iter(range(0, 100000, 7)).__next__, sleep=lambda s: None)
     assert errors and "rollback failed" in errors[0] and record[0].status == "ROLLBACK_FAILED"
-
-
-# --- production transaction -----------------------------------------------------------------------------------
-def full_stack_plan() -> dict:
-    units = json.loads((ROOT / "jenkins/catalog/release-units.json").read_text())
-    planned = []
-    for name in units["groups"]["release/coordinator"]["production"]:
-        item = {**units["units"][name], "name": name}
-        item["images"] = {image: (MCP_NEW if image == "mcp-tools" else NEW) for image in item["images"]}
-        planned.append(item)
-    return production_plan(*planned)
-
-
-def transaction(kube: FakeKube, helm: FakeCluster, verify=lambda expected: True, execute: bool = True, post=None):  # type: ignore[no-untyped-def]
-    original = sandbox_candidate.run
-
-    def run(*args, **kwargs):  # type: ignore[no-untyped-def]
-        kwargs.update(contract=CONTRACT, post=post or fake_post(), sleep=lambda s: None,
-                      clock=iter(range(0, 100000, 7)).__next__)
-        return original(*args, **kwargs)
-
-    sandbox_candidate.run = run
-    original_sleep = fleet_promote.time.sleep
-    fleet_promote.time.sleep = lambda s: None
-    try:
-        return production_release.run(full_stack_plan(), "gke-prod", manifest(), execute=execute, kube=kube,
-                                      helm_runner=helm, verify=verify, forward=loopback)
-    finally:
-        sandbox_candidate.run = original
-        fleet_promote.time.sleep = original_sleep
-
-
-def test_the_full_stack_release_runs_candidate_mcp_fleet_coordinator_and_states_the_expected_runtime(monkeypatch) -> None:
-    monkeypatch.setenv("PROMOTION_APPROVED", "yes")
-    kube, helm = FakeKube(), FakeCluster()
-    seen = {}
-    report = transaction(kube, helm, verify=lambda expected: seen.update(expected) or True)
-    assert report["verdict"] == "PASS", report["failure"]
-    assert report["production_changed"] and report["candidate_objects_created"]
-    assert [u["status"] for u in report["units"]["helm"]] == ["UPGRADED", "UPGRADED"]
-    assert [u["status"] for u in report["units"]["fleet"]] == ["PROMOTED", "PROMOTED"]
-    assert seen["helm_revisions"] == {"llm-agent": 60, "llm-agent-mcp": 20}
-    assert seen["images"]["ewallet-sandbox/SandboxAgent/drift-specialist"] == NEW
-    assert seen["images"]["ewallet-mcp/Deployment/drift-mcp"] == MCP_NEW
-    assert seen["images"]["ewallet-agents/Deployment/fraud-coordinator"] == NEW
-    assert report["registry"]["status"] == "PUBLICATION_REQUIRES_APPROVAL"
-    assert report["registry"]["changed"] == {"coordinator": True, "sandbox_fleet": True}
-    assert "--confirm-live-write" in report["registry"]["commands"][1]  # never run by CI/CD
-
-
-def test_no_production_stage_gates_rollback_on_the_registry_readback() -> None:
-    units = json.loads((ROOT / "jenkins/catalog/release-units.json").read_text())["units"]
-    assert not [name for name, item in units.items() if item["stage"] == "production" and "registry-readback" in item["verify"]]
-
-
-def test_a_failed_candidate_stops_the_release_before_any_promotion(monkeypatch) -> None:
-    monkeypatch.setenv("PROMOTION_APPROVED", "yes")
-    kube, helm = FakeKube(behavior="actor-fails"), FakeCluster()
-    report = transaction(kube, helm)
-    assert report["verdict"] == "FAIL" and report["failed_unit"] == "agent-fleet-candidate"
-    # The candidate runs first: nothing in production was promoted, so nothing needs a rollback.
-    assert report["units"]["helm"] == [] and report["units"]["fleet"] == [] and not report["production_changed"]
-    assert not [c for c in helm.calls if c[:2] in (["helm", "upgrade"], ["helm", "rollback"])]
-    assert report["candidate_objects_created"] and report["units"]["candidates"][0]["cleanup"]
-
-
-def test_a_failed_verification_rolls_back_coordinator_fleet_and_mcp_in_reverse(monkeypatch) -> None:
-    monkeypatch.setenv("PROMOTION_APPROVED", "yes")
-    kube, helm = FakeKube(), FakeCluster()
-    report = transaction(kube, helm, verify=lambda expected: False)
-    assert report["verdict"] == "FAIL" and report["failure"] == "runtime verification failed after promotion"
-    assert [u["status"] for u in report["units"]["helm"]] == ["ROLLED_BACK", "ROLLED_BACK"]
-    assert [u["status"] for u in report["units"]["fleet"]] == ["ROLLED_BACK", "ROLLED_BACK"]
-    rollbacks = [c[2] for c in helm.calls if c[:2] == ["helm", "rollback"]]
-    assert rollbacks == ["llm-agent", "llm-agent-mcp"]
-    image = kube.get("SandboxAgent", "ewallet-sandbox", "drift-specialist")["spec"]["byo"]["deployment"]["image"]
-    assert image == OLD
-
-
-def test_a_partial_failure_in_the_coordinator_upgrade_rolls_back_the_fleet_and_mcp(monkeypatch) -> None:
-    monkeypatch.setenv("PROMOTION_APPROVED", "yes")
-    kube, helm = FakeKube(), FakeCluster(fail_upgrade_of="llm-agent")
-    report = transaction(kube, helm)
-    assert report["failed_unit"] == "coordinator-production"
-    assert [u["status"] for u in report["units"]["fleet"]] == ["ROLLED_BACK", "ROLLED_BACK"]
-    assert report["units"]["helm"][0]["status"] == "ROLLED_BACK"
-
-
-def test_a_rollback_failure_is_the_verdict(monkeypatch) -> None:
-    monkeypatch.setenv("PROMOTION_APPROVED", "yes")
-    kube, helm = FakeKube(), FakeCluster()
-
-    def verify(expected):  # type: ignore[no-untyped-def]
-        # Someone changes the fleet behind the release: the guarded patch-back must refuse.
-        kube.objects[("SandboxAgent", "ewallet-sandbox", "drift-specialist")]["spec"]["byo"]["deployment"]["image"] = "x"
-        return False
-
-    report = transaction(kube, helm, verify=verify)
-    assert report["verdict"] == "ROLLBACK_FAILED" and any("drift-specialist" in e for e in report["rollback_errors"])
-
-
-def test_without_execute_or_approval_nothing_changes(monkeypatch) -> None:
-    monkeypatch.delenv("PROMOTION_APPROVED", raising=False)
-    kube, helm = FakeKube(), FakeCluster()
-    report = transaction(kube, helm, execute=False)
-    assert report["verdict"] == "CHECKED_NOT_EXECUTED" and not report["production_changed"]
-    assert kube.calls == [] and not [c for c in helm.calls if c[:2] in (["helm", "upgrade"], ["helm", "rollback"])]
-
-
-def test_execute_without_the_production_approval_changes_nothing(monkeypatch) -> None:
-    monkeypatch.setenv("PROMOTION_APPROVED", "no")
-    kube, helm = FakeKube(), FakeCluster()
-    verified = []
-    report = transaction(kube, helm, verify=lambda expected: verified.append(1) or True)
-    assert report["verdict"] == "CHECKED_NOT_EXECUTED" and not report["production_changed"]
-    assert kube.calls == [] and verified == []
-    assert [u["status"] for u in report["units"]["fleet"]] == ["CHECKED_NOT_EXECUTED"] * 2
-
-
-@pytest.mark.parametrize("context", ["", "in-cluster"])
-def test_the_transaction_needs_an_explicit_production_context(context) -> None:
-    with pytest.raises(production_release.ProductionReleaseError):
-        production_release.run(full_stack_plan(), context, manifest(), execute=True, kube=FakeKube(),
-                               helm_runner=FakeCluster())
-
-
-# --- runtime verification: target guard and reconciliation ---------------------------------------------------
-def test_verification_refuses_a_campaign_env_for_another_cluster(tmp_path) -> None:
-    env = tmp_path / "agi.env"
-    env.write_text("export CTX=kind-ewallet-local\nEV=/x\n")
-    with pytest.raises(runtime_verify.VerificationError, match="TARGET_MISMATCH"):
-        runtime_verify.guard_target({"AGI_ENV": str(env)}, "gke-prod")
-    with pytest.raises(runtime_verify.VerificationError, match="AGI_ENV"):
-        runtime_verify.guard_target({}, "gke-prod")
-    env.write_text("CTX='gke-prod'\n")
-    runtime_verify.guard_target({"AGI_ENV": str(env)}, "gke-prod")
-    with pytest.raises(runtime_verify.VerificationError):
-        runtime_verify.guard_target({"AGI_ENV": str(env)}, "in-cluster")
-
-
-def status_snapshot(tmp_path: Path, *, helm: dict[str, int], frozen_fail: list[str], images: dict[str, str]) -> Path:
-    snapshot = tmp_path / "status"
-    snapshot.mkdir(parents=True, exist_ok=True)
-    rows = [["FAIL" if f"Helm {r}" in frozen_fail else "PASS", f"Helm {r}", f"revision {v} deployed"] for r, v in helm.items()]
-    rows += [["FAIL", check, "x"] for check in frozen_fail if not check.startswith("Helm ")]
-    (snapshot / "verdict.json").write_text(json.dumps({"verdict": "FAIL" if frozen_fail else "PASS", "rows": rows}))
-    for release, revision in helm.items():
-        (snapshot / f"helm-{release}.json").write_text(json.dumps([{"revision": revision, "status": "deployed"}]))
-    deployments = {"ewallet-agents": [], "ewallet-mcp": []}
-    agents = []
-    for key, image in images.items():
-        namespace, kind, name = key.split("/")
-        if kind == "SandboxAgent":
-            agents.append({"metadata": {"name": name}, "spec": {"byo": {"deployment": {"image": image}}}})
-        else:
-            deployments[namespace].append({"metadata": {"name": name},
-                                           "spec": {"template": {"spec": {"containers": [{"image": image}]}}}})
-    for namespace, items in deployments.items():
-        (snapshot / f"deployments-{namespace}.json").write_text(json.dumps({"items": items}))
-    (snapshot / "sandboxagents.json").write_text(json.dumps({"items": agents}))
-    return snapshot
-
-
-EXPECTED_IMAGES = {"ewallet-sandbox/SandboxAgent/drift-specialist": NEW, "ewallet-agents/Deployment/fraud-coordinator": NEW}
-
-
-def test_moved_helm_revisions_reconcile_only_to_this_transactions_revision(tmp_path) -> None:
-    status_snapshot(tmp_path, helm={"llm-agent": 61, "llm-agent-mcp": 20}, frozen_fail=["Helm llm-agent", "Helm llm-agent-mcp"],
-                    images=EXPECTED_IMAGES)
-    rows = runtime_verify.reconcile_status(tmp_path, {"helm_revisions": {"llm-agent": 61, "llm-agent-mcp": 20},
-                                                      "images": EXPECTED_IMAGES})
-    assert all(row["status"] == "PASS" for row in rows) and any(row["check"].startswith("RECONCILED") for row in rows)
-    rows = runtime_verify.reconcile_status(tmp_path, {"helm_revisions": {"llm-agent": 62, "llm-agent-mcp": 20},
-                                                      "images": EXPECTED_IMAGES})
-    assert [row["check"] for row in rows if row["status"] == "FAIL"] == ["RECONCILED Helm llm-agent"]
-
-
-def test_any_other_frozen_failure_and_any_wrong_image_still_fail(tmp_path) -> None:
-    status_snapshot(tmp_path, helm={"llm-agent": 60}, frozen_fail=["SandboxAgent drift-specialist"],
-                    images={**EXPECTED_IMAGES, "ewallet-sandbox/SandboxAgent/drift-specialist": OLD})
-    rows = runtime_verify.reconcile_status(tmp_path, {"helm_revisions": {"llm-agent": 60}, "images": EXPECTED_IMAGES})
-    failed = {row["check"] for row in rows if row["status"] == "FAIL"}
-    assert failed == {"SandboxAgent drift-specialist", "IDENTITY ewallet-sandbox/SandboxAgent/drift-specialist"}
-
-
-def test_run_checks_uses_the_reconciliation_for_the_status_command(tmp_path) -> None:
-    def run(argv, env):  # type: ignore[no-untyped-def]
-        args = list(argv[1:])
-        if args == ["status"]:
-            status_snapshot(Path(env["REPLAY_DIR"]), helm={"llm-agent": 61}, frozen_fail=["Helm llm-agent"],
-                            images=EXPECTED_IMAGES)
-            return 1  # the frozen verdict fails on the moved revision
-        path = Path(env["REPLAY_DIR"]) / "e2e" / f"{args[-1]}-verdict.json"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps({"verdict": "COMPLETE"}))
-        return 0
-
-    env = tmp_path / "agi.env"
-    env.write_text("CTX=gke-prod\n")
-    expected = {"helm_revisions": {"llm-agent": 61}, "images": EXPECTED_IMAGES}
-    report = runtime_verify.run_checks(["platform-status", "e2e-fraud"], tmp_path / "replay", run=run,
-                                       environment={"AGI_ENV": str(env)}, expected=expected, production_context="gke-prod")
-    assert report["verdict"] == "PASS" and report["reconciliation"]
-    without = runtime_verify.run_checks(["platform-status"], tmp_path / "replay2", run=run, environment={})
-    assert without["verdict"] == "FAIL"  # unreconciled, the frozen verdict decides
 
 
 # --- RBAC proposal is inert and bounded -----------------------------------------------------------------------
@@ -788,3 +773,41 @@ def test_the_agent_cicd_rbac_proposal_is_inert_and_scoped() -> None:
         if "workerpools" in rule["resources"] or "actortemplates" in rule["resources"]:
             assert set(rule["verbs"]) <= {"get", "list", "watch"}  # the WorkerPool is never written
     assert {ns for ns, _ in rules} <= {"ewallet-sandbox", "ewallet-mcp", "kagent", "ewallet-cicd"}
+
+
+# --- artifact identity: the fleet image -------------------------------------------------------------------------
+def test_the_fleet_image_build_context_contains_both_specialists_and_their_actor_contract() -> None:
+    """The fleet is promoted with the g3-byo-coordinator image. Its Dockerfile copies the whole
+    ai_platform/llm_agent package into /workspace (the actor's PYTHONPATH) and the locked venv into
+    /opt/venv (the actor's cmd), so both Specialist modules ship with their dependencies. A local build
+    and an import of both modules with the actor environment is recorded in the runbook (§9)."""
+
+    dockerfile = (ROOT / "infra/docker/g3-byo-coordinator/Dockerfile").read_text()
+    assert "COPY ai_platform/llm_agent ai_platform/llm_agent" in dockerfile
+    assert "WORKDIR /workspace" in dockerfile and "COPY --from=deps /opt/venv /opt/venv" in dockerfile
+    assert "uv sync --locked" in dockerfile
+    catalog = json.loads((ROOT / "jenkins/catalog/components.json").read_text())
+    images = {i["name"]: i for c in catalog["components"].values() for i in c.get("images", [])}
+    assert images["g3-byo-coordinator"]["dockerfile"] == "infra/docker/g3-byo-coordinator/Dockerfile"
+    for agent, spec in CONTRACT["agents"].items():
+        module_path = ROOT / (spec["module"].replace(".", "/") + ".py")
+        assert module_path.is_file() and module_path.is_relative_to(ROOT / "ai_platform/llm_agent")
+        frozen = sa.frozen_documents(NEW, CONTRACT["credential_release"])[agent]["spec"]["byo"]["deployment"]
+        assert frozen["cmd"] == "/opt/venv/bin/python" and frozen["args"] == ["-m", spec["module"]]
+        assert {"name": "PYTHONPATH", "value": "/workspace"} in frozen["env"]
+
+
+def test_both_specialists_import_in_the_locked_image_environment() -> None:
+    """Runs only where the g3-byo-coordinator locked environment is present (CD_REHEARSAL_AGENT_PYTHON)."""
+
+    import os
+    import subprocess
+
+    python = os.environ.get("CD_REHEARSAL_AGENT_PYTHON")
+    if not python:
+        pytest.skip("needs the g3-byo-coordinator environment (set CD_REHEARSAL_AGENT_PYTHON)")
+    for spec in CONTRACT["agents"].values():
+        result = subprocess.run([python, "-c", f"import {spec['module']} as m; print(m.APP_NAME, m.PROMPT_REVISION)"],
+                                cwd=ROOT, env={**os.environ, "PYTHONPATH": str(ROOT)}, capture_output=True, text=True)
+        assert result.returncode == 0, result.stderr[-400:]
+        assert spec["expect"]["prompt_revision"] in result.stdout

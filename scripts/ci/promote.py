@@ -12,7 +12,9 @@ For each unit, in plan order:
 
 If a later unit or the runtime verification fails, every unit this run upgraded is rolled back
 (``helm rollback <release> <recorded revision>``) in reverse order; the original failure stays
-the reported cause. Nothing runs without ``--execute`` and ``PROMOTION_APPROVED=yes``.
+the reported cause. An upgrade is recorded as ``UPGRADE_ATTEMPTED`` before ``helm upgrade`` runs,
+so a failed, timed-out or lost upgrade is never mistaken for "nothing changed": the rollback reads
+the release history and rolls back whenever the latest revision is no longer the recorded one. Nothing runs without ``--execute`` and ``PROMOTION_APPROVED=yes``.
 Production credentials are never implied: the caller passes an explicit kube context.
 """
 
@@ -46,16 +48,23 @@ class UnitPromotion:
     detail: list[str] = field(default_factory=list)
 
 
-def current_revision(run: Runner, release: str, namespace: str, context: str) -> int:
+def latest_release(run: Runner, release: str, namespace: str, context: str) -> dict[str, Any]:
+    """The latest Helm history entry (revision and status)."""
+
     history = json.loads(run(["helm", "history", release, "--kube-context", context, "--namespace", namespace,
                               "--max", "1", "--output", "json"]) or "[]")
     if not history or not isinstance(history[-1].get("revision"), int):
         raise PromotionError(f"{release} has no readable Helm revision")
-    return history[-1]["revision"]
+    return history[-1]
+
+
+def current_revision(run: Runner, release: str, namespace: str, context: str) -> int:
+    return latest_release(run, release, namespace, context)["revision"]
 
 
 def promote_unit(run: Runner, unit: Mapping[str, Any], git_sha: str, context: str, workdir: Path,
-                 execute: bool, record: list[UnitPromotion]) -> UnitPromotion:
+                 execute: bool, record: list[UnitPromotion],
+                 before_mutation: Callable[[UnitPromotion], None] | None = None) -> UnitPromotion:
     """Promote one unit. The result is appended to ``record`` before any mutation, so a failure after
     ``helm upgrade`` still leaves the unit for rollback."""
 
@@ -84,6 +93,9 @@ def promote_unit(run: Runner, unit: Mapping[str, Any], git_sha: str, context: st
     if not execute or os.environ.get("PROMOTION_APPROVED") != "yes":
         result.status = "CHECKED_NOT_EXECUTED"
         return result
+    result.status = "UPGRADE_ATTEMPTED"  # from here on the cluster may have changed
+    if before_mutation is not None:
+        before_mutation(result)  # e.g. a durable journal entry; a failure here stops before helm runs
     rs.promote(run, release, context, overlay, live_values)
     result.status = "UPGRADED"
     remaining = rs.check_drift(run, release, context)
@@ -94,19 +106,39 @@ def promote_unit(run: Runner, unit: Mapping[str, Any], git_sha: str, context: st
     return result
 
 
+MUTATED = frozenset({"UPGRADE_ATTEMPTED", "UPGRADED"})
+
+
 def rollback(run: Runner, promoted: Sequence[UnitPromotion], context: str) -> list[str]:
-    """Roll back every upgraded unit in reverse order; return the errors (never raises)."""
+    """Roll back every unit this run may have changed, in reverse order; return the errors (never raises).
+
+    ``UPGRADED`` units are rolled back. ``UPGRADE_ATTEMPTED`` units (the upgrade failed, timed out or
+    its result was lost) are inspected first: if the latest revision is still the recorded one nothing
+    changed (``NOT_CHANGED``); otherwise they are rolled back too. A release whose state cannot be read
+    is an error, never assumed unchanged. After a rollback the latest revision must be ``deployed``.
+    """
 
     errors = []
     for unit in reversed(promoted):
-        if unit.status != "UPGRADED" or unit.previous_revision is None:
+        if unit.status not in MUTATED or unit.previous_revision is None:
             continue
         try:
+            if unit.status == "UPGRADE_ATTEMPTED":
+                latest = current_revision(run, unit.release, unit.namespace, context)
+                if latest == unit.previous_revision:
+                    unit.status = "NOT_CHANGED"
+                    continue
+                unit.detail.append(f"failed upgrade left revision {latest} (recorded {unit.previous_revision})")
             run(["helm", "rollback", unit.release, str(unit.previous_revision), "--kube-context", context,
                  "--namespace", unit.namespace, "--wait", "--timeout", "15m"])
+            after = latest_release(run, unit.release, unit.namespace, context)
+            if after.get("status") != "deployed":
+                raise PromotionError(f"after the rollback the latest revision {after.get('revision')} is "
+                                     f"{after.get('status')}, not deployed")
             unit.status = "ROLLED_BACK"
-        except rs.ReleaseStateError as error:
-            errors.append(f"{unit.name}: rollback failed: {error}")
+        except (rs.ReleaseStateError, PromotionError, ValueError, OSError) as error:
+            unit.status = "ROLLBACK_FAILED"
+            errors.append(f"{unit.name}: rollback to revision {unit.previous_revision} failed: {error}")
     return errors
 
 
@@ -136,7 +168,7 @@ def promote_plan(run: Runner, plan: Mapping[str, Any], context: str, *, execute:
         verdict = "CHECKED_NOT_EXECUTED"
     return {
         "verdict": verdict, "stage": "production", "git_sha": plan["git_sha"],
-        "production_changed": any(unit.status in {"UPGRADED", "ROLLED_BACK"} for unit in promoted),
+        "production_changed": any(unit.status in {"UPGRADED", "ROLLED_BACK", "ROLLBACK_FAILED"} for unit in promoted),
         "failure": failure or None, "rollback_errors": rollback_errors,
         "units": [unit.__dict__ for unit in promoted],
     }

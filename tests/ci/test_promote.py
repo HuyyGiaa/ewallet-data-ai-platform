@@ -30,6 +30,12 @@ class FakeCluster:
         self.calls: list[list[str]] = []
         self.fail_upgrade_of, self.drift_after = fail_upgrade_of, drift_after
         self.upgraded: set[str] = set()
+        self.states: dict[str, str] = {}
+        # Failure injection: an upgrade that changes the cluster and then fails (timeout, lost
+        # result), a rollback that fails, a rollback that leaves the release not deployed.
+        self.partial_upgrade_of: str | None = None
+        self.fail_rollback_of: str | None = None
+        self.rollback_state: str = "deployed"
 
     def render_image(self, release: str, files: list[str]) -> str:
         image = self.images[release]
@@ -43,7 +49,7 @@ class FakeCluster:
         command = list(command)
         self.calls.append(command)
         if command[:2] == ["helm", "history"]:
-            return json.dumps([{"revision": self.revisions[command[2]]}])
+            return json.dumps([{"revision": self.revisions[command[2]], "status": self.states.get(command[2], "deployed")}])
         if command[:3] == ["helm", "get", "values"]:
             return "x: 1\n"
         if command[:3] == ["helm", "get", "manifest"]:
@@ -55,6 +61,12 @@ class FakeCluster:
             release = command[2]
             if release == self.fail_upgrade_of:
                 raise rs.ReleaseStateError("helm upgrade failed with exit 1")
+            if release == self.partial_upgrade_of:
+                files = [command[i + 1] for i, item in enumerate(command) if item == "-f"]
+                self.images[release] = self.render_image(release, files)
+                self.revisions[release] += 1
+                self.states[release] = "pending-upgrade"
+                raise rs.AmbiguousMutationError("helm upgrade timed out after 1500s; the release state is unknown")
             files = [command[i + 1] for i, item in enumerate(command) if item == "-f"]
             self.images[release] = self.render_image(release, files)
             self.revisions[release] += 1
@@ -62,7 +74,11 @@ class FakeCluster:
             return ""
         if command[:2] == ["helm", "rollback"]:
             release = command[2]
+            if release == self.fail_rollback_of:
+                raise rs.ReleaseStateError("helm rollback failed with exit 1")
             self.images[release] = OLD["mcp-tools"] if release == "llm-agent-mcp" else OLD["coordinator"]
+            self.revisions[release] += 1  # a rollback is a new revision
+            self.states[release] = self.rollback_state
             return ""
         if command[0] == "kubectl":
             release = "llm-agent-mcp" if "mcp" in " ".join(command) else "llm-agent"

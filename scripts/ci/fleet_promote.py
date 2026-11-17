@@ -14,8 +14,13 @@ Per agent, in a fixed order (Feature-RAG, then Drift):
 3. current image == release digest: ``ALREADY_CURRENT`` (nothing is patched);
 4. patch, then wait for Accepted/Ready at the new generation and an ActorTemplate with the new
    image and a golden actor (kagent re-snapshots the actor);
-5. on any failure, every agent this run patched is patched back (test op on the new image) and
-   waited Ready, in reverse order; rollback errors are reported, never hidden.
+5. on any failure, every agent this run may have patched is patched back (test op on the new image)
+   and waited Ready, in reverse order; rollback errors are reported, never hidden.
+
+The patch is recorded as ``PATCH_ATTEMPTED`` before the request, so a request whose response was
+lost (or that timed out) is inspected during rollback: same uid and the release image -> patch back;
+same uid and the recorded image -> nothing changed (``NOT_CHANGED``); a different uid or any other
+image -> a concurrent change by someone else, which is never overwritten (``ROLLBACK_FAILED``).
 
 Nothing is patched without ``execute`` (and the caller's production approval).
 """
@@ -30,6 +35,7 @@ from scripts.ci import sandbox_agents as sa
 from scripts.ci.sandbox_candidate import Kube
 
 IMAGE_PATH = "/spec/byo/deployment/image"
+MUTATED = frozenset({"PATCH_ATTEMPTED", "PATCHED", "PROMOTED"})
 
 
 class FleetPromotionError(RuntimeError):
@@ -68,7 +74,8 @@ def wait_healthy(kube: Kube, contract: Mapping[str, Any], agent: str, image: str
 
 
 def promote_agent(kube: Kube, contract: Mapping[str, Any], agent: str, image: str, *, execute: bool,
-                  record: list[AgentPromotion], clock: Callable[[], float], sleep: Callable[[float], None]) -> AgentPromotion:
+                  record: list[AgentPromotion], clock: Callable[[], float], sleep: Callable[[float], None],
+                  before_mutation: Callable[[AgentPromotion], None] | None = None) -> AgentPromotion:
     namespace = contract["namespace"]
     result = AgentPromotion(agent, target_image=image)
     record.append(result)
@@ -92,6 +99,9 @@ def promote_agent(kube: Kube, contract: Mapping[str, Any], agent: str, image: st
     if not execute:
         result.status = "CHECKED_NOT_EXECUTED"
         return result
+    result.status = "PATCH_ATTEMPTED"  # from here on the object may have changed
+    if before_mutation is not None:
+        before_mutation(result)
     kube.patch("SandboxAgent", namespace, agent, [
         {"op": "test", "path": "/metadata/uid", "value": result.uid},
         {"op": "test", "path": IMAGE_PATH, "value": result.previous_image},
@@ -113,9 +123,20 @@ def rollback(kube: Kube, contract: Mapping[str, Any], promoted: list[AgentPromot
 
     errors = []
     for item in reversed(promoted):
-        if item.status not in {"PATCHED", "PROMOTED"} or not item.previous_image:
+        if item.status not in MUTATED or not item.previous_image:
             continue
         try:
+            if item.status == "PATCH_ATTEMPTED":
+                current = kube.get("SandboxAgent", contract["namespace"], item.agent) or {}
+                uid, image = (current.get("metadata") or {}).get("uid"), _image(current)
+                if uid == item.uid and image == item.previous_image:
+                    item.status = "NOT_CHANGED"
+                    continue
+                if uid != item.uid or image != item.target_image:
+                    item.status = "ROLLBACK_FAILED"
+                    errors.append(f"{item.agent}: changed concurrently (uid {uid}, image {image}); not overwritten, "
+                                  "operator recovery required")
+                    continue
             kube.patch("SandboxAgent", contract["namespace"], item.agent, [
                 {"op": "test", "path": "/metadata/uid", "value": item.uid},
                 {"op": "test", "path": IMAGE_PATH, "value": item.target_image},
@@ -136,7 +157,9 @@ def rollback(kube: Kube, contract: Mapping[str, Any], promoted: list[AgentPromot
 
 def promote(kube: Kube, unit: Mapping[str, Any], *, execute: bool, record: list[AgentPromotion],
             contract: Mapping[str, Any] | None = None, clock: Callable[[], float] = time.monotonic,
-            sleep: Callable[[float], None] = time.sleep) -> list[AgentPromotion]:
+            sleep: Callable[[float], None] = time.sleep,
+            before_mutation: Callable[[AgentPromotion], None] | None = None,
+            checkpoint: Callable[[], None] | None = None) -> list[AgentPromotion]:
     """Promote both agents; on failure the caller (production_release) rolls ``record`` back."""
 
     contract = contract or sa.load_contract()
@@ -144,5 +167,8 @@ def promote(kube: Kube, unit: Mapping[str, Any], *, execute: bool, record: list[
         raise FleetPromotionError(f"fleet promotion targets {unit.get('target_namespace')}, not {contract['namespace']}")
     image = unit["images"]["g3-byo-coordinator"]
     for agent in sa.production_agents(contract)[::-1]:  # feature-rag-specialist, then drift-specialist
-        promote_agent(kube, contract, agent, image, execute=execute, record=record, clock=clock, sleep=sleep)
+        if checkpoint is not None:
+            checkpoint()  # lock renewal before each mutation
+        promote_agent(kube, contract, agent, image, execute=execute, record=record, clock=clock, sleep=sleep,
+                      before_mutation=before_mutation)
     return record

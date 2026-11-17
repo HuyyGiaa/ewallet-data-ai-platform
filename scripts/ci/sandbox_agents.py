@@ -6,8 +6,9 @@ runtime is frozen, so CI/CD adapts to it and never re-models it:
 
 * ``render_candidate`` renders a release-scoped candidate from the frozen fleet template
   (``scripts/experiments/render_sandbox.py``) and changes exactly four things: the name
-  (``<agent>-cicd``), the labels, the image digest and the snapshot prefix
-  (``gs://ate-snapshots/ewallet-sandbox/cicd-<sha12>/<candidate>/``). ``contract_differences``
+  (``<agent>-cicd``), the labels (release SHA and the unique execution id), the image digest and the
+  snapshot prefix (``gs://ate-snapshots/ewallet-sandbox/cicd-<sha12>/<execution>/<candidate>/``, unique
+  per execution so a retry of the same SHA never restores an earlier golden snapshot). ``contract_differences``
   proves nothing else moved (command, module, ServiceAccount, credential Secret, egress proxy,
   resources, security context, WorkerPool reference, allowed domains).
 * ``assess_*`` decide readiness from the objects the API returns: Accepted and Ready at the
@@ -25,6 +26,7 @@ from __future__ import annotations
 
 import copy
 import json
+from datetime import datetime
 from pathlib import Path
 import re
 from typing import Any, Mapping
@@ -41,6 +43,9 @@ POOL_REF = {"apiGroup": "ate.dev", "kind": "WorkerPool", "name": WORKER_POOL}
 CANDIDATE_LABEL = "ewallet.io/cicd-candidate"
 RELEASE_SHA_LABEL = "ewallet.io/release-sha"
 CANDIDATE_OF_LABEL = "ewallet.io/candidate-of"
+EXECUTION_LABEL = "ewallet.io/cicd-execution"
+# <UTC second>-<random>, e.g. 20261118t101500-3fa9c2: unique per run, a valid label value and GCS path part.
+EXECUTION_ID = re.compile(r"^[0-9]{8}t[0-9]{6}-[0-9a-f]{6}$")
 MANAGED_BY = "ewallet-jenkins-cd"
 SHA = re.compile(r"^[0-9a-f]{40}$")
 DIGEST_REF = re.compile(r"^[a-z0-9.-]+(?::[0-9]+)?/[A-Za-z0-9._/-]+@sha256:[0-9a-f]{64}$")
@@ -85,11 +90,30 @@ def candidate_name(contract: Mapping[str, Any], agent: str) -> str:
     return f"{agent}{contract['candidate_suffix']}"
 
 
-def render_candidate(contract: Mapping[str, Any], agent: str, image: str, git_sha: str) -> dict[str, Any]:
+def new_execution_id(now: datetime | None = None) -> str:
+    """A fresh execution id per candidate run (never derived from the SHA alone)."""
+
+    import secrets
+    from datetime import timezone
+
+    moment = now or datetime.now(timezone.utc)
+    return f"{moment.strftime('%Y%m%dt%H%M%S')}-{secrets.token_hex(3)}"
+
+
+def snapshot_prefix(contract: Mapping[str, Any], git_sha: str, execution_id: str) -> str:
+    """The exact GCS prefix this execution's candidates write; cleanup may remove this prefix only."""
+
+    return f"{contract['snapshot_prefix']}{git_sha[:12]}/{execution_id}/"
+
+
+def render_candidate(contract: Mapping[str, Any], agent: str, image: str, git_sha: str,
+                     execution_id: str) -> dict[str, Any]:
     if agent not in contract["agents"]:
         raise SandboxContractError(f"{agent} is not a production Specialist")
     if not SHA.fullmatch(git_sha):
         raise SandboxContractError("the release SHA must be a full lowercase SHA")
+    if not EXECUTION_ID.fullmatch(execution_id):
+        raise SandboxContractError("the execution id must be <yyyymmdd>t<hhmmss>-<6 hex>")
     if not DIGEST_REF.fullmatch(image):
         raise SandboxContractError("the candidate image must be an immutable digest reference")
     frozen = frozen_documents(image, contract["credential_release"])[agent]
@@ -98,11 +122,11 @@ def render_candidate(contract: Mapping[str, Any], agent: str, image: str, git_sh
     document["metadata"] = {
         "name": name, "namespace": NAMESPACE,
         "labels": {CANDIDATE_LABEL: "true", CANDIDATE_OF_LABEL: agent, RELEASE_SHA_LABEL: git_sha,
-                   "app.kubernetes.io/managed-by": MANAGED_BY},
+                   EXECUTION_LABEL: execution_id, "app.kubernetes.io/managed-by": MANAGED_BY},
         "annotations": {"ewallet.io/candidate-contract": "jenkins/cd/sandbox-candidate.contract.json"},
     }
     document["spec"]["substrate"]["snapshotsConfig"]["location"] = (
-        f"{contract['snapshot_prefix']}{git_sha[:12]}/{name}/")
+        f"{snapshot_prefix(contract, git_sha, execution_id)}{name}/")
     problems = contract_differences(document, frozen)
     if problems:
         raise SandboxContractError("; ".join(problems))
@@ -118,10 +142,20 @@ def _strip(document: Mapping[str, Any]) -> dict[str, Any]:
     return spec
 
 
+APPROVED_LABELS = frozenset({CANDIDATE_LABEL, CANDIDATE_OF_LABEL, RELEASE_SHA_LABEL, EXECUTION_LABEL,
+                             "app.kubernetes.io/managed-by"})
+
+
 def contract_differences(candidate: Mapping[str, Any], frozen: Mapping[str, Any]) -> list[str]:
     """Everything but name, labels, image and snapshot prefix must equal the frozen fleet entry."""
 
     problems: list[str] = []
+    labels = (candidate.get("metadata") or {}).get("labels") or {}
+    if set(labels) != APPROVED_LABELS or labels.get(CANDIDATE_LABEL) != "true":
+        problems.append(f"the candidate labels must be exactly {sorted(APPROVED_LABELS)}")
+    image = ((((candidate.get("spec") or {}).get("byo") or {}).get("deployment") or {}).get("image")) or ""
+    if not DIGEST_REF.fullmatch(image):
+        problems.append("the candidate image must be an immutable digest reference")
     if candidate.get("apiVersion") != "kagent.dev/v1alpha2" or candidate.get("kind") != "SandboxAgent":
         problems.append("the candidate must be a kagent.dev/v1alpha2 SandboxAgent")
     if (candidate.get("metadata") or {}).get("namespace") != NAMESPACE:
@@ -132,8 +166,9 @@ def contract_differences(candidate: Mapping[str, Any], frozen: Mapping[str, Any]
     if _strip(candidate) != _strip(frozen):
         problems.append("the candidate spec differs from the frozen fleet template beyond image and snapshot prefix")
     location = (((candidate.get("spec") or {}).get("substrate") or {}).get("snapshotsConfig") or {}).get("location", "")
-    if not location.startswith("gs://ate-snapshots/ewallet-sandbox/cicd-"):
-        problems.append("the candidate snapshot prefix must be a cicd-<sha12> prefix, never a fleet campaign")
+    if not re.fullmatch(r"gs://ate-snapshots/ewallet-sandbox/cicd-[0-9a-f]{12}/[0-9]{8}t[0-9]{6}-[0-9a-f]{6}/"
+                        + re.escape(name) + "/", location):
+        problems.append("the candidate snapshot prefix must be cicd-<sha12>/<execution>/<candidate>/, never a fleet campaign")
     return problems
 
 

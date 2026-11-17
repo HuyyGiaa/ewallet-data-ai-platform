@@ -10,12 +10,20 @@ releases needing overlapping locks can never deadlock.
 This replaces relying on the controller having a single executor (P0 finding CICD-P0-F11).
 Jenkins needs create/get/delete on ``leases`` in ``ewallet-cicd``
 (``infra/kubernetes/jenkins/rbac/batch-b-isolated.yaml``; applying it is a separate approval).
+
+Long transactions (production) call :meth:`ReleaseLocks.renew` at every checkpoint, before each
+mutation. Renewal is a resourceVersion-guarded replace (``update`` on leases, in the production
+identity proposal) and fails closed with ``LOCK_LOST`` when the Lease is gone, held by someone else,
+changed since this holder last wrote it, or already expired (another release may have taken it over,
+so mutations must stop, and an automatic rollback must not race the new holder). The Lease duration
+(2 h) is far above the longest single step between checkpoints (one Helm upgrade or SandboxAgent wait,
+at most 25 minutes including its process timeout).
 """
 
 from __future__ import annotations
 
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 import re
 from typing import Callable, Iterator, Protocol
@@ -30,10 +38,15 @@ class LockError(RuntimeError):
     """A release lock is held by another release or could not be handled safely."""
 
 
+class LockLost(LockError):
+    """A lock this holder had is no longer provably its own: stop mutating, recover by hand."""
+
+
 class LeaseApi(Protocol):
     def create(self, document: dict) -> dict: ...
     def get(self, name: str) -> dict | None: ...
     def delete_exact(self, name: str, resource_version: str) -> None: ...
+    def replace(self, document: dict) -> dict: ...
 
 
 @dataclass
@@ -62,6 +75,11 @@ class KubeLeaseApi:
         from scripts.ci.k8s_api import delete_exact
 
         delete_exact(self.client, "Lease", self.namespace, name, resource_version)
+
+    def replace(self, document: dict) -> dict:
+        from scripts.ci.k8s_api import replace
+
+        return replace(self.client, document)
 
 
 def _now() -> datetime:
@@ -97,6 +115,28 @@ class ReleaseLocks:
     holder: str
     duration_seconds: int = 7200
     clock: Callable[[], datetime] = _now
+    held: dict = field(default_factory=dict)  # lock name -> resourceVersion this holder last wrote
+
+    def renew(self) -> None:
+        """Checkpoint: prove every held lock is still this holder's and extend it, or raise LockLost."""
+
+        for name in sorted(self.held):
+            current = self.api.get(PREFIX + name)
+            if current is None:
+                raise LockLost(f"LOCK_LOST: release lock {name} disappeared")
+            spec, metadata = current.get("spec", {}), current.get("metadata", {})
+            if spec.get("holderIdentity") != self.holder:
+                raise LockLost(f"LOCK_LOST: release lock {name} is now held by {spec.get('holderIdentity')}")
+            if str(metadata.get("resourceVersion")) != self.held[name]:
+                raise LockLost(f"LOCK_LOST: release lock {name} changed since this holder last wrote it")
+            if expired(current, self.clock()):
+                raise LockLost(f"LOCK_LOST: release lock {name} expired before renewal")
+            document = {**current, "spec": {**spec, "renewTime": _timestamp(self.clock())}}
+            try:
+                updated = self.api.replace(document)
+            except KubeError as error:
+                raise LockLost(f"LOCK_LOST: release lock {name} renewal failed: {error}") from error
+            self.held[name] = str(updated["metadata"]["resourceVersion"])
 
     def _document(self, name: str) -> dict:
         now = _timestamp(self.clock())
@@ -135,8 +175,9 @@ class ReleaseLocks:
         if current is None:
             return
         if current.get("spec", {}).get("holderIdentity") != self.holder:
+            # A stale holder never deletes a lock someone else acquired after expiry.
             raise LockError(f"release lock {name} is no longer held by {self.holder}")
-        self.api.delete_exact(PREFIX + name, resource_version)
+        self.api.delete_exact(PREFIX + name, self.held.get(name, resource_version))
 
     @contextmanager
     def hold(self, names: list[str] | set[str]) -> Iterator[list[str]]:
@@ -145,6 +186,7 @@ class ReleaseLocks:
         try:
             for name in sorted(set(names)):
                 acquired.append((name, self.acquire_one(name)))
+                self.held[name] = acquired[-1][1]
             yield [name for name, _ in acquired]
         except BaseException:
             failed = True
@@ -156,6 +198,7 @@ class ReleaseLocks:
                     self.release_one(name, version)
                 except (LockError, KubeError) as error:
                     errors.append(str(error))
+                self.held.pop(name, None)
             # A release failure stays the primary error; an unreleased lock is reported only
             # when nothing else failed (it expires after duration_seconds either way).
             if errors and not failed:

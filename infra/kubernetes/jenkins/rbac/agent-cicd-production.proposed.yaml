@@ -61,6 +61,7 @@ subjects:
 - {kind: ServiceAccount, name: ewallet-cicd-agent-release, namespace: ewallet-ci}
 ---
 # The release locks (scripts/ci/release_lock.py) are Leases in ewallet-cicd, taken by the same identity.
+# update: checkpoint renewal (resourceVersion-guarded replace) before every production mutation.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -70,7 +71,7 @@ metadata:
 rules:
 - apiGroups: [coordination.k8s.io]
   resources: [leases]
-  verbs: [get, create, delete]
+  verbs: [get, create, update, delete]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

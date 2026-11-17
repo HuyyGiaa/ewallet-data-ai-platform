@@ -143,6 +143,15 @@ def create(client: Client, document: dict[str, Any]) -> dict[str, Any]:
     return client.request("POST", _path(document["kind"], metadata["namespace"]), document)
 
 
+def replace(client: Client, document: dict[str, Any]) -> dict[str, Any]:
+    """PUT with the object's ``metadata.resourceVersion``: a concurrent change is an HTTP 409, never lost."""
+
+    metadata = document["metadata"]
+    if not metadata.get("resourceVersion"):
+        raise KubeError("replace needs the observed resourceVersion")
+    return client.request("PUT", _path(document["kind"], metadata["namespace"], metadata["name"]), document)
+
+
 def delete_exact(client: Client, kind: str, namespace: str, name: str, resource_version: str) -> None:
     """Delete only the observed version of an object (precondition), so a newer holder is never removed."""
 
