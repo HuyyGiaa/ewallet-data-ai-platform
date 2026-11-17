@@ -209,8 +209,16 @@ def main(argv: list[str] | None = None) -> int:
                 for command in commands_for(unit, plan, evidence_root / unit["name"]):
                     print("DRY RUN:", unit["name"], " ".join(command))
             return 0
-        report = dispatch_rehearsal(plan, evidence_root, locks=_locks(units.lock_namespace, holder, args.api),
-                                    prompt_registry=os.environ.get("PROMPT_REGISTRY_URL", ""))
+        from scripts.ci.k8s_api import KubeError
+        from scripts.ci.release_lock import LockError
+
+        try:
+            report = dispatch_rehearsal(plan, evidence_root, locks=_locks(units.lock_namespace, holder, args.api),
+                                        prompt_registry=os.environ.get("PROMPT_REGISTRY_URL", ""))
+        except (KubeError, LockError) as error:
+            # No cluster access or a held lock: nothing was deployed; say so plainly.
+            print(f"release_dispatch: refused before any deployment: release locks unavailable: {error}", flush=True)
+            return 2
     (evidence_root / "release-verdict.json").write_text(json.dumps(report, indent=2, sort_keys=True) + "\n",
                                                         encoding="utf-8")
     print(json.dumps({key: report.get(key) for key in ("verdict", "stage", "production_changed", "failure")},

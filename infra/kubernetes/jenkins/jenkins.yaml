@@ -102,7 +102,8 @@ data:
               keepDependencies(false)
               // Two builds of one job never overlap; releases of different jobs are serialized by
               // resource locks (Leases, scripts/ci/release_lock.py), not by the executor count.
-              concurrentBuild(false)
+              // (pipelineJob has no concurrentBuild() in job-dsl 3732: verified on a local controller.)
+              properties { disableConcurrentBuilds() }
               logRotator { numToKeep(10); artifactNumToKeep(10) }
               parameters { addParameters(delegate, expectedSha, negative) }
               definition {

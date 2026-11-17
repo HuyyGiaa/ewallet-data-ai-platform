@@ -154,6 +154,30 @@ class CliTests(unittest.TestCase):
         self.assertEqual(2, result.returncode)
         self.assertIn("refused: release plan names the removed handler", result.stdout)
 
+    def test_no_cluster_access_refuses_before_any_deployment(self) -> None:
+        """Seen on the local controller preflight: without an in-cluster token the dispatcher must fail
+        with a clear message, not a traceback, and run nothing."""
+        from scripts.ci import release_dispatch
+        from scripts.ci.k8s_api import KubeError
+
+        def no_cluster(*args):  # type: ignore[no-untyped-def]
+            raise KubeError("no in-cluster ServiceAccount token")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            plan = {"stage": "rehearsal", "evidence_dir": tmp, "git_sha": SHA, "release_branch": "release/x",
+                    "kube_context": "in-cluster", "units": []}
+            path = Path(tmp) / "plan.json"
+            path.write_text(json.dumps(plan))
+            original = (release_dispatch.verify_release_plan, release_dispatch._locks, release_dispatch._git_head)
+            release_dispatch.verify_release_plan = lambda *a, **k: None
+            release_dispatch._locks = no_cluster
+            release_dispatch._git_head = lambda: SHA
+            try:
+                code = release_dispatch.main(["--plan", str(path), "--execute"])
+            finally:
+                release_dispatch.verify_release_plan, release_dispatch._locks, release_dispatch._git_head = original
+        self.assertEqual(2, code)
+
     def test_the_shell_entry_point_is_a_thin_locked_wrapper(self) -> None:
         text = (ROOT / "scripts/ci/deploy_release.sh").read_text()
         self.assertIn("uv run --locked --project infra/docker/llm-agent-tooling python -m scripts.ci.release_dispatch", text)

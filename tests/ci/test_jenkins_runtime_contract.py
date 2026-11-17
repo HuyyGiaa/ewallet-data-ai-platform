@@ -172,3 +172,12 @@ class JenkinsRuntimeContractTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_job_dsl_uses_only_methods_the_pinned_job_dsl_supports() -> None:
+    """job-dsl 3732 has no concurrentBuild() on pipelineJob: CasC init failed and the controller did not
+    start (local controller preflight, Batch 2). Concurrency is the disableConcurrentBuilds job property."""
+    text = (Path(__file__).resolve().parents[2] / "infra/kubernetes/jenkins/jenkins.yaml").read_text()
+    assert "concurrentBuild(" not in text
+    assert "properties { disableConcurrentBuilds() }" in text
+

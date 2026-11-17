@@ -294,8 +294,11 @@ def main() -> int:
     else:
         writer = EvidenceWriter(args.evidence_dir, {**metadata, "components": list(selected)})
         writer.finalize(status=status, results=results)
-    write_verdict(args.evidence_dir, status=status, reason=reason, scope_components=scope_components,
-                  selected=selected, profile=args.profile, results=results)
+    verdict = write_verdict(args.evidence_dir, status=status, reason=reason, scope_components=scope_components,
+                            selected=selected, profile=args.profile, results=results)
+    # One line for the Jenkins console: why the stage passed, failed or had nothing to test.
+    print("CI_VERDICT " + json.dumps({key: verdict[key] for key in (
+        "status", "reason", "selected_components", "test_commands", "test_cases")}, sort_keys=True), flush=True)
     return exit_code
 
 

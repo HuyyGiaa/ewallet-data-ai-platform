@@ -277,6 +277,32 @@ class ProjectEnvironmentTests(unittest.TestCase):
         self.assertIsNone(project_environment(["/x/python3", "-c", "1"], root, root))
 
 
+class ConsoleVerdictTests(unittest.TestCase):
+    def test_main_prints_one_ci_verdict_line_for_the_jenkins_console(self) -> None:
+        """Seen on the local controller preflight: the EMPTY_SCOPE reason was only in ci-verdict.json."""
+        import contextlib
+        import io
+        import json as _json
+        import sys as _sys
+
+        from scripts.ci import run_ci
+
+        root = Path(__file__).resolve().parents[2]
+        with tempfile.TemporaryDirectory() as tmp:
+            scope = Path(tmp) / "scope.json"
+            scope.write_text(_json.dumps({"components": [], "full_validation_reason": None}))
+            argv, out = _sys.argv, io.StringIO()
+            _sys.argv = ["run_ci", "--root", str(root), "--scope", str(scope), "--evidence-dir", str(Path(tmp) / "ev")]
+            try:
+                with contextlib.redirect_stdout(out):
+                    code = run_ci.main()
+            finally:
+                _sys.argv = argv
+        self.assertEqual(EMPTY_SCOPE, code)
+        line = next(item for item in out.getvalue().splitlines() if item.startswith("CI_VERDICT "))
+        self.assertIn("EMPTY_SCOPE", _json.loads(line.removeprefix("CI_VERDICT "))["reason"])
+
+
 class SelectionStatusTests(unittest.TestCase):
     def test_documentation_only_is_not_applicable_not_a_pass(self) -> None:
         status, reason, code, _ = selection_status({"full_validation_reason": "non_runtime_paths_only"}, (), (), None)
