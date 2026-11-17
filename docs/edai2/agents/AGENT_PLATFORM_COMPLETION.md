@@ -1,5 +1,10 @@
 # Agent Platform on GKE: final integration results
 
+> **Campaign record.** This page is the dated record of the Agent Platform GKE campaigns (2026-11-15 to 2026-11-17):
+> every measurement, change and decision, in order. The current architecture is described in
+> [AGENTS_REGISTRY_GATEWAYS.md](AGENTS_REGISTRY_GATEWAYS.md) and the fleet in [kagent_bounded_pilot.md](kagent_bounded_pilot.md).
+> Sections that describe an earlier state (for example the BYO Specialist Deployments before §10) are history.
+
 This page reports the final GKE integration of the EDAI-2 Agent Platform: campaign
 `agi-20261115T145608Z`, cluster `ewallet-dev`, 2026-11-15, branch
 `feature/edai2-agent-platform-integration`.
@@ -8,7 +13,7 @@ This page reports the final GKE integration of the EDAI-2 Agent Platform: campai
 - The owner reruns the demonstrations for screenshots with the
   [owner evidence replay](OWNER_AGENT_PLATFORM_EVIDENCE_REPLAY.md).
 - Component design is in [AGENTS_REGISTRY_GATEWAYS.md](AGENTS_REGISTRY_GATEWAYS.md) and
-  the contracts are in [AGENT_INTEGRATION_CONTRACTS.md](AGENT_INTEGRATION_CONTRACTS.md).
+  the contracts are in [AGENTS_REGISTRY_GATEWAYS.md §6–§7](AGENTS_REGISTRY_GATEWAYS.md) (the AGI-era contract map is archived: [AGENT_INTEGRATION_CONTRACTS.md](../../../archive/legacy-docs/docs/edai2/agents/AGENT_INTEGRATION_CONTRACTS.md)).
 
 **Verdict after the final remediation (`rem-20261116T050511Z`, 2026-11-16, [§6](#6-final-remediation-rem-20261116t050511z)):**
 
@@ -167,7 +172,7 @@ Items 1 and 2, and the capacity part of item 5, are resolved by the final remedi
    - Adding capacity needs more workers, either a larger fixed pool or B′. Scaling the Coordinator does not help.
 6. **Cloud-lab sleep with KEDA.** The guarded sleep cannot hold the KEDA-scaled agents at 0, so the campaign sleep
    ended `SLEEP_BLOCKED` and the cluster was left awake at 4 nodes. The procedure that needs approval is in the
-   [replay, section 12](OWNER_AGENT_PLATFORM_EVIDENCE_REPLAY.md#12-final-check-cleanup-and-sleep-replay-12).
+   [replay, section 12](OWNER_AGENT_PLATFORM_EVIDENCE_REPLAY.md#phase-7-final-verification-and-sleep).
 7. **Scope boundaries:**
    - The WorkerPool is fixed at 2 workers. Sharing is proven; WorkerPool autoscaling (B′)
      is not.

@@ -198,7 +198,7 @@ The latencies reflect a 0.6B-parameter model served on 2 CPU cores, with agent p
 
 ![PII detections by type](../../evidence/edai2/screenshots/observability/50_pii_by_type.png)
 
-*Request `nl-89422d35e28d62650705782f2f25b1f0` was a kagent UI prompt containing a synthetic e-mail address and phone number. The answer is shown in [Agents §6](../agents/AGENTS_REGISTRY_GATEWAYS.md#6-agent-conversations-in-the-kagent-ui).*
+*Request `nl-89422d35e28d62650705782f2f25b1f0` was a kagent UI prompt containing a synthetic e-mail address and phone number. The answer is shown in [Agents §6](../agents/AGENTS_REGISTRY_GATEWAYS.md#8-feature-store-kserve-rag-and-drift-in-the-workflows).*
 
 ## 7. Agent and MCP telemetry
 

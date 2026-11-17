@@ -53,7 +53,7 @@ historical capture script merely to recreate the old evidence.
 
 ## 3. kagent chat (optional, one LLM request)
 
-Open Agents → `ewallet-agents/fraud-coordinator` → Chat, and send an analyst question that contains a transaction ID, account, amount and timestamp (see [Agents §6](../../edai2/agents/AGENTS_REGISTRY_GATEWAYS.md#6-agent-conversations-in-the-kagent-ui)).
+Open Agents → `ewallet-agents/fraud-coordinator` → Chat, and send an analyst question that contains a transaction ID, account, amount and timestamp (see [Agents §6](../../edai2/agents/AGENTS_REGISTRY_GATEWAYS.md#8-feature-store-kserve-rag-and-drift-in-the-workflows)).
 
 Expected result:
 

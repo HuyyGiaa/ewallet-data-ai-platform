@@ -1,7 +1,7 @@
 {
   "campaign": "edai2-agent-platform-completion",
   "branch": "feature/edai2-agent-platform-integration",
-  "design": "docs/edai2/agents/AGENT_PLATFORM_COMPLETION_AUDIT.md",
+  "design": "archive/legacy-docs/docs/edai2/agents/AGENT_PLATFORM_COMPLETION_AUDIT.md",
   "runbook": "docs/runbooks/edai2/AGENT_PLATFORM_MASTER_EVIDENCE_RUNBOOK.md",
   "status_words": [
     "SOURCE_IMPLEMENTED",

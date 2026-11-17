@@ -221,3 +221,19 @@ These files were created after the 241-file baseline above, so they are not part
 | `docs/edai2/llm/llmd_g2_routing_benchmark.md` | `archive/legacy-docs/docs/edai2/llm/llmd_g2_routing_benchmark.md` | B — historical/superseded | Historical G2 experiment log; summarised in `BENCHMARK_RESULTS.md` §6. |
 | `docs/edai2/llm/BENCHMARK_EVIDENCE_MATRIX.md` | `docs/rubric/EDAI2_LLM_BENCHMARK_EVIDENCE_MATRIX.md` | D — internal tracking/evidence | Supporting evidence crosswalk, not a primary report. |
 | `docs/edai2/llm/LLM_AB_DESIGN.md` | `docs/edai2/platform/LLM_AB_DESIGN.md` | A — current technical documentation | A/B documentation kept apart from the LLM platform reports. |
+
+## Later relocations (2026-11-17, Agent Platform documentation consolidation)
+
+The Agent Platform documentation was consolidated into three reader-facing documents:
+[AGENTS_REGISTRY_GATEWAYS.md](../../docs/edai2/agents/AGENTS_REGISTRY_GATEWAYS.md) (architecture, deployment,
+workflows, governance), [kagent_bounded_pilot.md](../../docs/edai2/agents/kagent_bounded_pilot.md) (Agent Fleet
+Architecture) and [OWNER_AGENT_PLATFORM_EVIDENCE_REPLAY.md](../../docs/edai2/agents/OWNER_AGENT_PLATFORM_EVIDENCE_REPLAY.md)
+(operations). The campaign record `AGENT_PLATFORM_COMPLETION.md` stays in place because frozen evidence and source
+reference it.
+
+| Old path | New path | Classification | Reason |
+|---|---|---|---|
+| `docs/edai2/agents/AGENT_INTEGRATION_CONTRACTS.md` | `archive/legacy-docs/docs/edai2/agents/AGENT_INTEGRATION_CONTRACTS.md` | B — historical/superseded | AGI target-architecture contract map; active contracts merged into `AGENTS_REGISTRY_GATEWAYS.md`. Still read by `tests/llm_agent/test_agi_runbook.py` for the AGI evidence matrix. |
+| `docs/edai2/agents/AGENT_PLATFORM_COMPLETION_AUDIT.md` | `archive/legacy-docs/docs/edai2/agents/AGENT_PLATFORM_COMPLETION_AUDIT.md` | B — historical/superseded | Pre-campaign audit and options; decisions implemented and recorded in the completion report. |
+| `docs/edai2/agents/kagent_bounded_pilot.md` (2026-11-02 pilot runbook) | `archive/legacy-docs/docs/edai2/agents/kagent_bounded_pilot.md` | B — historical/superseded | Mock-model pilot procedure; the original path now holds the Agent Fleet Architecture report. |
+| `docs/edai2/agents/AGENT_AB.md` | `docs/edai2/platform/AGENT_AB.md` | A — current technical documentation | Agent A/B design kept with the LLM and gateway A/B designs, not as an Agent Platform report. |

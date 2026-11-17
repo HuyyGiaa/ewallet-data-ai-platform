@@ -14,17 +14,18 @@
 #   agent_replay.sh e2e <case>          [TRAFFIC]    one business request through the Coordinator, verdict, hops
 #                                                    case: fraud | drift | combined | nl-fraud | nl-drift
 #   agent_replay.sh negative            [READ-ONLY]  wrong credential, ungranted tool, undeclared route (AGI-08)
-#   agent_replay.sh keda                [READ-ONLY]  both ScaledObjects, HPAs, replicas, recent rescale events
+#   agent_replay.sh keda                [READ-ONLY]  both ScaledObjects, their HPAs and replicas, checked (exit 1 on a failed
+#                                                    or malformed observation); Ready is not a scale-out result
 #   agent_replay.sh keda demo           [LOAD]       6 bounded typed requests + replica timeline of both autoscalers;
 #                                                    needs REPLAY_LOAD_APPROVED=yes
-#   agent_replay.sh workers             [SESSIONS]   Sandbox sessions of both agents + actor placement;
+#   agent_replay.sh workers             [SESSIONS]   Sandbox sessions (new + resume) of both agents, placement, latency;
 #                                                    needs REPLAY_SESSIONS_APPROVED=yes
 #   agent_replay.sh failover            [EXPERIMENT] isolated MCP failover in ewallet-mcp-exp (pod force-deleted there);
 #                                                    needs REPLAY_EXPERIMENT_APPROVED=yes; never part of the default replay
 #
 # Env: AGI_ENV (default from ~/.cache/ewallet-agi/current.env; needs CTX, EV with inputs/transaction.json, BASELINE),
 #   REPLAY_DIR (default ~/ewallet-evidence/agents/replay/<UTC timestamp>), UV (default uv on PATH or the fintech env).
-#   Test seams: KUBECTL, HELM, SS, PROC_ROOT, PF_SETTLE, HOPS_SETTLE, PF_PIDS, KEDA_SAMPLE, KEDA_POLL, KEDA_COOLDOWN.
+#   Test seams: KUBECTL, HELM, SS, PROC_ROOT, PF_SETTLE, HOPS_SETTLE, PF_PIDS, KEDA_SAMPLE, KEDA_POLL, KEDA_COOLDOWN, WORKERS_CONTEXTS.
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 die() { echo "agent_replay: $*" >&2; exit 1; }
@@ -306,29 +307,47 @@ replicas_sample() {
     "$(k -n ewallet-agents get deploy fraud-coordinator -o jsonpath='{.spec.replicas}')" \
     "$(k -n ewallet-sandbox get workerpools.ate.dev business-agents -o jsonpath='{.spec.replicas}')"
 }
-keda_status() {
+keda_status() {   # keda_status [dir]: read-only; every required observation is saved and judged
+  local out=${1:-$REPLAY_DIR/keda-status} name rc
+  mkdir -p "$out"; : > "$out/queries.tsv"
+  query() {   # query <name> <namespace> <kubectl get args...>: JSON to <name>.json, exit code to queries.tsv
+    name=$1; shift; local ns=$1; shift; rc=0
+    k -n "$ns" get "$@" -o json > "$out/$name.json" 2> "$out/$name.err" || rc=$?
+    printf '%s\t%s\n' "$name" "$rc" >> "$out/queries.tsv"
+  }
+  query scaledobject-coordinator ewallet-agents scaledobjects.keda.sh fraud-coordinator
+  query scaledobject-workerpool ewallet-sandbox scaledobjects.keda.sh business-agents-workerpool
+  query hpa-ewallet-agents ewallet-agents hpa
+  query hpa-ewallet-sandbox ewallet-sandbox hpa
+  query deploy-coordinator ewallet-agents deploy fraud-coordinator
+  query workerpool ewallet-sandbox workerpools.ate.dev business-agents
   banner "KEDA (read-only): Coordinator and shared WorkerPool"
-  {
-    k -n ewallet-agents get scaledobjects.keda.sh fraud-coordinator
-    k -n ewallet-sandbox get scaledobjects.keda.sh business-agents-workerpool
-    k -n ewallet-agents get hpa; k -n ewallet-sandbox get hpa
-    replicas_sample
+  {   # display only; the checks below read the saved JSON
+    k -n ewallet-agents get scaledobjects.keda.sh,hpa
+    k -n ewallet-sandbox get scaledobjects.keda.sh,hpa
     echo "-- recent rescale events"
     k -n ewallet-agents get events --field-selector reason=SuccessfulRescale \
       -o custom-columns=TIME:.lastTimestamp,OBJECT:.involvedObject.name,MESSAGE:.message | tail -4
     k -n ewallet-sandbox get events --field-selector reason=SuccessfulRescale \
       -o custom-columns=TIME:.lastTimestamp,OBJECT:.involvedObject.name,MESSAGE:.message | tail -4
-  } || true
-  echo "Read-only: READY/ACTIVE show configuration and current state; they are not a scale-out result (keda demo)."
+  } 2>&1 || echo "(display commands failed; see the checks)"
+  verdict keda-status --dir "$out" --out "$out/verdict.json"
+}
+worker_pods_sample() {   # name created ready-transition for each worker pod, one line per sample
+  printf '%s ' "$(date -u +%H:%M:%SZ)"
+  k -n ewallet-sandbox get pods -l ate.dev/worker-pool=business-agents \
+    -o jsonpath='{range .items[*]}{.metadata.name}={.metadata.creationTimestamp}={.status.conditions[?(@.type=="Ready")].lastTransitionTime}={.status.conditions[?(@.type=="Ready")].status} {end}'
+  echo
 }
 keda_demo() {
   [ "${REPLAY_LOAD_APPROVED:-}" = yes ] || die "keda demo sends 6 business requests; set REPLAY_LOAD_APPROVED=yes to run it"
   need_uv; need_port 18083
-  local out="$REPLAY_DIR/keda" tl i case pids=() verdicts=() waited=0 limit=${SCALE_IN_WAIT:-600}
+  local out="$REPLAY_DIR/keda" tl i case pids=() verdicts=() waited=0 limit=${SCALE_IN_WAIT:-600} after=0 rc=0
   local sample=${KEDA_SAMPLE:-10} poll=${KEDA_POLL:-15} cooldown=${KEDA_COOLDOWN:-300}
   mkdir -p "$out"
-  keda_status | tee "$out/before.txt"
-  ( while true; do replicas_sample; sleep "$sample"; done > "$out/timeline.txt" ) & tl=$!
+  keda_status "$out/before" > "$out/before.txt" 2>&1 || { cat "$out/before.txt"; die "KEDA is not healthy before the demo (see $out/before); no load was sent"; }
+  cat "$out/before.txt"
+  ( while true; do replicas_sample >> "$out/timeline.txt"; worker_pods_sample >> "$out/worker-pods.txt"; sleep "$sample"; done ) & tl=$!
   trap 'kill $tl 2>/dev/null' EXIT
   banner "LOAD: 6 typed requests (fraud, drift, combined x2), launched 1.2 s apart (the lc-20261117T002220Z profile)"
   echo "watch: tail -f $out/timeline.txt"
@@ -346,8 +365,11 @@ keda_demo() {
   done
   sleep "$sample"; kill "$tl" 2>/dev/null || true; trap - EXIT
   for i in "$out"/job*/e2e/*-verdict.json; do [ -f "$i" ] && verdicts+=(--verdict "$i"); done
-  keda_status | tee "$out/after.txt"
-  verdict keda --timeline "$out/timeline.txt" "${verdicts[@]}" --out "$out/verdict.json"
+  keda_status "$out/after" > "$out/after.txt" 2>&1 || after=$?
+  cat "$out/after.txt"
+  verdict keda --timeline "$out/timeline.txt" --worker-pods "$out/worker-pods.txt" "${verdicts[@]}" --out "$out/verdict.json" || rc=$?
+  [ "$after" = 0 ] || { echo "FAIL: KEDA not healthy after the demo (see $out/after)"; rc=1; }
+  return "$rc"
 }
 keda() { case "${1:-}" in "") keda_status ;; demo) keda_demo ;; *) die "keda takes no argument or 'demo'" ;; esac; }
 
@@ -357,14 +379,14 @@ workers() {
   need_uv; need_port 18383
   local out="$REPLAY_DIR/workers" agent rec
   mkdir -p "$out"
-  banner "SHARED WORKERS: sequential sessions of both SandboxAgents on the shared WorkerPool (~6 min)"
+  banner "SHARED WORKERS: sequential sessions (new, then resume) of both SandboxAgents on the shared WorkerPool (~12 min)"
   k -n ewallet-sandbox get sandboxagents.kagent.dev,workerpools.ate.dev | tee "$out/fleet.txt"
   "${TOOL_PY[@]}" -m ops.experiments.substrate_fleet record --url http://127.0.0.1:18383 --namespace ewallet-sandbox \
     --out "$out/status.jsonl" --interval 1 --duration 1200 > "$out/record.log" 2>&1 & rec=$!
   for agent in feature-rag-specialist drift-specialist feature-rag-specialist; do
     "${TOOL_PY[@]}" -m ops.experiments.sandbox_sessions --url http://127.0.0.1:18383 --run-id "$(request_id "$agent")" \
-      --agents "$agent" --contexts 4 --messages 1 >> "$out/sessions.log" 2>&1 || true
-    echo "$agent: $(grep -c '"ok": true' "$out/sessions.log" || true) ok session turns so far"
+      --agents "$agent" --contexts "${WORKERS_CONTEXTS:-4}" --messages 2 >> "$out/sessions.log" 2>&1 || true
+    echo "$agent: $(grep -c '"ok": true' "$out/sessions.log" || true) ok session turns so far (new + resume per context)"
   done
   sleep 5; kill "$rec" 2>/dev/null || true
   k -n ewallet-sandbox get actortemplates.ate.dev -o 'jsonpath={range .items[*]}{.status.goldenActorID}{"\n"}{end}' > "$out/golden-ids.txt"

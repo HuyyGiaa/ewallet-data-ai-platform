@@ -1,17 +1,19 @@
 # Agent platform integration: contract map
 
+> **Archived 2026-11-17 (historical, AGI campaign design).** The contracts that are still active (typed requests, workflow results, drift artifacts, Feature-RAG targets, gateways and identities, spans) are maintained in [AGENTS_REGISTRY_GATEWAYS.md](../../../../../docs/edai2/agents/AGENTS_REGISTRY_GATEWAYS.md) §6–§11. The identities below (BYO Specialists, `x-kagent-host` routes, Specialist MCP tokens) were retired by `sp-cleanup` and the credential retirement.
+
 > **Status: TARGET ARCHITECTURE — SOURCE_IMPLEMENTED, LOCAL_TESTED, CLOUD_PENDING.**
 > Nothing here has run on GKE yet. Runtime proof is collected with
-> [AGENT_INTEGRATION_EVIDENCE_RUNBOOK.md](../../runbooks/edai2/AGENT_INTEGRATION_EVIDENCE_RUNBOOK.md).
+> [AGENT_INTEGRATION_EVIDENCE_RUNBOOK.md](../../../../../docs/runbooks/edai2/AGENT_INTEGRATION_EVIDENCE_RUNBOOK.md).
 > The deployed system is still described by
-> [AGENTS_REGISTRY_GATEWAYS.md](AGENTS_REGISTRY_GATEWAYS.md); that report is
+> [AGENTS_REGISTRY_GATEWAYS.md](../../../../../docs/edai2/agents/AGENTS_REGISTRY_GATEWAYS.md); that report is
 > updated only after the evidence campaign.
 
 This document maps the integration of the existing agents with the LLM
 platform, the global ModelConfig, the Feature Store, the RAG publication, the
 drift tool and the MCP/A2A gateways. Module documentation stays authoritative:
-[LLM_PLATFORM.md](../llm/LLM_PLATFORM.md), [FEATURE_STORE.md](../mlops/FEATURE_STORE.md),
-[RAG_PIPELINE.md](../rag/RAG_PIPELINE.md).
+[LLM_PLATFORM.md](../../../../../docs/edai2/llm/LLM_PLATFORM.md), [FEATURE_STORE.md](../../../../../docs/edai2/mlops/FEATURE_STORE.md),
+[RAG_PIPELINE.md](../../../../../docs/edai2/rag/RAG_PIPELINE.md).
 
 ## 1. Starting point (audit of `06eb47a7`)
 
@@ -191,7 +193,7 @@ profile uses DB 0 read-only for Fraud (the only target with a recorded,
 working transaction), DB 3 for RAG, and drift artifacts from the immutable
 snapshot `feast-r5gb-20261111-214544`; the drift result is a statement about that
 dataset. Full reasoning and the alternative profile:
-[runbook §1](../../runbooks/edai2/AGENT_INTEGRATION_EVIDENCE_RUNBOOK.md#1-integration-profile-and-data-decision).
+[runbook §1](../../../../../docs/runbooks/edai2/AGENT_INTEGRATION_EVIDENCE_RUNBOOK.md#1-integration-profile-and-data-decision).
 Local tests use a deterministic **synthetic** fixture
 (`agi-fixture-synthetic-v1`) that the server refuses by default.
 
@@ -253,7 +255,7 @@ None of these is GKE evidence.
 ## 8. Evidence-to-rubric matrix
 
 Rows are those of the EDAI-2 rubric. The status column of
-[RUBRIC_EVIDENCE_INDEX.md](../RUBRIC_EVIDENCE_INDEX.md) is unchanged until the
+[RUBRIC_EVIDENCE_INDEX.md](../../../../../docs/edai2/RUBRIC_EVIDENCE_INDEX.md) is unchanged until the
 owner's evidence exists: rows already COMPLETE stay COMPLETE, and no row becomes
 COMPLETE from this campaign alone.
 

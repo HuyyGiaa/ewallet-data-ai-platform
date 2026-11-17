@@ -183,11 +183,11 @@ def snapshot(tmp_path: Path, **override) -> Path:
                                          for n in rv.SANDBOX_AGENTS]},
         "workerpools.json": {"items": [{"metadata": {"name": "business-agents"}, "spec": {"replicas": 2},
                                         "status": {"replicas": 2}}]},
-        "scaledobjects-ewallet-agents.json": {"items": [{"metadata": {"namespace": "ewallet-agents", "name": "fraud-coordinator"},
+        "scaledobjects-ewallet-agents.json": {"items": [{"kind": "ScaledObject", "metadata": {"namespace": "ewallet-agents", "name": "fraud-coordinator"},
                                                          "spec": {"minReplicaCount": 2, "maxReplicaCount": 3},
                                                          "status": {**cond(Ready="True", Active="False", Paused="False"),
                                                                     "hpaName": "fraud-coordinator"}}]},
-        "scaledobjects-ewallet-sandbox.json": {"items": [{"metadata": {"namespace": "ewallet-sandbox", "name": "business-agents-workerpool"},
+        "scaledobjects-ewallet-sandbox.json": {"items": [{"kind": "ScaledObject", "metadata": {"namespace": "ewallet-sandbox", "name": "business-agents-workerpool"},
                                                           "spec": {"minReplicaCount": 2, "maxReplicaCount": 3},
                                                           "status": {**cond(Ready="True", Active="False"),
                                                                      "hpaName": "business-agents-workerpool"}}]},
@@ -259,6 +259,28 @@ def test_keda_claims_scaling_only_from_observed_replicas(tmp_path):
     assert rv.keda(up_down, write_verdicts(tmp_path, ["COMPLETE"] * 5 + ["PARTIAL"])).failed
 
 
+def test_workers_read_the_real_load_row_format_and_measure_new_and_resume(tmp_path):
+    sessions = tmp_path / "sessions.log"   # exactly what ops.experiments.sandbox_sessions prints
+    rows = [{"agent": "drift-specialist", "phase": phase, "ok": True, "e2e_ms": ms, "state": "completed"}
+            for phase, ms in (("new", 24500), ("resume", 23300), ("new", 25100), ("resume", 22800))]
+    sessions.write_text("random log line\n" + "\n".join("LOAD_ROW " + json.dumps(r, sort_keys=True) for r in rows) + "\n")
+    status = tmp_path / "status.jsonl"
+    status.write_text("\n".join(json.dumps({"worker_pods": ["w-0", "w-1"], "actors": {"drift-specialist": [
+        {"actor": "a1", "status": s, "pod": "w-0"}]}}) for s in ("RUNNING", "SUSPENDED", "RUNNING")) + "\n")
+    golden = tmp_path / "golden.txt"; golden.write_text("")
+    report = rv.workers(status, golden, sessions)
+    assert not report.failed, report.rows
+    text = {r[1]: (r[0], r[2]) for r in report.rows}
+    assert text["Sandbox session turns executed"] == ("PASS", "4/4 ok")
+    assert "median 24.8 s" in text["first response, new session, drift-specialist"][1]
+    assert text["both new and resumed sessions measured"][0] == "PASS"
+    assert text["an actor seen both Running and Suspended (suspend/resume)"][0] == "PASS"
+    assert "not activation alone" in text["first response, resume session, drift-specialist"][1]
+    not_sent = {"agent": "drift-specialist", "phase": "resume", "ok": False, "state": "not_sent"}
+    sessions.write_text(sessions.read_text() + "LOAD_ROW " + json.dumps(not_sent) + "\n")
+    assert rv.workers(status, golden, sessions).failed
+
+
 def test_workers_separate_session_execution_from_placement(tmp_path):
     sessions = tmp_path / "sessions.log"
     sessions.write_text("\n".join(json.dumps({"id": f"c{i}", "ok": True}) for i in range(12)) + "\nnot json\n")
@@ -307,6 +329,11 @@ for a in get[1:]:
         skip = True
     elif not a.startswith("-"):
         names.append(a)
+joined = " ".join(args)
+if os.environ.get("FAKE_FAIL") and os.environ["FAKE_FAIL"] in joined:
+    print("Error from server (Forbidden)", file=sys.stderr); sys.exit(1)
+if os.environ.get("FAKE_MALFORMED") and os.environ["FAKE_MALFORMED"] in joined and "json" in args:
+    print("<html>proxy error</html>"); sys.exit(0)
 if what == "secret":
     print(base64.b64encode(b"SUPER-SECRET-TOKEN-VALUE").decode(), end=""); sys.exit(0)
 if what == "remotemcpservers.kagent.dev":
@@ -317,8 +344,16 @@ if "-o" in args and args[args.index("-o") + 1] == "json":
     key = {"deployments": f"deployments-{ns}.json", "pdb": f"pdb-{ns}.json", "agents.kagent.dev": "agents.json",
            "sandboxagents.kagent.dev": "sandboxagents.json", "workerpools.ate.dev": "workerpools.json",
            "scaledobjects.keda.sh": f"scaledobjects-{ns}.json", "hpa": f"hpa-{ns}.json", "pods": f"pods-{ns}.json"}.get(what)
+    key = key or {"deploy": f"deployments-{ns}.json"}.get(what)
     if key and os.path.exists(os.path.join(fix, key)):
-        print(open(os.path.join(fix, key)).read()); sys.exit(0)
+        data = json.load(open(os.path.join(fix, key)))
+        if names:   # get <kind> <name> -o json: one object or NotFound
+            items = data.get("items", []) if isinstance(data, dict) else data
+            match = [i for i in items if i.get("metadata", {}).get("name") == names[0]]
+            if not match:
+                print(f'Error from server (NotFound): "{names[0]}" not found', file=sys.stderr); sys.exit(1)
+            print(json.dumps(match[0])); sys.exit(0)
+        print(json.dumps(data)); sys.exit(0)
     print(json.dumps({"items": []})); sys.exit(0)
 if "deploy" in what and any(n in ("feature-rag-specialist", "drift-specialist") for n in names) and "--ignore-not-found" not in args:
     print('Error from server (NotFound): deployments.apps "feature-rag-specialist" not found', file=sys.stderr); sys.exit(1)
@@ -499,6 +534,65 @@ def test_keda_demo_runs_six_unique_requests_and_judges_observed_replicas(env, tm
     assert flat.returncode != 0 and "NOT_OBSERVED" in flat.stdout
 
 
+@pytest.mark.parametrize("extra,failed", [
+    ({"FAKE_FAIL": "scaledobjects.keda.sh fraud-coordinator"}, "query scaledobject-coordinator"),
+    ({"FAKE_FAIL": "scaledobjects.keda.sh business-agents-workerpool"}, "query scaledobject-workerpool"),
+    ({"FAKE_FAIL": "-n ewallet-sandbox get hpa -o json"}, "query hpa-ewallet-sandbox"),
+    ({"FAKE_MALFORMED": "get workerpools.ate.dev business-agents"}, "query workerpool"),
+])
+def test_keda_status_fails_on_a_failed_or_malformed_observation(env, extra, failed):
+    proc = run(env, "keda", **extra)
+    assert proc.returncode != 0 and failed in proc.stdout, proc.stdout + proc.stderr
+
+
+def test_keda_status_fails_on_a_missing_object_or_replica_count(env):
+    d = Path(env["FAKE_DIR"])
+    so = json.loads((d / "scaledobjects-ewallet-agents.json").read_text())
+    (d / "scaledobjects-ewallet-agents.json").write_text(json.dumps({"items": []}))
+    proc = run(env, "keda")
+    assert proc.returncode != 0 and "query scaledobject-coordinator" in proc.stdout
+    (d / "scaledobjects-ewallet-agents.json").write_text(json.dumps(so))
+    pools = json.loads((d / "workerpools.json").read_text()); pools["items"][0]["status"] = {}
+    (d / "workerpools.json").write_text(json.dumps(pools))
+    proc = run(env, "keda")
+    assert proc.returncode != 0 and "WorkerPool replicas" in proc.stdout
+    hpas = {"items": []}
+    (d / "workerpools.json").write_text(json.dumps({"items": [{"metadata": {"name": "business-agents"},
+                                                               "spec": {"replicas": 2}, "status": {"replicas": 2}}]}))
+    (d / "hpa-ewallet-sandbox.json").write_text(json.dumps(hpas))
+    proc = run(env, "keda")
+    assert proc.returncode != 0 and "HPA owned by ewallet-sandbox/business-agents-workerpool" in proc.stdout
+
+
+def test_keda_status_never_claims_scaling_from_ready(tmp_path):
+    d = tmp_path / "k"; d.mkdir()
+    snap = snapshot(tmp_path)
+    so = lambda name, ns: next(i for i in json.loads((snap / f"scaledobjects-{ns}.json").read_text())["items"])  # noqa: E731
+    files = {"scaledobject-coordinator": so("fraud-coordinator", "ewallet-agents") | {"kind": "ScaledObject"},
+             "scaledobject-workerpool": so("business-agents-workerpool", "ewallet-sandbox") | {"kind": "ScaledObject"},
+             "hpa-ewallet-agents": json.loads((snap / "hpa-ewallet-agents.json").read_text()),
+             "hpa-ewallet-sandbox": json.loads((snap / "hpa-ewallet-sandbox.json").read_text()),
+             "deploy-coordinator": deploy("ewallet-agents", "fraud-coordinator", 2),
+             "workerpool": json.loads((snap / "workerpools.json").read_text())["items"][0]}
+    for name, value in files.items():
+        (d / f"{name}.json").write_text(json.dumps(value))
+    (d / "queries.tsv").write_text("".join(f"{n}\t0\n" for n in files))
+    report = rv.keda_status(d)
+    assert not report.failed
+    assert any(r[0] == "INFO" and "not assessed" in r[2] for r in report.rows)
+    assert not any("scale-out" in r[1] and r[0] == "PASS" for r in report.rows)
+    (d / "queries.tsv").write_text("".join(f"{n}\t0\n" for n in list(files)[:-1]))
+    assert "query workerpool" in rv.keda_status(d).failed, "an observation that was never made fails"
+
+
+def test_worker_startup_is_measured_only_for_pods_added_during_the_run(tmp_path):
+    pods = tmp_path / "worker-pods.txt"
+    pods.write_text("01:00:00Z w-0=2026-11-20T00:00:00Z=2026-11-20T00:01:00Z=True w-1=2026-11-20T00:00:00Z=2026-11-20T00:01:05Z=True\n"
+                    "01:00:10Z w-0=2026-11-20T00:00:00Z=2026-11-20T00:01:00Z=True w-2=2026-11-20T01:00:05Z==False\n"
+                    "01:00:40Z w-0=2026-11-20T00:00:00Z=2026-11-20T00:01:00Z=True w-2=2026-11-20T01:00:05Z=2026-11-20T01:00:24Z=True\n")
+    assert rv.worker_startups(pods) == {"w-2": 19.0}
+
+
 def test_keda_default_is_read_only(env):
     proc = run(env, "keda")
     assert proc.returncode == 0 and "not a scale-out result" in proc.stdout
@@ -577,3 +671,32 @@ def test_runbook_cloud_lab_and_helper_commands_exist():
     helper = SCRIPT.read_text()
     for command in set(re.findall(r"agent_replay\.sh ([a-z][a-z0-9-]*)", text)):
         assert re.search(rf"^\s+{re.escape(command)}\)", helper, re.M), command
+
+
+def test_the_three_agent_documents_use_one_screenshot_vocabulary():
+    """Every screenshot named in the two reports and the runbook phases is defined once in the runbook checklist."""
+    runbook = RUNBOOK.read_text()
+    body, rest = runbook.split("## Screenshot checklist", 1)
+    checklist = rest.split("## Reference: history", 1)[0]
+    defined = re.findall(r"^\| `(AGENT_[A-H]\d{2}_[A-Z0-9_]+\.png)` \| ([MC]) \|", checklist, re.M)
+    names = [name for name, _ in defined]
+    assert len(names) == len(set(names)) and names, "each screenshot is defined once"
+    assert set(re.findall(r"AGENT_[A-H]\d{2}_[A-Z0-9_]+\.png", body)) == set(names), "phases and checklist agree"
+    prefixes = {name[:9] for name in names}
+    for doc in ("AGENTS_REGISTRY_GATEWAYS.md", "kagent_bounded_pilot.md"):
+        text = (ROOT / "docs/edai2/agents" / doc).read_text()
+        assert set(re.findall(r"AGENT_[A-H]\d{2}_[A-Z0-9_]+\.png", text)) <= set(names), doc
+        assert set(re.findall(r"`(AGENT_[A-H]\d{2})`", text)) <= prefixes, doc
+        assert "OWNER_EVIDENCE_PENDING" in text, doc
+    assert not re.search(r"AGENT_\d{2}", runbook), "no screenshot names from the earlier scheme"
+
+
+def test_the_reports_keep_history_apart_from_the_current_architecture():
+    main = (ROOT / "docs/edai2/agents/AGENTS_REGISTRY_GATEWAYS.md").read_text()
+    current = main.split("## Appendix: historical architecture", 1)[0]
+    for stale in ("x-kagent-host", "Declarative", "HPA 2–3", "BYO, 2 replicas, HPA", "single replica"):
+        assert stale not in current, stale
+    assert "llm-agent` rev 59" in main and "rev 60" in main and "Prepared, not deployed" in main
+    fleet = (ROOT / "docs/edai2/agents/kagent_bounded_pilot.md").read_text()
+    assert "Pilot evidence does not prove business execution" in fleet
+    assert "estimate" in fleet and "No measured savings are claimed" in fleet

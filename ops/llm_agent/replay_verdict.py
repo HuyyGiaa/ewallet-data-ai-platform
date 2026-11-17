@@ -9,8 +9,12 @@ Stdlib only. Nothing here talks to a cluster.
   e2e        one business request: A2A task state plus the structured Coordinator result for the workflow
   registry   strict Agent Registry readback evidence and the readback exit code
   negative   the three AGI-08 negatives: each evidence file proves its denial with a working control
-  keda       a bounded KEDA demonstration: per-job E2E verdicts plus the replica timeline of both autoscalers
-  workers    shared WorkerPool sessions: session outcomes and actor placement (sharing is not autoscaling)
+  keda-status  read-only KEDA state: both ScaledObjects, the HPAs they own and the replicas, each observation
+             required (a failed or malformed query fails); Ready=True is configuration, never a scale-out result
+  keda       a bounded KEDA demonstration: per-job E2E verdicts, the replica timeline of both autoscalers and the
+             startup (created -> Ready) of any worker pod added during the run
+  workers    shared WorkerPool sessions: outcomes, new/resume latency per agent, suspend/resume observed, actor
+             placement and peak running actors per worker (sharing is not autoscaling)
 
 Exit codes: 0 PASS, 1 FAIL (or NOT_OBSERVED for a demonstration), 2 usage error.
 """
@@ -19,7 +23,9 @@ from __future__ import annotations
 
 import argparse
 import collections
+from datetime import datetime
 import json
+import statistics
 from pathlib import Path
 import sys
 from typing import Any
@@ -335,8 +341,115 @@ def negative(directory: Path, exit_codes: dict[str, int]) -> Report:
     return r
 
 
+# --- keda status (read-only) -----------------------------------------------------------------------------------
+KEDA_QUERIES = ("scaledobject-coordinator", "scaledobject-workerpool", "hpa-ewallet-agents", "hpa-ewallet-sandbox",
+                "deploy-coordinator", "workerpool")
+
+
+def _int(value: Any) -> int | None:
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def keda_status(directory: Path) -> Report:
+    """Every required observation must exist, parse and carry the fields; nothing is inferred from a failed query."""
+
+    r = Report()
+    codes: dict[str, int] = {}
+    try:
+        for line in (directory / "queries.tsv").read_text(encoding="utf-8").splitlines():
+            name, _, code = line.partition("\t")
+            codes[name] = int(code)
+    except (OSError, ValueError) as exc:
+        r.check(False, "query record", f"missing or malformed: {exc}")
+        return r
+    data: dict[str, Any] = {}
+    for name in KEDA_QUERIES:
+        if codes.get(name) != 0:
+            r.check(False, f"query {name}", "not run" if name not in codes else f"kubectl exit {codes[name]}")
+            continue
+        try:
+            data[name] = _load(directory / f"{name}.json")
+            if not isinstance(data[name], dict):
+                raise ValueError("not a JSON object")
+        except (OSError, ValueError) as exc:
+            r.check(False, f"query {name}", f"malformed response: {exc}")
+            data.pop(name, None)
+    hpas = {}
+    for name in ("hpa-ewallet-agents", "hpa-ewallet-sandbox"):
+        items = (data.get(name) or {}).get("items")
+        if name in data and not isinstance(items, list):
+            r.check(False, f"query {name}", "no items list")
+            continue
+        for h in items or []:
+            hpas[f"{h['metadata'].get('namespace')}/{h['metadata']['name']}"] = h
+    for name, key in (("scaledobject-coordinator", "ewallet-agents/fraud-coordinator"),
+                      ("scaledobject-workerpool", "ewallet-sandbox/business-agents-workerpool")):
+        s = data.get(name)
+        if s is None:
+            continue
+        c = _conditions(s)
+        paused = "autoscaling.keda.sh/paused-replicas" in ((s.get("metadata") or {}).get("annotations") or {}) \
+            or c.get("Paused") == "True"
+        spec = s.get("spec") or {}
+        r.check(s.get("kind") == "ScaledObject" and c.get("Ready") == "True" and not paused
+                and c.get("Fallback") != "True" and _int(spec.get("minReplicaCount")) == FLOOR
+                and _int(spec.get("maxReplicaCount")) is not None,
+                f"ScaledObject {key} configured and Ready",
+                f"kind={s.get('kind')} Ready={c.get('Ready')} Active={c.get('Active')} Paused={paused} "
+                f"Fallback={c.get('Fallback')} min/max {spec.get('minReplicaCount')}/{spec.get('maxReplicaCount')}")
+        hpa_name = (s.get("status") or {}).get("hpaName")
+        hpa = hpas.get(f"{key.split('/')[0]}/{hpa_name}") if hpa_name else None
+        hs = (hpa or {}).get("status") or {}
+        r.check(hpa is not None and _int(hs.get("currentReplicas")) is not None and _int(hs.get("desiredReplicas")) is not None,
+                f"HPA owned by {key}", f"{hpa_name or 'no status.hpaName'}: current/desired "
+                                       f"{hs.get('currentReplicas')}/{hs.get('desiredReplicas')}" if hpa else
+                f"{hpa_name or 'no status.hpaName'} not found")
+    d = data.get("deploy-coordinator")
+    if d is not None:
+        spec, ready = _int((d.get("spec") or {}).get("replicas")), _int((d.get("status") or {}).get("readyReplicas"))
+        r.check(spec is not None and ready is not None and spec >= FLOOR, "Coordinator replicas",
+                f"spec {spec}, ready {ready}")
+    w = data.get("workerpool")
+    if w is not None:
+        spec, got = _int((w.get("spec") or {}).get("replicas")), _int((w.get("status") or {}).get("replicas"))
+        r.check(spec is not None and got is not None and spec >= FLOOR, "WorkerPool replicas", f"spec {spec}, status {got}")
+    r.add("INFO", "scale-out / scale-in", "not assessed: read-only state; observed only by `keda demo`")
+    return r
+
+
 # --- keda demonstration ---------------------------------------------------------------------------------------
-def keda(timeline: Path, verdicts: list[Path]) -> Report:
+def _time(value: str) -> datetime | None:
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def worker_startups(path: Path) -> dict[str, float]:
+    """Seconds from creation to Ready for worker pods absent from the first sample (pods added by scale-out)."""
+
+    samples = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        pods = {}
+        for item in line.split()[1:]:
+            parts = item.split("=")
+            if len(parts) == 4:
+                pods[parts[0]] = parts[1:]
+        samples.append(pods)
+    if not samples:
+        return {}
+    initial, out = set(samples[0]), {}
+    for pods in samples[1:]:
+        for name, (created, ready_at, ready) in pods.items():
+            if name in initial or name in out or ready != "True":
+                continue
+            start, end = _time(created), _time(ready_at)
+            if start and end and end >= start:
+                out[name] = (end - start).total_seconds()
+    return out
+
+
+def keda(timeline: Path, verdicts: list[Path], worker_pods: Path | None = None) -> Report:
     """Scale-out and scale-in are claimed only from observed replica counts, never from Ready conditions."""
 
     r = Report()
@@ -364,6 +477,10 @@ def keda(timeline: Path, verdicts: list[Path]) -> Report:
         except (OSError, ValueError):
             pass
     r.check(bool(verdicts) and ok == len(verdicts), "business requests under load", f"{ok}/{len(verdicts)} COMPLETE")
+    if worker_pods is not None and worker_pods.exists():
+        startups = worker_startups(worker_pods)
+        r.add("INFO", "new worker startup (pod created -> Ready)",
+              ", ".join(f"{name} {seconds:.0f} s" for name, seconds in sorted(startups.items())) or "no worker added")
     if any(row[0] == "NOT_OBSERVED" for row in r.rows):
         r.add("FAIL", "autoscaling demonstration", "not observed in this run; no scale claim is made (see the runbook)")
     return r
@@ -381,33 +498,72 @@ def _compact(series: list[int]) -> str:
 
 
 # --- shared workers -------------------------------------------------------------------------------------------
-def workers(status_rows: Path, golden: Path, sessions: Path) -> Report:
-    r = Report()
+def session_rows(path: Path) -> list[dict[str, Any]]:
+    """Rows of ops.experiments.sandbox_sessions: ``LOAD_ROW {json}`` lines (bare JSON lines accepted too)."""
+
     rows = []
-    for line in sessions.read_text(encoding="utf-8").splitlines():
+    for line in path.read_text(encoding="utf-8").splitlines():
+        text = line.split(" ", 1)[1] if line.startswith("LOAD_ROW ") else line
         try:
-            row = json.loads(line)
+            row = json.loads(text)
         except ValueError:
             continue
         if isinstance(row, dict) and "ok" in row:
             rows.append(row)
+    return rows
+
+
+def _percentile(values: list[float], q: float) -> float:
+    ordered = sorted(values)
+    return ordered[min(len(ordered) - 1, max(0, round(q * (len(ordered) - 1))))]
+
+
+def workers(status_rows: Path, golden: Path, sessions: Path) -> Report:
+    r = Report()
+    rows = session_rows(sessions)
     ok = sum(1 for row in rows if row.get("ok") is True)
     r.check(bool(rows) and ok == len(rows), "Sandbox session turns executed", f"{ok}/{len(rows)} ok")
+    latency: dict[tuple[str, str], list[float]] = collections.defaultdict(list)
+    for row in rows:
+        if row.get("ok") is True and isinstance(row.get("e2e_ms"), (int, float)):
+            latency[(row.get("agent", "?"), row.get("phase", "?"))].append(float(row["e2e_ms"]) / 1000)
+    for (agent, phase), values in sorted(latency.items()):
+        r.add("INFO", f"first response, {phase} session, {agent}",
+              f"n={len(values)} median {statistics.median(values):.1f} s, p95 {_percentile(values, 0.95):.1f} s "
+              "(end to end through kagent: activation + turn; not activation alone)")
+    phases = {phase for _, phase in latency}
+    r.add("PASS" if {"new", "resume"} <= phases else "NOT_OBSERVED", "both new and resumed sessions measured",
+          ", ".join(sorted(phases)) or "none")
     ignore = {line.strip() for line in golden.read_text(encoding="utf-8").splitlines() if line.strip()}
     placement: dict[str, dict[str, set[str]]] = collections.defaultdict(lambda: collections.defaultdict(set))
+    statuses: dict[str, set[str]] = collections.defaultdict(set)
+    peak_running, peak_workers = 0, 0
     for line in status_rows.read_text(encoding="utf-8").splitlines():
         try:
             row = json.loads(line)
         except ValueError:
             continue
+        running = 0
         for agent, actors in (row.get("actors") or {}).items():
             for actor in actors or []:
-                if actor.get("actor") not in ignore and actor.get("pod"):
+                if actor.get("actor") in ignore:
+                    continue
+                status = str(actor.get("status") or "").lower()
+                statuses[actor.get("actor")].add(status)
+                running += "running" in status
+                if actor.get("pod"):
                     placement[actor["pod"]][agent].add(actor["actor"])
+        peak_running = max(peak_running, running)
+        peak_workers = max(peak_workers, len(row.get("worker_pods") or []))
     for pod, agents in sorted(placement.items()):
         r.add("INFO", f"worker {pod}", ", ".join(f"{a}={len(ids)} actors" for a, ids in sorted(agents.items())))
-    shared = [pod for pod, agents in placement.items() if len(agents) >= 2]
     r.check(bool(placement), "actors placed on WorkerPool pods", f"{len(placement)} worker pod(s)")
+    cycled = [a for a, seen in statuses.items() if any("suspend" in s for s in seen) and any("running" in s for s in seen)]
+    r.add("PASS" if cycled else "NOT_OBSERVED", "an actor seen both Running and Suspended (suspend/resume)",
+          f"{len(cycled)} actor(s)")
+    r.add("INFO", "peak running session actors / worker pods", f"{peak_running} / {peak_workers} "
+          "(a worker runs one actor at a time; idle actors are suspended to snapshots)")
+    shared = [pod for pod, agents in placement.items() if len(agents) >= 2]
     r.add("PASS" if shared else "NOT_OBSERVED", "one worker hosted actors of both Specialists (sharing)",
           ", ".join(sorted(shared)) or "placement varies; run again")
     return r
@@ -427,7 +583,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--exit-code", type=int, required=True); p.add_argument("--out", type=Path)
     p = sub.add_parser("negative"); p.add_argument("--dir", type=Path, required=True)
     p.add_argument("--exit-code", action="append", default=[], metavar="FILE=CODE"); p.add_argument("--out", type=Path)
+    p = sub.add_parser("keda-status"); p.add_argument("--dir", type=Path, required=True); p.add_argument("--out", type=Path)
     p = sub.add_parser("keda"); p.add_argument("--timeline", type=Path, required=True)
+    p.add_argument("--worker-pods", type=Path)
     p.add_argument("--verdict", type=Path, action="append", default=[]); p.add_argument("--out", type=Path)
     p = sub.add_parser("workers"); p.add_argument("--status-rows", type=Path, required=True)
     p.add_argument("--golden", type=Path, required=True); p.add_argument("--sessions", type=Path, required=True)
@@ -452,8 +610,10 @@ def main(argv: list[str] | None = None) -> int:
             name, _, code = item.partition("=")
             codes[name] = int(code)
         return negative(args.dir, codes).emit("AGI-08 security negatives", args.out)
+    if args.command == "keda-status":
+        return keda_status(args.dir).emit("KEDA state (read-only; not a scale-out result)", args.out)
     if args.command == "keda":
-        return keda(args.timeline, args.verdict).emit("KEDA demonstration (observed replicas)", args.out)
+        return keda(args.timeline, args.verdict, args.worker_pods).emit("KEDA demonstration (observed replicas)", args.out)
     return workers(args.status_rows, args.golden, args.sessions).emit("shared WorkerPool sessions", args.out)
 
 
