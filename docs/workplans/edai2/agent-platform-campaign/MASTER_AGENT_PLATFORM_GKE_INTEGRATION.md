@@ -54,8 +54,8 @@ docs/workplans/edai2/agent-platform-campaign/images.json
 docs/workplans/edai2/agent-platform-campaign/resume-rca/RCA.md
 docs/runbooks/edai2/AGENT_PLATFORM_MASTER_EVIDENCE_RUNBOOK.md
 docs/runbooks/edai2/AGENT_INTEGRATION_EVIDENCE_RUNBOOK.md
-archive/legacy-docs/docs/edai2/agents/AGENT_PLATFORM_COMPLETION_AUDIT.md
-archive/legacy-docs/docs/edai2/agents/AGENT_INTEGRATION_CONTRACTS.md
+docs/edai2/agents/AGENT_PLATFORM_COMPLETION_AUDIT.md
+docs/edai2/agents/AGENT_INTEGRATION_CONTRACTS.md
 docs/edai2/agents/AGENTS_REGISTRY_GATEWAYS.md
 ```
 
@@ -343,7 +343,7 @@ Prepare a concise **OWNER REPRODUCTION RUNBOOK**, organized by AGI/AGR/AGS and a
 
 ```text
 docs/edai2/agents/AGENTS_REGISTRY_GATEWAYS.md
-archive/legacy-docs/docs/edai2/agents/AGENT_INTEGRATION_CONTRACTS.md
+docs/edai2/agents/AGENT_INTEGRATION_CONTRACTS.md
 docs/edai2/agents/AGENT_RELIABILITY_AUTOSCALING.md
 docs/edai2/agents/AGENT_SANDBOX_SUBSTRATE.md
 docs/runbooks/edai2/AGENT_PLATFORM_MASTER_EVIDENCE_RUNBOOK.md

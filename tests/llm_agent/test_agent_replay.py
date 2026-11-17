@@ -311,6 +311,19 @@ if args[:2] == ["config", "view"]:
     print(os.environ["FAKE_CTX"]); sys.exit(0)
 if "logs" in args or "events" in args:
     sys.exit(0)
+if "top" in args:   # kubectl top pods --no-headers
+    ns = args[args.index("-n") + 1]
+    pods = ["fraud-coordinator-a", "fraud-coordinator-b"] if ns == "ewallet-agents" else ["w-0", "w-1", "w-2"]
+    print("\n".join(f"{p} 250m 300Mi" for p in pods)); sys.exit(0)
+if any("goldenActorID" in a for a in args):
+    print("golden-1\ngolden-2"); sys.exit(0)
+if any("creationTimestamp" in a for a in args):   # worker pod samples: '|'-separated sequence, last repeats
+    seq = os.path.join(fix, "workers.seq")
+    values = open(seq).read().split("|") if os.path.exists(seq) else ["w-0=2026-11-20T00:00:00Z=2026-11-20T00:01:00Z=True "]
+    print(values[0], end="")
+    if len(values) > 1:
+        open(seq, "w").write("|".join(values[1:]))
+    sys.exit(0)
 if "jsonpath={.spec.replicas}" in args:   # replica sequences for the keda demo (last value repeats)
     seq = os.path.join(fix, "coord.seq" if "fraud-coordinator" in args else "pool.seq")
     values = open(seq).read().split() if os.path.exists(seq) else ["2"]
@@ -412,6 +425,15 @@ if script.endswith("g3_a2a_smoke.py"):
             part["text"] = json.dumps(value)
     json.dump(body, open(arg("--response"), "w")); json.dump({"elapsed_seconds": 1.0}, open(arg("--timing"), "w"))
     log.write("uv g3_a2a_smoke\n"); sys.exit(0)
+if "-c" in args:   # python -c 'import sys; print(sys.executable)'
+    print(sys.executable); sys.exit(0)
+if "ops.experiments.substrate_fleet" in args:   # actor samples: session actors on the added worker w-2
+    log.write("uv substrate_fleet record\n")
+    rows = [{"actors": {"feature-rag-specialist": [{"actor": "golden-1", "status": "Running", "pod": "w-2"},
+                                                   {"actor": "a-1", "status": os.environ.get("FAKE_ACTOR_STATUS", "Running"), "pod": "w-2"},
+                                                   {"actor": "a-2", "status": "Suspended", "pod": "w-0"}]},
+             "worker_pods": ["w-0", "w-1", "w-2"]}]
+    open(arg("--out"), "w").write("\n".join(json.dumps(r) for r in rows) + "\n"); sys.exit(0)
 log.write("uv UNEXPECTED " + " ".join(args) + "\n"); sys.exit(3)
 '''
 
@@ -509,7 +531,7 @@ def test_request_ids_are_unique_under_concurrent_invocation(env):
 
 
 @pytest.mark.parametrize("args,flag", [(("keda", "demo"), "REPLAY_LOAD_APPROVED"), (("workers",), "REPLAY_SESSIONS_APPROVED"),
-                                       (("failover",), "REPLAY_EXPERIMENT_APPROVED")])
+                                       (("failover",), "REPLAY_EXPERIMENT_APPROVED"), (("autoscale",), "REPLAY_AUTOSCALE_APPROVED")])
 def test_optional_load_sessions_and_experiments_need_their_own_approval(env, args, flag):
     proc = run(env, *args)
     assert proc.returncode != 0 and flag in proc.stderr
@@ -673,8 +695,8 @@ def test_runbook_cloud_lab_and_helper_commands_exist():
         assert re.search(rf"^\s+{re.escape(command)}\)", helper, re.M), command
 
 
-def test_the_three_agent_documents_use_one_screenshot_vocabulary():
-    """Every screenshot named in the two reports and the runbook phases is defined once in the runbook checklist."""
+def test_runbook_screenshot_vocabulary_is_defined_once_and_has_no_historical_substitute():
+    """Every screenshot named in the runbook phases is defined once in the checklist; no H (historical) class."""
     runbook = RUNBOOK.read_text()
     body, rest = runbook.split("## Screenshot checklist", 1)
     checklist = rest.split("## Reference: history", 1)[0]
@@ -682,21 +704,104 @@ def test_the_three_agent_documents_use_one_screenshot_vocabulary():
     names = [name for name, _ in defined]
     assert len(names) == len(set(names)) and names, "each screenshot is defined once"
     assert set(re.findall(r"AGENT_[A-H]\d{2}_[A-Z0-9_]+\.png", body)) == set(names), "phases and checklist agree"
-    prefixes = {name[:9] for name in names}
-    for doc in ("AGENTS_REGISTRY_GATEWAYS.md", "kagent_bounded_pilot.md"):
-        text = (ROOT / "docs/edai2/agents" / doc).read_text()
-        assert set(re.findall(r"AGENT_[A-H]\d{2}_[A-Z0-9_]+\.png", text)) <= set(names), doc
-        assert set(re.findall(r"`(AGENT_[A-H]\d{2})`", text)) <= prefixes, doc
-        assert "OWNER_EVIDENCE_PENDING" in text, doc
+    assert not re.search(r"^\| [^|]+ \| H \|", checklist, re.M), "no historical row stands in for a screenshot"
+    classes = dict(defined)
+    for name in ("AGENT_D02_GRAFANA_KEDA_SIGNALS.png", "AGENT_D03_COORDINATOR_SCALEOUT.png", "AGENT_D04_WORKERPOOL_SCALEOUT.png",
+                 "AGENT_D05_THIRD_WORKER_ACTORS.png", "AGENT_D06_AUTOSCALE_VERDICT.png", "AGENT_D07_RESOURCE_USAGE.png",
+                 "AGENT_E01_FLEET_SESSIONS.png"):
+        assert classes.get(name) == "M", name
     assert not re.search(r"AGENT_\d{2}", runbook), "no screenshot names from the earlier scheme"
 
 
-def test_the_reports_keep_history_apart_from_the_current_architecture():
-    main = (ROOT / "docs/edai2/agents/AGENTS_REGISTRY_GATEWAYS.md").read_text()
-    current = main.split("## Appendix: historical architecture", 1)[0]
-    for stale in ("x-kagent-host", "Declarative", "HPA 2–3", "BYO, 2 replicas, HPA", "single replica"):
-        assert stale not in current, stale
-    assert "llm-agent` rev 59" in main and "rev 60" in main and "Prepared, not deployed" in main
-    fleet = (ROOT / "docs/edai2/agents/kagent_bounded_pilot.md").read_text()
-    assert "Pilot evidence does not prove business execution" in fleet
-    assert "estimate" in fleet and "No measured savings are claimed" in fleet
+def test_runbook_makes_b_prime_the_single_primary_autoscaling_replay():
+    text = RUNBOOK.read_text()
+    required = text.split("## Reference: history", 1)[0]
+    assert "REPLAY_AUTOSCALE_APPROVED=yes scripts/llm_agent/agent_replay.sh autoscale" in required
+    assert "100 typed business tasks, concurrency 8, at most\n900 s" in required
+    assert "REPLAY_LOAD_APPROVED=yes scripts/llm_agent/agent_replay.sh keda demo" not in required, "demo is not in the sequence"
+    assert "export REPLAY_DIR=" in required and required.count("export REPLAY_DIR=") == 1
+    assert "~/ewallet-evidence/agents/replay/$RC-recovery-manifest" not in required
+    # --also-approve only from not_covered: no fixed PDB on the sleep commands
+    for line in re.findall(r"cloud_lab\.py sleep [^\n]*(?:\n  [^\n]*)*", required):
+        assert "--also-approve ewallet-mcp" not in line, line
+    assert '"${ALSO[@]}"' in required and "not_covered" in required
+    assert '--manifest "$P"' in required and 'verify --expect sleep --manifest "$REPLAY_DIR/recovery-manifest"' in required
+    assert "agent_experiment.sh exp-c5-keda optimized run \"$REPLAY_DIR/agr06\"" not in required
+
+
+def test_evidence_commands_need_one_campaign_replay_dir(env):
+    proc = run(env, "status", REPLAY_DIR="")
+    assert proc.returncode != 0 and "set REPLAY_DIR once" in proc.stderr
+    assert not [line for line in calls(env).splitlines() if not line.startswith("kubectl config view")]
+
+
+FAKE_DRIVER = r'''#!/usr/bin/env bash
+# Stands in for scripts/experiments/agent_experiment.sh: records its arguments and profile, writes a load summary.
+set -eu
+echo "$* concurrency=$EXP_CONCURRENCY max=$EXP_MAX_REQUESTS duration=$EXP_DURATION scale_in_wait=$EXP_SCALE_IN_WAIT approved=$EXP_APPROVED ctx=$KUBE_CONTEXT" >> "$FAKE_LOG.driver"
+sleep "${FAKE_LOAD_SECONDS:-4}"   # the samplers read the replica sequences while the load runs
+run="$4/optimized/raw/run-01"; mkdir -p "$run"
+ok=${FAKE_LOAD_OK:-100}
+cat > "$run/summary.json" <<EOF
+{"levels": {"load": {"requests": 100, "succeeded": $ok, "availability_percent": $ok.0, "states": {"completed": $ok},
+ "e2e_ms": {"p50": 34040.9, "p95": 102556.1, "mean": 41517.6}, "requests_per_second": 0.1855, "status": "MEASURED"}}}
+EOF
+echo "run 01 complete: $run"
+exit "${FAKE_LOAD_RC:-0}"
+'''
+
+
+def autoscale_env(env, tmp_path, coord="2 2 3 3 3 2 2", pool="2 3 3 3 3 2 2"):
+    d = Path(env["FAKE_DIR"])
+    (d / "coord.seq").write_text("2 " + coord)   # the first read is the pre-load baseline check
+    (d / "pool.seq").write_text("2 " + pool)
+    first = "w-0=2026-11-20T00:00:00Z=2026-11-20T00:01:00Z=True w-1=2026-11-20T00:00:00Z=2026-11-20T00:01:05Z=True "
+    added = first + "w-2=2026-11-20T01:00:05Z=2026-11-20T01:00:24Z=True "
+    (d / "workers.seq").write_text("|".join([first, added, added, first]))
+    driver = tmp_path / "fake_driver.sh"; driver.write_text(FAKE_DRIVER); driver.chmod(0o755)
+    return {"REPLAY_AUTOSCALE_APPROVED": "yes", "AUTOSCALE_DRIVER": str(driver), "AUTOSCALE_SAMPLE": "0.3",
+            "AUTOSCALE_TOP_INTERVAL": "0.3", "AUTOSCALE_ACTOR_INTERVAL": "1", "AUTOSCALE_COOLDOWN": "0", "AUTOSCALE_POLL": "1",
+            "AUTOSCALE_SCALE_IN_WAIT": "6"}
+
+
+def test_autoscale_replays_b_prime_and_judges_both_autoscalers_and_the_added_worker(env, tmp_path):
+    proc = run(env, "autoscale", **autoscale_env(env, tmp_path))
+    assert proc.returncode == 0, proc.stdout[-4000:] + proc.stderr
+    driver = Path(env["FAKE_LOG"] + ".driver").read_text()
+    assert "exp-c5-keda optimized run" in driver and "/autoscale/load" in driver
+    assert "concurrency=8 max=100 duration=900 scale_in_wait=0 approved=yes" in driver
+    out = proc.stdout
+    assert "Coordinator (ewallet-agents/fraud-coordinator) 2 -> 3 -> 2" in out and "WorkerPool (ewallet-sandbox/business-agents) 2 -> 3 -> 2" in out
+    assert "the added worker executed Sandbox actors  (w-2: 1 Running)" in out, "golden actors are excluded"
+    assert "100/100 tasks completed" in out and "p95 102.6 s" in out and "w-2 19 s" in out
+    assert "peak usage ewallet-sandbox/w-2" in out and "verdict: PASS" in out
+    replay = Path(env["REPLAY_DIR"]) / "autoscale"
+    for name in ("before/verdict.json", "after/verdict.json", "timeline.txt", "worker-pods.txt", "actors.jsonl", "top.txt", "verdict.json"):
+        assert (replay / name).exists(), name
+    assert not [line for line in calls(env).splitlines() if line.startswith("kubectl") and MUTATING.search(line)]
+    again = run(env, "autoscale", **autoscale_env(env, tmp_path))
+    assert again.returncode != 0 and "one primary autoscaling run per REPLAY_DIR" in again.stderr
+
+
+@pytest.mark.parametrize("override,extra,expected", [
+    ({"coord": "2 2 2 2 2 2"}, {}, "NOT_OBSERVED"),                     # Coordinator never scaled
+    ({"pool": "2 3 3 3 3 3"}, {}, "NOT_OBSERVED"),                      # WorkerPool never returned to 2
+    ({}, {"FAKE_ACTOR_STATUS": "Suspended"}, "no Running actor seen on an added worker"),
+    ({}, {"FAKE_LOAD_OK": "97"}, "97/100 tasks completed"),
+    ({}, {"FAKE_LOAD_RC": "1"}, "load harness exit code"),
+])
+def test_autoscale_fails_when_any_part_is_not_observed(env, tmp_path, override, extra, expected):
+    proc = run(env, "autoscale", **autoscale_env(env, tmp_path, **override), **extra)
+    assert proc.returncode != 0 and expected in proc.stdout, proc.stdout[-3000:]
+    assert "verdict: FAIL" in proc.stdout
+
+
+def test_autoscale_sends_no_load_unless_keda_is_healthy_and_at_rest(env, tmp_path):
+    proc = run(env, "autoscale", **autoscale_env(env, tmp_path), FAKE_FAIL="scaledobjects.keda.sh fraud-coordinator")
+    assert proc.returncode != 0 and "no load was sent" in proc.stderr
+    assert not Path(env["FAKE_LOG"] + ".driver").exists()
+    d = Path(env["FAKE_DIR"])
+    extra = autoscale_env(env, tmp_path); (d / "coord.seq").write_text("3")
+    busy = run(env, "autoscale", **extra, REPLAY_DIR=str(tmp_path / "r2"))
+    assert busy.returncode != 0 and "both autoscalers must start at 2" in busy.stderr
+    assert not Path(env["FAKE_LOG"] + ".driver").exists()

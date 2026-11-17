@@ -318,3 +318,29 @@ def test_foreign_hpa_beside_a_scaledobject_is_refused(tmp_path) -> None:
 def test_baseline_refuses_a_keda_owned_hpa(tmp_path) -> None:
     result, _, _ = simulate(tmp_path, "exp-c5-keda", "baseline", SIM_TRANSFER="ScaledObject")
     assert result.returncode != 0 and "baseline needs the HPA" in result.stderr
+
+
+def test_run_never_reads_the_retired_specialist_deployment(tmp_path) -> None:
+    result, evidence, state = simulate(tmp_path, "exp-c5-keda", "optimized", SIM_SCALED_OBJECT="yes", SIM_TRANSFER="ScaledObject")
+    assert result.returncode == 0, result.stderr
+    calls = (state / "calls.log").read_text(encoding="utf-8")
+    assert "deployment feature-rag-specialist" not in calls
+    assert "-n ewallet-sandbox get sandboxagents.kagent.dev feature-rag-specialist" in calls
+    controls = json.loads((evidence / "optimized/raw/run-01/controls.json").read_text(encoding="utf-8"))
+    assert controls["image_digest"] == f"sha256:{'d' * 64},sha256:{'e' * 64}"
+
+
+def test_unreadable_sandbox_image_is_a_deviation_not_a_lost_run(tmp_path) -> None:
+    result, evidence, _ = simulate(tmp_path, "exp-c5-keda", "optimized", SIM_SCALED_OBJECT="yes",
+                                   SIM_TRANSFER="ScaledObject", SIM_SANDBOX_AGENT="missing")
+    assert result.returncode == 0, result.stderr
+    assert (evidence / "optimized/raw/run-01/summary.json").exists()
+    assert "SandboxAgent ewallet-sandbox/feature-rag-specialist image not read" in (
+        evidence / "manifest.json").read_text(encoding="utf-8")
+
+
+def test_b_prime_profile_is_within_the_driver_bounds() -> None:
+    result = driver("exp-c5-keda", "optimized", "plan", "unused", KUBE_CONTEXT="", EXP_CONCURRENCY="8",
+                    EXP_MAX_REQUESTS="100", EXP_DURATION="900")
+    assert result.returncode == 0, result.stderr
+    assert "concurrency=8 duration=900 max_requests=100" in result.stdout

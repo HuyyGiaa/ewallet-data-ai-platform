@@ -13,8 +13,10 @@ terminal output.
   `LIVE_VERIFICATION_PENDING` has not been observed on the cluster yet.
 - **Helper:** `scripts/llm_agent/agent_replay.sh` collects observations. `ops/llm_agent/replay_verdict.py` decides
   PASS/FAIL and sets the exit code. A non-zero exit always means a failed check.
-- **Output:** each helper call writes raw output under `~/ewallet-evidence/agents/replay/<UTC timestamp>/`, or
-  under `$REPLAY_DIR` if you set it.
+- **Output:** one `REPLAY_DIR` for the whole owner campaign (set in Phase 0). Every helper command writes a
+  subdirectory of it, and refuses to run without it.
+- **Scope:** this guide follows the approved Master Plan v2.0. The primary autoscaling evidence is a **new** B′ replay
+  (Phase 5). Historical runs are listed only as context and never replace a new owner screenshot.
 - **Screenshots:** save them in `~/Pictures/Screenshots/` with the names in the
   [checklist](#screenshot-checklist).
 
@@ -47,7 +49,7 @@ The next wake combines five separate responsibilities. Each has its own approval
 | 1. `lf-agents` cleanup (9 orphan objects of the disabled in-release `feature-rag-mcp`) | Claude | `LF-AGENTS:<campaign>` | runbook [§2.6g](../../runbooks/edai2/AGENT_PLATFORM_MASTER_EVIDENCE_RUNBOOK.md#26g-final-orphan-and-auth-table-cleanup-lf-agents-proposed-not-executed) |
 | 2. Delete the 2 unused `ewallet-agents` final auth tables | Claude | `AUTH-TABLES:<campaign>` | runbook §2.6g |
 | 3. Final GKE regression | Claude | part of the campaign | completion report §13.4 |
-| 4. Owner Evidence Replay (this guide) | owner | none beyond the cluster wake | Phases 1–6 |
+| 4. Owner Evidence Replay (this guide) | owner | the cluster wake; `REPLAY_AUTOSCALE_APPROVED` (B′ load); `REPLAY_SESSIONS_APPROVED` (sessions) | Phases 1–6 |
 | 5. Guarded sleep | owner or Claude | guarded-sleep and KEDA-pause approvals | Phase 7 |
 
 - **The helper never runs the cleanup.** `agent_replay.sh` changes no Helm release, Secret, policy or Registry
@@ -72,8 +74,9 @@ The next wake combines five separate responsibilities. Each has its own approval
 | `e2e <case>` | business traffic (1 request) | — | yes | `verdict: COMPLETE` for the case's contract | failed or canceled task, partial result, missing specialist, backend unavailable, invalid or incomplete response, another request's result |
 | `negative` | read-only probes | — | yes | 3 denials, each with a working control | any probe or evidence check fails; a retired credential would be used |
 | `keda` | read-only | — | yes | both ScaledObjects present, Ready, not paused, min 2; their HPAs and the replica counts read back | a query fails or returns malformed data; a ScaledObject, its HPA or a replica count is missing. It never claims a scale-out |
-| `keda demo` | load (6 requests) | `REPLAY_LOAD_APPROVED=yes` | optional | 6/6 COMPLETE, scale-out above 2 and back to 2 observed for both autoscalers | any request fails, or scaling is not observed (`NOT_OBSERVED`) |
-| `workers` | Sandbox sessions | `REPLAY_SESSIONS_APPROVED=yes` | optional | every session turn ok (new and resume); latency per phase, placement and suspend/resume printed | a session turn fails or is not sent; no actor placed |
+| `autoscale` | load (100 typed tasks, concurrency 8, ≤ 900 s) | `REPLAY_AUTOSCALE_APPROVED=yes` | **yes: the primary autoscaling replay** | Coordinator 2→3→2 and WorkerPool 2→3→2 observed; the added worker ran Sandbox actors; 100/100 tasks; harness exit 0; latency, throughput and peak resource usage recorded; KEDA healthy after | KEDA unhealthy before (no load sent) or after; an autoscaler not at 2 before the load; scaling or the added worker's actors not observed (`NOT_OBSERVED`); a failed task; missing samples |
+| `workers` | Sandbox sessions | `REPLAY_SESSIONS_APPROVED=yes` (separate approval) | yes, in the capture scope | every session turn ok (new and resume); latency per phase, placement and suspend/resume printed | a session turn fails or is not sent; no actor placed |
+| `keda demo` | load (6 requests) | `REPLAY_LOAD_APPROVED=yes` | **no**: helper capability only, never a substitute for `autoscale` | 6/6 COMPLETE and scaling observed | any request fails, or scaling is not observed (6 requests may not reach the trigger) |
 | `failover` | experiment (`ewallet-mcp-exp`, pod force-deleted there) | `REPLAY_EXPERIMENT_APPROVED=yes` | **no** (separate owner approval) | optimized arm 0 failed calls; production `ewallet-mcp` unchanged | production differs; experiment error |
 
 Credentials are read inside the helper and passed to probes through the environment only. They never appear in
@@ -89,6 +92,8 @@ export PATH=~/miniconda3/envs/fintech/bin:$PATH                          # uv (t
 gcloud auth print-access-token > /dev/null && echo "gcloud authenticated"
 gcloud container clusters get-credentials ewallet-dev --zone asia-southeast1-b --project ewallet-data-ai-platform-hg26
 RC=replay-$(date -u +%Y%m%dT%H%M%SZ); echo "$RC"                        # your campaign id for approvals and the manifest
+export REPLAY_DIR=~/ewallet-evidence/agents/replay/$RC                   # ONE evidence directory for the whole campaign
+mkdir -p "$REPLAY_DIR" && echo "$REPLAY_DIR"
 M=~/ewallet-evidence/agents/legacy-cleanup/lc-20261117T002220Z/final-sleep/recovery-manifest   # wake and verify
 P=docs/evidence/edai2/cloud_lab/sleep_20261106T163042Z                    # approved PDB record for the guarded sleep only
 ```
@@ -125,7 +130,12 @@ echo ",$ORIG," | grep -q ",$MYIP/32," && echo "already authorized" || echo "not 
 - the Helm releases `llm-agent` (namespace `default`) and `llm-agent-mcp` (`ewallet-mcp`);
 - the MCP Deployments and their PDBs;
 - the SandboxAgents, the WorkerPool and the ActorTemplates;
-- the AuthorizationPolicies and NetworkPolicies, the Secrets and the Agent Registry.
+- the AuthorizationPolicies and NetworkPolicies, the Secrets and the Agent Registry;
+- the KEDA ScaledObjects, their thresholds and the Helm values.
+
+The only objects the replay creates are the `autoscale` load Job and its additive access objects in
+`ewallet-agents` (label `ewallet.io/experiment-load=true`). The harness deletes them on every exit, including
+failure and Ctrl-C.
 
 Never restart or delete a production MCP pod for a screenshot.
 
@@ -332,37 +342,74 @@ scripts/llm_agent/agent_replay.sh keda
 This proves configuration and current state, not a scale-out.
 
 `keda` exits 1 when a required observation fails: a missing ScaledObject, a failed or malformed query, a missing HPA
-or replica count. Fix or report that before any demonstration; `keda demo` refuses to send load when it fails.
+or replica count. Fix or report that before any load; `autoscale` (and the `keda demo` helper) refuse to send load when it fails.
 
 **Screenshot:** `AGENT_D01_KEDA_BASELINE.png`.
 
-**Autoscaling evidence.**
-- **Existing GKE evidence (no rerun needed):**
-  - Coordinator and WorkerPool 2→3→2 in the 2026-11-17 regression (§12.4);
-  - B′ WorkerPool scaling 2→3→2 with 100/100 tasks at 0.185 task/s, and drain-safe scale-in (§9).
-- **Optional live demonstration** (`[LOAD]`: 6 typed requests, the profile that scaled both on 2026-11-17;
-  about 10 minutes including the 300 s cooldown):
+**Primary autoscaling replay (`[LOAD]`, B′ profile, required):** 100 typed business tasks, concurrency 8, at most
+900 s, sent to `fraud-coordinator` and delegated to the SandboxAgents on the shared WorkerPool. Approval:
+`REPLAY_AUTOSCALE_APPROVED=yes`. It takes about 15 minutes of load plus 5–15 minutes of scale-in.
+
+Before you start, check that `keda` passed and that `pf` is running (the actor sampler uses the kagent API on 18383).
+Open three windows so you can capture the screenshots while the load runs.
 
 ```bash
-REPLAY_LOAD_APPROVED=yes scripts/llm_agent/agent_replay.sh keda demo
-watch -n2 'kubectl --context "$CTX" -n ewallet-agents get hpa; kubectl --context "$CTX" -n ewallet-sandbox get hpa'   # second terminal
+REPLAY_AUTOSCALE_APPROVED=yes scripts/llm_agent/agent_replay.sh autoscale
+# second terminal (D03/D04):
+watch -n2 'kubectl --context "$CTX" -n ewallet-agents get hpa,deploy/fraud-coordinator; kubectl --context "$CTX" -n ewallet-sandbox get hpa,workerpools.ate.dev; kubectl --context "$CTX" -n ewallet-sandbox get pods -l ate.dev/worker-pool=business-agents -o wide'
+# third terminal (D07), during the load:
+kubectl --context "$CTX" -n ewallet-sandbox top pods -l ate.dev/worker-pool=business-agents; kubectl --context "$CTX" -n ewallet-agents top pods -l ewallet.io/agent=fraud-coordinator
 ```
 
-The verdict claims scale-out only from observed replica counts (`coord=` and `pool=` in `keda/timeline.txt`). It
-never claims it from `Ready=True`.
-- **PASS:** 6/6 COMPLETE, and for each autoscaler a scale-out above 2 and a scale-in to 2.
-- **`NOT_OBSERVED`:** the run is valid but too small to scale, and the run exits 1. Do not repeat it in a loop.
-  Use the existing evidence instead.
+What `autoscale` does, in order:
+1. It runs `keda` into `$REPLAY_DIR/autoscale/before`. If any KEDA observation fails, it stops and sends nothing.
+2. It requires both autoscalers at 2 (`coord=2 pool=2`), otherwise it stops and sends nothing.
+3. It starts the samplers:
+   - the replica timeline of both autoscalers and the worker pods with their created → Ready times, every 5 s;
+   - Substrate actors per worker, from the kagent status API, every 10 s;
+   - `kubectl top` every 30 s.
+4. It runs the corrected B′ load harness `scripts/experiments/agent_experiment.sh exp-c5-keda optimized run`, with
+   concurrency 8, 100 tasks and 900 s.
+   - The harness refuses to run unless the Coordinator has its ScaledObject.
+   - It reads the Specialist image from the SandboxAgent, never from the retired `feature-rag-specialist`
+     Deployment.
+   - It deletes its load objects on every exit.
+5. It waits at least 300 s, and at most 900 s, for both autoscalers to return to 2.
+6. It runs `keda` again into `autoscale/after`.
+7. It writes the verdict to `autoscale/verdict.json`.
 
-Conditional screenshots (only with this run):
-- `AGENT_D02_GRAFANA_KEDA_SIGNALS.png`: Grafana → Explore → `prometheus`, last 15 min, both queries on one graph:
-  `sum(ewallet_sandbox_delegations_inflight)` (the WorkerPool trigger) and
-  `sum(ewallet_agent_inflight_tasks{agent="fraud-coordinator"})` (the Coordinator trigger).
-- `AGENT_D03_KEDA_SCALEOUT.png`: the `watch` terminal with an HPA at 3, or Console → Workloads with 3 pods.
-- `AGENT_D04_KEDA_SCALEIN_VERDICT.png`: the demo's verdict (scale-out and scale-in for both, 6/6 COMPLETE, new worker
-  startup).
+You run this once per `REPLAY_DIR`: a second call refuses, because `autoscale/` already exists.
 
-**Shared WorkerPool sessions (optional, `[SESSIONS]`):**
+**PASS (`verdict: PASS`):**
+- `Coordinator … 2 -> 3 -> 2` PASS and `WorkerPool … 2 -> 3 -> 2` PASS, each from observed replica counts;
+- `the added worker executed Sandbox actors` PASS, naming the third worker pod and its Running actors;
+- `workload results` `100/100 tasks completed`, and `load harness exit code 0`;
+- the INFO lines for task latency (p50, p95, mean), throughput, the added worker's created → Ready time, and peak
+  CPU and memory per Coordinator and worker pod.
+
+A `NOT_OBSERVED` line makes the run exit 1 and no scale claim is made. Save the output and review it with Claude.
+Do not loop the load, and do not use historical results instead.
+
+**Screenshots** (all from this run):
+- `AGENT_D02_GRAFANA_KEDA_SIGNALS.png`: Grafana → Explore → `prometheus`, the run's time range, both trigger queries
+  on one graph:
+  - `sum(ewallet_sandbox_delegations_inflight)` (the WorkerPool trigger);
+  - `sum(ewallet_agent_inflight_tasks{agent="fraud-coordinator"})` (the Coordinator trigger).
+- `AGENT_D03_COORDINATOR_SCALEOUT.png`: the `watch` terminal, or Console → Workloads, with `fraud-coordinator` at 3.
+- `AGENT_D04_WORKERPOOL_SCALEOUT.png`: the `watch` terminal with the WorkerPool HPA and `business-agents` at 3, and the
+  third worker pod Running.
+- `AGENT_D05_THIRD_WORKER_ACTORS.png`: during the load, the Substrate status page (below), with session actors whose
+  `ateomPodName` is the third worker.
+- `AGENT_D06_AUTOSCALE_VERDICT.png`: the `autoscale` verdict: both 2→3→2, the added worker's actors, 100/100, latency
+  and throughput.
+- `AGENT_D07_RESOURCE_USAGE.png`: the third terminal (`kubectl top` with three workers and three Coordinator pods), or
+  Console → Workloads → pod CPU/memory charts, during the load.
+
+**Helper only: `keda demo`.** It sends 6 requests and is not part of this sequence. It may not reach the trigger
+threshold, and it never replaces `autoscale`.
+
+**Shared WorkerPool sessions (`[SESSIONS]`, in the capture scope, separate approval `REPLAY_SESSIONS_APPROVED`):**
+Run it after `autoscale` has returned to 2, so the two loads do not overlap.
 
 ```bash
 REPLAY_SESSIONS_APPROVED=yes scripts/llm_agent/agent_replay.sh workers    # ~6 min
@@ -374,12 +421,15 @@ session outcomes and actor → worker placement (golden snapshot actors excluded
 - **Placement:** the line "one worker hosted actors of both Specialists" is `PASS` when observed. Placement varies
   with timing, so `NOT_OBSERVED` there is not a failure.
 - **Scope:** this shows sharing of one pool by many session actors. It does not show WorkerPool autoscaling, which
-  `keda demo` and §9 show.
+  `autoscale` shows.
 
-Conditional screenshot: `AGENT_E01_FLEET_SESSIONS.png` (the verdict block).
+**Screenshot:** `AGENT_E01_FLEET_SESSIONS.png` (the verdict block). It needs the sessions approval; without it, record
+`E01` as not captured, and do not replace it with an older image.
 
 **Substrate status (read-only, required):** open
-http://127.0.0.1:18383/api/substrate/status?namespace=ewallet-sandbox in the browser, after the Phase 3 requests. It
+http://127.0.0.1:18383/api/substrate/status?namespace=ewallet-sandbox in the browser, after the Phase 3 requests (and
+during `autoscale` for `D05`). Refresh it by hand, not automatically: every request makes `ateapi` log a full actor
+listing. It
 lists the WorkerPool, its worker pods, both ActorTemplates with their golden actors, and the session actors with
 `status` and `ateomPodName`: which worker each actor ran on.
 
@@ -389,27 +439,21 @@ lists the WorkerPool, its worker pods, both ActorTemplates with their golden act
 
 These turn the fleet claims into numbers. They are bounded and reuse existing tools.
 
-| Measurement | Command | Result to record | Notes |
+| Measurement | Source | Result to record | Notes |
 |---|---|---|---|
-| Session sharing and placement | `workers` (above) | actors per worker per agent; turns ok | placement varies; sharing on every worker is not required |
-| New vs resumed first response | `workers` (2 messages per context) | median and p95 per agent for `new` and `resume` | end to end through kagent, so activation + turn; compare with AGS-05 (24.5/26.5 s new, 23.3/25.6 s resume) |
-| Suspend/resume | `workers` | an actor seen Running and Suspended | also visible in the Substrate status page |
-| New worker startup | `keda demo` | created → Ready seconds of any worker added | historical B′ figure: about 19 s |
-| Worker resource usage | `kubectl --context "$CTX" -n ewallet-sandbox top pods -l ate.dev/worker-pool=business-agents` during `workers` | CPU and memory per worker | compare with requests 500m / 1Gi and limits 1500m / 2Gi |
-| Cost | the formulas in [Agent Fleet §11](kagent_bounded_pilot.md#11-resource-and-cost-analysis) with the usage above | node, warm and scale-out cost | label every figure an estimate; dedicated pools are hypothetical |
+| Both autoscalers 2→3→2 | `autoscale` timeline | scale-out and scale-in from observed replicas | primary evidence; Ready=True is never a scale result |
+| Added worker executing actors | `autoscale` actor samples, Substrate page | third worker pod and its Running actors | `D05` |
+| Workload results and latency | `autoscale` load summary | tasks completed, p50/p95/mean, task/s | end to end through the Coordinator |
+| New worker startup | `autoscale` worker-pod samples | created → Ready seconds of the added worker | |
+| Resource usage | `autoscale` `kubectl top` samples, `D07` | peak CPU and memory per Coordinator and worker pod | compare with worker requests 500m / 1Gi and limits 1500m / 2Gi |
+| Session sharing, new vs resumed, suspend/resume | `workers` | actors per worker per agent; median/p95 per phase | end to end through kagent (activation + turn) |
+| Cost | the measured usage with the `cloud_lab` prices | node, warm and scale-out cost | every figure labelled an estimate |
 
-**Comparable capacity** (optional `[EXPERIMENT]`, needs its own owner approval).
-- It is the AGR-06 Job used for the historical 0.128 / 0.185 task/s figures: 100 typed tasks at concurrency 8, about
-  15 minutes. It creates and removes a load Job in `ewallet-agents`:
-  ```bash
-  KUBE_CONTEXT=$CTX EXP_APPROVED=yes EXP_CONCURRENCY=8 EXP_MAX_REQUESTS=100 EXP_DURATION=900 EXP_SCALE_IN_WAIT=420 \
-    bash scripts/experiments/agent_experiment.sh exp-c5-keda optimized run "$REPLAY_DIR/agr06"
-  ```
-- Only this run is comparable with the historical numbers. Without it, the capacity section of the fleet report stays
-  historical.
+These numbers come only from this campaign's run. The historical B′ figures in the reference section are context,
+not a substitute.
 
 **MCP failover (optional experiment, separate approval):**
-- Existing evidence: 2026-11-15 run-04. The baseline with 1 replica and no retry was 1129/1189 (94.95 %). The
+- Context only (not a substitute for `G02`): 2026-11-15 run-04. The baseline with 1 replica and no retry was 1129/1189 (94.95 %). The
   optimized arm with 2 replicas and client retry was 1188/1188 (100 %), with 1 client retry.
 - `REPLAY_EXPERIMENT_APPROVED=yes scripts/llm_agent/agent_replay.sh failover` creates `ewallet-mcp-exp`,
   force-deletes a pod there and removes the namespace. It never touches `ewallet-mcp`, and it exits 1 if
@@ -469,14 +513,14 @@ pgrep -af "port-forward" || echo "no port-forwards left"                 # stop 
 **2. Preserve evidence** (raw output, no secret values):
 
 ```bash
-(cd ~/ewallet-evidence/agents/replay && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt)
+(cd "$REPLAY_DIR" && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt)
 ```
 
 **3. Record a fresh recovery manifest** (reads the cluster and writes local files only). The next wake uses this
 manifest:
 
 ```bash
-python3 ops/gcp/cloud_lab.py record-manifest --out ~/ewallet-evidence/agents/replay/$RC-recovery-manifest \
+python3 ops/gcp/cloud_lab.py record-manifest --out "$REPLAY_DIR/recovery-manifest" \
   --campaign "$RC" --source-commit "$(git rev-parse HEAD)"
 ```
 
@@ -491,22 +535,25 @@ python3 ops/gcp/cloud_lab.py plan-sleep --manifest "$P"
 - Expect `active_work: []`.
 - `pdb_blockers` lists the MCP and Coordinator PDBs; `guarded_preparation` splits them into `covered_by_manifest`
   and `not_covered`.
-- Pass `--also-approve <ns/name>` only for each PDB listed under `not_covered`, after checking that it is a
-  current platform PDB. On 2026-11-17 that was `ewallet-mcp/feature-rag-mcp`, added by P1 after `$P` was
-  recorded.
+- Pass `--also-approve <ns/name>` only for a PDB that this plan lists under `not_covered`, after checking
+  that it is a current platform PDB. If `not_covered` is empty, pass none. On 2026-11-17 the list held
+  `ewallet-mcp/feature-rag-mcp`; do not copy that unless your plan shows it.
 - The WorkerPool and the Coordinator ScaledObjects need `--pause-keda`.
 
 **5. Dry run, then the guarded sleep.** Both approvals are scoped to your campaign `$RC`; never reuse an older
 campaign's tokens.
 
 ```bash
-python3 ops/gcp/cloud_lab.py sleep --scale-pdb-guarded --pause-keda --manifest "$P" --campaign "$RC" \
-  --also-approve ewallet-mcp/feature-rag-mcp                              # dry run; keep --also-approve only if not_covered listed it
+ALSO=()      # one pair per PDB under not_covered in YOUR plan-sleep output: ALSO+=(--also-approve <ns/name>); empty if none
+python3 ops/gcp/cloud_lab.py sleep --scale-pdb-guarded --pause-keda --manifest "$P" --campaign "$RC" "${ALSO[@]}"   # dry run
 CLOUD_LAB_APPROVED=yes CLOUD_LAB_GUARDED_SLEEP_APPROVAL=ewallet-dev:$RC CLOUD_LAB_KEDA_PAUSE_APPROVAL=ewallet-dev:$RC \
-  python3 ops/gcp/cloud_lab.py sleep --scale-pdb-guarded --pause-keda --manifest "$P" --campaign "$RC" \
-  --also-approve ewallet-mcp/feature-rag-mcp --execute --confirm-cluster ewallet-dev
-python3 ops/gcp/cloud_lab.py verify --expect sleep --manifest ~/ewallet-evidence/agents/replay/$RC-recovery-manifest
+  python3 ops/gcp/cloud_lab.py sleep --scale-pdb-guarded --pause-keda --manifest "$P" --campaign "$RC" "${ALSO[@]}" \
+  --execute --confirm-cluster ewallet-dev
+python3 ops/gcp/cloud_lab.py verify --expect sleep --manifest "$REPLAY_DIR/recovery-manifest"
 ```
+
+Two manifests, never swapped: `$P` (the approved PDB record) is for the guarded sleep only, and
+`$REPLAY_DIR/recovery-manifest` (recorded in step 3) is for `verify` and the next wake.
 
 What the guarded sleep does, in order:
 1. It pauses `ewallet-sandbox/business-agents-workerpool` at 2 and `ewallet-agents/fraud-coordinator` at 0, each
@@ -525,7 +572,8 @@ paused.
 - Save the output. The cluster stays awake and keeps costing money.
 - Fix the reason it names, then rerun the dry run:
   - **active work:** wait for it to finish;
-  - **a PDB not in the approved manifest:** add `--also-approve` only for a known platform PDB;
+  - **a PDB not in the approved manifest:** add it to `ALSO` only if `plan-sleep` lists it under `not_covered`
+    and it is a known platform PDB;
   - **missing approval:** set the campaign-scoped variable.
 - If you cannot resolve it, tell Claude and keep the cluster awake. A failed preparation has already restored
   KEDA and the replicas; `verify --expect awake --manifest "$M"` confirms it.
@@ -544,11 +592,11 @@ python3 ops/gcp/cloud_lab.py status                                       # pool
 
 ## Screenshot checklist
 
-Capture each item yourself; none is complete until you add it. Rows refer to the EDAI-2 rubric (the sheet is the
-authority), and [Agent Platform §13](AGENTS_REGISTRY_GATEWAYS.md#13-results-screenshots-and-rubric-mapping) maps
-them.
-- **Class:** **M** mandatory; **C** conditional (only with the named optional step); **H** historical supporting
-  evidence (already recorded, no new capture).
+Capture each item yourself during this campaign; none is complete until you add it. Rows refer to the EDAI-2 rubric
+(the sheet is the authority). Replacing the seven Agent documents with the final reports waits until this capture is
+finished.
+- **Class:** **M** mandatory (`E01` needs its separate sessions approval); **C** conditional (only with the named
+  optional step). There is no historical class: an older image or result never stands in for a screenshot here.
 - **Prefer the UI** (Console, kagent, Registry, Grafana, Tempo, Loki, the Substrate status page). Use terminal output
   where only an assertion or a CRD shows the fact.
 
@@ -573,11 +621,14 @@ them.
 | `AGENT_C03_SECURITY_NEGATIVES.png` | M | 23, 24 | `agent_replay.sh negative` | 3 PASS lines with controls | credentials, grants and routes deny as designed | the Ambient caller check (port-forward bypasses it) |
 | **D. Dual KEDA** |  |  |  |  |  |  |
 | `AGENT_D01_KEDA_BASELINE.png` | M | 19, 25 | `agent_replay.sh keda` | both ScaledObjects Ready, min 2/max 3, HPAs at 2, `verdict: PASS` | both autoscalers configured and healthy | any scale-out |
-| `AGENT_D02_GRAFANA_KEDA_SIGNALS.png` | C | 19, 25, 51 | Grafana Explore during `keda demo` | both trigger metrics rise and fall | the demand signals KEDA reads | replica changes (D03) |
-| `AGENT_D03_KEDA_SCALEOUT.png` | C | 19, 25 | `watch` HPAs or Console Workloads during `keda demo` | an HPA or Deployment at 3 | a live scale-out | throughput gain (historical B′) |
-| `AGENT_D04_KEDA_SCALEIN_VERDICT.png` | C | 19, 25, 27 | end of `keda demo` | scale-out and scale-in PASS for both, 6/6 COMPLETE | both autoscalers react and return | capacity (see Fleet measurements) |
+| `AGENT_D02_GRAFANA_KEDA_SIGNALS.png` | M | 19, 25, 51 | Grafana Explore during `autoscale` | both trigger metrics rise and fall | the demand signals KEDA reads | replica changes (D03, D04) |
+| `AGENT_D03_COORDINATOR_SCALEOUT.png` | M | 19, 25 | `watch` terminal or Console Workloads during `autoscale` | `fraud-coordinator` at 3 | the Coordinator autoscaler scaled out | scale-in (D06) |
+| `AGENT_D04_WORKERPOOL_SCALEOUT.png` | M | 19, 25, 27 | `watch` terminal during `autoscale` | WorkerPool HPA and `business-agents` at 3, third worker Running | the WorkerPool autoscaler scaled out | that the new worker ran actors (D05) |
+| `AGENT_D05_THIRD_WORKER_ACTORS.png` | M | 27, 20 | Substrate status page during `autoscale` | session actors on the third worker pod | the added worker executed Sandbox actors | throughput gain |
+| `AGENT_D06_AUTOSCALE_VERDICT.png` | M | 19, 25, 27 | end of `autoscale` | both 2→3→2 PASS, added worker's actors, 100/100, p50/p95, task/s | both autoscalers react and return under the B′ workload | a comparison with the fixed pool (not rerun) |
+| `AGENT_D07_RESOURCE_USAGE.png` | M | 19, 27 | `kubectl top` or Console pod charts during `autoscale` | CPU and memory of 3 workers and 3 Coordinator pods | resource usage under load | cost (an estimate from these numbers) |
 | **E. Agent fleet** |  |  |  |  |  |  |
-| `AGENT_E01_FLEET_SESSIONS.png` | C | 27 | `agent_replay.sh workers` | turns ok, new/resume latency, placement, suspend/resume | sessions of both agents share one pool | that every worker hosts both agents |
+| `AGENT_E01_FLEET_SESSIONS.png` | M | 27 | `agent_replay.sh workers` | turns ok, new/resume latency, placement, suspend/resume | sessions of both agents share one pool | that every worker hosts both agents |
 | `AGENT_E02_SUBSTRATE_STATUS.png` | M | 27, 20 | browser: Substrate status page | pool, workers, both templates, actors with worker pods | actor placement on the shared WorkerPool | autoscaling |
 | **F. Observability** |  |  |  |  |  |  |
 | `AGENT_F01_GRAFANA_AGENT_MCP.png` | M | 51 | Grafana dashboard E-Wallet Agent & MCP | calls by outcome, tool calls, p95 | agent and tool telemetry | — |
@@ -587,19 +638,21 @@ them.
 | **G. Reliability** |  |  |  |  |  |  |
 | `AGENT_G01_MCP_REPLICAS_PDB.png` | M | 16, 18 | Phase 5 MCP commands | 2 Ready pods per server on different nodes, PDB allowed 1, 2 endpoints | MCP multi-replica and disruption budget | a failover (G02, H) |
 | `AGENT_G02_FAILOVER.png` | C | 18 | `failover` (separate approval) | optimized 0 failed, production unchanged | service-level failover | — |
-| failover run-04, rolling update AGR-03 | H | 18 | [completion report §3](AGENT_PLATFORM_COMPLETION.md#3-results-on-gke) | 1188/1188; 170/170 | recorded failover and rollout | the final configuration |
-| B′ capacity and scale-in | H | 19, 27 | [completion report §9](AGENT_PLATFORM_COMPLETION.md#9-b-shared-workerpool-autoscaling-bprime-20261116t165353z) | 0.185 vs 0.128 task/s; drain-safe scale-in | the capacity effect of the third worker | a new measurement |
 | **H. CI/CD** |  |  |  |  |  |  |
 | `AGENT_H01_JENKINS_AGENT_CI.png` | C | 34, 35 | Jenkins `edai2-agent-ci` build | agent and MCP suites green | CI for agents and MCP servers | CD (never executed) |
 
 ## Reference: history
 
-The procedures above replaced the following earlier steps. Do not use them in the current replay.
+The procedures above replaced the following earlier steps. Do not use them in the current replay, and do not use the
+results below in place of this campaign's screenshots or measurements.
 - The 2026-11-06 recovery manifest and a 4-node wake.
 - Manually scaling the MCP Deployments after the wake.
 - Three BYO Agents and three agent ScaledObjects. These were before `sp-cleanup` (rev 55), when the Specialists
   were Deployments with a fallback path.
-- The 100-task AGR-06 load in `keda`.
+- The 100-task AGR-06 load in `keda` (now the primary `autoscale` command, with both autoscalers and the Sandbox-only
+  harness).
+- The 6-request `keda demo` as the autoscaling demonstration (now a helper only).
+- A fixed `--also-approve ewallet-mcp/feature-rag-mcp` on the guarded sleep.
 - Manually annotating ScaledObjects before a sleep (superseded by `cloud_lab sleep --pause-keda`).
 - Publishing the registry from this guide.
 

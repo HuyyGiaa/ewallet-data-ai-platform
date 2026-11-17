@@ -16,16 +16,22 @@
 #   agent_replay.sh negative            [READ-ONLY]  wrong credential, ungranted tool, undeclared route (AGI-08)
 #   agent_replay.sh keda                [READ-ONLY]  both ScaledObjects, their HPAs and replicas, checked (exit 1 on a failed
 #                                                    or malformed observation); Ready is not a scale-out result
-#   agent_replay.sh keda demo           [LOAD]       6 bounded typed requests + replica timeline of both autoscalers;
-#                                                    needs REPLAY_LOAD_APPROVED=yes
+#   agent_replay.sh autoscale           [LOAD]       PRIMARY autoscaling replay (B′ profile): 100 typed tasks, concurrency 8,
+#                                                    at most 900 s, through scripts/experiments/agent_experiment.sh; samples
+#                                                    both autoscalers (2->3->2), worker pods, Substrate actors per worker and
+#                                                    kubectl top; needs REPLAY_AUTOSCALE_APPROVED=yes
+#   agent_replay.sh keda demo           [LOAD]       HELPER ONLY, not part of the owner sequence: 6 typed requests + replica
+#                                                    timeline; may not scale; needs REPLAY_LOAD_APPROVED=yes
 #   agent_replay.sh workers             [SESSIONS]   Sandbox sessions (new + resume) of both agents, placement, latency;
 #                                                    needs REPLAY_SESSIONS_APPROVED=yes
 #   agent_replay.sh failover            [EXPERIMENT] isolated MCP failover in ewallet-mcp-exp (pod force-deleted there);
 #                                                    needs REPLAY_EXPERIMENT_APPROVED=yes; never part of the default replay
 #
 # Env: AGI_ENV (default from ~/.cache/ewallet-agi/current.env; needs CTX, EV with inputs/transaction.json, BASELINE),
-#   REPLAY_DIR (default ~/ewallet-evidence/agents/replay/<UTC timestamp>), UV (default uv on PATH or the fintech env).
-#   Test seams: KUBECTL, HELM, SS, PROC_ROOT, PF_SETTLE, HOPS_SETTLE, PF_PIDS, KEDA_SAMPLE, KEDA_POLL, KEDA_COOLDOWN, WORKERS_CONTEXTS.
+#   REPLAY_DIR (required; set once for the whole owner campaign, every command writes a subdirectory of it),
+#   UV (default uv on PATH or the fintech env).
+#   Test seams: KUBECTL, HELM, SS, PROC_ROOT, PF_SETTLE, HOPS_SETTLE, PF_PIDS, KEDA_SAMPLE, KEDA_POLL, KEDA_COOLDOWN, WORKERS_CONTEXTS,
+#   AUTOSCALE_DRIVER, AUTOSCALE_SAMPLE, AUTOSCALE_POLL, AUTOSCALE_ACTOR_INTERVAL, AUTOSCALE_TOP_INTERVAL, AUTOSCALE_SCALE_IN_WAIT, AUTOSCALE_COOLDOWN.
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 die() { echo "agent_replay: $*" >&2; exit 1; }
@@ -42,7 +48,9 @@ export PYTHONPATH="$ROOT${PYTHONPATH:+:$PYTHONPATH}"
 AGENT_PY=("$UV" run --frozen --project "$ROOT/infra/docker/g3-byo-coordinator" python)
 TOOL_PY=("$UV" run --locked --project "$ROOT/infra/docker/llm-agent-tooling" python)
 VERDICT=(python3 -m ops.llm_agent.replay_verdict)   # stdlib only
-REPLAY_DIR=${REPLAY_DIR:-$HOME/ewallet-evidence/agents/replay/$(date -u +%Y%m%dT%H%M%SZ)}
+# One REPLAY_DIR for the whole owner campaign: commands that write evidence refuse to invent a per-command directory.
+case "${1:-}" in pf|stop-pf|__request-id|"") ;; *) [ -n "${REPLAY_DIR:-}" ] || die "set REPLAY_DIR once for the whole owner campaign (see the runbook, Phase 0)" ;; esac
+REPLAY_DIR=${REPLAY_DIR:-}
 PF_PIDS=${PF_PIDS:-$HOME/.cache/ewallet-agi/replay-port-forwards.pids}
 TRANSACTION=${TRANSACTION:-$EV/inputs/transaction.json}
 k() { "$KUBECTL" --context "$CTX" "$@"; }
@@ -347,8 +355,10 @@ keda_demo() {
   mkdir -p "$out"
   keda_status "$out/before" > "$out/before.txt" 2>&1 || { cat "$out/before.txt"; die "KEDA is not healthy before the demo (see $out/before); no load was sent"; }
   cat "$out/before.txt"
-  ( while true; do replicas_sample >> "$out/timeline.txt"; worker_pods_sample >> "$out/worker-pods.txt"; sleep "$sample"; done ) & tl=$!
-  trap 'kill $tl 2>/dev/null' EXIT
+  ( while true; do replicas_sample >> "$out/timeline.txt"; worker_pods_sample >> "$out/worker-pods.txt"; sleep "$sample"; done ) \
+    > /dev/null 2>&1 & tl=$!
+  SAMPLER_PIDS=("$tl")
+  trap 'kill "${SAMPLER_PIDS[@]}" 2>/dev/null' EXIT
   banner "LOAD: 6 typed requests (fraud, drift, combined x2), launched 1.2 s apart (the lc-20261117T002220Z profile)"
   echo "watch: tail -f $out/timeline.txt"
   i=0
@@ -372,6 +382,65 @@ keda_demo() {
   return "$rc"
 }
 keda() { case "${1:-}" in "") keda_status ;; demo) keda_demo ;; *) die "keda takes no argument or 'demo'" ;; esac; }
+
+# --- primary autoscaling replay (B′ profile) ------------------------------------------------------------------
+top_sample() {   # <ts> <namespace> <pod> <cpu> <memory>, one line per pod; a failed read is an ERROR line
+  local ts ns; ts=$(date -u +%FT%TZ)
+  for ns in ewallet-agents ewallet-sandbox; do
+    k -n "$ns" top pods --no-headers 2>/dev/null | awk -v ts="$ts" -v ns="$ns" '{print ts, ns, $1, $2, $3}' \
+      || echo "$ts $ns ERROR top-failed"
+  done
+}
+autoscale() {
+  [ "${REPLAY_AUTOSCALE_APPROVED:-}" = yes ] \
+    || die "autoscale sends 100 typed business tasks (concurrency 8, <= 900 s); set REPLAY_AUTOSCALE_APPROVED=yes after owner approval"
+  need_uv; need_port 18383
+  local out="$REPLAY_DIR/autoscale" waited=0 after=0 rc=0 load_rc=0 run
+  local sample=${AUTOSCALE_SAMPLE:-5} actor_interval=${AUTOSCALE_ACTOR_INTERVAL:-10} top_interval=${AUTOSCALE_TOP_INTERVAL:-30}
+  local limit=${AUTOSCALE_SCALE_IN_WAIT:-900} cooldown=${AUTOSCALE_COOLDOWN:-300} poll=${AUTOSCALE_POLL:-15}
+  local driver=${AUTOSCALE_DRIVER:-$ROOT/scripts/experiments/agent_experiment.sh}
+  [ ! -e "$out" ] || die "$out already exists; one primary autoscaling run per REPLAY_DIR (nothing was sent)"
+  mkdir -p "$out"
+  keda_status "$out/before" > "$out/before.txt" 2>&1 || { cat "$out/before.txt"; die "KEDA is not healthy before the run (see $out/before); no load was sent"; }
+  cat "$out/before.txt"
+  replicas_sample > "$out/baseline-replicas.txt"; cat "$out/baseline-replicas.txt"
+  grep -q ' coord=2 pool=2$' "$out/baseline-replicas.txt" \
+    || die "both autoscalers must start at 2 (see $out/baseline-replicas.txt); no load was sent"
+  # Sampler PIDs are global so the EXIT trap still sees them if the script aborts.
+  SAMPLER_PIDS=()
+  trap 'kill "${SAMPLER_PIDS[@]}" 2>/dev/null' EXIT
+  ( while true; do replicas_sample >> "$out/timeline.txt"; worker_pods_sample >> "$out/worker-pods.txt"; sleep "$sample"; done ) \
+    > /dev/null 2>&1 & SAMPLER_PIDS+=($!)
+  ( while true; do top_sample >> "$out/top.txt"; sleep "$top_interval"; done ) > /dev/null 2>&1 & SAMPLER_PIDS+=($!)
+  # Actor placement from the kagent Substrate status API (the B′ gotcha: each poll makes ateapi log a full ListActors,
+  # so the interval stays coarse).
+  "${TOOL_PY[@]}" -m ops.experiments.substrate_fleet record --url http://127.0.0.1:18383 --namespace ewallet-sandbox \
+    --out "$out/actors.jsonl" --interval "$actor_interval" --duration 3600 > "$out/actors.log" 2>&1 & SAMPLER_PIDS+=($!)
+  banner "LOAD: 100 typed tasks, concurrency 8, at most 900 s (B′ profile) -> fraud-coordinator -> SandboxAgent on the shared WorkerPool"
+  echo "watch: tail -f $out/timeline.txt   (Grafana: Agent Platform dashboard, KEDA panels)"
+  date -u +%FT%TZ > "$out/load-start.txt"
+  EXP_PYTHON=$("${TOOL_PY[@]}" -c 'import sys; print(sys.executable)') KUBE_CONTEXT=$CTX EXP_APPROVED=yes \
+    EXP_CONCURRENCY=8 EXP_MAX_REQUESTS=100 EXP_DURATION=900 EXP_SCALE_IN_WAIT=0 \
+    bash "$driver" exp-c5-keda optimized run "$out/load" > "$out/load.log" 2>&1 || load_rc=$?
+  date -u +%FT%TZ > "$out/load-end.txt"
+  tail -3 "$out/load.log"
+  banner "Load done (rc $load_rc); waiting up to ${limit} s for both autoscalers to return to 2 (at least ${cooldown} s)"
+  while [ "$waited" -lt "$limit" ]; do
+    replicas_sample | grep -q ' coord=2 pool=2$' && [ "$waited" -ge "$cooldown" ] && break
+    sleep "$poll"; waited=$((waited + poll))
+  done
+  sleep "$sample"; kill "${SAMPLER_PIDS[@]}" 2>/dev/null || true; trap - EXIT
+  k -n ewallet-sandbox get actortemplates.ate.dev -o 'jsonpath={range .items[*]}{.status.goldenActorID}{"\n"}{end}' > "$out/golden-ids.txt" || true
+  keda_status "$out/after" > "$out/after.txt" 2>&1 || after=$?
+  cat "$out/after.txt"
+  run=$( (ls -d "$out/load/optimized/raw"/run-* 2>/dev/null || true) | sort | tail -1)
+  banner "Verdict: both autoscalers, the added worker's actors, workload results, latency, resources"
+  verdict autoscale --timeline "$out/timeline.txt" --worker-pods "$out/worker-pods.txt" --actors "$out/actors.jsonl" \
+    --golden "$out/golden-ids.txt" --top "$out/top.txt" --summary "${run:-$out/load/missing}/summary.json" \
+    --load-exit-code "$load_rc" --out "$out/verdict.json" || rc=$?
+  [ "$after" = 0 ] || { echo "FAIL: KEDA not healthy after the run (see $out/after)"; rc=1; }
+  return "$rc"
+}
 
 # --- shared workers -----------------------------------------------------------------------------------------
 workers() {
@@ -431,8 +500,9 @@ case "${1:-}" in
   negative) negative ;;
   registry) registry ;;
   keda) shift; keda "$@" ;;
+  autoscale) autoscale ;;
   workers) workers ;;
   failover) failover ;;
   __request-id) request_id "${2:?case}"; echo ;;   # test seam
-  *) sed -n '2,27p' "$0"; exit 2 ;;
+  *) sed -n '2,34p' "$0"; exit 2 ;;
 esac

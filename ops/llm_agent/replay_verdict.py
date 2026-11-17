@@ -11,7 +11,10 @@ Stdlib only. Nothing here talks to a cluster.
   negative   the three AGI-08 negatives: each evidence file proves its denial with a working control
   keda-status  read-only KEDA state: both ScaledObjects, the HPAs they own and the replicas, each observation
              required (a failed or malformed query fails); Ready=True is configuration, never a scale-out result
-  keda       a bounded KEDA demonstration: per-job E2E verdicts, the replica timeline of both autoscalers and the
+  autoscale  the PRIMARY autoscaling replay (B′ profile: 100 typed tasks, concurrency 8, <= 900 s): each autoscaler
+             observed 2 -> 3 -> 2, the added worker executing Sandbox actors, workload results and latency from the
+             load summary, and peak resource usage from kubectl top
+  keda       HELPER ONLY: a small KEDA demonstration (6 requests): per-job E2E verdicts, the replica timeline of both autoscalers and the
              startup (created -> Ready) of any worker pod added during the run
   workers    shared WorkerPool sessions: outcomes, new/resume latency per agent, suspend/resume observed, actor
              placement and peak running actors per worker (sharing is not autoscaling)
@@ -413,7 +416,7 @@ def keda_status(directory: Path) -> Report:
     if w is not None:
         spec, got = _int((w.get("spec") or {}).get("replicas")), _int((w.get("status") or {}).get("replicas"))
         r.check(spec is not None and got is not None and spec >= FLOOR, "WorkerPool replicas", f"spec {spec}, status {got}")
-    r.add("INFO", "scale-out / scale-in", "not assessed: read-only state; observed only by `keda demo`")
+    r.add("INFO", "scale-out / scale-in", "not assessed: read-only state; observed only by `autoscale`")
     return r
 
 
@@ -449,10 +452,12 @@ def worker_startups(path: Path) -> dict[str, float]:
     return out
 
 
-def keda(timeline: Path, verdicts: list[Path], worker_pods: Path | None = None) -> Report:
-    """Scale-out and scale-in are claimed only from observed replica counts, never from Ready conditions."""
+AUTOSCALERS = ((0, "Coordinator (ewallet-agents/fraud-coordinator)"), (1, "WorkerPool (ewallet-sandbox/business-agents)"))
 
-    r = Report()
+
+def replica_samples(timeline: Path) -> list[tuple[int, int]]:
+    """(Coordinator, WorkerPool) replica counts from ``<time> coord=N pool=M`` lines; unreadable samples are skipped."""
+
     samples = []
     for line in timeline.read_text(encoding="utf-8").splitlines():
         fields = dict(part.split("=", 1) for part in line.split()[1:] if "=" in part)
@@ -460,8 +465,16 @@ def keda(timeline: Path, verdicts: list[Path], worker_pods: Path | None = None) 
             samples.append((int(fields["coord"]), int(fields["pool"])))
         except (KeyError, ValueError):
             continue
+    return samples
+
+
+def keda(timeline: Path, verdicts: list[Path], worker_pods: Path | None = None) -> Report:
+    """Scale-out and scale-in are claimed only from observed replica counts, never from Ready conditions."""
+
+    r = Report()
+    samples = replica_samples(timeline)
     r.check(bool(samples), "replica timeline samples", str(len(samples)))
-    for index, label in ((0, "Coordinator (ewallet-agents/fraud-coordinator)"), (1, "WorkerPool (ewallet-sandbox/business-agents)")):
+    for index, label in AUTOSCALERS:
         series = [s[index] for s in samples]
         if not series:
             continue
@@ -495,6 +508,116 @@ def _compact(series: list[int]) -> str:
             n = int(out[-1].split("x")[1]) + 1
             out[-1] = f"{value}x{n}"
     return " ".join(out)
+
+
+# --- primary autoscaling replay -------------------------------------------------------------------------------
+AUTOSCALE_TASKS = 100
+PEAK = 3
+
+
+def _first_pods(path: Path) -> set[str]:
+    for line in path.read_text(encoding="utf-8").splitlines():
+        return {item.split("=")[0] for item in line.split()[1:] if item.count("=") == 3}
+    return set()
+
+
+def _quantity(value: str) -> float | None:
+    """CPU in millicores or memory in MiB from kubectl top (``250m``, ``1``, ``512Mi``, ``1Gi``)."""
+
+    units = {"m": 1.0, "Ki": 1 / 1024, "Mi": 1.0, "Gi": 1024.0}
+    try:
+        for suffix, factor in units.items():
+            if value.endswith(suffix):
+                return float(value[: -len(suffix)]) * factor
+        return float(value) * 1000
+    except ValueError:
+        return None
+
+
+def autoscale(timeline: Path, worker_pods: Path, actors: Path, golden: Path, top: Path, summary: Path,
+              load_exit_code: int) -> Report:
+    """Scaling is claimed only from observed replica counts and observed actor placement; the workload from the
+    load summary; nothing is inferred from Ready conditions or from the historical B′ run."""
+
+    r = Report()
+    samples = replica_samples(timeline) if timeline.exists() else []
+    r.check(bool(samples), "replica timeline samples", str(len(samples)))
+    for index, label in AUTOSCALERS:
+        series = [sample[index] for sample in samples]
+        if not series:
+            continue
+        observed = series[0] == FLOOR and max(series) >= PEAK and series[-1] == FLOOR
+        r.add("PASS" if observed else "NOT_OBSERVED", f"{label} {FLOOR} -> {PEAK} -> {FLOOR}",
+              f"first {series[0]}, peak {max(series)}, last {series[-1]}; series {_compact(series)}")
+    initial = _first_pods(worker_pods) if worker_pods.exists() else set()
+    startups = worker_startups(worker_pods) if worker_pods.exists() else {}
+    r.add("INFO", "added worker startup (pod created -> Ready)",
+          ", ".join(f"{name} {seconds:.0f} s" for name, seconds in sorted(startups.items())) or "no worker added")
+    ignore = {line.strip() for line in golden.read_text(encoding="utf-8").splitlines() if line.strip()} if golden.exists() else set()
+    placement: dict[str, set[str]] = collections.defaultdict(set)
+    running_on: dict[str, set[str]] = collections.defaultdict(set)
+    rows = 0
+    for line in (actors.read_text(encoding="utf-8").splitlines() if actors.exists() else []):
+        try:
+            row = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(row, dict) or "actors" not in row:
+            continue
+        rows += 1
+        for agent, items in (row.get("actors") or {}).items():
+            for actor in items or []:
+                if actor.get("actor") in ignore or not actor.get("pod"):
+                    continue
+                placement[actor["pod"]].add(f"{agent}/{actor.get('actor')}")
+                if "running" in str(actor.get("status") or "").lower():
+                    running_on[actor["pod"]].add(f"{agent}/{actor.get('actor')}")
+    r.check(rows > 0, "Substrate actor samples", str(rows))
+    for pod in sorted(placement):
+        r.add("INFO", f"worker {pod}" + ("" if pod in initial else " (added during the run)"),
+              f"{len(placement[pod])} actors placed, {len(running_on.get(pod, ()))} seen Running")
+    added = sorted(pod for pod, ids in running_on.items() if ids and initial and pod not in initial)
+    r.add("PASS" if added else "NOT_OBSERVED", "the added worker executed Sandbox actors",
+          ", ".join(f"{pod}: {len(running_on[pod])} Running" for pod in added) or "no Running actor seen on an added worker")
+    try:
+        load = _load(summary)["levels"]["load"]
+    except (OSError, ValueError, KeyError, TypeError):
+        load = None
+    r.check(load_exit_code == 0, "load harness exit code", str(load_exit_code))
+    if load is None:
+        r.add("FAIL", "workload results", f"no readable load summary at {summary}")
+    else:
+        requests, succeeded = load.get("requests"), load.get("succeeded")
+        r.check(requests == AUTOSCALE_TASKS and succeeded == requests, "workload results",
+                f"{succeeded}/{requests} tasks completed, availability {load.get('availability_percent')} %, "
+                f"states {load.get('states')}")
+        e2e = load.get("e2e_ms") or {}
+        def seconds(value: Any) -> str:
+            return f"{value / 1000:.1f} s" if isinstance(value, (int, float)) else "n/a"
+        rate = load.get("requests_per_second")
+        throughput = f"{rate:.3f} task/s" if isinstance(rate, (int, float)) else "n/a"
+        r.add("INFO", "task latency and throughput (end to end through the Coordinator)",
+              f"p50 {seconds(e2e.get('p50'))}, p95 {seconds(e2e.get('p95'))}, mean {seconds(e2e.get('mean'))}, "
+              f"throughput {throughput}")
+    peaks: dict[tuple[str, str], tuple[float, float]] = {}
+    for line in (top.read_text(encoding="utf-8").splitlines() if top.exists() else []):
+        parts = line.split()
+        if len(parts) != 5:
+            continue
+        cpu, memory = _quantity(parts[3]), _quantity(parts[4])
+        if cpu is None or memory is None:
+            continue
+        key = (parts[1], parts[2])
+        old = peaks.get(key, (0.0, 0.0))
+        peaks[key] = (max(old[0], cpu), max(old[1], memory))
+    r.check(bool(peaks), "resource usage samples (kubectl top)", f"{len(peaks)} pod(s)")
+    for (namespace, pod), (cpu, memory) in sorted(peaks.items()):
+        if namespace == "ewallet-agents" and not pod.startswith(COORDINATOR):
+            continue
+        r.add("INFO", f"peak usage {namespace}/{pod}", f"cpu {cpu:.0f}m, memory {memory:.0f}Mi")
+    if any(row[0] == "NOT_OBSERVED" for row in r.rows):
+        r.add("FAIL", "primary autoscaling replay", "not fully observed in this run; no scale claim is made")
+    return r
 
 
 # --- shared workers -------------------------------------------------------------------------------------------
@@ -587,6 +710,10 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("keda"); p.add_argument("--timeline", type=Path, required=True)
     p.add_argument("--worker-pods", type=Path)
     p.add_argument("--verdict", type=Path, action="append", default=[]); p.add_argument("--out", type=Path)
+    p = sub.add_parser("autoscale")
+    for name in ("--timeline", "--worker-pods", "--actors", "--golden", "--top", "--summary"):
+        p.add_argument(name, type=Path, required=True)
+    p.add_argument("--load-exit-code", type=int, required=True); p.add_argument("--out", type=Path)
     p = sub.add_parser("workers"); p.add_argument("--status-rows", type=Path, required=True)
     p.add_argument("--golden", type=Path, required=True); p.add_argument("--sessions", type=Path, required=True)
     p.add_argument("--out", type=Path)
@@ -614,6 +741,9 @@ def main(argv: list[str] | None = None) -> int:
         return keda_status(args.dir).emit("KEDA state (read-only; not a scale-out result)", args.out)
     if args.command == "keda":
         return keda(args.timeline, args.verdict, args.worker_pods).emit("KEDA demonstration (observed replicas)", args.out)
+    if args.command == "autoscale":
+        return autoscale(args.timeline, args.worker_pods, args.actors, args.golden, args.top, args.summary,
+                         args.load_exit_code).emit("PRIMARY autoscaling replay (B′ profile, observed)", args.out)
     return workers(args.status_rows, args.golden, args.sessions).emit("shared WorkerPool sessions", args.out)
 
 

@@ -1,7 +1,5 @@
 # Agent platform completion: pre-implementation audit (AUD-01 to AUD-06)
 
-> **Archived 2026-11-17 (historical pre-campaign audit and design).** It records the options and owner decisions before the GKE campaigns; the implemented fleet is described in [kagent_bounded_pilot.md](../../../../../docs/edai2/agents/kagent_bounded_pilot.md) (Agent Fleet Architecture) and the measured results in [AGENT_PLATFORM_COMPLETION.md](../../../../../docs/edai2/agents/AGENT_PLATFORM_COMPLETION.md).
-
 > **Status: AUDIT ONLY.** Source and documentation review plus a reading of the
 > pinned upstream sources. No cluster, registry, bucket, Secret or Helm release
 > was read or changed. Nothing here is runtime evidence, and no rubric row
@@ -18,10 +16,10 @@
 
 | Component | Version | How it was read |
 |---|---|---|
-| kagent | 0.10.3 | Tag source tarball (`go/core/...`); CRD schemas in [`crd-schemas-kagent-0.10.3.json`](../../../../../infra/kubernetes/kagent-platform/crd-schemas-kagent-0.10.3.json) |
-| Substrate | 0.0.9 | `substrate-crds` chart, digest `sha256:8a9e7ad0…`, equal to [`versions.env`](../../../../../infra/kubernetes/kagent-pilot/versions.env); `substrate` chart `sha256:8063aa18…`; tag source (`docs/`, `cmd/atecontroller`) |
+| kagent | 0.10.3 | Tag source tarball (`go/core/...`); CRD schemas in [`crd-schemas-kagent-0.10.3.json`](../../../infra/kubernetes/kagent-platform/crd-schemas-kagent-0.10.3.json) |
+| Substrate | 0.0.9 | `substrate-crds` chart, digest `sha256:8a9e7ad0…`, equal to [`versions.env`](../../../infra/kubernetes/kagent-pilot/versions.env); `substrate` chart `sha256:8063aa18…`; tag source (`docs/`, `cmd/atecontroller`) |
 | Substrate, later | v0.1.0 to v1.0.1 | WorkerPool CRD per tag (raw GitHub) |
-| KEDA | 2.21.0 | Public chart (`templates/manager/clusterrole.yaml`, `values.yaml`); installed values in [`infra/helm/keda/values.yaml`](../../../../../infra/helm/keda/values.yaml) |
+| KEDA | 2.21.0 | Public chart (`templates/manager/clusterrole.yaml`, `values.yaml`); installed values in [`infra/helm/keda/values.yaml`](../../../infra/helm/keda/values.yaml) |
 | Kubernetes HPA | `release-1.34`, `pkg/controller/podautoscaler/horizontal.go` (GKE runs 1.36; the code path is unchanged in recent releases) | Raw source |
 | Repository | `241c19b2` | Chart, agents, MCP, experiments, runbooks, G5-B KEDA evidence |
 
@@ -31,7 +29,7 @@
 |---|---|---|
 | F1 | The WorkerPool `/scale` subresource defines `specReplicasPath` and `statusReplicasPath` but **no `labelSelectorPath`** | `substrate-crds-0.0.9` `templates/ate.dev_workerpools.yaml` lines 432–436 |
 | F2 | The HPA controller requires a selector for **every** metric type: `computeReplicasForMetrics` calls `validateAndParseSelector`, which fails with `selector is required` | `horizontal.go` lines 306 and 387–389 |
-| F3 | Consequence: a KEDA ScaledObject targeting a 0.0.9 WorkerPool creates an HPA that never scales (`ScalingActive=False`). The chart's sandbox branch renders exactly this object | [`autoscaling.yaml` lines 6–48](../../../../../infra/helm/llm-agent-platform/templates/autoscaling.yaml) |
+| F3 | Consequence: a KEDA ScaledObject targeting a 0.0.9 WorkerPool creates an HPA that never scales (`ScalingActive=False`). The chart's sandbox branch renders exactly this object | [`autoscaling.yaml` lines 6–48](../../../infra/helm/llm-agent-platform/templates/autoscaling.yaml) |
 | F4 | `atecontroller` owns the worker Deployment (`Owns(&appsv1.Deployment{})`) and server-side applies it on every reconcile with `ForceOwnership` and `replicas = WorkerPool.spec.replicas`. Scaling the worker Deployment directly would be reverted | `cmd/atecontroller/internal/controllers/workerpool_controller.go` (`applyDeployment`, `SetupWithManager`), `workerpool_apply.go` line 75 |
 | F5 | Upstream added `labelSelectorPath: .status.selector` in Substrate v0.5.0-alpha3 (absent in v0.0.9 to v0.4.0). kagent 0.10.0–0.10.6 all pin `kagent-dev/substrate v0.0.9`; only kagent 1.0.x pairs with Substrate 1.0.0 | `go/go.mod` `replace` lines per kagent tag |
 | F6 | **Several agents can share one warm WorkerPool.** kagent builds each SandboxAgent's ActorTemplate with `workerSelector: kagent.dev/worker-pool=<pool>`; a pool is resolved in the SandboxAgent's namespace. Substrate's multi-template demo runs two templates on one pool | kagent `pkg/sandboxbackend/substrate/lifecycle_shared.go` lines 79–86 and 106–130, `agent_lifecycle.go` (`buildSandboxAgentActorTemplate`); Substrate `demos/multi-template/README.md` |
@@ -41,8 +39,8 @@
 | F10 | kagent exposes `GET /api/substrate/status`: WorkerPools, ActorTemplates (golden snapshot), actors (`RUNNING`/`SUSPENDED`) and workers with their assigned actor. This is the worker-assignment evidence source | kagent `internal/httpserver/handlers/substrate.go` |
 | F11 | KEDA 2.21's default operator RBAC grants `*/scale` (get, list, patch, update) for every API group. The installed KEDA watches only `ewallet-agents,ml-platform` | KEDA chart `values.yaml` (`rbac.scaledRefKinds`); `infra/helm/keda/values.yaml` |
 | F12 | SandboxAgent and Agent have no `/scale`. The kagent BYO `deployment` schema has no `terminationGracePeriodSeconds` or `lifecycle` | `crd-schemas-kagent-0.10.3.json` |
-| F13 | Worker pods run as the namespace `default` ServiceAccount (`WorkerPool.template` has no `serviceAccountName`). An actor therefore has no Kubernetes token, so the ModelConfig resolver (needs `get modelconfigs`) and possibly the kagent task store cannot authenticate from a sandbox | [`agent-sandbox/README.md`](../../../../../infra/kubernetes/agent-sandbox/README.md); `model_config.py` |
-| F14 | The A2A Gateway's Specialist routes forward to `<agent>.ewallet-agents.svc:8080` Services, which a SandboxAgent does not have. The only controller route is `/api/a2a/ewallet-agents/`. The Coordinator sends neither `contextId` nor `X-User-Id` | [`policy-gateways.yaml`](../../../../../infra/helm/llm-agent-platform/templates/policy-gateways.yaml); `programmatic_coordinator.py` `GatewayPolicy.call_for` |
+| F13 | Worker pods run as the namespace `default` ServiceAccount (`WorkerPool.template` has no `serviceAccountName`). An actor therefore has no Kubernetes token, so the ModelConfig resolver (needs `get modelconfigs`) and possibly the kagent task store cannot authenticate from a sandbox | [`agent-sandbox/README.md`](../../../infra/kubernetes/agent-sandbox/README.md); `model_config.py` |
+| F14 | The A2A Gateway's Specialist routes forward to `<agent>.ewallet-agents.svc:8080` Services, which a SandboxAgent does not have. The only controller route is `/api/a2a/ewallet-agents/`. The Coordinator sends neither `contextId` nor `X-User-Id` | [`policy-gateways.yaml`](../../../infra/helm/llm-agent-platform/templates/policy-gateways.yaml); `programmatic_coordinator.py` `GatewayPolicy.call_for` |
 | F15 | `ewallet_agent_inflight_tasks{agent}` is exported per pod (`service.instance.id`), but only by images after `2af8b596` (2026-11-06). The live r42 BYO images (`017431d`, 2026-11-04) predate it. A dead pod's series persists for the collector's default 5-minute expiry | `agent_metrics.py`, `byo_runtime.py` (`configure_agent_metrics`); C-B runbook P4 "Known limit" |
 | F16 | MCP failover: client-side bounded retry (≤ 3 attempts, read-only tool allowlist, only transport loss or 502/503/504), shared by both Specialists. agentgateway 1.7 does not retry MCP backends. Production MCP servers and the MCP Gateway run **1 replica** (`g3.yaml`, `mcp-isolated.yaml`), so there is no second backend to fail over to | `mcp_failover.py`; `g3/mcp-failover.yaml`; `g3/mcp-gateway-failover.yaml` |
 
@@ -63,12 +61,12 @@
 |---|---|
 | Which business agents can run in Sandbox? | **Feature-RAG and Drift Specialists**: deterministic BYO servers, no Kubernetes API, no LLM on the typed path. They run as BYO SandboxAgents with `cmd`, `PATH`, `PYTHONPATH` and `EWALLET_AGENT_PORT=80` (already supported by `listen_port`). **Coordinator: not recommended.** It needs a Kubernetes token for the ModelConfig resolver (F13) and Redis idempotency, and a session actor that suspends after each response conflicts with its multi-minute delegations. |
 | Reusable BYO implementations | The same three images and modules; no new runtime. `infra/kubernetes/agent-sandbox/arm-optimized.yaml.tmpl` and `scripts/experiments/render_sandbox.py` already render a BYO SandboxAgent. |
-| Do MCP and A2A connectivity survive? | MCP: same gateway route (`/feature-rag/mcp`, `/drift/mcp`) via `sandbox.network.allowedDomains`. Unproven: the ztunnel path for gVisor actors (open question S1), and admitting `cluster.local/ns/ewallet-sandbox/sa/default` ([`s1-access.yaml`](../../../../../infra/kubernetes/agent-sandbox/s1-access.yaml)). A2A: **broken without changes** (F14). |
+| Do MCP and A2A connectivity survive? | MCP: same gateway route (`/feature-rag/mcp`, `/drift/mcp`) via `sandbox.network.allowedDomains`. Unproven: the ztunnel path for gVisor actors (open question S1), and admitting `cluster.local/ns/ewallet-sandbox/sa/default` ([`s1-access.yaml`](../../../infra/kubernetes/agent-sandbox/s1-access.yaml)). A2A: **broken without changes** (F14). |
 | ServiceAccounts, identities, Secrets | One identity per sandbox namespace (`default`, no token). Each Specialist needs its own MCP credential subject, a new entry in the MCP servers' token tables. The token lives in actor memory and therefore in golden and session snapshots. |
 | Can the Coordinator delegate to Sandbox-backed Specialists? | Only after source changes (section 6). A Coordinator→Specialist call must go to the A2A Gateway path `/api/a2a-sandboxes/ewallet-sandbox/<agent>/`, served by a new `kagent-a2a-sandbox` route. It must carry `contextId` (the member `request_id`) and `X-User-Id` (a fixed service user). The kagent controller then selects the session actor. |
 | Does any change break AGI? | No, if the Sandbox route is a third topology switch (`agents.specialistRuntime: deployment` by default). AGI's BYO-Deployment profile is the fallback and the rollback. |
 
-Unresolved, runtime-only questions (from the [Sandbox README](../../../../../infra/kubernetes/agent-sandbox/README.md), not answerable from source):
+Unresolved, runtime-only questions (from the [Sandbox README](../../../infra/kubernetes/agent-sandbox/README.md), not answerable from source):
 
 1. Can uid 10001 bind port 80 in the gVisor actor?
 2. Do actor packets traverse ztunnel (mTLS identity)?
@@ -118,7 +116,7 @@ Unresolved, runtime-only questions (from the [Sandbox README](../../../../../inf
 |---|---|
 | Client-side retry | Implemented and tested, read-only tools only. `drift_detection` is in the allowlist; no tool has side effects |
 | Backend replica failover | Absent in production: 1 replica per MCP server (F16) |
-| RollingUpdate availability | `maxUnavailable: 0, maxSurge: 1` ([`mcp-services.yaml`](../../../../../infra/helm/llm-agent-platform/templates/mcp-services.yaml)). Not exercised under load |
+| RollingUpdate availability | `maxUnavailable: 0, maxSurge: 1` ([`mcp-services.yaml`](../../../infra/helm/llm-agent-platform/templates/mcp-services.yaml)). Not exercised under load |
 | Service-level recovery | Kubernetes restarts the pod; with one replica, calls fail until it is Ready |
 | Gateway | agentgateway does not retry MCP; one gateway replica is itself a single point of failure |
 
@@ -257,7 +255,7 @@ diff and a dry run, as with `agi_campaign.sh`.
 ## 9. Evidence plan
 
 AGI-01–14 are defined in the
-[AGI runbook](../../../../../docs/runbooks/edai2/AGENT_INTEGRATION_EVIDENCE_RUNBOOK.md) and
+[AGI runbook](../../runbooks/edai2/AGENT_INTEGRATION_EVIDENCE_RUNBOOK.md) and
 [contracts §8](AGENT_INTEGRATION_CONTRACTS.md#8-evidence-to-rubric-matrix). For
 B′, AGI-09–11 are repeated with the sandbox route (suffix `-sbx`).
 

@@ -8,6 +8,10 @@
 #          completes.
 #   run    Needs EXP_APPROVED=yes. One measured run. Deletes nothing but its own load objects.
 #
+# Sandbox-only runtime: the typed fixture names the logical Specialist feature-rag-specialist, which the
+# Coordinator delegates to the SandboxAgent of that name on the shared WorkerPool (ewallet-sandbox). The retired
+# feature-rag-specialist Deployment is never read; the Specialist image control comes from the SandboxAgent.
+#
 # This script measures; it does not switch arms. The owner applies the approved Helm change
 # first, and the run stops unless the cluster is in the state the arm requires. Load objects
 # are removed on every exit. Run numbers only go up, so a run never replaces another.
@@ -24,7 +28,7 @@ case "$action" in plan|smoke|run) ;; *) die "action must be plan, smoke or run";
 root=$(cd "$(dirname "$0")/../.." && pwd)
 python=${EXP_PYTHON:-python3}
 export PYTHONPATH="$root${PYTHONPATH:+:$PYTHONPATH}"
-NS=ewallet-agents TARGET=fraud-coordinator SPECIALIST=feature-rag-specialist
+NS=ewallet-agents TARGET=fraud-coordinator SANDBOX_NS=ewallet-sandbox SANDBOX_AGENT=feature-rag-specialist
 EXPECTED_CONTEXT=gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev
 concurrency=${EXP_CONCURRENCY:-4} duration=${EXP_DURATION:-300} max_requests=${EXP_MAX_REQUESTS:-40}
 scale_in_wait=${EXP_SCALE_IN_WAIT:-420}
@@ -117,7 +121,14 @@ node_names=$(k get pods -l "ewallet.io/agent=$TARGET" -o 'jsonpath={.items[*].sp
 # shellcheck disable=SC2086  # one argument per node name
 node_type=$(kubectl --context "$KUBE_CONTEXT" get nodes $node_names \
   -o 'jsonpath={.items[*].metadata.labels.node\.kubernetes\.io/instance-type}' | tr ' ' '\n' | sort -u | paste -sd,)
-specialist_image=$(k get deployment "$SPECIALIST" -o jsonpath='{.spec.template.spec.containers[0].image}')
+# The Specialist runs as a SandboxAgent; its image is read from that object. A failed read after the load is
+# recorded as a deviation instead of discarding the measured run.
+specialist_image=$(kubectl --context "$KUBE_CONTEXT" --request-timeout=60s -n "$SANDBOX_NS" get sandboxagents.kagent.dev \
+  "$SANDBOX_AGENT" -o json 2>> "$logs/controls.log" | grep -oE '[a-z0-9.-]+/[a-z0-9./_-]+@sha256:[0-9a-f]{64}' | head -1 || true)
+if [ -z "$specialist_image" ]; then
+  specialist_image=unavailable
+  deviations+=(--deviation "$arm run $run: SandboxAgent $SANDBOX_NS/$SANDBOX_AGENT image not read")
+fi
 "$python" - "$dir/controls.json" "$load_hash" "${image##*@},${specialist_image##*@}" "$min_replicas" "$max_replicas" "$node_type" <<'P'
 import json, sys
 path, load, digest, low, high, node_type = sys.argv[1:7]

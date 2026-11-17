@@ -43,6 +43,13 @@ elif "get hpa fraud-coordinator" in text:
     print("2" if "minReplicas" in text else "3" if "maxReplicas" in text else "ok", end="")
 elif "EWALLET_MCP_MAX_ATTEMPTS" in text:
     print(os.environ.get("SIM_ATTEMPTS", ""), end="")
+elif "get deployment feature-rag-specialist" in text or "get deployment drift-specialist" in text:
+    # Retired by sp-cleanup: the Specialists run only as SandboxAgents.
+    sys.stderr.write('Error from server (NotFound): deployments.apps "feature-rag-specialist" not found\n'); sys.exit(1)
+elif "get sandboxagents.kagent.dev feature-rag-specialist" in text:
+    if os.environ.get("SIM_SANDBOX_AGENT") == "missing":
+        sys.exit(1)
+    print(json.dumps({"kind": "SandboxAgent", "spec": {"byo": {"deployment": {"image": f"repo/sandbox-fleet@sha256:{'e' * 64}"}}}}))
 elif "get deployment feature-rag-mcp" in text:
     print(os.environ.get("SIM_MCP_REPLICAS", "1"), end="")
 elif "get deployment" in text and "readyReplicas" in text:

@@ -1,7 +1,5 @@
 # Agent configuration A/B test
 
-> **Moved 2026-11-17** from `docs/edai2/agents/` to sit with the other A/B designs. The runtime table below predates `sp-cleanup`: the Specialists now run only as SandboxAgents, and neither calls an LLM on the typed path. The experiment still acts on the Coordinator's single tool-selection call, as described.
-
 This page describes the A/B test between two model configurations of the Fraud Coordinator (EDAI-2 row 52). It is implemented and tested locally with two real models. **It is not deployed**, so the row stays open until package P9 runs.
 
 | Status | State |
@@ -50,7 +48,7 @@ The system prompt, tool schema, grounding, MCP grants and A2A path are shared co
 
 ## Local result
 
-[`Fixed suite`](../../../configs/experiments/fixtures/agent-ab-suite.jsonl): 20 business cases and 4 off-topic cases, each run on both variants in alternating order, through the production `plan` path, the pinned gateway and real vLLM. Evidence: [`summary.json`](../../evidence/edai2/llm_ab/local_real_models_20261106T192621Z/agent_suite/summary.json).
+[`Fixed suite`](../../../configs/experiments/fixtures/agent-ab-suite.jsonl): 20 business cases and 4 off-topic cases, each run on both variants in alternating order, through the production `plan` path, the pinned gateway and real vLLM. Evidence: [`summary.json`](../../../docs/evidence/edai2/llm_ab/local_real_models_20261106T192621Z/agent_suite/summary.json).
 
 | Metric | Baseline, Qwen3-0.6B | Candidate, Qwen3-1.7B |
 |---|---:|---:|

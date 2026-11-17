@@ -11,7 +11,7 @@ kagent UI → A2A Gateway → fraud-coordinator ── LLM Gateway → vLLM   (o
 Status: **SOURCE_IMPLEMENTED and LOCAL_TESTED; every AGI item below is
 CLOUD_PENDING.** Nothing in this runbook has been executed on GKE. Design,
 contracts, local tests and the evidence-to-rubric matrix are in
-[AGENT_INTEGRATION_CONTRACTS.md (archived)](../../../archive/legacy-docs/docs/edai2/agents/AGENT_INTEGRATION_CONTRACTS.md).
+[AGENT_INTEGRATION_CONTRACTS.md](../../edai2/agents/AGENT_INTEGRATION_CONTRACTS.md).
 
 ## Rules
 

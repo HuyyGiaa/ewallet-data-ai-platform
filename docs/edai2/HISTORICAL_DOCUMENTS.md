@@ -40,15 +40,3 @@ Two documents moved instead of being archived: the evidence matrix is now [`docs
 `docs/ml/` are retained at compatibility paths because source, tests or
 deployment contracts reference them. Superseded phase notes are in the legacy
 archive.
-
-**Agent Platform documents archived on 2026-11-17.** The Agent documentation now has three reader-facing documents
-(listed in the [EDAI-2 index](README.md#agent-platform)). These earlier documents were moved with `git mv`:
-
-| File | Kind | Current report |
-|---|---|---|
-| [agents/AGENT_INTEGRATION_CONTRACTS.md](../../archive/legacy-docs/docs/edai2/agents/AGENT_INTEGRATION_CONTRACTS.md) | AGI target-architecture contract map (pre-GKE) | [Agent Platform §6–§11](agents/AGENTS_REGISTRY_GATEWAYS.md#6-mcp-tools-and-business-integrations) |
-| [agents/AGENT_PLATFORM_COMPLETION_AUDIT.md](../../archive/legacy-docs/docs/edai2/agents/AGENT_PLATFORM_COMPLETION_AUDIT.md) | Pre-campaign audit and options | [Agent Fleet Architecture](agents/kagent_bounded_pilot.md) |
-| [agents/kagent_bounded_pilot.md (pilot runbook)](../../archive/legacy-docs/docs/edai2/agents/kagent_bounded_pilot.md) | 2026-11-02 mock-model pilot procedure | [Agent Fleet Architecture §2–§3](agents/kagent_bounded_pilot.md#2-the-initial-bounded-pilot-2026-11-02) |
-
-[AGENT_PLATFORM_COMPLETION.md](agents/AGENT_PLATFORM_COMPLETION.md) remains at its path as the dated campaign record
-(frozen evidence and source reference it). The Agent A/B design moved to [platform/AGENT_AB.md](platform/AGENT_AB.md).

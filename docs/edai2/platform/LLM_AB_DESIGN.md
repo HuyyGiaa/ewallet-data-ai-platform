@@ -52,7 +52,7 @@ agentgateway v1.7.0 supports weighted routing. The chart adds a client-facing na
 
 Production BYO agents read `EWALLET_LLM_MODEL` and do not use `ModelConfig`, so a change to `ModelConfig` would not move their traffic. (With `modelConfig.byoResolver` on they read the CR at startup, but the A/B variants are still set per variant: [LLM_PLATFORM §5](../llm/LLM_PLATFORM.md#5-global-modelconfig-and-byo-resolver).)
 
-The split is per request, so a conversation can reach both models. Sticky per-conversation assignment is what the [Agent A/B](AGENT_AB.md) adds.
+The split is per request, so a conversation can reach both models. Sticky per-conversation assignment is what the [Agent A/B](../agents/AGENT_AB.md) adds.
 
 ## Local results
 

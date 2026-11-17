@@ -21,7 +21,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 RUNBOOK = ROOT / "docs/runbooks/edai2/AGENT_INTEGRATION_EVIDENCE_RUNBOOK.md"
-CONTRACTS = ROOT / "archive/legacy-docs/docs/edai2/agents/AGENT_INTEGRATION_CONTRACTS.md"   # archived AGI-era contract map
+CONTRACTS = ROOT / "docs/edai2/agents/AGENT_INTEGRATION_CONTRACTS.md"   # archived AGI-era contract map
 FENCE = re.compile(r"^( *)```bash\n(.*?)^\1```", re.S | re.M)
 TOOLS = {
     "scripts/llm_agent/agi_probe.py": ("script", ("request", "mcp", "a2a-route")),

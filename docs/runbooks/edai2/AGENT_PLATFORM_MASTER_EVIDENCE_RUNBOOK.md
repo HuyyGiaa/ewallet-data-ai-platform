@@ -8,7 +8,7 @@ The evidence for rubric rows 16–27 comes from three groups:
 - **AGS-01–07**, the sandbox and the Substrate pool. Section 4.
 
 The design is in the
-[completion audit](../../../archive/legacy-docs/docs/edai2/agents/AGENT_PLATFORM_COMPLETION_AUDIT.md). The
+[completion audit](../../edai2/agents/AGENT_PLATFORM_COMPLETION_AUDIT.md). The
 campaign state is in
 [`docs/workplans/edai2/agent-platform-campaign/`](../../workplans/edai2/agent-platform-campaign/):
 `checkpoints.json`, `HANDOFF.md`, and `images.json` (the image digests).
