@@ -19,7 +19,9 @@ from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
+import tempfile
 from typing import Callable, Mapping, Sequence
 
 from scripts.ci.catalog import CatalogError, load_catalog
@@ -53,7 +55,7 @@ def _image_args(unit: Mapping) -> list[str]:
 
 
 def commands_for(unit: Mapping, plan: Mapping, evidence: Path, *, prompt_registry: str = "",
-                 execute_streaming: bool = True) -> list[list[str]]:
+                 execute_streaming: bool = True, streaming_context: str = "<streaming-identity-context>") -> list[list[str]]:
     """The commands a rehearsal unit runs, by kind (a closed set)."""
 
     common = ["--unit", unit["name"], "--git-sha", plan["git_sha"], "--evidence-dir", str(evidence)]
@@ -70,7 +72,9 @@ def commands_for(unit: Mapping, plan: Mapping, evidence: Path, *, prompt_registr
                  "--git-sha", plan["git_sha"], "--evidence-dir", str(evidence / "image-smoke"),
                  *_image_args({"images": smoke_image})]
         campaign = [*STREAMING, "scripts.ci.streaming_verify", *common, *_image_args(unit),
-                    "--kube-context", plan["kube_context"], *(["--execute"] if execute_streaming else [])]
+                    # The campaign runs as the dedicated streaming identity (streaming_identity.py), never as
+                    # the plan's in-cluster Jenkins context.
+                    "--kube-context", streaming_context, *(["--execute"] if execute_streaming else [])]
         return [smoke, campaign]
     raise DispatchError(f"release unit {unit['name']} of kind {kind} is not a rehearsal executor")
 
@@ -79,8 +83,15 @@ def _run(argv: Sequence[str], env: Mapping[str, str]) -> int:
     return subprocess.run(list(argv), cwd=ROOT, env={**os.environ, **env}, check=False).returncode
 
 
+def _streaming_identity(workdir: Path):  # type: ignore[no-untyped-def]
+    from scripts.ci.streaming_identity import resolve
+
+    return resolve(workdir)
+
+
 def dispatch_rehearsal(plan: Mapping, evidence_root: Path, *, run: Runner = _run, locks=None,
-                       prompt_registry: str = "", execute_streaming: bool = True) -> dict:
+                       prompt_registry: str = "", execute_streaming: bool = True,
+                       streaming_identity: Callable[[Path], object] = _streaming_identity) -> dict:
     outcomes: list[UnitOutcome] = []
     failure = ""
     lock_names = sorted({unit["lock"] for unit in plan["units"]})
@@ -90,13 +101,33 @@ def dispatch_rehearsal(plan: Mapping, evidence_root: Path, *, run: Runner = _run
         for unit in plan["units"]:
             evidence = evidence_root / unit["name"]
             evidence.mkdir(parents=True, exist_ok=True)
+            env = {"RELEASE_UNIT": unit["name"]}
+            private = None
+            context = "<streaming-identity-context>"
+            if unit["kind"] == "streaming-verification":
+                # The token-bearing kubeconfig lives outside the archived evidence and is removed after the unit.
+                private = Path(tempfile.mkdtemp(prefix="streaming-identity."))
+                try:
+                    identity = streaming_identity(private)
+                except Exception as error:  # StreamingIdentityError and API failures: the unit is blocked
+                    shutil.rmtree(private, ignore_errors=True)
+                    (evidence / "blocked.txt").write_text(f"{error}\n", encoding="utf-8")
+                    outcomes.append(UnitOutcome(unit["name"], unit["kind"], [], [], "BLOCKED"))
+                    failure = f"release unit {unit['name']} is blocked: {error}"
+                    return
+                env.update(identity.environment())
+                context = identity.context
             commands = commands_for(unit, plan, evidence, prompt_registry=prompt_registry,
-                                    execute_streaming=execute_streaming)
+                                    execute_streaming=execute_streaming, streaming_context=context)
             codes = []
-            for command in commands:
-                codes.append(run(command, {"RELEASE_UNIT": unit["name"]}))
-                if codes[-1] != 0:
-                    break
+            try:
+                for command in commands:
+                    codes.append(run(command, env))
+                    if codes[-1] != 0:
+                        break
+            finally:
+                if private is not None:
+                    shutil.rmtree(private, ignore_errors=True)
             status = "PASS" if len(codes) == len(commands) and all(code == 0 for code in codes) else "FAIL"
             outcomes.append(UnitOutcome(unit["name"], unit["kind"], commands, codes, status))
             if status != "PASS":

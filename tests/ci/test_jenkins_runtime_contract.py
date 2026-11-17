@@ -91,6 +91,11 @@ class JenkinsRuntimeContractTests(unittest.TestCase):
         self.assertNotIn("/var/run/docker.sock", dockerfile)
         self.assertIn("USER jenkins", dockerfile)
         self.assertRegex(plugins, r"(?m)^junit:[^\s]+$")
+        # The frozen streaming operator calls kubectl and envsubst on the controller.
+        self.assertRegex(dockerfile, r'"kubectl=\$\{KUBECTL_VERSION\}"')
+        self.assertRegex(dockerfile, r"ARG KUBECTL_VERSION=[0-9.]+-[0-9.]+")
+        self.assertIn("gettext-base", dockerfile)
+        self.assertIn("signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg", dockerfile)
 
     def test_jenkins_manifest_is_clusterip_only_non_privileged_and_bounded(self) -> None:
         manifest = ROOT / "infra/kubernetes/jenkins/jenkins.yaml"

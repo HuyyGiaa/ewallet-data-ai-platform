@@ -10,8 +10,21 @@ ENV UV_PYTHON_INSTALL_DIR=/opt/uv-python \
 
 USER root
 COPY --from=uv /uv /uvx /usr/local/bin/
+# kubectl and envsubst (gettext-base) are what the frozen streaming operator
+# (scripts/streaming/block_a_cloud.sh) and feast_online_job.sh call. kubectl comes from the
+# signed Kubernetes apt repository at an exact version (within one minor of GKE 1.36/1.37).
+ARG KUBECTL_MINOR=v1.37
+ARG KUBECTL_VERSION=1.37.1-1.1
 RUN apt-get update \
- && apt-get install --yes --no-install-recommends ca-certificates git python3 \
+ && apt-get install --yes --no-install-recommends ca-certificates curl gnupg git python3 gettext-base \
+ && install -d -m 0755 /etc/apt/keyrings \
+ && curl -fsSL "https://pkgs.k8s.io/core:/stable:/${KUBECTL_MINOR}/deb/Release.key" \
+    | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg \
+ && echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/${KUBECTL_MINOR}/deb/ /" \
+    > /etc/apt/sources.list.d/kubernetes.list \
+ && apt-get update \
+ && apt-get install --yes --no-install-recommends "kubectl=${KUBECTL_VERSION}" \
+ && apt-get purge --yes --auto-remove curl gnupg \
  && rm -rf /var/lib/apt/lists/* \
  && uv python install 3.10.19 3.12.12 \
  && uv pip install \

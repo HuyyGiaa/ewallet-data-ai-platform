@@ -89,6 +89,10 @@ data:
               booleanParam('PROMOTE_TO_PRODUCTION', false, 'Separately approved production promotion after a passing rehearsal')
               stringParam('PRODUCTION_KUBE_CONTEXT', '', 'Production context of the approved deployer identity')
               stringParam('PRODUCTION_IDENTITY', '', 'Approved production deployer identity (owner decision D1)')
+              stringParam('PROMPT_REGISTRY_URL', 'http://prompt-registry-agentregistry.ewallet-prompts.svc.cluster.local:12121', 'Prompt Management gate (agentregistry)')
+              stringParam('STREAMING_SERVICE_ACCOUNT', '', 'Streaming campaign identity in ewallet-ci (empty: streaming release is BLOCKED)')
+              stringParam('FEAST_SNAPSHOT_ID', '', 'Streaming campaign: Feast snapshot id (owner-supplied)')
+              stringParam('FEATURE_RUN_ID', '', 'Streaming campaign: feature run id (owner-supplied)')
             }
           }
           def createPipeline = { jobName, branchName, pipelineScriptPath, expectedSha, negative ->

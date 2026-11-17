@@ -92,6 +92,51 @@ class DispatchTests(unittest.TestCase):
         self.assertIn("scripts.ci.streaming_verify", campaign)
         self.assertIn(f"streaming-sinks={ref('sinks')}", campaign)
         self.assertIn("--execute", campaign)
+        # Never the plan's in-cluster Jenkins context.
+        self.assertNotIn("in-cluster", campaign)
+
+    def streaming_plan(self) -> dict:
+        streaming = unit("streaming-block-a", "streaming-verification",
+                         {"flink-block-a": ref("flink"), "streaming-sinks": ref("sinks")},
+                         lock="block-a-verification", contract="jenkins/cd/streaming.contract.json")
+        return {**PLAN, "release_branch": "release/streaming", "units": [streaming]}
+
+    def test_streaming_without_an_identity_is_blocked_and_runs_nothing(self) -> None:
+        from scripts.ci.streaming_identity import StreamingIdentityError
+
+        calls: list[list[str]] = []
+
+        def no_identity(workdir):  # type: ignore[no-untyped-def]
+            raise StreamingIdentityError("BLOCKED: no streaming identity")
+
+        report = dispatch_rehearsal(self.streaming_plan(), self.evidence, run=lambda a, e: calls.append(a) or 0,
+                                    locks=FakeLocks(), streaming_identity=no_identity)
+        self.assertEqual("FAIL", report["verdict"])
+        self.assertEqual("BLOCKED", report["units"][0]["status"])
+        self.assertEqual([], calls)
+        self.assertIn("BLOCKED", (self.evidence / "streaming-block-a" / "blocked.txt").read_text())
+
+    def test_streaming_runs_as_its_identity_and_the_token_file_is_removed(self) -> None:
+        from scripts.ci.streaming_identity import StreamingIdentity
+
+        seen: list[tuple[list[str], dict]] = []
+        holder: dict[str, Path] = {}
+
+        def identity(workdir):  # type: ignore[no-untyped-def]
+            path = workdir / "streaming-kubeconfig"
+            path.write_text("token: secret")
+            holder["path"] = path
+            return StreamingIdentity(path, "ewallet-cicd-streaming", "test")
+
+        report = dispatch_rehearsal(self.streaming_plan(), self.evidence,
+                                    run=lambda a, e: seen.append((list(a), dict(e))) or 0,
+                                    locks=FakeLocks(), streaming_identity=identity)
+        self.assertEqual("PASS", report["verdict"])
+        campaign, env = seen[1]
+        self.assertEqual("ewallet-cicd-streaming", campaign[campaign.index("--kube-context") + 1])
+        self.assertEqual(str(holder["path"]), env["KUBECONFIG"])
+        self.assertFalse(holder["path"].exists(), "the token-bearing kubeconfig is removed")
+        self.assertFalse(str(holder["path"]).startswith(str(self.evidence)), "never inside archived evidence")
 
     def test_registry_gate_receives_the_registry_url(self) -> None:
         gate = commands_for(unit("prompt-registry-gate", "registry-gate", {}, contract=None), PLAN, self.evidence,

@@ -368,8 +368,8 @@ def main(argv: list[str] | None = None) -> int:
                 specs.append(ImageSpec(name, dockerfile, target or None))
     except BuildError as error:
         parser.error(str(error))
-    if not specs:
-        parser.error("the release needs no image; nothing to build")
+    if not specs and not args.images_file:
+        parser.error("no image to build")
     for spec in specs:
         if not (args.root / spec.dockerfile).is_file():
             parser.error(f"Dockerfile does not exist: {spec.dockerfile}")
@@ -377,6 +377,7 @@ def main(argv: list[str] | None = None) -> int:
         archive = source_archive(args.root, args.git_sha)
         http = Http(token_command=shlex.split(args.token_command) or None)
         registry = Registry(http, settings) if args.registry_lookup == "required" else None
+        # A release of image-less units (the Prompt Management gate) records an empty manifest.
         images = {spec.name: build_or_reuse(http, registry, settings, spec, args.git_sha, archive, args.evidence_dir)
                   for spec in specs}
     except (BuildError, subprocess.CalledProcessError, URLError, OSError) as error:

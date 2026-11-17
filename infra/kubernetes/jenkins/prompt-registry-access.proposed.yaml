@@ -1,0 +1,41 @@
+# Prompt Registry access PROPOSAL (NOT APPROVED, NOT APPLIED; CI/CD rebuild Batch 2, runbook P5).
+# The prompt-registry gate calls agentregistry on 12121 from the Jenkins controller. Today Jenkins may
+# egress only DNS, 443 and the metadata server, and ewallet-prompts is default-deny. Two additive
+# objects open exactly that flow. Confirm the registry Pod labels read-only before applying
+# (kubectl -n ewallet-prompts get pods --show-labels; get networkpolicy).
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: jenkins-to-prompt-registry
+  namespace: ewallet-ci
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: jenkins}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: ewallet-prompts}
+          podSelector:
+            matchLabels: {app.kubernetes.io/name: agentregistry}
+      ports:
+        - {port: 12121, protocol: TCP}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prompt-registry-from-jenkins
+  namespace: ewallet-prompts
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: agentregistry}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: ewallet-ci}
+          podSelector:
+            matchLabels: {app.kubernetes.io/name: jenkins}
+      ports:
+        - {port: 12121, protocol: TCP}

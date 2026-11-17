@@ -122,7 +122,10 @@ def gate(scans: dict[str, dict[str, Any]], exceptions: list[Exception_], today: 
         else:
             images[name] = evaluate(scan["report"], exceptions, today)
     statuses = {item["status"] for item in images.values()}
-    verdict = "PASS" if images and statuses == {"PASS"} else ("SCANNER_ERROR" if "SCANNER_ERROR" in statuses else "VULNERABLE")
+    if not scans:
+        verdict = "NOT_APPLICABLE"  # the release consumes no image (e.g. the Prompt Management gate)
+    else:
+        verdict = "PASS" if statuses == {"PASS"} else ("SCANNER_ERROR" if "SCANNER_ERROR" in statuses else "VULNERABLE")
     return {"verdict": verdict, "scanner": TRIVY, "severities": list(SEVERITIES), "images": images}
 
 
@@ -146,7 +149,7 @@ def main(argv: list[str] | None = None) -> int:
     args.output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps({"verdict": result["verdict"],
                       "images": {name: item["status"] for name, item in result["images"].items()}}, sort_keys=True))
-    return 0 if result["verdict"] == "PASS" else 1
+    return 0 if result["verdict"] in {"PASS", "NOT_APPLICABLE"} else 1
 
 
 if __name__ == "__main__":

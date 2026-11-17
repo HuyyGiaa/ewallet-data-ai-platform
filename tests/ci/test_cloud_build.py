@@ -157,6 +157,20 @@ SPEC = ImageSpec("mcp-tools", "infra/docker/llm-agent-tooling/Dockerfile", "mcp-
 DIGEST = "sha256:" + "2" * 64
 
 
+def test_an_image_less_release_writes_an_empty_manifest_without_calling_google(tmp_path) -> None:
+    from scripts.ci import cloud_build
+
+    root = Path(__file__).resolve().parents[2]
+    head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, capture_output=True, text=True, check=True).stdout.strip()
+    images = tmp_path / "images.json"
+    images.write_text(json.dumps({"units": ["prompt-registry-gate"], "images": []}))
+    output = tmp_path / "manifest.json"
+    code = cloud_build.main(["--root", str(root), "--git-sha", head, "--images-file", str(images),
+                             "--evidence-dir", str(tmp_path / "ev"), "--output", str(output)])
+    assert code == 0
+    assert json.loads(output.read_text())["images"] == {}
+
+
 class StubRegistry:
     def __init__(self, *answers: RegistryImage | None) -> None:
         self.answers = list(answers)

@@ -1,0 +1,103 @@
+# Streaming CD identity PROPOSAL (NOT APPROVED, NOT APPLIED; CI/CD rebuild Batch 2, runbook P6).
+# A dedicated ServiceAccount runs the frozen Block A operator (scripts/streaming/block_a_cloud.sh,
+# scripts/mlops/feast_online_job.sh); Jenkins may only mint short-lived tokens for it.
+# Every verb below is one the operator issues; nothing is cluster-scoped and no Secret other than the
+# verification Redis credential (feast-online-redis-stream) is readable.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ewallet-cicd-streaming
+  namespace: ewallet-ci
+automountServiceAccountToken: false
+---
+# Jenkins (ewallet-ci/jenkins) may request tokens for this one account only.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: jenkins-mints-streaming-token
+  namespace: ewallet-ci
+rules:
+- apiGroups: ['']
+  resources: [serviceaccounts/token]
+  resourceNames: [ewallet-cicd-streaming]
+  verbs: [create]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: jenkins-mints-streaming-token
+  namespace: ewallet-ci
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: jenkins-mints-streaming-token}
+subjects:
+- {kind: ServiceAccount, name: jenkins, namespace: ewallet-ci}
+---
+# ml-platform: the Block A stack (Redpanda, Flink JobManager/TaskManager), the step Jobs, the registry
+# apply Job, rollout status, logs, the Flink CLI/REST exec on the JobManager, and the verification
+# Redis credential the operator reads (connection string and resourceVersion).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: streaming-cd-block-a
+  namespace: ml-platform
+rules:
+- apiGroups: [batch]
+  resources: [jobs]
+  verbs: [get, list, watch, create, patch, delete]
+- apiGroups: [apps]
+  resources: [deployments]
+  verbs: [get, list, watch, create, patch, delete]
+- apiGroups: [apps]
+  resources: [replicasets]
+  verbs: [get, list, watch]
+- apiGroups: ['']
+  resources: [services, configmaps]
+  verbs: [get, list, watch, create, patch, delete]
+- apiGroups: ['']
+  resources: [pods, pods/log]
+  verbs: [get, list, watch]
+- apiGroups: ['']
+  resources: [pods/exec]
+  verbs: [create]
+- apiGroups: ['']
+  resources: [secrets]
+  resourceNames: [feast-online-redis-stream]
+  verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: streaming-cd-block-a
+  namespace: ml-platform
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: streaming-cd-block-a}
+subjects:
+- {kind: ServiceAccount, name: ewallet-cicd-streaming, namespace: ewallet-ci}
+---
+# feature-store: the operator claims and inspects the rehearsal-stream Redis database through
+# redis-cli inside statefulset/redis (INFO, GET/EVAL on the ownership key of the claimed DB only).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: streaming-cd-redis-claim
+  namespace: feature-store
+rules:
+- apiGroups: [apps]
+  resources: [statefulsets]
+  resourceNames: [redis]
+  verbs: [get]
+- apiGroups: ['']
+  resources: [pods]
+  verbs: [get, list]
+- apiGroups: ['']
+  resources: [pods/exec]
+  resourceNames: [redis-0]
+  verbs: [create]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: streaming-cd-redis-claim
+  namespace: feature-store
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: streaming-cd-redis-claim}
+subjects:
+- {kind: ServiceAccount, name: ewallet-cicd-streaming, namespace: ewallet-ci}

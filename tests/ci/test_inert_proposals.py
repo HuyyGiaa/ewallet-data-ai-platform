@@ -25,6 +25,8 @@ PROPOSALS = (
     "infra/kubernetes/jenkins/rbac/batch-d2-record-guard-proposal.yaml",
     "infra/kubernetes/jenkins/rbac/batch-d-production-proposal.yaml",
     "infra/kubernetes/prompt-registry/hardening-m1-m2-proposal.yaml",
+    "infra/kubernetes/jenkins/rbac/streaming-cd-identity.proposed.yaml",
+    "infra/kubernetes/jenkins/prompt-registry-access.proposed.yaml",
 )
 # Files that may legitimately name a proposal: reviews, tests and evidence.
 REFERENCE_ALLOWED = re.compile(r"^(docs/|tests/)")

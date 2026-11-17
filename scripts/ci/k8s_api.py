@@ -137,6 +137,20 @@ def delete_exact(client: Client, kind: str, namespace: str, name: str, resource_
                    {"preconditions": {"resourceVersion": resource_version}, "propagationPolicy": "Background"})
 
 
+def service_account_token(client: Client, namespace: str, name: str, seconds: int, audience: str | None = None) -> str:
+    """A short-lived token for one ServiceAccount (TokenRequest); never logged or written by this client."""
+
+    body: dict[str, Any] = {"apiVersion": "authentication.k8s.io/v1", "kind": "TokenRequest",
+                            "spec": {"expirationSeconds": seconds}}
+    if audience:
+        body["spec"]["audiences"] = [audience]
+    response = client.request("POST", f"api/v1/namespaces/{quote(namespace)}/serviceaccounts/{quote(name)}/token", body)
+    token = (response.get("status") or {}).get("token")
+    if not isinstance(token, str) or not token:
+        raise KubeError(f"TokenRequest for {namespace}/{name} returned no token")
+    return token
+
+
 def get(client: Client, kind: str, namespace: str, name: str) -> dict[str, Any]:
     return client.request("GET", _path(kind, namespace, name))
 

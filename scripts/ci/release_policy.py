@@ -74,12 +74,16 @@ def manifest_sha256(path: Path) -> str:
 
 
 def manifest_images(manifest: dict[str, Any], git_sha: str) -> dict[str, str]:
-    """Image name -> digest reference, after checking every entry's identity."""
+    """Image name -> digest reference, after checking every entry's identity.
+
+    An empty ``images`` object is valid (a release of image-less units, such as the Prompt Management
+    gate); a unit that needs an image still fails on the missing digest.
+    """
 
     _require(isinstance(manifest, dict), "image manifest must be an object")
     _require(manifest.get("git_sha") == git_sha, "image manifest git SHA must match the release SHA")
     images = manifest.get("images", {})
-    _require(isinstance(images, dict) and bool(images), "image manifest has no images")
+    _require(isinstance(images, dict), "image manifest images must be an object")
     result: dict[str, str] = {}
     for name, image in images.items():
         _require(isinstance(name, str) and isinstance(image, dict), "image entries must be named objects")

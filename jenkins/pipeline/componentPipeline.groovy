@@ -22,7 +22,11 @@ def run(Map configuration) {
         choice(name: 'REGISTRY_LOOKUP', choices: ['required', 'off'], description: 'Artifact Registry lookup for image reuse and digest readback'),
         booleanParam(name: 'PROMOTE_TO_PRODUCTION', defaultValue: false, description: 'After a passing rehearsal, request the separately approved production promotion'),
         string(name: 'PRODUCTION_KUBE_CONTEXT', defaultValue: '', description: 'Production context of the approved deployer identity'),
-        string(name: 'PRODUCTION_IDENTITY', defaultValue: '', description: 'Name of the approved production deployer identity (owner decision D1)')
+        string(name: 'PRODUCTION_IDENTITY', defaultValue: '', description: 'Name of the approved production deployer identity (owner decision D1)'),
+        string(name: 'PROMPT_REGISTRY_URL', defaultValue: 'http://prompt-registry-agentregistry.ewallet-prompts.svc.cluster.local:12121', description: 'Prompt Management gate (agentregistry)'),
+        string(name: 'STREAMING_SERVICE_ACCOUNT', defaultValue: '', description: 'Streaming campaign identity in ewallet-ci'),
+        string(name: 'FEAST_SNAPSHOT_ID', defaultValue: '', description: 'Streaming campaign Feast snapshot id'),
+        string(name: 'FEATURE_RUN_ID', defaultValue: '', description: 'Streaming campaign feature run id')
       ])
     ])
   }
@@ -168,14 +172,23 @@ def run(Map configuration) {
         }
 
         stage('Rehearse release units') {
-          sh """#!/usr/bin/env bash
-            set -euo pipefail
-            python3 -m scripts.ci.release_policy --root "$WORKSPACE" build \
-              --request '${evidenceDir}/release-request.json' \
-              --image-manifest '${imageManifest}' \
-              --output '${evidenceDir}/release-plan.json'
-            scripts/ci/deploy_release.sh --plan '${evidenceDir}/release-plan.json' --execute
-          """
+          // Only the units of this release read these: the Prompt Management gate the registry URL,
+          // the streaming campaign its dedicated identity and its owner-supplied campaign ids.
+          withEnv([
+            "PROMPT_REGISTRY_URL=${params.PROMPT_REGISTRY_URL ?: ''}",
+            "STREAMING_SERVICE_ACCOUNT=${params.STREAMING_SERVICE_ACCOUNT ?: ''}",
+            "FEAST_SNAPSHOT_ID=${params.FEAST_SNAPSHOT_ID ?: ''}",
+            "FEATURE_RUN_ID=${params.FEATURE_RUN_ID ?: ''}"
+          ]) {
+            sh """#!/usr/bin/env bash
+              set -euo pipefail
+              python3 -m scripts.ci.release_policy --root "$WORKSPACE" build \
+                --request '${evidenceDir}/release-request.json' \
+                --image-manifest '${imageManifest}' \
+                --output '${evidenceDir}/release-plan.json'
+              scripts/ci/deploy_release.sh --plan '${evidenceDir}/release-plan.json' --execute
+            """
+          }
         }
 
         if (params.PROMOTE_TO_PRODUCTION) {

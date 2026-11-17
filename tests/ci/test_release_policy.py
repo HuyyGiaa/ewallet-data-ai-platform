@@ -254,3 +254,19 @@ class ReleaseUnitCatalogTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ImageLessReleaseTests(unittest.TestCase):
+    """The Prompt Management group deploys no image; its release must still plan (regression, Batch 2)."""
+
+    def test_prompt_management_plans_with_an_empty_manifest(self) -> None:
+        request = ReleaseRequest(True, True, "owner", "release/prompt-management", SHA, SHA, "gke-cpu", "in-cluster",
+                                 ("prompt-management",), "m.json", "e")
+        plan = build_release_plan(CATALOG, UNITS, request, {"git_sha": SHA, "images": {}}, "a" * 64)
+        self.assertEqual([("prompt-registry-gate", {})], [(unit["name"], unit["images"]) for unit in plan["units"]])
+
+    def test_an_empty_manifest_still_fails_a_unit_that_needs_an_image(self) -> None:
+        request = ReleaseRequest(True, True, "owner", "release/rag-pipeline", SHA, SHA, "gke-cpu", "in-cluster",
+                                 ("rag-pipeline",), "m.json", "e")
+        with self.assertRaisesRegex(ReleasePolicyError, "no immutable digest"):
+            build_release_plan(CATALOG, UNITS, request, {"git_sha": SHA, "images": {}}, "a" * 64)

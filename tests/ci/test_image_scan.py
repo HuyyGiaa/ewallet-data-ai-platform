@@ -45,7 +45,6 @@ def test_scanner_errors_never_pass_and_dominate_the_verdict() -> None:
     result = gate({"a": {"status": "REPORT", "report": report()}, "b": {"status": "SCANNER_ERROR", "detail": "x"}},
                   [], TODAY)
     assert result["verdict"] == "SCANNER_ERROR"
-    assert gate({}, [], TODAY)["verdict"] != "PASS"
 
 
 def test_the_scan_is_pinned_and_writes_a_report_artifact() -> None:
@@ -80,3 +79,7 @@ def test_only_digests_are_scanned_and_a_failed_scan_build_is_a_scanner_error() -
 
 def test_the_committed_exception_list_is_valid() -> None:
     assert load_exceptions() == []
+
+
+def test_a_release_without_images_is_not_applicable_not_a_pass_or_failure() -> None:
+    assert gate({}, [], TODAY)["verdict"] == "NOT_APPLICABLE"
