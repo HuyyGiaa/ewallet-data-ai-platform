@@ -1,0 +1,133 @@
+# Agent Platform release identity PROPOSAL (NOT APPROVED, NOT APPLIED; CI/CD rebuild Batch 2A, runbook P9).
+# Rights the production transaction needs for the SandboxAgent units only (scripts/ci/sandbox_candidate.py,
+# scripts/ci/fleet_promote.py); the Helm promotions keep their own reviewed proposal (batch-d-production-proposal.yaml).
+#
+# Bounds, and what RBAC cannot express (enforced in code and reviewed in tests/ci/test_agent_cicd.py):
+# * create on sandboxagents cannot be limited by name; the code creates only <agent>-cicd from the frozen
+#   template (contract_differences) and delete is limited to exactly those two names;
+# * patch is limited to the two production SandboxAgents; the code sends only an image replace guarded by
+#   uid and image test operations;
+# * Secrets: get on the two MCP credential Secrets only; the client requests PartialObjectMetadata, so the
+#   values never reach the CD process, but RBAC itself would allow reading them;
+# * the WorkerPool and ActorTemplates are read-only; nothing here can create, scale or delete them;
+# * kubectl port-forward to the kagent controller needs pods/portforward in kagent (pods have generated
+#   names, so this is namespace-wide in kagent).
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ewallet-cicd-agent-release
+  namespace: ewallet-ci
+  annotations: {ewallet.io/status: proposed-not-applied}
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: agent-release-sandbox
+  namespace: ewallet-sandbox
+  annotations: {ewallet.io/status: proposed-not-applied}
+rules:
+- apiGroups: [kagent.dev]
+  resources: [sandboxagents]
+  verbs: [get, list, watch, create]
+- apiGroups: [kagent.dev]
+  resources: [sandboxagents]
+  resourceNames: [feature-rag-specialist, drift-specialist]
+  verbs: [patch]
+- apiGroups: [kagent.dev]
+  resources: [sandboxagents]
+  resourceNames: [feature-rag-specialist-cicd, drift-specialist-cicd]
+  verbs: [delete]
+- apiGroups: [ate.dev]
+  resources: [workerpools, actortemplates]
+  verbs: [get, list, watch]
+- apiGroups: ['']
+  resources: [serviceaccounts]
+  resourceNames: [sandbox-feature-rag, sandbox-drift]
+  verbs: [get]
+- apiGroups: ['']
+  resources: [secrets]
+  resourceNames: [mcp-token-sandbox-feature-rag-feature-rag-mcp-sbx-20261115, mcp-token-sandbox-drift-drift-mcp-sbx-20261115]
+  verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: agent-release-sandbox
+  namespace: ewallet-sandbox
+  annotations: {ewallet.io/status: proposed-not-applied}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: agent-release-sandbox}
+subjects:
+- {kind: ServiceAccount, name: ewallet-cicd-agent-release, namespace: ewallet-ci}
+---
+# The release locks (scripts/ci/release_lock.py) are Leases in ewallet-cicd, taken by the same identity.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: agent-release-locks
+  namespace: ewallet-cicd
+  annotations: {ewallet.io/status: proposed-not-applied}
+rules:
+- apiGroups: [coordination.k8s.io]
+  resources: [leases]
+  verbs: [get, create, delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: agent-release-locks
+  namespace: ewallet-cicd
+  annotations: {ewallet.io/status: proposed-not-applied}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: agent-release-locks}
+subjects:
+- {kind: ServiceAccount, name: ewallet-cicd-agent-release, namespace: ewallet-ci}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: agent-release-mcp-read
+  namespace: ewallet-mcp
+  annotations: {ewallet.io/status: proposed-not-applied}
+rules:
+- apiGroups: [apps]
+  resources: [deployments]
+  resourceNames: [feature-rag-mcp, drift-mcp]
+  verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: agent-release-mcp-read
+  namespace: ewallet-mcp
+  annotations: {ewallet.io/status: proposed-not-applied}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: agent-release-mcp-read}
+subjects:
+- {kind: ServiceAccount, name: ewallet-cicd-agent-release, namespace: ewallet-ci}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: agent-release-kagent-route
+  namespace: kagent
+  annotations: {ewallet.io/status: proposed-not-applied}
+rules:
+- apiGroups: ['']
+  resources: [services]
+  resourceNames: [kagent-controller]
+  verbs: [get]
+- apiGroups: ['']
+  resources: [pods]
+  verbs: [get, list]
+- apiGroups: ['']
+  resources: [pods/portforward]
+  verbs: [create]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: agent-release-kagent-route
+  namespace: kagent
+  annotations: {ewallet.io/status: proposed-not-applied}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: agent-release-kagent-route}
+subjects:
+- {kind: ServiceAccount, name: ewallet-cicd-agent-release, namespace: ewallet-ci}

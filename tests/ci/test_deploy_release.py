@@ -178,6 +178,44 @@ class CliTests(unittest.TestCase):
                 release_dispatch.verify_release_plan, release_dispatch._locks, release_dispatch._git_head = original
         self.assertEqual(2, code)
 
+    def production_main(self, context: str, env: dict[str, str]) -> tuple[int, list]:  # type: ignore[type-arg]
+        """Run the production path with every mutation seam replaced by a recorder."""
+        from scripts.ci import release_dispatch
+
+        calls: list = []
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest = Path(tmp) / "manifest.json"
+            manifest.write_text(json.dumps({"git_sha": SHA, "images": {}}))
+            plan = {"stage": "production", "evidence_dir": tmp, "git_sha": SHA, "release_branch": "release/coordinator",
+                    "kube_context": context, "image_manifest_path": str(manifest), "units": []}
+            path = Path(tmp) / "plan.json"
+            path.write_text(json.dumps(plan))
+            original = (release_dispatch.verify_release_plan, release_dispatch._locks, release_dispatch._git_head)
+            release_dispatch.verify_release_plan = lambda *a, **k: None
+            release_dispatch._locks = lambda *a: calls.append("locks") or FakeLocks()
+            release_dispatch._git_head = lambda: SHA
+            saved = dict(os.environ)
+            os.environ.pop("AGI_ENV", None)
+            os.environ.update(env)
+            try:
+                code = release_dispatch.main(["--plan", str(path), "--execute", "--production-context", context])
+            finally:
+                os.environ.clear()
+                os.environ.update(saved)
+                release_dispatch.verify_release_plan, release_dispatch._locks, release_dispatch._git_head = original
+        return code, calls
+
+    def test_production_is_refused_before_any_lock_when_verification_would_read_another_cluster(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env_file = Path(tmp) / "agi.env"
+            env_file.write_text("CTX=kind-local\n")
+            for context, env in (("gke-prod", {}), ("gke-prod", {"AGI_ENV": str(env_file)}),
+                                 ("in-cluster", {"AGI_ENV": str(env_file)})):
+                with self.subTest(context=context, env=bool(env)):
+                    code, calls = self.production_main(context, env)
+                    self.assertEqual(2, code)
+                    self.assertEqual([], calls)  # no lock taken, no proxy, no transaction
+
     def test_the_shell_entry_point_is_a_thin_locked_wrapper(self) -> None:
         text = (ROOT / "scripts/ci/deploy_release.sh").read_text()
         self.assertIn("uv run --locked --project infra/docker/llm-agent-tooling python -m scripts.ci.release_dispatch", text)

@@ -37,14 +37,17 @@ def fake_helper(results: dict[str, tuple[int, str | None]]):  # type: ignore[no-
 
 def coordinator_units() -> list[dict]:
     units = json.loads((ROOT / "jenkins/catalog/release-units.json").read_text())["units"]
-    return [units["mcp-servers-production"], units["coordinator-production"]]
+    names = json.loads((ROOT / "jenkins/catalog/release-units.json").read_text())["groups"]["release/coordinator"]
+    return [units[name] for name in names["production"]]
 
 
 def test_the_coordinator_release_runs_status_registry_three_workflows_and_negatives(tmp_path) -> None:
     run, calls = fake_helper({})
     report = run_checks(checks_for(coordinator_units()), tmp_path, run=run, environment={})
     assert report["verdict"] == "PASS"
-    assert calls == [["status"], ["registry"], ["e2e", "fraud"], ["e2e", "drift"], ["e2e", "combined"], ["negative"]]
+    # Full stack (candidate, MCP, fleet, Coordinator): each distinct command once, prerequisites first.
+    # Registry readback is not a rollback gate (its digest labels go stale until the approved publication).
+    assert calls == [["status"], ["e2e", "fraud"], ["e2e", "drift"], ["e2e", "combined"], ["negative"]]
 
 
 def test_any_failing_workflow_fails_the_release(tmp_path) -> None:
@@ -70,6 +73,12 @@ def test_unknown_checks_are_refused_and_every_declared_check_is_known() -> None:
     with pytest.raises(VerificationError):
         run_checks(["kubectl-get-pods"], Path("/nonexistent"), run=lambda a, e: 0, environment={})
     units = json.loads((ROOT / "jenkins/catalog/release-units.json").read_text())["units"]
+    from scripts.ci.sandbox_candidate import CHECKS as CANDIDATE_CHECKS
+
     for unit in units.values():
-        if unit["stage"] == "production":
-            assert set(unit["verify"]) | set(unit["prerequisites"]) <= set(CHECKS), unit
+        declared = set(unit["verify"]) | set(unit["prerequisites"])
+        if unit["kind"] == "sandbox-candidate":
+            # Enforced by the candidate executor itself, before any promotion.
+            assert declared <= set(CANDIDATE_CHECKS), unit
+        elif unit["stage"] == "production":
+            assert declared <= set(CHECKS), unit

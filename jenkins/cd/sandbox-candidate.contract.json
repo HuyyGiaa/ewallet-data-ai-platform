@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "description": "Release-scoped candidate SandboxAgents for the Feature-RAG and Drift Specialists on the existing shared WorkerPool (Option B+). Rendered from the frozen fleet template; exercised directly through the kagent SandboxAgent route with the typed fixtures and pinned known answers; always deleted afterwards. The production SandboxAgents, WorkerPool, ServiceAccounts and credential Secrets are read, never written.",
+  "namespace": "ewallet-sandbox",
+  "worker_pool": "business-agents",
+  "sandbox_class": "gvisor",
+  "candidate_suffix": "-cicd",
+  "snapshot_prefix": "gs://ate-snapshots/ewallet-sandbox/cicd-",
+  "credential_release": "sbx-20261115",
+  "kagent": {"namespace": "kagent", "service": "kagent-controller", "port": 8083, "user_id": "service:ewallet-cicd-candidate"},
+  "timeouts": {"ready_seconds": 900, "task_seconds": 240, "cleanup_seconds": 300},
+  "agents": {
+    "feature-rag-specialist": {
+      "module": "ai_platform.llm_agent.byo_feature_rag_specialist",
+      "service_account": "sandbox-feature-rag",
+      "credential_secret": "mcp-token-sandbox-feature-rag-feature-rag-mcp-{credential_release}",
+      "fixture": "configs/experiments/fixtures/agent-load-request.json",
+      "expect": {"prompt_revision": "feature-rag-specialist/byo-v1", "fraud_probability": 0.0639895560144887, "features": true, "citations": true, "drift": false}
+    },
+    "drift-specialist": {
+      "module": "ai_platform.llm_agent.byo_drift_specialist",
+      "service_account": "sandbox-drift",
+      "credential_secret": "mcp-token-sandbox-drift-drift-mcp-{credential_release}",
+      "fixture": "configs/experiments/fixtures/agent-load-drift-request.json",
+      "expect": {"prompt_revision": "drift-specialist/byo-v1", "psi": 0.0004795543627041439, "features": false, "citations": false, "drift": true}
+    }
+  },
+  "prompt_revision_note": "prompt_revision is the code constant the Specialist reports (identity evidence). It is NOT Prompt Registry consumption: the frozen Specialists and Coordinator read no registry at runtime (PROMPT_RUNTIME_CONSUMPTION_BLOCKED_BY_FREEZE).",
+  "known_answers_source": "docs/evidence/edai2/agents/p2a-closure-20261116T151631Z/{baseline,r1,r2}/replay/e2e (same transaction and drift window as the fixtures)"
+}

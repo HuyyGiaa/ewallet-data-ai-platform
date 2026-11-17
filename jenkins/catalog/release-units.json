@@ -91,42 +91,53 @@
       "helm": {"release": "llm-agent-mcp", "namespace": "ewallet-mcp", "image_values": {"mcp-tools": "mcp-tools"}},
       "target_namespace": "ewallet-mcp",
       "lock": "production-release",
-      "verify": ["platform-status"]
+      "verify": ["platform-status", "e2e-fraud", "e2e-drift"]
+    },
+    "agent-fleet-candidate": {
+      "description": "Release-scoped candidate SandboxAgents (feature-rag-specialist-cicd, drift-specialist-cicd) in ewallet-sandbox on the shared WorkerPool, rendered from the frozen fleet template, verified Ready with a gVisor golden actor and by typed direct A2A known-answer requests, then deleted (scripts/ci/sandbox_candidate.py). Additive and production-namespaced, so it runs only inside an approved production stage, before any promotion.",
+      "kind": "sandbox-candidate",
+      "stage": "production",
+      "components": ["agents"],
+      "images": ["g3-byo-coordinator"],
+      "depends_on": [],
+      "prerequisites": ["worker-pool-ready", "mcp-servers-ready", "sandbox-credentials-present"],
+      "contract": "jenkins/cd/sandbox-candidate.contract.json",
+      "target_namespace": "ewallet-sandbox",
+      "lock": "production-release",
+      "verify": ["candidate-ready", "candidate-gvisor-actor", "candidate-e2e-feature-rag", "candidate-e2e-drift", "candidate-cleanup"]
     },
     "agent-fleet-production": {
-      "description": "The production SandboxAgent fleet (ewallet-sandbox) is not Helm-managed; its image promotion stays an owner-approved operation.",
+      "description": "Image-only promotion of the two production SandboxAgents (ewallet-sandbox) by a JSON patch of spec.byo.deployment.image with uid and image test operations; no Helm migration, ownership unchanged; rollback patches the recorded image back (scripts/ci/fleet_promote.py).",
       "kind": "fleet-image-promotion",
       "stage": "production",
       "components": ["agents"],
       "images": ["g3-byo-coordinator"],
-      "depends_on": ["mcp-servers-production"],
+      "depends_on": ["agent-fleet-candidate"],
       "prerequisites": ["platform-status"],
-      "automation": "blocked",
-      "blocked_reason": "The SandboxAgent fleet is created outside Helm and the live WorkerPool must not be migrated into a release (frozen platform; owner decision D3). Promote it with the reviewed operator procedure.",
       "target_namespace": "ewallet-sandbox",
       "lock": "production-release",
-      "verify": ["platform-status"]
+      "verify": ["platform-status", "e2e-fraud", "e2e-drift", "e2e-combined"]
     },
     "coordinator-production": {
-      "description": "Image-only promotion of the Coordinator in llm-agent through Helm, then business E2E against the live Sandbox fleet.",
+      "description": "Image-only promotion of the Coordinator in llm-agent through Helm, after the MCP servers and the SandboxAgent fleet of the same release SHA, then business E2E (fraud, drift, combined) through the Coordinator, A2A Gateway, SandboxAgents and MCP Gateway. Agent Registry readback is not a rollback gate: its image-digest labels go stale on any promotion until the separately approved publication (production_release registry follow-up).",
       "kind": "helm-image-promotion",
       "stage": "production",
       "components": ["agents"],
       "images": ["g3-byo-coordinator"],
-      "depends_on": ["mcp-servers-production"],
+      "depends_on": ["mcp-servers-production", "agent-fleet-production"],
       "prerequisites": ["platform-status", "sandbox-fleet-live"],
       "helm": {"release": "llm-agent", "namespace": "default", "image_values": {"g3-byo-coordinator": "coordinator"}},
       "target_namespace": "ewallet-agents",
       "lock": "production-release",
-      "verify": ["platform-status", "registry-readback", "e2e-fraud", "e2e-drift", "e2e-combined", "security-negatives"]
+      "verify": ["platform-status", "e2e-fraud", "e2e-drift", "e2e-combined", "security-negatives"]
     }
   },
   "groups": {
     "release/rag-pipeline": {"rehearsal": ["rag-pipeline"], "production": []},
     "release/prompt-management": {"rehearsal": ["prompt-registry-gate"], "production": []},
     "release/mcp-agents": {"rehearsal": ["prompt-registry-gate", "mcp-servers", "agent-fleet"], "production": ["mcp-servers-production"]},
-    "release/agent-fleet": {"rehearsal": ["mcp-servers", "agent-fleet"], "production": ["mcp-servers-production", "agent-fleet-production"]},
-    "release/coordinator": {"rehearsal": ["mcp-servers", "agent-fleet", "coordinator"], "production": ["mcp-servers-production", "coordinator-production"]},
+    "release/agent-fleet": {"rehearsal": ["mcp-servers", "agent-fleet"], "production": ["agent-fleet-candidate", "agent-fleet-production"]},
+    "release/coordinator": {"rehearsal": ["mcp-servers", "agent-fleet", "coordinator"], "production": ["agent-fleet-candidate", "mcp-servers-production", "agent-fleet-production", "coordinator-production"]},
     "release/streaming": {"rehearsal": ["streaming-block-a"], "production": []}
   }
 }

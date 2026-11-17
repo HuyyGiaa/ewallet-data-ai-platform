@@ -126,18 +126,34 @@ class ReleasePolicyTests(unittest.TestCase):
     def test_production_needs_a_distinct_approver_and_an_identity(self) -> None:
         base = dict(stage="production", triggered_by="alice", owner_approval="bob", production_identity="deployer")
         plan = self.plan(self.request(**base))
-        self.assertEqual(["mcp-servers-production", "coordinator-production"], [unit["name"] for unit in plan["units"]])
+        # release/coordinator production is the full stack of one SHA: the candidate first (it fails before
+        # any production mutation), then MCP, the fleet and the Coordinator.
+        self.assertEqual(["agent-fleet-candidate", "mcp-servers-production", "agent-fleet-production",
+                          "coordinator-production"], [unit["name"] for unit in plan["units"]])
         for changes, message in ((dict(owner_approval="alice"), "someone other"),
                                  (dict(triggered_by=""), "triggered"),
                                  (dict(production_identity=""), "deployer identity")):
             with self.subTest(message=message), self.assertRaisesRegex(ReleasePolicyError, message):
                 self.plan(self.request(**{**base, **changes}))
 
-    def test_production_fleet_promotion_is_blocked_not_silently_skipped(self) -> None:
+    def test_production_fleet_release_runs_the_candidate_before_the_patch_promotion(self) -> None:
         request = self.request(branch="release/agent-fleet", stage="production", triggered_by="alice",
                                owner_approval="bob", production_identity="deployer")
-        with self.assertRaisesRegex(ReleasePolicyError, "agent-fleet-production is not automated"):
-            self.plan(request)
+        plan = self.plan(request)
+        self.assertEqual(["agent-fleet-candidate", "agent-fleet-production"], [unit["name"] for unit in plan["units"]])
+        self.assertEqual({"ewallet-sandbox"}, {unit["target_namespace"] for unit in plan["units"]})
+
+    def test_a_blocked_unit_is_refused_not_silently_skipped(self) -> None:
+        data = json.loads((ROOT / "jenkins/catalog/release-units.json").read_text())
+        data["units"]["agent-fleet-production"].update(automation="blocked", blocked_reason="owner hold")
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "units.json"
+            path.write_text(json.dumps(data))
+            units = load_release_units(path)
+        request = self.request(branch="release/agent-fleet", stage="production", triggered_by="alice",
+                               owner_approval="bob", production_identity="deployer")
+        with self.assertRaisesRegex(ReleasePolicyError, "agent-fleet-production is not automated: owner hold"):
+            build_release_plan(CATALOG, units, request, manifest(), "a" * 64)
 
     def test_rehearsal_groups_with_no_production_units_refuse_production(self) -> None:
         request = self.request(branch="release/rag-pipeline", components=("rag-pipeline",), stage="production",
@@ -232,13 +248,29 @@ class ReleaseUnitCatalogTests(unittest.TestCase):
             data["units"]["agent-fleet"]["verify"] = []
 
         def blocked_without_reason(data):
-            del data["units"]["agent-fleet-production"]["blocked_reason"]
+            data["units"]["agent-fleet-production"]["automation"] = "blocked"
+
+        def fleet_without_candidate(data):
+            data["units"]["agent-fleet-production"]["depends_on"] = []
+
+        def candidate_elsewhere(data):
+            data["units"]["agent-fleet-candidate"]["target_namespace"] = "ewallet-agents"
+
+        def candidate_without_contract(data):
+            del data["units"]["agent-fleet-candidate"]["contract"]
+
+        def candidate_in_rehearsal(data):
+            data["units"]["agent-fleet-candidate"]["stage"] = "rehearsal"
 
         cases = ((cycle, "cycle"), (production_namespace, "not the CD namespace"), (handler, "unknown fields"),
                  (unknown_image, "no component builds"), (open_closure, "does not deploy"),
                  (unknown_kind, "unsupported kind"), (production_in_rehearsal, "cannot run in stage"),
                  (wrong_release, "known Helm release"), (no_verification, "declares no runtime verification"),
-                 (blocked_without_reason, "must say why"))
+                 (blocked_without_reason, "must say why"),
+                 (fleet_without_candidate, "must depend on a sandbox candidate"),
+                 (candidate_elsewhere, "SandboxAgent units target ewallet-sandbox"),
+                 (candidate_without_contract, "needs contract"),
+                 (candidate_in_rehearsal, "cannot run in stage"))
         for mutate, message in cases:
             with self.subTest(message=message), self.assertRaisesRegex(ReleaseUnitError, message):
                 self.load(mutate)

@@ -7,8 +7,10 @@ never from a path in the plan, so a stale or edited plan cannot reach an arbitra
 
 Rehearsal units run in order under their resource locks; the first failure stops the release
 (each rehearsal executor restores or parks its own workload). Production plans go to
-``scripts/ci/promote.py``, which rolls every upgraded unit back in reverse order on failure. The
-release verdict states the stage and whether production changed.
+``scripts/ci/production_release.py`` (candidate SandboxAgents, Helm image promotions, the
+SandboxAgent fleet patch), which rolls every changed unit back in reverse order on failure and
+reconciles the runtime verification with the transaction. The release verdict states the stage
+and whether production changed.
 """
 
 from __future__ import annotations
@@ -186,23 +188,46 @@ def main(argv: list[str] | None = None) -> int:
     evidence_root.mkdir(parents=True, exist_ok=True)
     holder = os.environ.get("BUILD_TAG") or f"local-{os.getpid()}"
     if plan["stage"] == "production":
-        from scripts.ci import promote
+        from scripts.ci import production_release, runtime_verify
 
         if not args.execute:
-            print("DRY RUN: production promotion is checked by scripts/ci/promote.py with --execute only")
+            print("DRY RUN: the production transaction runs with --execute only (scripts/ci/production_release.py)")
             return 0
-        from scripts.ci import runtime_verify
+        context = args.production_context
+        try:
+            # Refuse before any mutation when the post-promotion verification could not reach the same
+            # cluster: discovering that after a promotion would force a rollback.
+            runtime_verify.guard_target(os.environ, context)
+            if not context or context == "in-cluster":
+                raise production_release.ProductionReleaseError("an explicit production kube context is required")
+        except (runtime_verify.VerificationError, production_release.ProductionReleaseError) as error:
+            print(f"release_dispatch: refused before any deployment: {error}", flush=True)
+            return 2
+        manifest_data = json.loads((manifest if manifest.is_absolute() else ROOT / manifest).read_text(encoding="utf-8"))
 
-        def verify(_promoted) -> bool:
-            result = runtime_verify.run_checks(runtime_verify.checks_for(plan["units"]), evidence_root / "runtime")
+        def verify(expected) -> bool:
+            result = runtime_verify.run_checks(runtime_verify.checks_for(plan["units"]), evidence_root / "runtime",
+                                               expected=expected, production_context=context)
             (evidence_root / "runtime-verdict.json").write_text(json.dumps(result, indent=2, sort_keys=True) + "\n",
                                                                  encoding="utf-8")
             return result["verdict"] == "PASS"
 
-        locks = _locks(units.lock_namespace, holder, args.api)
-        with locks.hold(sorted({unit["lock"] for unit in plan["units"]})):
-            report = promote.promote_plan(promote.rs.run_command, plan, args.production_context, execute=True,
-                                          verify=verify)
+        from scripts.ci.k8s_api import Client, KubeError
+        from scripts.ci.release_lock import LockError
+        from scripts.ci.sandbox_candidate import ClientKube
+
+        try:
+            # One identity for the whole transaction: the locks, the SandboxAgent units and Helm all go
+            # through the explicit production context (an operator workstation has no in-cluster token).
+            with production_release.kubectl_proxy(context) as api:
+                locks = _locks(units.lock_namespace, holder, args.api or api)
+                with locks.hold(sorted({unit["lock"] for unit in plan["units"]})):
+                    report = production_release.run(plan, context, manifest_data, execute=True,
+                                                    kube=ClientKube(Client(api)), verify=verify,
+                                                    evidence=evidence_root / "units")
+        except (KubeError, LockError, production_release.ProductionReleaseError) as error:
+            print(f"release_dispatch: refused before any deployment: {error}", flush=True)
+            return 2
     else:
         if not args.execute:
             for unit in plan["units"]:

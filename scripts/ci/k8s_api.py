@@ -36,7 +36,19 @@ KINDS: dict[str, tuple[str, str]] = {
     "Job": ("apis/batch/v1", "jobs"),
     "CronJob": ("apis/batch/v1", "cronjobs"),
     "Lease": ("apis/coordination.k8s.io/v1", "leases"),
+    "ServiceAccount": ("api/v1", "serviceaccounts"),
+    "Secret": ("api/v1", "secrets"),  # metadata-only reads (``get_metadata``); values are never fetched
+    # Agent Platform (frozen runtime, read and written only through scripts/ci/sandbox_agents.py)
+    "SandboxAgent": ("apis/kagent.dev/v1alpha2", "sandboxagents"),
+    "WorkerPool": ("apis/ate.dev/v1alpha1", "workerpools"),
+    "ActorTemplate": ("apis/ate.dev/v1alpha1", "actortemplates"),
 }
+# Kinds a bounded CD manifest may apply. Secrets, ServiceAccounts and the Agent Platform kinds are
+# never applied from a manifest: candidates are created only by scripts/ci/sandbox_candidate.py.
+APPLY_KINDS = frozenset({"ConfigMap", "Service", "Pod", "Deployment", "StatefulSet", "Job", "CronJob"})
+# Server-side metadata projection: the API server returns only metadata, so a Secret's data never
+# reaches the CD process even though RBAC "get" would allow it.
+METADATA_ONLY = "application/json;as=PartialObjectMetadata;g=meta.k8s.io;v=v1"
 
 
 class KubeError(RuntimeError):
@@ -61,8 +73,8 @@ class Client:
         return cls(f"https://{host}:{port}", SA_DIR / "token", SA_DIR / "ca.crt")
 
     def request(self, method: str, path: str, body: Any = None, content_type: str = "application/json",
-                raw: bool = False) -> Any:
-        headers = {"Accept": "application/json"}
+                raw: bool = False, accept: str = "application/json") -> Any:
+        headers = {"Accept": accept}
         if self.token_file:
             # Re-read every call: the projected token rotates before it expires.
             headers["Authorization"] = "Bearer " + self.token_file.read_text().strip()
@@ -103,7 +115,8 @@ def load_documents(paths: list[Path], allowed_namespaces: set[str]) -> list[dict
                     f"{path}: {document.get('kind')}/{document.get('metadata', {}).get('name')} "
                     f"namespace {namespace!r} is outside {sorted(allowed_namespaces)}"
                 )
-            _path(document.get("kind", ""), namespace)
+            if document.get("kind") not in APPLY_KINDS:
+                raise KubeError(f"kind {document.get('kind')} is not supported by the CD apply path")
             documents.append(document)
     if not documents:
         raise KubeError("no Kubernetes documents to apply")
@@ -152,7 +165,55 @@ def service_account_token(client: Client, namespace: str, name: str, seconds: in
 
 
 def get(client: Client, kind: str, namespace: str, name: str) -> dict[str, Any]:
+    if kind == "Secret":
+        raise KubeError("Secret values are never read by CD; use get_metadata")
     return client.request("GET", _path(kind, namespace, name))
+
+
+def get_metadata(client: Client, kind: str, namespace: str, name: str) -> dict[str, Any]:
+    """Only the object's metadata (PartialObjectMetadata), e.g. to prove a Secret exists."""
+
+    return client.request("GET", _path(kind, namespace, name), accept=METADATA_ONLY)
+
+
+def exists(client: Client, kind: str, namespace: str, name: str) -> bool:
+    try:
+        get_metadata(client, kind, namespace, name)
+    except KubeError as error:
+        if "HTTP 404" in str(error):
+            return False
+        raise
+    return True
+
+
+def list_objects(client: Client, kind: str, namespace: str, label_selector: str = "") -> list[dict[str, Any]]:
+    query = f"?{urlencode({'labelSelector': label_selector})}" if label_selector else ""
+    return client.request("GET", f"{_path(kind, namespace)}{query}").get("items", [])
+
+
+def api_available(client: Client, group_version: str, plural: str) -> bool:
+    """Discovery: is ``plural`` served at ``apis/<group_version>`` (the CRD is installed)?"""
+
+    try:
+        resources = client.request("GET", f"apis/{group_version}").get("resources", [])
+    except KubeError as error:
+        if "HTTP 404" in str(error):
+            return False
+        raise
+    return any(item.get("name") == plural for item in resources)
+
+
+def json_patch(client: Client, kind: str, namespace: str, name: str, operations: list[dict[str, Any]]) -> dict[str, Any]:
+    """RFC 6902 patch; callers lead with a ``test`` operation so a concurrent change fails the patch."""
+
+    return client.request("PATCH", _path(kind, namespace, name), operations, content_type="application/json-patch+json")
+
+
+def delete_uid(client: Client, kind: str, namespace: str, name: str, uid: str) -> None:
+    """Delete only the object with this uid (precondition): a same-named object created later is never removed."""
+
+    client.request("DELETE", _path(kind, namespace, name),
+                   {"preconditions": {"uid": uid}, "propagationPolicy": "Foreground"})
 
 
 def delete(client: Client, kind: str, namespace: str, name: str) -> None:

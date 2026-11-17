@@ -9,9 +9,14 @@ that ``scripts/ci/release_dispatch.py`` implements:
 * ``bounded-rehearsal``      contract-driven rehearsal in ``ewallet-cicd`` (``scripts/ci/bounded_cd.py``)
 * ``registry-gate``          read-only Prompt Management gate (``scripts/ci/registry_gate.py``)
 * ``streaming-verification`` image smoke + isolated Block A campaign (``scripts/ci/streaming_verify.py``)
+* ``sandbox-candidate``      production stage, before any promotion: release-scoped candidate
+                             SandboxAgents on the shared WorkerPool, verified then deleted
+                             (``scripts/ci/sandbox_candidate.py``)
 * ``helm-image-promotion``   production, image-only Helm promotion (``scripts/ci/promote.py``)
-* ``fleet-image-promotion``  production SandboxAgent fleet image; declared so plans can name it, but
-                             automation is blocked (the fleet is outside Helm and frozen)
+* ``fleet-image-promotion``  production SandboxAgent image, JSON patch with test operations, no Helm
+                             migration (``scripts/ci/fleet_promote.py``)
+
+Production units run as one transaction (``scripts/ci/production_release.py``) with reverse rollback.
 
 A release branch (``release/<group>``) selects one group. A group lists its rehearsal units and
 its production units; production units are planned only for an approved production stage.
@@ -29,9 +34,10 @@ from scripts.ci.catalog import Catalog, CatalogError
 
 
 KINDS = frozenset({"rag-rehearsal", "bounded-rehearsal", "registry-gate", "streaming-verification",
-                   "helm-image-promotion", "fleet-image-promotion"})
+                   "sandbox-candidate", "helm-image-promotion", "fleet-image-promotion"})
 STAGES = frozenset({"rehearsal", "production"})
-PRODUCTION_KINDS = frozenset({"helm-image-promotion", "fleet-image-promotion"})
+PRODUCTION_KINDS = frozenset({"sandbox-candidate", "helm-image-promotion", "fleet-image-promotion"})
+SANDBOX_NAMESPACE = "ewallet-sandbox"
 REHEARSAL_NAMESPACES = frozenset({"ewallet-cicd"})
 # Namespaces a rehearsal may never target, whatever its contract says.
 PRODUCTION_NAMESPACES = frozenset({"default", "ewallet-agents", "ewallet-mcp", "ewallet-sandbox", "feature-store",
@@ -175,7 +181,7 @@ class ReleaseUnits:
             if image not in images:
                 raise ReleaseUnitError(f"release unit {name} consumes image {image}, which no component builds")
         if unit.kind in {"rag-rehearsal", "bounded-rehearsal", "streaming-verification", "helm-image-promotion",
-                         "fleet-image-promotion"} and not unit.images:
+                         "fleet-image-promotion", "sandbox-candidate"} and not unit.images:
             raise ReleaseUnitError(f"release unit {name} of kind {unit.kind} needs at least one image")
         if unit.kind == "registry-gate" and unit.images:
             raise ReleaseUnitError(f"release unit {name}: a registry gate deploys no image")
@@ -192,14 +198,29 @@ class ReleaseUnits:
                 raise ReleaseUnitError(f"rehearsal unit {name} targets {unit.target_namespace}, not the CD namespace")
         if unit.stage == "rehearsal" and unit.target_namespace in PRODUCTION_NAMESPACES - {"ml-platform"}:
             raise ReleaseUnitError(f"rehearsal unit {name} targets production namespace {unit.target_namespace}")
-        needs_contract = unit.kind in {"rag-rehearsal", "bounded-rehearsal", "streaming-verification"}
+        if unit.kind in {"sandbox-candidate", "fleet-image-promotion"}:
+            if unit.target_namespace != SANDBOX_NAMESPACE or tuple(unit.images) != ("g3-byo-coordinator",):
+                raise ReleaseUnitError(f"release unit {name}: SandboxAgent units target {SANDBOX_NAMESPACE} "
+                                       "with the g3-byo-coordinator image only")
+        if unit.kind == "fleet-image-promotion" and unit.automation == "enabled":
+            candidates = [dep for dep in unit.depends_on if self.units.get(dep) and self.units[dep].kind == "sandbox-candidate"]
+            if not candidates:
+                raise ReleaseUnitError(f"release unit {name}: a fleet promotion must depend on a sandbox candidate")
+        needs_contract = unit.kind in {"rag-rehearsal", "bounded-rehearsal", "streaming-verification", "sandbox-candidate"}
         if needs_contract != bool(unit.contract):
             raise ReleaseUnitError(f"release unit {name}: kind {unit.kind} {'needs' if needs_contract else 'takes no'} contract")
         if unit.contract:
             path = root / unit.contract
             if not path.is_file():
                 raise ReleaseUnitError(f"release unit {name} contract does not exist: {unit.contract}")
-            if unit.kind == "bounded-rehearsal" or unit.kind == "streaming-verification":
+            if unit.kind == "sandbox-candidate":
+                from scripts.ci.sandbox_agents import SandboxContractError, load_contract
+
+                try:
+                    load_contract(path)
+                except (SandboxContractError, ValueError, KeyError) as error:
+                    raise ReleaseUnitError(f"release unit {name} candidate contract is invalid: {error}") from error
+            elif unit.kind == "bounded-rehearsal" or unit.kind == "streaming-verification":
                 contract = json.loads(path.read_text(encoding="utf-8"))
                 if contract.get("namespace") not in REHEARSAL_NAMESPACES:
                     raise ReleaseUnitError(f"release unit {name} contract targets {contract.get('namespace')}")
