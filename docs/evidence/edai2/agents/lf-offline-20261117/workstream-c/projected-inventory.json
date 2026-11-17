@@ -1,0 +1,239 @@
+{
+  "context": "OFFLINE PROJECTION (not live): lc-20261117T002220Z after-delete inventory + namespace-scoped Helm view",
+  "helm_revisions": {},
+  "objects_scanned": 483,
+  "projection_sources": {
+    "helm_current_scoped.llm-agent": "rev59 manifest reconstructed offline, sha256 01b90e1d... == recorded lc-agents render",
+    "helm_current_scoped.llm-agent-mcp": "conservative refs restricted to ewallet-mcp (the release renders only there)",
+    "helm_history_scoped": "before-delete-inventory helm_history mapped to each release namespace",
+    "tables_servers_live": "e3/auth-delete/after-delete-inventory.json (2026-11-17, live then)"
+  },
+  "references": {
+    "helm_current": {
+      "ewallet-agents/mcp-auth-drift-mcp-fin-20261117": [
+        "llm-agent-mcp"
+      ],
+      "ewallet-mcp/mcp-auth-drift-mcp-fin-20261117": [
+        "llm-agent-mcp"
+      ],
+      "ewallet-mcp/mcp-auth-feature-rag-mcp-fin-20261117": [
+        "llm-agent-mcp"
+      ]
+    },
+    "helm_current_scoped": {
+      "ewallet-mcp/mcp-auth-drift-mcp-fin-20261117": [
+        "llm-agent-mcp"
+      ],
+      "ewallet-mcp/mcp-auth-feature-rag-mcp-fin-20261117": [
+        "llm-agent-mcp"
+      ]
+    },
+    "helm_history": {
+      "ewallet-agents/mcp-auth-drift-mcp-fin-20261117": [
+        "llm-agent@56",
+        "llm-agent-mcp@18",
+        "llm-agent-mcp@19"
+      ],
+      "ewallet-agents/mcp-auth-drift-mcp-fin-20261117-b": [
+        "llm-agent@58"
+      ],
+      "ewallet-mcp/mcp-auth-drift-mcp-fin-20261117": [
+        "llm-agent@56",
+        "llm-agent-mcp@18",
+        "llm-agent-mcp@19"
+      ],
+      "ewallet-mcp/mcp-auth-feature-rag-mcp-fin-20261117": [
+        "llm-agent-mcp@18",
+        "llm-agent-mcp@19"
+      ]
+    },
+    "helm_history_scoped": {
+      "ewallet-agents/mcp-auth-drift-mcp-fin-20261117": [
+        "llm-agent@56"
+      ],
+      "ewallet-agents/mcp-auth-drift-mcp-fin-20261117-b": [
+        "llm-agent@58"
+      ],
+      "ewallet-mcp/mcp-auth-drift-mcp-fin-20261117": [
+        "llm-agent-mcp@18",
+        "llm-agent-mcp@19"
+      ],
+      "ewallet-mcp/mcp-auth-feature-rag-mcp-fin-20261117": [
+        "llm-agent-mcp@18",
+        "llm-agent-mcp@19"
+      ]
+    },
+    "history": {
+      "ewallet-mcp/mcp-auth-drift-mcp-r1-transition (no such table)": [
+        "ReplicaSet/ewallet-mcp/drift-mcp-55d97bff46",
+        "ReplicaSet/ewallet-mcp/drift-mcp-7786549498",
+        "ReplicaSet/ewallet-mcp/drift-mcp-79cbf7844",
+        "ReplicaSet/ewallet-mcp/drift-mcp-dc4fcdfd5"
+      ],
+      "ewallet-mcp/mcp-auth-drift-mcp-sbx-20261115 (no such table)": [
+        "ReplicaSet/ewallet-mcp/drift-mcp-546dcbc9b5",
+        "ReplicaSet/ewallet-mcp/drift-mcp-5f4cbd88cc",
+        "ReplicaSet/ewallet-mcp/drift-mcp-7547956569",
+        "ReplicaSet/ewallet-mcp/drift-mcp-7b9ff7c9cb",
+        "ReplicaSet/ewallet-mcp/drift-mcp-7c474bb477",
+        "ReplicaSet/ewallet-mcp/drift-mcp-7f76fd485c"
+      ],
+      "ewallet-mcp/mcp-auth-feature-rag-mcp-r1-transition (no such table)": [
+        "ReplicaSet/ewallet-mcp/feature-rag-mcp-557bc8dd87",
+        "ReplicaSet/ewallet-mcp/feature-rag-mcp-6c4fd5dc9d",
+        "ReplicaSet/ewallet-mcp/feature-rag-mcp-7c685b9ff",
+        "ReplicaSet/ewallet-mcp/feature-rag-mcp-84898967f"
+      ],
+      "ewallet-mcp/mcp-auth-feature-rag-mcp-sbx-20261115 (no such table)": [
+        "ReplicaSet/ewallet-mcp/feature-rag-mcp-69588cf69",
+        "ReplicaSet/ewallet-mcp/feature-rag-mcp-6b959c5764",
+        "ReplicaSet/ewallet-mcp/feature-rag-mcp-79ff47d796",
+        "ReplicaSet/ewallet-mcp/feature-rag-mcp-7b69f9d888",
+        "ReplicaSet/ewallet-mcp/feature-rag-mcp-995df8796",
+        "ReplicaSet/ewallet-mcp/feature-rag-mcp-ccb8f4888"
+      ]
+    },
+    "live": {
+      "ewallet-mcp/mcp-auth-drift-mcp-fin-20261117": [
+        "Deployment/ewallet-mcp/drift-mcp",
+        "ReplicaSet/ewallet-mcp/drift-mcp-5dfb65d6dc",
+        "Pod/ewallet-mcp/drift-mcp-5dfb65d6dc-8whk8",
+        "Pod/ewallet-mcp/drift-mcp-5dfb65d6dc-z4kfd"
+      ],
+      "ewallet-mcp/mcp-auth-feature-rag-mcp-fin-20261117": [
+        "Deployment/ewallet-mcp/feature-rag-mcp",
+        "ReplicaSet/ewallet-mcp/feature-rag-mcp-dc4bb7977",
+        "Pod/ewallet-mcp/feature-rag-mcp-dc4bb7977-gnh6g",
+        "Pod/ewallet-mcp/feature-rag-mcp-dc4bb7977-p8bh7"
+      ]
+    }
+  },
+  "scanned_kinds": [
+    "deployments",
+    "statefulsets",
+    "daemonsets",
+    "replicasets",
+    "jobs",
+    "cronjobs",
+    "pods",
+    "sandboxconfigs.ate.dev",
+    "agentharnesses.kagent.dev",
+    "agents.kagent.dev",
+    "mcpservers.kagent.dev",
+    "memories.kagent.dev",
+    "modelconfigs.kagent.dev",
+    "modelproviderconfigs.kagent.dev",
+    "remotemcpservers.kagent.dev",
+    "sandboxagents.kagent.dev",
+    "toolservers.kagent.dev"
+  ],
+  "servers": {
+    "ewallet-agents/drift-mcp": {
+      "present": false,
+      "table": null
+    },
+    "ewallet-agents/feature-rag-mcp": {
+      "present": false,
+      "table": null
+    },
+    "ewallet-mcp/drift-mcp": {
+      "present": true,
+      "table": "mcp-auth-drift-mcp-fin-20261117"
+    },
+    "ewallet-mcp/feature-rag-mcp": {
+      "present": true,
+      "table": "mcp-auth-feature-rag-mcp-fin-20261117"
+    }
+  },
+  "tables": [
+    {
+      "annotations": {
+        "ewallet.io/credential-plan-sha256": "b4abdea99914c2c95fea349d69258a1897a0c202968daf2084e0463182b0b36a"
+      },
+      "credentials": [
+        {
+          "id": "kagent-controller.drift-mcp.r1-release1.active",
+          "status": "active",
+          "subject": "kagent-controller"
+        },
+        {
+          "id": "kagent-controller.drift-mcp.sbx-20261115.active",
+          "status": "active",
+          "subject": "kagent-controller"
+        },
+        {
+          "id": "sandbox-drift.drift-mcp.sbx-20261115.active",
+          "status": "active",
+          "subject": "sandbox-drift"
+        }
+      ],
+      "immutable": true,
+      "name": "mcp-auth-drift-mcp-fin-20261117",
+      "namespace": "ewallet-mcp",
+      "owner_references": []
+    },
+    {
+      "annotations": {
+        "ewallet.io/credential-plan-sha256": "b4abdea99914c2c95fea349d69258a1897a0c202968daf2084e0463182b0b36a"
+      },
+      "credentials": [
+        {
+          "id": "kagent-controller.feature-rag-mcp.r1-release1.active",
+          "status": "active",
+          "subject": "kagent-controller"
+        },
+        {
+          "id": "kagent-controller.feature-rag-mcp.sbx-20261115.active",
+          "status": "active",
+          "subject": "kagent-controller"
+        },
+        {
+          "id": "sandbox-feature-rag.feature-rag-mcp.sbx-20261115.active",
+          "status": "active",
+          "subject": "sandbox-feature-rag"
+        }
+      ],
+      "immutable": true,
+      "name": "mcp-auth-feature-rag-mcp-fin-20261117",
+      "namespace": "ewallet-mcp",
+      "owner_references": []
+    },
+    {
+      "annotations": {
+        "ewallet.io/credential-plan-sha256": "4103399bef9adf08cec3c76eab6e3a745e10d458520c55a794027b0b19e8f7ef"
+      },
+      "credentials": [
+        {
+          "id": "kagent-controller.drift-mcp.r1-release1.active",
+          "status": "active",
+          "subject": "kagent-controller"
+        },
+        {
+          "id": "kagent-controller.drift-mcp.sbx-20261115.active",
+          "status": "active",
+          "subject": "kagent-controller"
+        }
+      ],
+      "immutable": true,
+      "name": "mcp-auth-drift-mcp-fin-20261117",
+      "namespace": "ewallet-agents",
+      "owner_references": []
+    },
+    {
+      "annotations": {
+        "ewallet.io/credential-plan-sha256": "6edd71325f3fb8e5d330c3352ead36f413d2d511d4b0e73c1b14768dc793b719"
+      },
+      "credentials": [
+        {
+          "id": "sandbox-drift.drift-mcp.sbx-20261115.active",
+          "status": "active",
+          "subject": "sandbox-drift"
+        }
+      ],
+      "immutable": true,
+      "name": "mcp-auth-drift-mcp-fin-20261117-b",
+      "namespace": "ewallet-agents",
+      "owner_references": []
+    }
+  ]
+}

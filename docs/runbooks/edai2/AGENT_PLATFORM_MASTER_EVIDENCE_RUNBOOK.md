@@ -593,7 +593,8 @@ references in the stored values. The active `ewallet-mcp` servers are not change
    - no live or current-Helm reference;
    - the server is absent or reads a verified final table;
    - the computed list equals the reviewed `EXPECT_DELETE`.
-   Final sets (`fin-20261117`, `fin-20261117-b`) are always KEEP.
+   Final sets (`fin-20261117`, `fin-20261117-b`) are KEEP. The only exception is the two unused `ewallet-agents`
+   copies, which [2.6g](#26g-final-orphan-and-auth-table-cleanup-lf-agents-proposed-not-executed) handles.
 3. **Retire the in-release server**, then the values-only cleanup. Each package has its own preflight and an
    exact gate:
    ```bash
@@ -629,6 +630,50 @@ references in the stored values. The active `ewallet-mcp` servers are not change
 - `kubectl rollout undo` on an MCP Deployment could select a zero-replica ReplicaSet from before the final sets.
   That ReplicaSet references a deleted table and cannot start. Recover by fixing forward from the live values.
 - `g3/g3.yaml` is a legacy reference profile and is not deployable without migration.
+
+### 2.6g Final orphan and auth-table cleanup (`lf-agents`; PROPOSED, not executed)
+
+Prepared offline in `lf-offline-20261117`, with no cluster access. Nothing here has run on GKE. Every step needs
+the owner's approval. The plan, the exact matrices and the evidence of the historical basis are in
+[AGENT_PLATFORM_COMPLETION.md §13](../../edai2/agents/AGENT_PLATFORM_COMPLETION.md#13-offline-audit-and-final-cleanup-proposal-lf-offline-20261117).
+
+1. **Preflight** (read-only). Expect `llm-agent` rev 59 and `llm-agent-mcp` rev 19, and a live
+   `helm get manifest llm-agent` whose sha256 is `01b90e1d…`, the reviewed render. Then run the credential check
+   and the auth-table plan with the reviewed list:
+   ```bash
+   AGI_ENV=… scripts/llm_agent/mcp_credential_check.sh <out> pre
+   CTX=… LC_CAMPAIGN=<campaign> EXPECT_DELETE="ewallet-agents/mcp-auth-drift-mcp-fin-20261117 ewallet-agents/mcp-auth-drift-mcp-fin-20261117-b" \
+     scripts/llm_agent/mcp_auth_tables.sh plan <out>
+   ```
+   The plan must compute exactly those two names; any difference stops the campaign. The two `ewallet-mcp`
+   `fin-20261117` tables must be KEEP, each read by a live server, verified immutable, with no retired subject.
+2. **Retire the disabled in-release `feature-rag-mcp`** (exact gate, server-side dry run, `--atomic`):
+   ```bash
+   AGI_PACKAGE=lf-agents scripts/llm_agent/agi_campaign.sh preflight
+   AGI_PACKAGE=lf-agents scripts/llm_agent/agi_campaign.sh gate agents   # 9 removed + network-flows ConfigMap changed
+   AGI_APPROVAL=LF-AGENTS:$CAMPAIGN AGI_PACKAGE=lf-agents scripts/llm_agent/agi_campaign.sh upgrade agents
+   ```
+   It renders `agi/agents-retire-feature-rag-mcp.yaml` (`mcpServices.services.feature-rag-mcp.retired: true`). It
+   removes the ServiceAccount, the kubelet-probe policy, the otel-collector flow policies and the two
+   crossNamespace flows. The flows go from `ewallet-agents`, and from `feature-store`/`fraud-serving` as the
+   `allow-ewallet-agents-*` objects. The active `ewallet-mcp/feature-rag-mcp` keeps its own `allow-ewallet-mcp-*`
+   peer policies (release `llm-agent-mcp`, untouched). The MCP Gateway route, RemoteMCPServer and the gateway's
+   egress to `ewallet-mcp` do not change. `llm-agent-mcp` gets no package.
+3. **Delete the two unused tables** (the same tool and safeguards as 2.6f step 4):
+   ```bash
+   LC_APPROVAL=AUTH-TABLES:<campaign> CTX=… LC_CAMPAIGN=<campaign> EXPECT_DELETE="<the two names above>" \
+     scripts/llm_agent/mcp_auth_tables.sh delete <out>
+   ```
+4. **KEEP fingerprints** around steps 2–3. Expect 9 removed objects, the 2 Secrets removed, and
+   `ConfigMap/ewallet-agents/llm-agent-network-flows` changed; nothing else.
+5. **Post checks:** `mcp_credential_check.sh post`, then the full regression (§3).
+
+**Rollback.**
+- `LF-AGENTS-ROLLBACK` targets rev 59. That revision only recreates the 9 policy/ServiceAccount objects, which
+  select no pod. It names no auth table, and the guard accepts it.
+- After step 3, `llm-agent` rev 58 (`LC-AGENTS-ROLLBACK`) and rev 56 are also nonfunctional: they recreate the
+  retired in-release drift-mcp on a deleted table. Its pods fail closed with `CreateContainerConfigError`, and the
+  `ewallet-mcp` servers are unaffected. Fix forward; never recreate a deleted table.
 
 ### 2.7 Image roll after P2 (`img-mcp`, `img-agents`)
 

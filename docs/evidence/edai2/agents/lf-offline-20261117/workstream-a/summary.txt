@@ -1,0 +1,14 @@
+# Workstream A summary (lf-offline-20261117). uv 0.13.5; interpreters from uv's managed CPython 3.10.22 / 3.12.15.
+# Suites: tests/llm_agent tests/ops tests/ci with --continue-on-collection-errors (a collection error = a file whose imports belong to another env).
+before(53143c4a) tooling312: 20 failed, 1354 passed, 43 skipped, 14 errors, 1135 subtests passed in 110.52s (0:01:50)
+after(working tree) tooling312: 20 failed, 1365 passed, 43 skipped, 14 errors, 1135 subtests passed in 109.83s (0:01:49)
+  new failures vs before: 0; disappeared: 0
+before(53143c4a) coord312: 13 failed, 717 passed, 36 skipped, 1 xfailed, 45 errors, 675 subtests passed in 77.17s (0:01:17)
+after(working tree) coord312: 13 failed, 727 passed, 36 skipped, 1 xfailed, 45 errors, 675 subtests passed in 76.92s (0:01:16)
+  new failures vs before: 0; disappeared: 0
+before(53143c4a) inference310: 2 failed, 1219 passed, 28 skipped, 21 errors, 956 subtests passed in 121.68s (0:02:01)
+after(working tree) inference310: 2 failed, 1230 passed, 28 skipped, 21 errors, 956 subtests passed in 122.63s (0:02:02)
+  new failures vs before: 0; disappeared: 0
+# per-file table: per-file-environments.tsv (114/114 files clean in at least one env)
+# four files: wrong-env-*.txt (ai_platform/inference, as used in lc-20261117T002220Z), correct-env-tooling312-four-files.txt,
+#   tooling310-four-files.txt (only the 3.12 vLLM recipe test fails: tomllib), rag-ingestion-four-files.txt (same), baseline-0a40f0d9-*.txt (git archive export, no worktree)

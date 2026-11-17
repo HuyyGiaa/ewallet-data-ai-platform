@@ -1,0 +1,11 @@
+$ uv run --locked --project infra/docker/llm-agent-tooling --python 3.10 --no-default-groups --group test python -m pytest -q -p no:cacheprovider --tb=line tests/llm_agent/test_c5_keda_chart.py tests/llm_agent/test_vllm_model_image.py tests/llm_agent/test_phase_abc_p0_fixes.py tests/ops/test_session_a_charts.py
+............................F......... [ 46%]
+............. [ 62%]
+..............................                        [100%]
+=================================== FAILURES ===================================
+E   ModuleNotFoundError: No module named 'tomllib'
+~/Develop/ewallet-data-ai-platform/infra/docker/vllm-cpu-model/remediate.py:26: ModuleNotFoundError: No module named 'tomllib'
+=========================== short test summary info ============================
+FAILED tests/llm_agent/test_vllm_model_image.py::RecipeTests::test_vendored_swap_comes_from_the_locked_wheel
+1 failed, 80 passed, 112 subtests passed in 7.32s
+exit=1

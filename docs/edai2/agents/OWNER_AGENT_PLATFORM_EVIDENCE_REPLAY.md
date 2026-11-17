@@ -6,6 +6,22 @@ imitates UI output. Each command was run on GKE on 2026-11-15 by campaign
 `agi-20261115T145608Z`. Those results are in the
 [completion report](AGENT_PLATFORM_COMPLETION.md#3-results-on-gke).
 
+> **Current state, read first (as of 2026-11-17, after `lc-20261117T002220Z`).** Sections 1 and 12 show the
+> 2026-11-06 manifest and the pre-cleanup runtime. Use these instead:
+> - **Manifest:** `M=~/ewallet-evidence/agents/legacy-cleanup/lc-20261117T002220Z/final-sleep/recovery-manifest`
+>   with `wake-full --nodes 5`. It records 5 VMs and 75 workloads, with both `ewallet-mcp` servers at 2 replicas,
+>   so the `kubectl scale` step in section 1 is not needed.
+> - **Agents:** since `sp-cleanup` (`llm-agent` rev 55) the Specialists run only as SandboxAgents on the shared
+>   WorkerPool. Expect 1 BYO Agent (`fraud-coordinator`), 2 SandboxAgents and 2 ScaledObjects:
+>   `ewallet-agents/fraud-coordinator` and `ewallet-sandbox/business-agents-workerpool`.
+> - **MCP servers:** only `ewallet-mcp/feature-rag-mcp` and `ewallet-mcp/drift-mcp`. The in-release
+>   `ewallet-agents/drift-mcp` was removed in rev 59.
+> - **Sleep:** use the KEDA-aware guarded sleep (`--pause-keda`, both campaign-scoped approvals) with the same
+>   `$M`. Pass `--also-approve` only for a PDB that `plan-sleep` lists under `not_covered`.
+> - **Pending cleanup:** a final cleanup is prepared but not executed
+>   ([completion report §13](AGENT_PLATFORM_COMPLETION.md#13-offline-audit-and-final-cleanup-proposal-lf-offline-20261117)).
+>   Replay after it if the owner approves it.
+
 - **Helper:** `scripts/llm_agent/agent_replay.sh`. It is a thin wrapper around the
   campaign's validated tools. It changes no Helm release, Secret, policy or production
   Deployment.

@@ -1,5 +1,24 @@
 # Agent platform completion: campaign handoff
 
+## Offline audit and cleanup preparation `lf-offline-20261117` (2026-11-17, no cluster access)
+
+Status **`READY_FOR_OWNER_GKE_APPROVAL`** (code `6df80f7f`). GKE stayed asleep and untouched; nothing was deployed
+or deleted.
+- Results: `AGENT_PLATFORM_COMPLETION.md` §13.
+- Procedure for the next wake: runbook §2.6g.
+- Evidence: `docs/evidence/edai2/agents/lf-offline-20261117/`.
+
+| Item | Value |
+|---|---|
+| Four "pre-existing failing" test files | **ENVIRONMENT**, not defects. They were run in `ai_platform/inference` (Python 3.10, no jsonschema). All 81 tests pass in `infra/docker/llm-agent-tooling` on Python 3.12 (the vLLM recipe test imports a 3.12 build script). `jsonschema==4.26.0` is now an explicit `test` dependency at the already-locked version |
+| Feature-RAG orphans (prepared) | `lf-agents` + `agi/agents-retire-feature-rag-mcp.yaml`: 9 objects (SA, probe, OTLP, Feast/KServe flows incl. `allow-ewallet-agents-*` in `feature-store`/`fraud-serving`), network-flows ConfigMap changed, 150 KEEP; `cross-namespace.yaml` now skips flows of any retired workload (15 profiles byte-identical) |
+| Auth tables (prepared) | `ewallet-agents/mcp-auth-drift-mcp-fin-20261117{,-b}`: proposed DELETE after live recomputation (unused copies; every credential also in the active `ewallet-mcp` table); scoped Helm references + `NAMESPACE_OBSOLETE_SETS` in the matrix |
+| Expected revisions at next wake | `llm-agent` 59 (manifest sha256 `01b90e1d…`), `llm-agent-mcp` 19; after `lf-agents`: `llm-agent` 60 |
+| Next wake | same manifest as below (`lc-20261117T002220Z/final-sleep/recovery-manifest`, 5 nodes) |
+
+**Still requires the owner:** approval of the §13.4 GKE campaign (`LF-AGENTS`, `AUTH-TABLES`, guarded sleep), and
+the Evidence Replay screenshots.
+
 ## Legacy MCP infrastructure cleanup `lc-20261117T002220Z` (2026-11-17, unattended, owner directive)
 
 Evidence: `~/ewallet-evidence/agents/legacy-cleanup/lc-20261117T002220Z/` (`SHA256SUMS.txt`), mirrored in

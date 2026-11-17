@@ -1,0 +1,16 @@
+# HEAD (53143c4a) chart vs working chart: helm template sha256 per profile (template change must be a no-op unless a server is retired)
+SAME c57e02e19d2e4601  default
+SAME b89725a38a49df2b  llm-agent-mcp-profile
+SAME 00c4e442d2c43472  llm-agent-mcp-profile+auth-fixture
+SAME b89725a38a49df2b  g3
+SAME b89725a38a49df2b  g3+keda
+SAME d8c8a4cc26eacd85  values-gke-cpu
+SAME a9f4ab1330e679b6  values-gcp
+SAME 41fd366d975877e3  values-local
+SAME a705993f9c92fa99  llm-agent-rev58-live-values
+SAME 05ceff231807eeff  llm-agent-rev59-values
+SAME b89725a38a49df2b  g3+mcp-isolated+mcp-cutover.yaml
+SAME b89725a38a49df2b  g3+mcp-isolated+mcp-failover.yaml
+SAME b89725a38a49df2b  g3+mcp-isolated+mcp-gateway-failover.yaml
+SAME b89725a38a49df2b  g3+mcp-isolated+mcp-isolated.yaml
+SAME b89725a38a49df2b  g3+mcp-isolated+mcp-retry-off.yaml

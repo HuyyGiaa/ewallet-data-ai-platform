@@ -1,0 +1,8 @@
+$ uv run --frozen --project ai_platform/inference --group test python -m pytest -q -p no:cacheprovider --tb=no tests/llm_agent/test_c5_keda_chart.py tests/llm_agent/test_vllm_model_image.py tests/llm_agent/test_phase_abc_p0_fixes.py tests/ops/test_session_a_charts.py
+
+=========================== short test summary info ============================
+ERROR tests/llm_agent/test_phase_abc_p0_fixes.py
+ERROR tests/ops/test_session_a_charts.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 2 errors during collection !!!!!!!!!!!!!!!!!!!!
+2 errors in 0.20s
+exit=2

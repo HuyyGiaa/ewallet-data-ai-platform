@@ -30,6 +30,7 @@ This page reports the final GKE integration of the EDAI-2 Agent Platform: campai
 | Legacy Specialist Deployment cleanup (`sp-cleanup`) | **GKE_PASS** (§10): 42 objects removed, 6 modified, 0 added (`llm-agent` rev 55); 5/5 E2E, 3/3 negatives, both KEDA healthy |
 | Legacy MCP credential retirement | **GKE_PASS** (§11.2): final server sets `fin-20261117`/`-b`; 9 retired credentials rejected on 5/5 replicas; 9 client Secrets deleted after zero references |
 | Legacy MCP infrastructure cleanup | **GKE_PASS** (§12): the in-release `ewallet-agents/drift-mcp` and its 7 exclusive objects removed (`llm-agent` rev 59); 6 obsolete auth tables deleted; KEEP fingerprints exact (270 unchanged); fail-closed credential harness; retired-credential guards on every deploy/rollback path |
+| Final orphan and auth-table cleanup | **PREPARED offline, not executed** (§13, `READY_FOR_OWNER_GKE_APPROVAL`): `lf-agents` retires the disabled in-release `feature-rag-mcp` (9 objects, exact gate rehearsed offline against the SHA-proven rev 59 render); the 2 unused `ewallet-agents` final-set copies are proposed DELETE pending live recomputation |
 
 ## 1. Architecture
 
@@ -916,9 +917,154 @@ there was PASS and was read row by row (§11.2).
     closed (missing Secret) and cannot re-trust a retired credential.
   - The already-disabled in-release `feature-rag-mcp` left orphan objects outside this directive's scope:
     ServiceAccount, probe and otel flow policies, and Feast/KServe policies in `feature-store`/`fraud-serving`.
-    The same `retired: true` mechanism removes them.
-  - The unused `fin-20261117` (ewallet-agents) and `fin-20261117-b` tables are kept by directive.
+    The same `retired: true` mechanism removes them. *Prepared offline in §13.2; not yet executed.*
+  - The unused `fin-20261117` (ewallet-agents) and `fin-20261117-b` tables are kept by directive. *Audited in §13.3:
+    proposed DELETE after live recomputation.*
   - 4 unrelated offline test files already fail at `0a40f0d9` (missing modules or a stale assertion), unchanged
-    here.
+    here. *Corrected in §13.1: they were run in the wrong uv environment and do not fail in their own.*
 - **Cost:** about 1.07 h awake × 5 nodes × ~$0.165 ≈ $0.9 (list price, not billing).
 
+## 13. Offline audit and final cleanup proposal (`lf-offline-20261117`)
+
+Owner directive "FINAL AGENT PLATFORM OFFLINE AUDIT & CLEANUP PREPARATION", run on 2026-11-17 from `53143c4a`
+(code `6df80f7f`).
+**No cluster access:** GKE was not woken or contacted, and no Helm, kubectl or Secret operation ran. Every
+cluster fact below is a **historical observation** from `lc-20261117T002220Z` (cluster asleep since 01:55Z), not a
+live verification. Evidence: [`docs/evidence/edai2/agents/lf-offline-20261117/`](../../evidence/edai2/agents/lf-offline-20261117/)
+(`SHA256SUMS.txt`). Procedure for the next wake: runbook §2.6g. Status: **`READY_FOR_OWNER_GKE_APPROVAL`**. The
+infrastructure cleanup itself is **not** complete.
+
+### 13.1 The four "pre-existing failing" test files: wrong environment, no defect
+
+| File | Symptom in `ai_platform/inference` (Python 3.10, used in §12) | Cause |
+|---|---|---|
+| `tests/llm_agent/test_c5_keda_chart.py` | 1 test: `ModuleNotFoundError: jsonschema` | jsonschema not in that lock |
+| `tests/llm_agent/test_phase_abc_p0_fixes.py` | collection error: `jsonschema` | same |
+| `tests/ops/test_session_a_charts.py` | collection error: `jsonschema` | same |
+| `tests/llm_agent/test_vllm_model_image.py` | 1 test: `ModuleNotFoundError: tomllib` | it imports `infra/docker/vllm-cpu-model/remediate.py`, a Python 3.12 build script (`requires-python ==3.12.*`, run inside the vLLM 3.12 venv) |
+
+Classification: **ENVIRONMENT** for all four. There is no implementation defect, stale assertion or test
+infrastructure fault. No CI pipeline runs them (Jenkins runs only the RAG tests in `infra/docker/rag-ingestion`),
+and Agent Platform runtime behaviour is unaffected.
+- **Reproducible:** identical results at `0a40f0d9` (exported with `git archive`, no worktree) and at
+  `53143c4a`. These test files and the projects they use did not change between the two commits.
+- **In their own environments every test passes:** 81 tests and 112 subtests in `infra/docker/llm-agent-tooling`
+  on Python 3.12. The three jsonschema files also pass in `infra/docker/rag-ingestion`, the environment the RAG
+  runbook documents for `test_phase_abc_p0_fixes.py`.
+- **Correction:** `infra/docker/llm-agent-tooling` now declares `jsonschema==4.26.0` in its `test` group. It was
+  only present through `mcp` (dev group), at the same locked version. The lock diff is 2 lines and no resolved
+  version changed.
+- **Invocation:** `uv run --locked --project infra/docker/llm-agent-tooling --python 3.12 --group test python -m pytest <files>`.
+  The 3 jsonschema files pass on 3.10 too; only the vLLM recipe test needs 3.12.
+- **No single environment collects the whole agent suite.** The A2A SDK is only in `g3-byo-coordinator`, Feast
+  only in `ai_platform/inference`, and jsonschema only in the tooling and RAG projects. Each file passes cleanly in
+  at least one of the three locked environments (per-file table in `workstream-a/`).
+- **Still failing, out of scope:** `test_agi_feature_targets` (1), `test_c5_mcp_failover`, `test_phase_d_tools` (1)
+  and `test_rag_airflow_ingestion` fail outside their own environment. All pass in theirs.
+
+### 13.2 Orphans of the disabled in-release `feature-rag-mcp` (Workstream B)
+
+**Baseline.**
+- `llm-agent` rev 59 was rebuilt offline from the `lc` evidence: the rev 58 live values plus the `lc-agents`
+  overlay, applied with the campaign's own overlay function.
+- The reconstructed values equal the live readback taken after `lc-agents`.
+- The offline render's sha256 `01b90e1d…` equals the render that the `lc-agents` gate reviewed and deployed. The
+  baseline is therefore the deployed manifest, not an approximation.
+
+**Ownership.** All objects belong to release `llm-agent`; none is shared.
+- The Deployment, Service and PDB stopped rendering long ago (`enabled: false`).
+- What remains selects only pods `app.kubernetes.io/name=feature-rag-mcp` in `ewallet-agents`, or the principal
+  `ewallet-agents/sa/feature-rag-mcp`. Neither has a pod (historical: no such Deployment in the `lc` inventory).
+- The active server's peer policies come from release `llm-agent-mcp` (`g3/mcp-isolated.yaml`) as separate
+  `allow-ewallet-mcp-*` objects.
+
+| Decision | Object | Source template | Reason |
+|---|---|---|---|
+| REMOVE | `ServiceAccount/ewallet-agents/feature-rag-mcp` | `serviceaccounts.yaml` | identity of the disabled workload only |
+| REMOVE | `NetworkPolicy/ewallet-agents/allow-ambient-probes-feature-rag-mcp` | `security.yaml` | kubelet probes to pods that do not exist |
+| REMOVE | `NetworkPolicy/ewallet-agents/allow-feature-rag-mcp-to-otel-collector-{ingress,egress}`, `AuthorizationPolicy/ewallet-agents/allow-feature-rag-mcp-to-otel-collector` | `security.yaml` (enforced flows) | OTLP from the disabled workload; the active server exports through its own release |
+| REMOVE | `NetworkPolicy/ewallet-agents/allow-feature-rag-mcp-to-{feast-redis,kserve-fraud-detector}-egress` | `cross-namespace.yaml` | egress of the disabled workload |
+| REMOVE | `NetworkPolicy/feature-store/allow-ewallet-agents-feature-rag-mcp-to-feast-redis`, `NetworkPolicy/fraud-serving/allow-ewallet-agents-feature-rag-mcp-to-kserve-fraud-detector` | `cross-namespace.yaml` (peerIngress) | additive ingress for `ewallet-agents` pods of the disabled workload only; Feast/KServe access of `ewallet-mcp/feature-rag-mcp` is the `allow-ewallet-mcp-*` pair |
+| MODIFY | `ConfigMap/ewallet-agents/llm-agent-network-flows` | `security.yaml` | loses exactly the `feature-rag-mcp-to-otel-collector` flow |
+| ADD | none | | |
+| KEEP (150, sha256 unchanged) | among them `RemoteMCPServer/ewallet-agents/feature-rag-mcp`, `ConfigMap/ewallet-agents/mcp-gateway-config`, `NetworkPolicy/ewallet-agents/allow-mcp-gateway-to-feature-rag-mcp-cross-namespace-egress`, `Deployment/ewallet-agents/mcp-gateway`, otel-collector, dashboards, Coordinator Agent/ScaledObject, sandbox-worker flows | | serve the active `ewallet-mcp` server, the Coordinator and the WorkerPool |
+
+Nothing was marked UNKNOWN: every candidate's selector, principal and owning release is determined by the
+SHA-verified manifest. The live existence of each object is still checked by the gate in the next wake.
+
+**Implementation.**
+- **Template gap.** `retired: true` already dropped the ServiceAccount, the probe policy and the OTLP flows, but
+  `cross-namespace.yaml` skipped flows only for sandbox-only Specialists. It now skips flows whose local workload is
+  any retired workload (`retiredWorkloads`). The gateway egress to the backend namespace follows
+  `agents.mcpServers`, never `retired`, so it is unchanged.
+- **No-op proof.** 15 profiles render byte-identically before and after the change, including the `llm-agent-mcp`
+  profile and the rev 58/rev 59 live values.
+- **Overlay.** `agi/agents-retire-feature-rag-mcp.yaml` sets `retired: true, enabled: false`.
+- **Package.** `lf-agents` in `agi_campaign.sh` (`LF-AGENTS` approval) has an exact identity gate (9 removed,
+  1 changed). The rollback target is rev 59, which names no auth table.
+- **Offline validation.**
+  - `helm lint` passes, and the render is idempotent;
+  - the script-built render equals the manual render;
+  - `helm_object_diff.py --expect-identities` gives PASS against the rev 59 render;
+  - the retired-credential guard passes.
+- **Not run:** the server-side dry run is a live check for the next wake.
+- **Tests:** a chart test that fails on the old template, and a gate test.
+
+### 13.3 The two unused `ewallet-agents` final-set copies (Workstream C)
+
+Facts come from the `lc` before- and after-delete inventories (token-free: ids, subjects, statuses):
+
+| Question | `ewallet-agents/mcp-auth-drift-mcp-fin-20261117` | `ewallet-agents/mcp-auth-drift-mcp-fin-20261117-b` |
+|---|---|---|
+| Created by | `closure-20261116T211833Z` prepare, for `cr-agents` attempt 1 | `closure-20261116T211833Z`, for `cr-agents` attempt 2 |
+| Helm revisions naming it (scoped) | `llm-agent@56` only (failed; rolled back as rev 57) | `llm-agent@58` only |
+| Server that used it | none successfully (the old in-release drift-mcp image failed to start on it) | in-release `ewallet-agents/drift-mcp`, rev 58 |
+| Server still deployed | no, retired in rev 59 | no |
+| Current reference (historical, at 01:30Z) | no live object; no `ewallet-agents` object in either current manifest. The conservative inventory listed `llm-agent-mcp` because the same **name** is read in `ewallet-mcp` | none |
+| Needed for recovery | only to roll `llm-agent` back to rev 56, a known-failed release | only for `LC-AGENTS-ROLLBACK` (rev 58), which recreates the retired server |
+| Retired credentials | none | none |
+| Active credentials used elsewhere | yes: both `kagent-controller` ids are also in `ewallet-mcp/…-fin-20261117` | yes: `sandbox-drift` is also in `ewallet-mcp/…-fin-20261117` |
+
+A server auth table is the server's trust list. Clients authenticate with their own Secrets
+(`mcp-token-kagent-controller-*`, the Sandbox credentials), and the active servers read the `ewallet-mcp` tables.
+Deleting these two copies therefore revokes nothing and changes no authentication path. It does remove 2 extra
+stored copies of active credentials.
+
+| Namespace | Secret | Decision | Reason | Live verification required |
+|---|---|---|---|---|
+| ewallet-agents | mcp-auth-drift-mcp-fin-20261117 | **DELETE (proposed)** | its in-release server is absent; no live or namespace-scoped current Helm reference; only the failed rev 56 named it; every credential is also in the active `ewallet-mcp` table | Yes |
+| ewallet-agents | mcp-auth-drift-mcp-fin-20261117-b | **DELETE (proposed)** | same; only rev 58 named it; removing it withdraws `LC-AGENTS-ROLLBACK` (fix forward) | Yes |
+
+**Tooling.** Without changes, the matrix would always KEEP these two tables. Two corrections fix that:
+- **Scoped Helm references.** `auth_table_inventory.py` also records references attributed to the namespace of the
+  manifest object that names them (`helm_current_scoped`, `helm_history_scoped`). The conservative cross-namespace
+  view is unchanged.
+- **Namespace-obsolete sets.** `auth_table_matrix.py` makes `fin-20261117`/`fin-20261117-b` obsolete in
+  `ewallet-agents` only (`NAMESPACE_OBSOLETE_SETS`). They are DELETE only when all of the following hold:
+  - no live object names them;
+  - no namespace-scoped current Helm reference exists;
+  - the in-release server is absent;
+  - the final tables are verified;
+  - the result equals the reviewed list.
+
+  An inventory without the scoped view keeps them, and the `ewallet-mcp` tables are never namespace-obsolete.
+
+**Projected matrix.** It reruns the `lc` after-delete inventory with the scoped view rebuilt offline, from the
+rev 59 render and the `llm-agent-mcp` namespace. It gives exactly these 2 DELETE and the 2 `ewallet-mcp` tables
+KEEP, with 0 problems. It is a projection, not a live result. No Secret was deleted, and normal deployments
+gained no deletion step.
+
+### 13.4 Next GKE campaign (owner approval required)
+
+| Phase | Steps | Stop condition |
+|---|---|---|
+| Wake | `wake-full --nodes 5 --manifest ~/ewallet-evidence/agents/legacy-cleanup/lc-20261117T002220Z/final-sleep/recovery-manifest` (75 workloads; MCP 2/2, Coordinator 2); temporary /32; `verify --expect awake` | any verify failure |
+| Preflight | revisions 59/19; live `helm get manifest llm-agent` sha256 `01b90e1d…`; `mcp_credential_check.sh pre` (4/4 replicas); registry strict readback 8/8; `mcp_auth_tables.sh plan` with the 2 reviewed names (must compute exactly those; the `ewallet-mcp` fin tables KEEP and verified); KEEP fingerprints snapshot | any difference from §13.2/§13.3 |
+| Cleanup | `lf-agents` preflight → gate (9 removed, 1 changed, server-side dry run) → `LF-AGENTS` upgrade `--atomic` → rev 60; absence readback of the 9 objects in all 3 namespaces; `allow-ewallet-mcp-*` peer policies unchanged; then `mcp_auth_tables.sh delete` (`AUTH-TABLES` approval, dry run, exact names, re-plan) | gate mismatch; 2 remediation attempts per checkpoint |
+| Verify | fingerprint compare (exactly the 9 objects and 2 Secrets removed, network-flows changed); `mcp_credential_check.sh post` | any unexpected difference |
+| Regression | 5 business E2E (`agent_replay.sh e2e`), 3 AGI-08 negatives (`negative`), credential verifier, registry readback (`registry`), Coordinator and WorkerPool KEDA 2→3→2, tracing (trace ids with the `ewallet-mcp` server spans), small concurrency run (6 jobs, unique request ids, launches staggered) | any failure |
+| Owner Evidence Replay | the owner runs [OWNER_AGENT_PLATFORM_EVIDENCE_REPLAY.md](OWNER_AGENT_PLATFORM_EVIDENCE_REPLAY.md) with `scripts/llm_agent/agent_replay.sh` (`pf`, `status`, `registry`, `e2e`, `negative`, `stop-pf`) and takes the screenshots; Claude produces none. The full benchmark is not rerun | — |
+| Sleep | `record-manifest` (new campaign directory); guarded sleep with `--pause-keda` and both campaign-scoped approvals; `verify --expect sleep`; remove the /32 and confirm exactly the 3 original CIDRs | `SLEEP_BLOCKED`: report it, never force |
+
+The rollback constraints are listed in runbook §2.6g. Estimated wake cost is about 1–1.5 h × 5 nodes × ~$0.165,
+roughly $1 (list price).

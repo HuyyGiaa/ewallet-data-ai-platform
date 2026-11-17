@@ -1,0 +1,9 @@
+$ uv run --frozen --project ai_platform/inference --group test python -m pytest -q -p no:cacheprovider --tb=line tests/llm_agent/test_c5_keda_chart.py
+..........F............                                                  [100%]
+=================================== FAILURES ===================================
+E   ModuleNotFoundError: No module named 'jsonschema'
+~/Develop/ewallet-data-ai-platform/tests/llm_agent/test_c5_keda_chart.py:125: ModuleNotFoundError: No module named 'jsonschema'
+=========================== short test summary info ============================
+FAILED tests/llm_agent/test_c5_keda_chart.py::ScaledObjectTest::test_each_object_matches_the_pinned_schema
+1 failed, 22 passed in 4.60s
+exit=1

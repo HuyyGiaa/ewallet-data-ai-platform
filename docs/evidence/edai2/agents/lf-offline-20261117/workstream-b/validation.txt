@@ -1,0 +1,9 @@
+# Workstream B: offline Helm validation of lf-agents (no cluster access; helm v3.22.0+g144ca65)
+# baseline = llm-agent rev 59 rebuilt offline: lc-20261117T002220Z e2-preflight live values (rev 58) + agi/agents-retire-in-release-mcp.yaml (agi_campaign.sh apply_overlay)
+rev59_values_equal_live_readback(f-regression/replay/registry/llm-agent-live-values.yaml): True
+recorded_lc_agents_render_sha256 (agi/stage1/llm-agent-lc-agents-render-sha256.txt): 01b90e1db165e87a59e25f00e7c2639b51b53028d040034573429ea0ea80b965
+offline_rev59_render_sha256_head_chart: 01b90e1db165e87a59e25f00e7c2639b51b53028d040034573429ea0ea80b965
+offline_rev59_render_sha256_new_chart:  01b90e1db165e87a59e25f00e7c2639b51b53028d040034573429ea0ea80b965
+lf_agents_render_sha256: baee38bd0b0d2eeff5f5c9de087a97cbaf120aa547d3846d6e7865151944f7d1
+objects_rev59: 160 objects_lf_agents: 151
+idempotent render: baee38bd0b0d2eeff5f5c9de087a97cbaf120aa547d3846d6e7865151944f7d1
