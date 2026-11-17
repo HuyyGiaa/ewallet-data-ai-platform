@@ -32,8 +32,8 @@ agents:
         enabled: true
     drift-specialist:
       version: "1.1.0"
-      # Deterministic BYO Drift Specialist: typed g3-drift-request/v1 only, no LLM,
-      # drift_detection through mcp-gateway /drift/mcp with its existing
-      # mcp-token-drift-specialist-drift-mcp credential.
+      # Deterministic Drift Specialist: typed g3-drift-request/v1 only, no LLM, drift_detection through
+      # mcp-gateway /drift/mcp. Since sp-cleanup it runs only as a SandboxAgent with the sandbox-drift
+      # credential; the BYO Deployment credential (mcp-token-drift-specialist-*) is retired and deleted.
       byo:
         enabled: true

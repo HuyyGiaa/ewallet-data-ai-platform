@@ -14,8 +14,7 @@ root=$(cd "$(dirname "$0")/../.." && pwd)
 chart="$root/infra/helm/llm-agent-platform"
 mkdir -p "$evidence"
 
-args=(upgrade --install "$release" "$chart" -f "$chart/values-$environment.yaml"
-      --kube-context "$KUBE_CONTEXT" --namespace default --atomic --wait --timeout "${HELM_TIMEOUT:-15m}")
+args=(-f "$chart/values-$environment.yaml")   # values and --set arguments, shared by the render check and the upgrade
 for extra in ${EXTRA_VALUES:-}; do
   [ -f "$extra" ] || { echo "EXTRA_VALUES file $extra missing" >&2; exit 2; }
   args+=(-f "$extra")
@@ -45,7 +44,15 @@ if image:
     print(ref)
 ' "$digests")
 [ -z "$vllm" ] || args+=(--set "vllm.image=$vllm")
-helm "${args[@]}" | tee "$evidence/helm-upgrade.txt"
+# Refuse a release that would select a retired MCP credential (e.g. an old profile with the legacy server set or
+# the deleted Specialist client Secrets): render exactly what would be applied and check it first.
+if ! helm template "$release" "$chart" --namespace default "${args[@]}" \
+     | (cd "$root" && python3 -m ops.llm_agent.retired_credentials check - --label "$release render"); then
+  echo "refusing to deploy $release: the render references retired MCP credentials (or failed)" >&2
+  exit 1
+fi
+helm upgrade --install "$release" "$chart" "${args[@]}" --kube-context "$KUBE_CONTEXT" --namespace default \
+  --atomic --wait --timeout "${HELM_TIMEOUT:-15m}" | tee "$evidence/helm-upgrade.txt"
 helm history "$release" --kube-context "$KUBE_CONTEXT" --namespace default -o json > "$evidence/helm-history.json"
 for deployment in $(kubectl --context "$KUBE_CONTEXT" -n "$namespace" get deploy -o name); do
   kubectl --context "$KUBE_CONTEXT" -n "$namespace" rollout status "$deployment" --timeout="${HELM_TIMEOUT:-15m}" | tee -a "$evidence/rollout.txt"

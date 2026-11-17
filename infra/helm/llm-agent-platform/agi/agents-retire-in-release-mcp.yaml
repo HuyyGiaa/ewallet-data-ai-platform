@@ -1,0 +1,22 @@
+# Package lc-agents (release llm-agent, namespace default; campaign lc-20261117T002220Z): retire the unused in-release
+# ewallet-agents/drift-mcp for good. It runs an old image (695279967), no MCP Gateway route, RemoteMCPServer,
+# SandboxAgent or client targets it (the gateway and both RemoteMCPServers reach ewallet-mcp/drift-mcp), and it has
+# no drift artifacts. retired: true stops rendering it and everything it exclusively owns (Deployment, Service,
+# PDB, ServiceAccount, kubelet-probe NetworkPolicy, its otel-collector flow policies); the active
+# ewallet-mcp/drift-mcp (release llm-agent-mcp) and every cross-namespace policy to it stay unchanged.
+# It also drops the retired Specialist client-credential references (Secrets deleted in closure-20261116T211833Z)
+# from the stored values; they rendered nothing since sp-cleanup (runtime: sandbox).
+# Applied by agi_campaign.sh (Python overlay: null deletes the key from the live values).
+mcpServices:
+  services:
+    drift-mcp:
+      retired: true
+      enabled: false
+      toolGrants: null
+      authSecret: null
+agents:
+  specialists:
+    drift-specialist:
+      authHeaderSecrets: null
+    feature-rag-specialist:
+      authHeaderSecrets: null

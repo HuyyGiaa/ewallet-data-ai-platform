@@ -458,6 +458,50 @@ class CampaignGateTests(unittest.TestCase):
                 self.assertIn("no rollback", rollback.stderr)
         self.assertNotIn("REAL-ROLLBACK", self.log.read_text() if self.log.exists() else "")
 
+    def test_legacy_cleanup_packages_render_the_overlay_on_the_live_values(self):
+        self.preflight()
+        for package, which, overlay in (("lc-agents", "agents", "agents-retire-in-release-mcp.yaml"),
+                                        ("lc-mcp", "mcp", "mcp-drop-retired-client-refs.yaml")):
+            with self.subTest(package):
+                result, args = self.args_for(package, which)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                files = [args[i + 1] for i, arg in enumerate(args) if arg == "-f"]
+                self.assertEqual([Path(f).name for f in files], [f"{package}-values.yaml"])
+                self.assertNotIn("--set", args, "the live values already carry the final server set")
+                rendered = yaml.safe_load(Path(files[0]).read_text()) or {}
+                specialists = (rendered.get("agents") or {}).get("specialists") or {}
+                self.assertFalse(any("authHeaderSecrets" in (s or {}) for s in specialists.values()))
+                if package == "lc-agents":
+                    drift = rendered["mcpServices"]["services"]["drift-mcp"]
+                    self.assertEqual((drift["retired"], drift["enabled"]), (True, False))
+                    self.assertNotIn("authSecret", drift)
+        identities = self.run_script("__identities", "agents", AGI_PACKAGE="lc-agents").stdout.split()
+        removed = sorted(identities[i + 1] for i, a in enumerate(identities) if a == "--expect-removed")
+        changed = [identities[i + 1] for i, a in enumerate(identities) if a == "--expect-changed"]
+        self.assertEqual(len(removed), 8)
+        self.assertTrue(all(r.startswith(("Deployment/ewallet-agents/drift-mcp", "Service/ewallet-agents/drift-mcp",
+                                          "PodDisruptionBudget/ewallet-agents/drift-mcp", "ServiceAccount/ewallet-agents/drift-mcp"))
+                            or "drift-mcp" in r.split("/")[2] for r in removed), removed)
+        self.assertFalse([r for r in removed if "/ewallet-mcp/" in r], "the active ewallet-mcp server is never touched")
+        self.assertEqual(changed, ["ConfigMap/ewallet-agents/llm-agent-network-flows"])
+        self.assertEqual(self.run_script("__identities", "mcp", AGI_PACKAGE="lc-mcp").stdout.split(), [],
+                         "lc-mcp expects exactly no object change")
+
+    def test_gate_and_rollback_refuse_manifests_that_select_a_retired_credential(self):
+        self.preflight()
+        on = self.fake / "llm-agent-mcp-on.yaml"
+        on.write_text(on.read_text() + "\n# name: mcp-token-drift-specialist-drift-mcp\n")
+        result = self.run_script("upgrade", "mcp", AGI_APPROVAL=f"A1:{CAMPAIGN}")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("render references a retired MCP credential", result.stderr)
+        self.assertNotIn("REAL-UPGRADE", self.calls())
+        live = self.fake / "llm-agent-mcp-live.yaml"   # the rollback target revision's manifest
+        live.write_text(live.read_text() + "\n# env secretKeyRef name: mcp-auth-drift-mcp-sbx-20261115\n")
+        result = self.run_script("rollback", "mcp", AGI_APPROVAL=f"A2:{CAMPAIGN}")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("revision 7 references a retired MCP credential", result.stderr)
+        self.assertNotIn("REAL-ROLLBACK", self.calls())
+
     def test_a_package_refuses_the_other_release_and_unknown_packages(self):
         self.preflight()
         result = self.run_script("gate", "agents", AGI_PACKAGE="p1-mcp")

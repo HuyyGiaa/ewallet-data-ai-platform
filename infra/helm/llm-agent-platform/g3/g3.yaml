@@ -1,3 +1,11 @@
+# LEGACY REFERENCE PROFILE, NOT DEPLOYABLE WITHOUT MIGRATION (lc-20261117T002220Z). It still names the retired
+# MCP credentials: the Specialist client Secrets mcp-token-{drift,feature-rag}-specialist-* (revoked server-side and
+# deleted in closure-20261116T211833Z) and the "legacy" server set (unsuffixed mcp-auth-<server>, deleted in
+# lc-20261117T002220Z). It stays as the chart-test base layer and as the record of the G3 decisions. The live
+# releases are changed only from their own live values (scripts/llm_agent/agi_campaign.sh), and every project
+# deploy/rollback script refuses a manifest rendered from it (ops/llm_agent/retired_credentials.py). A new
+# environment starts from the current release values (final server set, Specialists as SandboxAgents), not from here.
+#
 # G3 on GKE (owner decisions 2026-11-01): kagent 0.10.3 without Substrate
 # (agents.mode agent; rows 20/27 stay open), at most 2 temporary e2-standard-4
 # nodes labelled ewallet.io/g3-llm=true, one C1 vLLM replica and no fallback

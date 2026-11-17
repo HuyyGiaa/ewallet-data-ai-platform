@@ -554,12 +554,81 @@ Prepare → Finalize → Verify → Revoke.
    ```
 4. **Verify** with `mcp_credential_check.sh <out> post-migration`. Every row must be PASS: retired → `revoked`,
    `sandbox-*` → `ok`, kagent-controller → `call-denied`. Then check zero references across cluster objects and
-   both releases' manifests.
+   both releases' manifests. *Superseded by 2.6f:* the retired client Secrets are deleted, so the check now uses
+   only live identities and a locally generated invalid credential, and its exit code is the verdict.
 5. **Revoke.** Run `kubectl delete secret` on exactly the nine names, with `--dry-run=server` first.
 
 - **No rollback** for `cr-mcp`/`cr-agents`: `agi_campaign.sh rollback` refuses them. Fix forward with a new final
   set; never re-select `sbx-20261115`, `r1-transition` or `legacy` (they still contain the retired tokens).
 - **AGI-08 principals** are now `sandbox-feature-rag`, `sandbox-drift` and the kagent controller (`call-denied`).
+
+### 2.6f Legacy MCP infrastructure cleanup (`lc-agents`, `lc-mcp`, auth tables; after 2.6e)
+
+Removes what the credential retirement left: the unused in-release `ewallet-agents/drift-mcp` (old image, no
+route, no client) with everything it exclusively owned, the obsolete auth tables, and the retired client
+references in the stored values. The active `ewallet-mcp` servers are not changed.
+
+1. **Per-replica credential check** (read-only; the exit code is the verdict, from
+   `ops/llm_agent/mcp_credential_verdict.py`):
+   ```bash
+   AGI_ENV=… LEGACY_SERVER=present scripts/llm_agent/mcp_credential_check.sh <out> pre    # before lc-agents
+   AGI_ENV=… scripts/llm_agent/mcp_credential_check.sh <out> post                         # after: absent
+   ```
+   Per Ready replica of each `ewallet-mcp` server it proves, separately, authentication, authorization and business
+   execution:
+   - `sandbox-*` must be authorized and its business execution must be ok;
+   - the kagent controller must list the tool and be denied the call;
+   - a random invalid credential must get 401.
+   The negatives run with the active credential as the control on the same replica. It fails on a failed, missing
+   or malformed probe, a replica count different from the Deployment (or below `MCP_MIN_REPLICAS`, default 2),
+   or a stale or lost port-forward. With `LEGACY_SERVER=present`, the old server's `drift_baseline_unavailable` is
+   reported as `backend_unavailable`, never as success. With the default `absent`, its Deployment, Service, PDB,
+   ServiceAccount and pods must all be gone.
+2. **Auth-table matrix** (read-only, token-free; scans live objects, both current releases and every Helm revision):
+   ```bash
+   CTX=… LC_CAMPAIGN=<campaign> EXPECT_DELETE="<ns>/<secret> …" scripts/llm_agent/mcp_auth_tables.sh plan <out>
+   ```
+   DELETE needs all of the following, otherwise the table is KEEP or UNKNOWN:
+   - an explicitly obsolete set (`legacy`, `r1-transition`, `sbx-20261115`);
+   - no live or current-Helm reference;
+   - the server is absent or reads a verified final table;
+   - the computed list equals the reviewed `EXPECT_DELETE`.
+   Final sets (`fin-20261117`, `fin-20261117-b`) are always KEEP.
+3. **Retire the in-release server**, then the values-only cleanup. Each package has its own preflight and an
+   exact gate:
+   ```bash
+   AGI_PACKAGE=lc-agents scripts/llm_agent/agi_campaign.sh preflight
+   AGI_PACKAGE=lc-agents scripts/llm_agent/agi_campaign.sh gate agents   # 8 removed + network-flows ConfigMap changed
+   AGI_APPROVAL=LC-AGENTS:$CAMPAIGN AGI_PACKAGE=lc-agents scripts/llm_agent/agi_campaign.sh upgrade agents
+   AGI_PACKAGE=lc-mcp scripts/llm_agent/agi_campaign.sh preflight
+   AGI_PACKAGE=lc-mcp scripts/llm_agent/agi_campaign.sh gate mcp         # zero changed objects
+   AGI_APPROVAL=LC-MCP:$CAMPAIGN AGI_PACKAGE=lc-mcp scripts/llm_agent/agi_campaign.sh upgrade mcp
+   ```
+   `lc-agents` renders `agi/agents-retire-in-release-mcp.yaml`. `mcpServices.services.drift-mcp.retired: true` drops
+   the Deployment, Service, PDB, ServiceAccount, kubelet-probe NetworkPolicy and the otel-collector flow policies.
+   The MCP Gateway route, both RemoteMCPServers and the cross-namespace policies all target `ewallet-mcp/drift-mcp`
+   and stay.
+4. **Delete the obsolete tables** (exact names; it re-plans first, runs a server-side dry run, and re-plans after):
+   ```bash
+   LC_APPROVAL=AUTH-TABLES:<campaign> CTX=… LC_CAMPAIGN=<campaign> EXPECT_DELETE="…" \
+     scripts/llm_agent/mcp_auth_tables.sh delete <out>
+   ```
+5. **KEEP fingerprints** around steps 3–4 (`python -m ops.llm_agent.object_fingerprints snapshot|compare`): the
+   differences must equal the reviewed matrix exactly.
+
+**Rollback and recovery (after 2.6f).**
+- **Direct historical Helm rollback is prohibited.** `llm-agent-mcp` ≤ 17 and `llm-agent` ≤ 57 select the deleted
+  auth tables (`legacy`, `r1-transition`, `sbx-20261115`) or the deleted Specialist client Secrets. Such a revision
+  is intentionally nonfunctional: its pods would fail with `CreateContainerConfigError`, and it would never re-trust
+  a retired credential.
+- `agi_campaign.sh rollback`, `scripts/llm_agent/rollback.sh` (Jenkins) and `scripts/llm_agent/deploy_atomic.sh` all
+  refuse any manifest that names a retired credential (`ops/llm_agent/retired_credentials.py`).
+- `LC-AGENTS-ROLLBACK` targets `llm-agent` rev 58. That revision recreates the old server on `fin-20261117-b`, which
+  is kept; the guard accepts it. Prefer a fix forward.
+- `LC-MCP-ROLLBACK` targets rev 18, which renders identically.
+- `kubectl rollout undo` on an MCP Deployment could select a zero-replica ReplicaSet from before the final sets.
+  That ReplicaSet references a deleted table and cannot start. Recover by fixing forward from the live values.
+- `g3/g3.yaml` is a legacy reference profile and is not deployable without migration.
 
 ### 2.7 Image roll after P2 (`img-mcp`, `img-agents`)
 

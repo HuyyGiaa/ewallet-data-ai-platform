@@ -7,7 +7,6 @@
     "mcp-fallback": [
       "ewallet-mcp/feature-rag-mcp",
       "ewallet-mcp/drift-mcp",
-      "ewallet-agents/drift-mcp",
       "ewallet-agents/mcp-gateway",
       "ewallet-agents/agentgateway",
       "feature-store/redis"
@@ -19,7 +18,6 @@
       "ewallet-agents/vllm-primary",
       "ewallet-agents/agentgateway",
       "ewallet-agents/mcp-gateway",
-      "ewallet-agents/drift-mcp",
       "ewallet-mcp/drift-mcp"
     ],
     "jenkins-smoke": [

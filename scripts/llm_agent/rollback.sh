@@ -28,5 +28,14 @@ if [ -z "$target" ]; then
   echo "no earlier revision to roll back to" | tee "$evidence/rollback.txt"
   exit 1
 fi
+# Never restore a revision that selects a retired MCP credential (old auth tables of the legacy, r1-transition or
+# sbx-20261115 server sets, or the deleted Specialist client Secrets): it would re-trust a revoked credential or fail
+# to start. Fix forward instead (docs/runbooks/edai2/AGENT_PLATFORM_MASTER_EVIDENCE_RUNBOOK.md, section 2.6f).
+root=$(cd "$(dirname "$0")/../.." && pwd)
+if ! helm get manifest "$release" --revision "$target" --kube-context "$KUBE_CONTEXT" --namespace default \
+     | (cd "$root" && python3 -m ops.llm_agent.retired_credentials check - --label "$release revision $target"); then
+  echo "refusing to roll $release back to revision $target (retired MCP credentials or unreadable manifest)" | tee "$evidence/rollback.txt" >&2
+  exit 1
+fi
 helm rollback "$release" "$target" --kube-context "$KUBE_CONTEXT" --namespace default --wait --timeout 10m \
   | tee "$evidence/rollback.txt"

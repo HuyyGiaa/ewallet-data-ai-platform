@@ -122,7 +122,7 @@ spec:
       "drift-specialist" (and .Values.agents.enabled (eq .Values.agents.mode "agent"))
       "feature-rag-specialist" (and .Values.agents.enabled (eq .Values.agents.mode "agent")) }}
 {{- $_ := set $rendered "coordinator-idempotency-redis" .Values.idempotencyRedis.enabled }}
-{{- range $retiredName := include "llm-agent-platform.retiredSpecialists" . | fromYamlArray }}{{ $_ := set $rendered $retiredName false }}{{ end }}
+{{- range $retiredName := include "llm-agent-platform.retiredWorkloads" . | fromYamlArray }}{{ $_ := set $rendered $retiredName false }}{{ end }}
 {{- range $workload, $ports := .Values.networkPolicy.ambient.probePorts }}
 {{- if index $rendered $workload }}
 {{- $labels := (index $.Values.networkFlows.workloads $workload).podLabels }}

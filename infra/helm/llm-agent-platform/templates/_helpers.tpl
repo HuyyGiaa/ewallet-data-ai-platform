@@ -22,6 +22,37 @@ still name them. */}}
 {{- toYaml ($names | sortAlpha) -}}
 {{- end -}}
 
+{{/*
+In-release MCP servers retired for good (mcpServices.services.<name>.retired: true): nothing of theirs is
+rendered (Deployment, Service, PDB, ServiceAccount, kubelet-probe policy, flows and policies from or to the
+workload). Unlike enabled: false, which only stops the Deployment/Service/PDB, retired also drops the
+exclusively owned infrastructure. The logical networkFlows.workloads entry may stay (it also names the
+same-named server in the MCP backend namespace, reached through crossNamespace flows, which this never touches).
+*/}}
+{{- define "llm-agent-platform.retiredMcpServices" -}}
+{{- $names := list -}}
+{{- range $name, $service := (.Values.mcpServices.services | default dict) -}}
+{{- if and (kindIs "map" $service) (hasKey $service "retired") -}}
+{{- if not (kindIs "bool" $service.retired) -}}
+{{- fail (printf "mcpServices.services.%s.retired must be a boolean" $name) -}}
+{{- end -}}
+{{- if $service.retired -}}
+{{- if and (hasKey $service "enabled") $service.enabled -}}
+{{- fail (printf "mcpServices.services.%s: a retired server cannot be enabled" $name) -}}
+{{- end -}}
+{{- $names = append $names $name -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- toYaml ($names | sortAlpha) -}}
+{{- end -}}
+
+{{/* Workloads whose infrastructure is no longer rendered: retired Specialists and retired MCP servers. */}}
+{{- define "llm-agent-platform.retiredWorkloads" -}}
+{{- $names := concat (include "llm-agent-platform.retiredSpecialists" . | fromYamlArray) (include "llm-agent-platform.retiredMcpServices" . | fromYamlArray) -}}
+{{- toYaml ($names | sortAlpha) -}}
+{{- end -}}
+
 {{- define "llm-agent-platform.enforcedFlows" -}}
 {{- $flows := .Values.networkFlows.enforced -}}
 {{- if .Values.llmd.enabled -}}
@@ -53,7 +84,7 @@ still name them. */}}
 {{- if (dig "enabled" false (.Values.podLogs | default dict)) -}}
 {{- $flows = append $flows (dict "name" "observability-alloy-to-loki" "from" "observability-alloy" "to" "observability-loki" "port" 3100) -}}
 {{- end -}}
-{{- $retired := include "llm-agent-platform.retiredSpecialists" . | fromYamlArray -}}
+{{- $retired := include "llm-agent-platform.retiredWorkloads" . | fromYamlArray -}}
 {{- $kept := list -}}
 {{- range $flow := $flows -}}
 {{- if not (or (has $flow.from $retired) (has $flow.to $retired)) -}}{{- $kept = append $kept $flow -}}{{- end -}}

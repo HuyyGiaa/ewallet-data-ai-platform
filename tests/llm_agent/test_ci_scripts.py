@@ -28,6 +28,7 @@ printf '%s\\n' "$(basename "$0") $*" >> "$FAKE_LOG"
 case "$(basename "$0") $1" in
   "docker image") echo "{ref_base}@{digest}";;
   "helm history") cat "$FAKE_HISTORY" 2>/dev/null || echo '[]';;
+  "helm get"|"helm template") cat "$FAKE_MANIFEST" 2>/dev/null || echo 'kind: ConfigMap';;
   "kubectl --context") echo "deployment.apps/agentgateway";;
 esac
 exit "${{FAKE_EXIT:-0}}"
@@ -175,6 +176,25 @@ class DeployRollbackTests(ScriptHarness):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         rollback = next(c for c in self.calls() if c.startswith("helm rollback"))
         self.assertRegex(rollback, r"^helm rollback llm-agent 4 ")
+
+    def test_rollback_refuses_a_revision_that_selects_a_retired_credential(self):
+        history = self.dir / "history.json"
+        history.write_text(json.dumps([{"revision": 57, "status": "superseded"}, {"revision": 58, "status": "deployed"}]))
+        manifest = self.dir / "rev57.yaml"
+        manifest.write_text("kind: Deployment\n  secretKeyRef: {name: mcp-auth-drift-mcp, key: auth-config.json}\n")
+        proc = self.run_script("rollback.sh", "gcp", self.dir / "ev", KUBE_CONTEXT="ctx", FAKE_HISTORY=str(history),
+                               FAKE_MANIFEST=str(manifest))
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("mcp-auth-drift-mcp", proc.stderr)
+        self.assertFalse([c for c in self.calls() if c.startswith("helm rollback")])
+
+    def test_deploy_refuses_a_render_with_a_retired_client_credential(self):
+        manifest = self.dir / "render.yaml"
+        manifest.write_text("kind: Agent\n  name: mcp-token-drift-specialist-drift-mcp\n")
+        proc = self.run_script("deploy_atomic.sh", "dev", self.digests(None), self.dir / "ev", KUBE_CONTEXT="ctx",
+                               FAKE_MANIFEST=str(manifest))
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertFalse([c for c in self.calls() if c.startswith("helm upgrade")])
 
     def test_rollback_without_history_fails_loudly(self):
         history = self.dir / "history.json"

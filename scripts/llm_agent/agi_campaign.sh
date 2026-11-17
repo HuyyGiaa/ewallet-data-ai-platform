@@ -27,6 +27,13 @@
 #   cr-mcp     llm-agent-mcp  legacy credential retirement: agi/mcp-retire-legacy.yaml + serverSet=FINAL_SERVER_SET
 #   cr-agents  llm-agent      in-release drift-mcp list-only: agi/agents-retire-legacy-mcp.yaml + serverSet=FINAL_SERVER_SET
 #              (no blind rollback: a rollback re-selects a server set that still accepts the retired credentials)
+#   lc-agents  llm-agent      retire the in-release ewallet-agents/drift-mcp and its exclusive infrastructure
+#                             (agi/agents-retire-in-release-mcp.yaml: mcpServices.services.drift-mcp.retired) and
+#                             drop the retired Specialist client-credential references from the stored values
+#   lc-mcp     llm-agent-mcp  values-only: drop the retired Specialist client-credential references
+#                             (agi/mcp-drop-retired-client-refs.yaml); the rendered manifest must not change
+# Every gate and rollback refuses a manifest that references a retired MCP credential (auth tables of the
+# legacy, r1-transition and sbx-20261115 server sets; mcp-token-*-specialist-*): ops/llm_agent/retired_credentials.py.
 #                             removes their BYO Agent CRs and Deployment-only objects; Sandbox routes stay
 #   tr-agents  llm-agent      the live crossNamespace.flows + kagent-controller-to-otel-collector (OTLP 4317 only;
 #                             P2-C network step, before the kagent controller gets its OTLP endpoint)
@@ -57,7 +64,7 @@ REFERENCE_INPUT="${ROOT}/docs/evidence/llm_agent/agent_platform_runtime_20261102
 FEATURES='["account_behavior__account_tx_count_1h","account_behavior__account_tx_count_24h","user_behavior__user_avg_amount_30d","merchant_behavior__merchant_tx_count_24h"]'
 
 die() { echo "FAIL: $*" >&2; exit 1; }
-PACKAGES=" agi p1-mcp s1-mcp s1-agents p2-agents p4-agents img-mcp img-agents img-coordinator t1-agents tr-agents sp-cleanup cr-mcp cr-agents "
+PACKAGES=" agi p1-mcp s1-mcp s1-agents p2-agents p4-agents img-mcp img-agents img-coordinator t1-agents tr-agents sp-cleanup cr-mcp cr-agents lc-agents lc-mcp "
 SANDBOX_SPECIALISTS="{drift-specialist,feature-rag-specialist}"
 KEDA_AGENTS="fraud-coordinator feature-rag-specialist drift-specialist"
 # What the MCP and BYO images copy (infra/docker/*/Dockerfile). IMAGE_SHA may precede SHA only when
@@ -88,8 +95,8 @@ hl() { "${HELM}" --kube-context "${CTX}" "$@"; }
 package_release() {   # the release a package changes; agi changes both, one per call
   case "${PACKAGE}" in
     agi) echo "$1" ;;
-    p1-mcp|s1-mcp|img-mcp|cr-mcp) echo mcp ;;
-    s1-agents|p2-agents|p4-agents|img-agents|img-coordinator|t1-agents|tr-agents|sp-cleanup|cr-agents) echo agents ;;
+    p1-mcp|s1-mcp|img-mcp|cr-mcp|lc-mcp) echo mcp ;;
+    s1-agents|p2-agents|p4-agents|img-agents|img-coordinator|t1-agents|tr-agents|sp-cleanup|cr-agents|lc-agents) echo agents ;;
   esac
 }
 
@@ -155,7 +162,7 @@ sys.exit(0 if (s.get("drift-specialist") or {}).get("runtime") == "sandbox" else
 }
 drift_is_declarative() {   # before P2 the drift-specialist is Declarative; P4 and image rolls run after P2 made it BYO
   local want=Declarative
-  [[ "${PACKAGE}" == p4-agents || "${PACKAGE}" == img-* || "${PACKAGE}" == t1-agents || "${PACKAGE}" == tr-agents || "${PACKAGE}" == sp-cleanup || "${PACKAGE}" == cr-* ]] && want=BYO
+  [[ "${PACKAGE}" == p4-agents || "${PACKAGE}" == img-* || "${PACKAGE}" == t1-agents || "${PACKAGE}" == tr-agents || "${PACKAGE}" == sp-cleanup || "${PACKAGE}" == cr-* || "${PACKAGE}" == lc-* ]] && want=BYO
   if [[ "${want}" == BYO ]] && specialists_retired; then   # after sp-cleanup the Agent CR is gone on purpose
     ! kc -n ewallet-agents get agents.kagent.dev drift-specialist -o name > /dev/null 2>&1
     return
@@ -284,6 +291,30 @@ image_sha() {   # the commit the images were built from: SHA, or an ancestor wit
 
 digest_ref() { [[ "$1" =~ ^[a-z0-9.-]+-docker\.pkg\.dev/[a-z0-9-]+/[a-z0-9_-]+/[a-z0-9._-]+@sha256:[0-9a-f]{64}$ ]]; }
 
+apply_overlay() {   # apply_overlay <base> <overlay> <out>
+  # Helm keeps a null from a second -f file as a null value (it deletes only chart defaults), so overlays that
+  # delete keys are applied here: null deletes the key, maps merge, anything else replaces.
+  "${PYTHON}" -c '
+import sys, yaml
+def apply(base, overlay):
+    for key, value in overlay.items():
+        if value is None:
+            base.pop(key, None)
+        elif isinstance(value, dict):   # a missing or non-map base still drops the overlay nulls
+            base[key] = apply(base[key] if isinstance(base.get(key), dict) else {}, value)
+        else:
+            base[key] = value
+    return base
+base = yaml.safe_load(open(sys.argv[1])) or {}
+yaml.safe_dump(apply(base, yaml.safe_load(open(sys.argv[2])) or {}), open(sys.argv[3], "w"), sort_keys=True)' \
+    "$1" "$2" "$3" || die "cannot apply $(basename "$2")"
+}
+
+no_retired_credentials() {   # no_retired_credentials <manifest> <label>: refuse a manifest selecting a retired credential
+  (cd "${ROOT}" && "${PYTHON}" -m ops.llm_agent.retired_credentials check "$1" --label "$2") >> "${EV}/campaign.log" 2>&1 \
+    || die "$2 references a retired MCP credential (see ${EV}/campaign.log); fix forward from the current values"
+}
+
 overlay_args() {   # prints one argument per line for this package's render of the release
   case "${PACKAGE}:$1" in
     agi:mcp|p1-mcp:mcp) agi_mcp_args
@@ -324,23 +355,14 @@ overlay_args() {   # prints one argument per line for this package's render of t
       [[ "${FINAL_SERVER_SET}" =~ ^[a-z0-9]([-a-z0-9]{0,22}[a-z0-9])?$ ]] || die "FINAL_SERVER_SET must be a credential server-set name"
       local file=mcp-retire-legacy.yaml base=llm-agent-mcp-values.yaml
       [[ "$1" == agents ]] && file=agents-retire-legacy-mcp.yaml base=llm-agent-values.yaml
-      # Helm keeps a null from a second -f file as a null value (it deletes only chart defaults), so the
-      # overlay is applied here: null deletes the key, maps merge, anything else replaces.
-      "${PYTHON}" -c '
-import sys, yaml
-def apply(base, overlay):
-    for key, value in overlay.items():
-        if value is None:
-            base.pop(key, None)
-        elif isinstance(value, dict):   # a missing or non-map base still drops the overlay nulls
-            base[key] = apply(base[key] if isinstance(base.get(key), dict) else {}, value)
-        else:
-            base[key] = value
-    return base
-base = yaml.safe_load(open(sys.argv[1])) or {}
-yaml.safe_dump(apply(base, yaml.safe_load(open(sys.argv[2])) or {}), open(sys.argv[3], "w"), sort_keys=True)' \
-        "${PRIVATE}/${base}" "${CHART}/agi/${file}" "${PRIVATE}/${PACKAGE}-values.yaml" || die "cannot apply ${file}"
+      apply_overlay "${PRIVATE}/${base}" "${CHART}/agi/${file}" "${PRIVATE}/${PACKAGE}-values.yaml"
       printf '%s\n' -f "${PRIVATE}/${PACKAGE}-values.yaml" --set "mcpCredentialLifecycle.serverSet=${FINAL_SERVER_SET}"
+      echo __END__ ;;
+    lc-agents:agents|lc-mcp:mcp)   # the live values (already on the final server set) with the overlay applied
+      local file=agents-retire-in-release-mcp.yaml base=llm-agent-values.yaml
+      [[ "$1" == mcp ]] && file=mcp-drop-retired-client-refs.yaml base=llm-agent-mcp-values.yaml
+      apply_overlay "${PRIVATE}/${base}" "${CHART}/agi/${file}" "${PRIVATE}/${PACKAGE}-values.yaml"
+      printf '%s\n' -f "${PRIVATE}/${PACKAGE}-values.yaml"
       echo __END__ ;;
     img-coordinator:agents)
       need COORDINATOR_IMAGE
@@ -419,6 +441,11 @@ expected_identities() {
   case "${PACKAGE}:$1" in
     cr-mcp:mcp) printf '%s\n' --expect-changed Deployment/ewallet-mcp/feature-rag-mcp --expect-changed Deployment/ewallet-mcp/drift-mcp ;;
     cr-agents:agents) printf '%s\n' --expect-changed Deployment/ewallet-agents/drift-mcp ;;
+    lc-mcp:mcp) ;;   # values-only: exactly no object changes
+    lc-agents:agents)   # exact: the retired in-release drift-mcp and only what it exclusively owned
+      local id
+      for id in Deployment/ewallet-agents/drift-mcp Service/ewallet-agents/drift-mcp PodDisruptionBudget/ewallet-agents/drift-mcp ServiceAccount/ewallet-agents/drift-mcp NetworkPolicy/ewallet-agents/allow-ambient-probes-drift-mcp NetworkPolicy/ewallet-agents/allow-drift-mcp-to-otel-collector-ingress NetworkPolicy/ewallet-agents/allow-drift-mcp-to-otel-collector-egress AuthorizationPolicy/ewallet-agents/allow-drift-mcp-to-otel-collector; do printf '%s\n' --expect-removed "${id}"; done
+      printf '%s\n' --expect-changed ConfigMap/ewallet-agents/llm-agent-network-flows ;;
     agi:mcp|s1-mcp:mcp|img-mcp:mcp) printf '%s\n' --expect-changed Deployment/ewallet-mcp/feature-rag-mcp --expect-changed Deployment/ewallet-mcp/drift-mcp ;;
     p1-mcp:mcp) printf '%s\n' --expect-changed Deployment/ewallet-mcp/feature-rag-mcp --expect-changed Deployment/ewallet-mcp/drift-mcp \
                   --expect-added PodDisruptionBudget/ewallet-mcp/feature-rag-mcp ;;
@@ -459,6 +486,7 @@ gate() {   # read-only: fails before any mutating command can run
   cmp -s "${PRIVATE}/${name}-live-now.yaml" "${PRIVATE}/${name}-live.yaml" \
     || die "${name} changed since Stage 0; re-run preflight"
   hl template "${name}" "${CHART}" -n "${namespace}" "${args[@]}" > "${PRIVATE}/${name}-on.yaml"
+  no_retired_credentials "${PRIVATE}/${name}-on.yaml" "${name} ${PACKAGE} render"
   "${PYTHON}" "${ROOT}/scripts/llm_agent/helm_object_diff.py" "${PRIVATE}/${name}-live.yaml" "${PRIVATE}/${name}-on.yaml" \
     --expect-identities "${identities[@]}" > "${EV}/stage1/${name}-diff.txt"
   hl upgrade "${name}" "${CHART}" -n "${namespace}" "${args[@]}" --dry-run=server > "${PRIVATE}/${name}-dry-run.txt"
@@ -575,6 +603,8 @@ rollback() {
   key=$(revision_key "${name}")
   revision=$(grep -E "^${key}=" "${EV}/stage0/PREFLIGHT_PASS" | cut -d= -f2)
   [[ "${revision}" =~ ^[0-9]+$ ]] || die "no Stage 0 revision recorded for ${name}"
+  hl -n "${namespace}" get manifest "${name}" --revision "${revision}" > "${PRIVATE}/${name}-rollback-target.yaml"
+  no_retired_credentials "${PRIVATE}/${name}-rollback-target.yaml" "${name} revision ${revision}"
   if [[ "${PACKAGE}" == p2-agents ]]; then
     # A plain rollback deletes the ScaledObjects, which cascades to the HPAs KEDA adopted and leaves
     # no autoscaler. Delete the three ScaledObjects first; KEDA then releases the HPAs and the

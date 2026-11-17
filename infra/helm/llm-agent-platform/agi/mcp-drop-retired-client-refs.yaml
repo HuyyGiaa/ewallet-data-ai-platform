@@ -1,0 +1,11 @@
+# Package lc-mcp (release llm-agent-mcp, namespace ewallet-mcp; campaign lc-20261117T002220Z): values-only cleanup.
+# The stored values still name the retired Specialist client credentials (Secrets deleted in
+# closure-20261116T211833Z) under agents.specialists.*.authHeaderSecrets; this release renders no Agent, so the
+# rendered manifest must stay identical (the gate expects zero changed objects). The MCP servers, their grants and
+# the final server set are untouched. Applied by agi_campaign.sh (Python overlay: null deletes the key).
+agents:
+  specialists:
+    drift-specialist:
+      authHeaderSecrets: null
+    feature-rag-specialist:
+      authHeaderSecrets: null

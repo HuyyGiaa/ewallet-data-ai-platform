@@ -40,6 +40,9 @@ Feast/KServe egress targets are read back (see networkFlows.unresolved).
 {{- end }}
 {{- $enabled = $service.enabled }}
 {{- end }}
+{{- if has $name (include "llm-agent-platform.retiredMcpServices" $ | fromYamlArray) }}
+{{- $enabled = false }}
+{{- end }}
 {{- if $enabled }}
 {{- $auth := $service.authSecret | default dict }}
 {{- $pdbEnabled := true }}
