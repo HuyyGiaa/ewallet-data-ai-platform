@@ -20,8 +20,8 @@ def run(Map configuration) {
         string(name: 'KUBE_CONTEXT', defaultValue: '', description: 'Explicit context; the kubeconfig default is never used'),
         string(name: 'IMAGE_MANIFEST', defaultValue: '', description: 'Reviewed immutable image manifest; empty builds or reuses images with Cloud Build'),
         choice(name: 'REGISTRY_LOOKUP', choices: ['required', 'off'], description: 'Artifact Registry lookup for image reuse and digest readback'),
-        booleanParam(name: 'PROMOTE_TO_PRODUCTION', defaultValue: false, description: 'After a passing rehearsal, request the separately approved production promotion'),
-        string(name: 'PRODUCTION_KUBE_CONTEXT', defaultValue: '', description: 'Production context of the approved deployer identity'),
+        booleanParam(name: 'PROMOTE_TO_PRODUCTION', defaultValue: false, description: 'After a passing rehearsal, take the separate production approval and archive the operator handoff (Jenkins never deploys production)'),
+        string(name: 'PRODUCTION_KUBE_CONTEXT', defaultValue: '', description: 'Name of the approved production target context (recorded in the handoff; no credentials)'),
         string(name: 'PRODUCTION_IDENTITY', defaultValue: '', description: 'Name of the approved production deployer identity (owner decision D1)'),
         string(name: 'PROMPT_REGISTRY_URL', defaultValue: 'http://prompt-registry-agentregistry.ewallet-prompts.svc.cluster.local:12121', description: 'Prompt Management gate (agentregistry)'),
         string(name: 'STREAMING_SERVICE_ACCOUNT', defaultValue: '', description: 'Streaming campaign identity in ewallet-ci'),
@@ -50,8 +50,11 @@ def run(Map configuration) {
             test "\$(git rev-parse HEAD)" = "$EXPECTED_GIT_SHA"
             mkdir -p '${evidenceDir}'
             git status --short --branch > '${evidenceDir}/git-status.txt'
-            printf 'build_url=%s\\nbuild_tag=%s\\ngit_sha=%s\\ntriggered_by=%s\\n' "\${BUILD_URL:-}" "\${BUILD_TAG:-}" "$EXPECTED_GIT_SHA" "\$TRIGGERED_BY" \\
+            printf 'job_name=%s\\nbuild_number=%s\\nbuild_url=%s\\nbuild_tag=%s\\ngit_sha=%s\\ntriggered_by=%s\\n' \\
+              "\${JOB_NAME:-}" "\${BUILD_NUMBER:-}" "\${BUILD_URL:-}" "\${BUILD_TAG:-}" "\$(git rev-parse HEAD)" "\$TRIGGERED_BY" \\
               > '${evidenceDir}/jenkins-build.txt'
+            # Identity of the immutable source snapshot this controller reads (release_handoff checks its SHA).
+            if [ -f /opt/ewallet-source/source-metadata.txt ]; then cp /opt/ewallet-source/source-metadata.txt '${evidenceDir}/source-metadata.txt'; fi
           """
         }
       }
@@ -195,7 +198,7 @@ def run(Map configuration) {
           stage('Production approval') {
             String productionApprover = input(
               message: "Promote ${params.EXPECTED_GIT_SHA} (${params.RELEASE_BRANCH}) to PRODUCTION with ${params.PRODUCTION_IDENTITY ?: '(no identity)'}?",
-              ok: 'Promote to production',
+              ok: 'Approve production handoff',
               submitterParameter: 'APPROVED_BY'
             )
             if (!productionApprover || productionApprover == triggeredBy) {
@@ -204,7 +207,10 @@ def run(Map configuration) {
             env.PRODUCTION_APPROVED_BY = productionApprover
           }
 
-          stage('Promote to production') {
+          stage('Prepare operator handoff') {
+            // Jenkins holds no production identity (owner decision D1): it plans the approved production
+            // release and hands it to the operator, who verifies the handoff and runs the transaction
+            // (docs/edai2/cicd/CICD_REHEARSAL_RUNBOOK.md §8). Nothing in production changes here.
             withEnv(["RELEASE_PROFILE=${profile}", "RELEASE_BRANCH_REF=${params.RELEASE_BRANCH ?: ''}", "TRIGGERED_BY=${triggeredBy}"]) {
               sh """#!/usr/bin/env bash
                 set -euo pipefail
@@ -220,10 +226,18 @@ def run(Map configuration) {
                 python3 -m scripts.ci.release_policy --root "$WORKSPACE" build \\
                   --request '${evidenceDir}/production-request.json' --image-manifest '${imageManifest}' \\
                   --output '${evidenceDir}/production-plan.json'
-                PROMOTION_APPROVED=yes scripts/ci/deploy_release.sh --plan '${evidenceDir}/production-plan.json' \\
-                  --execute --production-context "$PRODUCTION_KUBE_CONTEXT"
+                source_metadata=()
+                if [ -f '${evidenceDir}/source-metadata.txt' ]; then source_metadata=(--source-metadata '${evidenceDir}/source-metadata.txt'); fi
+                python3 -m scripts.ci.release_handoff build --out '${evidenceDir}/handoff' \\
+                  --release-plan '${evidenceDir}/production-plan.json' --image-manifest '${imageManifest}' \\
+                  --release-request '${evidenceDir}/production-request.json' --ci-verdict '${evidenceDir}/ci-verdict.json' \\
+                  --image-scan '${evidenceDir}/image-scan.json' --jenkins-build '${evidenceDir}/jenkins-build.txt' \\
+                  "\${source_metadata[@]}" > '${evidenceDir}/handoff-digest.txt'
               """
             }
+            String digestLine = readFile("${evidenceDir}/handoff-digest.txt").trim()
+            currentBuild.description = "READY_FOR_OPERATOR_PROMOTION ${params.EXPECTED_GIT_SHA.take(12)}"
+            echo "RELEASE_STATUS READY_FOR_OPERATOR_PROMOTION (production NOT deployed by Jenkins) ${digestLine}"
           }
         }
       }

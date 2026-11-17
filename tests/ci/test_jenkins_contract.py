@@ -79,10 +79,19 @@ class JenkinsSharedPipelineTests(unittest.TestCase):
     def test_release_stages_plan_then_build_then_scan_then_rehearse(self) -> None:
         order = [self.text.index(name) for name in (
             "stage('Plan release units')", "stage('Build or reuse images (Cloud Build)')", "stage('Scan images')",
-            "stage('Rehearse release units')", "stage('Production approval')", "stage('Promote to production')")]
+            "stage('Rehearse release units')", "stage('Production approval')", "stage('Prepare operator handoff')")]
         self.assertEqual(order, sorted(order))
         self.assertIn("python3 -m scripts.ci.image_scan", self.text)
         self.assertIn("--images-file", self.text)
+
+    def test_jenkins_hands_production_to_the_operator_and_never_deploys_it(self) -> None:
+        stage = self.text[self.text.index("stage('Prepare operator handoff')"):]
+        self.assertIn("python3 -m scripts.ci.release_handoff build", stage)
+        self.assertIn("RELEASE_STATUS READY_FOR_OPERATOR_PROMOTION", stage)
+        self.assertNotIn("--production-context", stage)
+        self.assertNotIn("PROMOTION_APPROVED=yes", self.text)
+        self.assertNotIn("Promote to production", self.text)
+        self.assertIn("source-metadata.txt", self.text)  # the snapshot identity reaches the handoff
 
     def test_production_needs_its_own_flag_and_a_distinct_approver(self) -> None:
         self.assertIn("if (params.PROMOTE_TO_PRODUCTION)", self.text)

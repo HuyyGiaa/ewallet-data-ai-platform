@@ -9,8 +9,9 @@ Rehearsal units run in order under their resource locks; the first failure stops
 (each rehearsal executor restores or parks its own workload). Production plans go to
 ``scripts/ci/production_release.py`` (candidate SandboxAgents, Helm image promotions, the
 SandboxAgent fleet patch), which rolls every changed unit back in reverse order on failure and
-reconciles the runtime verification with the transaction. The release verdict states the stage
-and whether production changed.
+reconciles the runtime verification with the transaction. A production plan runs only from a
+verified Jenkins handoff (``scripts/ci/release_handoff.py``) on the operator side. The release
+verdict states the stage, the lifecycle state and whether production changed.
 """
 
 from __future__ import annotations
@@ -163,6 +164,85 @@ def _locks(namespace: str, holder: str, api: str | None):
     return ReleaseLocks(KubeLeaseApi(Client.from_environment(api), namespace), namespace, holder)
 
 
+# Production exit codes: a verified release still pending the Agent Registry publication is not a plain
+# success, and a critical state (rollback failed, recovery required) is distinguishable from a failure.
+PRODUCTION_EXIT = {"RELEASE_COMPLETE": 0, "DEPLOYED_PENDING_REGISTRY": 3, "ROLLBACK_FAILED": 4,
+                   "RECOVERY_REQUIRED": 4}
+
+
+def _production(args: argparse.Namespace, units, holder: str) -> int:  # type: ignore[no-untyped-def]
+    """The operator side of the handoff: verify it, then run the production transaction."""
+
+    from scripts.ci import production_release, release_handoff, runtime_verify
+    from scripts.ci.k8s_api import Client, KubeError
+    from scripts.ci.release_lock import LockError
+    from scripts.ci.sandbox_agents import new_execution_id
+    from scripts.ci.sandbox_candidate import ClientKube
+
+    context = args.production_context
+    if not args.handoff or not args.handoff_sha256:
+        print("release_dispatch: refused before any deployment: a production plan runs only from a verified Jenkins "
+              "handoff (--handoff <dir> --handoff-sha256 <digest from the Jenkins console>)", flush=True)
+        return 2
+    if args.plan.resolve() != (args.handoff / "release-plan.json").resolve():
+        print("release_dispatch: refused before any deployment: --plan must be the handoff's release-plan.json", flush=True)
+        return 2
+    handoff, problems = release_handoff.verify(args.handoff, args.handoff_sha256, head_sha=_git_head(),
+                                               production_context=context,
+                                               production_identity=args.production_identity)
+    if problems:
+        print(f"release_dispatch: refused before any deployment: handoff verification failed: {problems}", flush=True)
+        return 2
+    try:
+        # Refuse before any mutation when the post-promotion verification could not reach the same
+        # cluster: discovering that after a promotion would force a rollback.
+        runtime_verify.guard_target(os.environ, context)
+        if not context or context == "in-cluster":
+            raise production_release.ProductionReleaseError("an explicit production kube context is required")
+    except (runtime_verify.VerificationError, production_release.ProductionReleaseError) as error:
+        print(f"release_dispatch: refused before any deployment: {error}", flush=True)
+        return 2
+    plan = json.loads(args.plan.read_text(encoding="utf-8"))
+    if not args.execute:
+        print("DRY RUN: handoff verified; the production transaction runs with --execute only")
+        return 0
+    execution_id = new_execution_id()
+    evidence_root = (args.evidence_dir or args.handoff / "operator") / execution_id
+    evidence_root.mkdir(parents=True, exist_ok=True)
+    manifest_data = json.loads((args.handoff / "image-manifest.json").read_text(encoding="utf-8"))
+
+    def verify(expected) -> bool:  # type: ignore[no-untyped-def]
+        result = runtime_verify.run_checks(runtime_verify.checks_for(plan["units"]), evidence_root / "runtime",
+                                           expected=expected, production_context=context)
+        (evidence_root / "runtime-verdict.json").write_text(json.dumps(result, indent=2, sort_keys=True) + "\n",
+                                                             encoding="utf-8")
+        return result["verdict"] == "PASS"
+
+    try:
+        # One identity for the whole transaction: the locks, the SandboxAgent units and Helm all go
+        # through the explicit production context (an operator workstation has no in-cluster token).
+        with production_release.kubectl_proxy(context) as api:
+            locks = _locks(units.lock_namespace, holder, args.api or api)
+            with locks.hold(sorted({unit["lock"] for unit in plan["units"]})):
+                report = production_release.run(
+                    plan, context, manifest_data, execute=True, kube=ClientKube(Client(api)), verify=verify,
+                    evidence=evidence_root / "units", checkpoint=locks.renew,
+                    journal_path=evidence_root / "transaction-journal.json", execution_id=execution_id,
+                    handoff={"sha256": args.handoff_sha256, "jenkins": (handoff or {}).get("jenkins")})
+    except (KubeError, LockError, production_release.ProductionReleaseError) as error:
+        journal = evidence_root / "transaction-journal.json"
+        print(f"release_dispatch: production transaction stopped: {error}"
+              + (f"; recovery: python -m scripts.ci.production_release recovery-plan --journal {journal}"
+                 if journal.is_file() else "; nothing was deployed"), flush=True)
+        return 2
+    (evidence_root / "release-verdict.json").write_text(json.dumps(report, indent=2, sort_keys=True) + "\n",
+                                                        encoding="utf-8")
+    print(json.dumps({key: report.get(key) for key in ("verdict", "execution_id", "production_changed", "failure")},
+                     sort_keys=True))
+    print(f"RELEASE_STATUS {report['verdict']} evidence={evidence_root}")
+    return PRODUCTION_EXIT.get(report["verdict"], 1)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--plan", type=Path, required=True)
@@ -171,6 +251,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--units", type=Path, default=ROOT / "jenkins/catalog/release-units.json")
     parser.add_argument("--api", default=os.environ.get("K8S_API"), help="local API proxy for locks (dry runs)")
     parser.add_argument("--production-context", default="", help="production promotion only")
+    parser.add_argument("--handoff", type=Path, help="production only: the archived Jenkins handoff directory")
+    parser.add_argument("--handoff-sha256", default="", help="production only: digest from the Jenkins console")
+    parser.add_argument("--production-identity", help="production only: must equal the approved identity")
+    parser.add_argument("--evidence-dir", type=Path, help="production only: operator evidence root")
     args = parser.parse_args(argv)
     try:
         catalog = load_catalog(args.catalog)
@@ -178,72 +262,34 @@ def main(argv: list[str] | None = None) -> int:
         units = load_release_units(args.units)
         units.validate(ROOT, catalog)
         plan = json.loads(args.plan.read_text(encoding="utf-8"))
-        manifest = Path(plan.get("image_manifest_path", ""))
-        verify_release_plan(catalog, units, plan, head_sha=_git_head(),
-                            manifest_path=manifest if manifest.is_absolute() else ROOT / manifest)
+        if plan.get("stage") != "production":
+            manifest = Path(plan.get("image_manifest_path", ""))
+            verify_release_plan(catalog, units, plan, head_sha=_git_head(),
+                                manifest_path=manifest if manifest.is_absolute() else ROOT / manifest)
     except (CatalogError, ReleasePolicyError, OSError, ValueError) as error:
         print(f"release_dispatch: refused: {error}", flush=True)
         return 2
-    evidence_root = Path(plan["evidence_dir"])
-    evidence_root.mkdir(parents=True, exist_ok=True)
     holder = os.environ.get("BUILD_TAG") or f"local-{os.getpid()}"
     if plan["stage"] == "production":
-        from scripts.ci import production_release, runtime_verify
+        # The plan, its manifest and every identity are verified against the handoff (release_handoff).
+        return _production(args, units, holder)
+    evidence_root = Path(plan["evidence_dir"])
+    evidence_root.mkdir(parents=True, exist_ok=True)
+    if not args.execute:
+        for unit in plan["units"]:
+            for command in commands_for(unit, plan, evidence_root / unit["name"]):
+                print("DRY RUN:", unit["name"], " ".join(command))
+        return 0
+    from scripts.ci.k8s_api import KubeError
+    from scripts.ci.release_lock import LockError
 
-        if not args.execute:
-            print("DRY RUN: the production transaction runs with --execute only (scripts/ci/production_release.py)")
-            return 0
-        context = args.production_context
-        try:
-            # Refuse before any mutation when the post-promotion verification could not reach the same
-            # cluster: discovering that after a promotion would force a rollback.
-            runtime_verify.guard_target(os.environ, context)
-            if not context or context == "in-cluster":
-                raise production_release.ProductionReleaseError("an explicit production kube context is required")
-        except (runtime_verify.VerificationError, production_release.ProductionReleaseError) as error:
-            print(f"release_dispatch: refused before any deployment: {error}", flush=True)
-            return 2
-        manifest_data = json.loads((manifest if manifest.is_absolute() else ROOT / manifest).read_text(encoding="utf-8"))
-
-        def verify(expected) -> bool:
-            result = runtime_verify.run_checks(runtime_verify.checks_for(plan["units"]), evidence_root / "runtime",
-                                               expected=expected, production_context=context)
-            (evidence_root / "runtime-verdict.json").write_text(json.dumps(result, indent=2, sort_keys=True) + "\n",
-                                                                 encoding="utf-8")
-            return result["verdict"] == "PASS"
-
-        from scripts.ci.k8s_api import Client, KubeError
-        from scripts.ci.release_lock import LockError
-        from scripts.ci.sandbox_candidate import ClientKube
-
-        try:
-            # One identity for the whole transaction: the locks, the SandboxAgent units and Helm all go
-            # through the explicit production context (an operator workstation has no in-cluster token).
-            with production_release.kubectl_proxy(context) as api:
-                locks = _locks(units.lock_namespace, holder, args.api or api)
-                with locks.hold(sorted({unit["lock"] for unit in plan["units"]})):
-                    report = production_release.run(plan, context, manifest_data, execute=True,
-                                                    kube=ClientKube(Client(api)), verify=verify,
-                                                    evidence=evidence_root / "units")
-        except (KubeError, LockError, production_release.ProductionReleaseError) as error:
-            print(f"release_dispatch: refused before any deployment: {error}", flush=True)
-            return 2
-    else:
-        if not args.execute:
-            for unit in plan["units"]:
-                for command in commands_for(unit, plan, evidence_root / unit["name"]):
-                    print("DRY RUN:", unit["name"], " ".join(command))
-            return 0
-        from scripts.ci.k8s_api import KubeError
-        from scripts.ci.release_lock import LockError
-
-        try:
-            report = dispatch_rehearsal(plan, evidence_root, locks=_locks(units.lock_namespace, holder, args.api),
-                                        prompt_registry=os.environ.get("PROMPT_REGISTRY_URL", ""))
-        except (KubeError, LockError) as error:
-            # No cluster access or a held lock: nothing was deployed; say so plainly.
-            print(f"release_dispatch: refused before any deployment: release locks unavailable: {error}", flush=True)
-            return 2
+    try:
+        report = dispatch_rehearsal(plan, evidence_root, locks=_locks(units.lock_namespace, holder, args.api),
+                                    prompt_registry=os.environ.get("PROMPT_REGISTRY_URL", ""))
+    except (KubeError, LockError) as error:
+        # No cluster access or a held lock: nothing was deployed; say so plainly.
+        print(f"release_dispatch: refused before any deployment: release locks unavailable: {error}", flush=True)
+        return 2
     (evidence_root / "release-verdict.json").write_text(json.dumps(report, indent=2, sort_keys=True) + "\n",
                                                         encoding="utf-8")
     print(json.dumps({key: report.get(key) for key in ("verdict", "stage", "production_changed", "failure")},
