@@ -27,10 +27,17 @@ Jenkins job (one per release group)
   -> Scan images                   Trivy (pinned) per digest via Cloud Build; PASS | VULNERABLE | SCANNER_ERROR
   -> Rehearse release units        release_policy build -> deploy_release.sh (release_dispatch.py) under Lease locks
   -- PROMOTE_TO_PRODUCTION + second input by a different person --
-  -> Production transaction        production_release.py, units in plan order (§7):
-                                   sandbox-candidate (create, verify, always delete) -> helm-image-promotion
-                                   (release_state checks, helm upgrade --atomic) -> fleet-image-promotion
-                                   (guarded JSON patch) -> runtime_verify (reconciled) -> reverse rollback on failure
+  -> Prepare operator handoff      production plan + release_handoff.py build -> archived handoff/;
+                                   console: RELEASE_STATUS READY_FOR_OPERATOR_PROMOTION, RELEASE_HANDOFF sha256=...
+                                   (Jenkins never deploys production; it holds no production identity)
+
+Operator workstation (approved identity, §8)
+  -> Verify handoff                release_handoff.verify: console digest, artifacts, SHA chain, target, approvals
+  -> Production transaction        production_release.py, units in plan order (§7), lock checkpoint + journal entry
+                                   before every mutation: sandbox-candidate (create, verify, always delete) ->
+                                   helm-image-promotion -> fleet-image-promotion (guarded JSON patch) ->
+                                   runtime_verify (fail-closed reconciliation) -> reverse rollback on failure
+  -> Registry reconciliation       separately approved publication, then registry_release.py reconcile
 ```
 
 **CI components vs release units.**
@@ -98,12 +105,13 @@ FEAST_SNAPSHOT_ID=<id> FEATURE_RUN_ID=<id> uv run --locked --project infra/docke
 | P4 | Cloud Build can run the scan step (runner SA already reads the repository; the scan downloads the Trivy DB) | `Scan images` stage | `scripts/ci/image_scan.py` |
 | P5 | Jenkins environment `PROMPT_REGISTRY_URL` reachable from the controller (`ewallet-prompts`) | `prompt-registry-gate`; an empty URL fails the gate | Jenkins global env / job env |
 | P6 | Streaming campaign identity: rights in `ml-platform` (Jobs, Deployments, Services, ConfigMaps, `pods/exec` on the Flink JobManager) and `feature-store` (`pods/exec` on `statefulset/redis` for the claim), plus `FEAST_SNAPSHOT_ID` and `FEATURE_RUN_ID` | The frozen operator works in `ml-platform` and claims the `rehearsal-stream` Redis database. Jenkins has none of these rights today | Owner decision D6. Alternative: run `streaming_verify.py --execute` from the operator workstation with the same plan |
-| P7 | Production deployer identity and a second Jenkins user for approvals | `PROMOTE_TO_PRODUCTION` needs `PRODUCTION_IDENTITY`, `PRODUCTION_KUBE_CONTEXT` and an approver distinct from the trigger | Owner decision D1/D2. Without them, promote with `scripts/ci/release_dispatch.py --plan <production plan> --execute --production-context <ctx>` from the operator workstation |
+| P7 | Production deployer identity (the operator's kube context) and a second Jenkins user for approvals | `PROMOTE_TO_PRODUCTION` records `PRODUCTION_IDENTITY`, the target context name and an approver distinct from the trigger in the handoff; the operator runs it (§8) | Owner decision D1/D2. Jenkins itself never receives production credentials |
 | P8 | Runtime verification needs `AGI_ENV` (its `CTX` must equal the production context), the cluster and `agent_replay.sh pf` port-forwards | `runtime_verify.py` reuses the owner-replay helper; the dispatcher refuses a production plan before any lock when the target does not match | `docs/edai2/agents/OWNER_AGENT_PLATFORM_EVIDENCE_REPLAY.md` |
-| P9 | Agent release identity `ewallet-cicd-agent-release` and its Roles (SandboxAgent create, patch on the two production names, delete on the two candidate names; WorkerPool/ActorTemplate read; two SA and two Secret names get; MCP Deployments get; kagent port-forward; Leases) | Candidate and fleet units, under the production approval | `infra/kubernetes/jenkins/rbac/agent-cicd-production.proposed.yaml` (inert) |
-| P10 | Substrate may write golden snapshots under `gs://ate-snapshots/ewallet-sandbox/cicd-<sha12>/`, and the objects are removed afterwards | The candidate's ActorTemplate takes a golden snapshot there | Read-only check of the Substrate identity's bucket rights before the run; cleanup of the prefix (§7) |
+| P9 | Agent release identity `ewallet-cicd-agent-release` and its Roles (SandboxAgent create, patch on the two production names, delete on the two candidate names; WorkerPool/ActorTemplate read; two SA and two Secret names get; MCP Deployments get; kagent port-forward; Leases get/create/update/delete, `update` for renewal) | Candidate and fleet units, under the production approval | `infra/kubernetes/jenkins/rbac/agent-cicd-production.proposed.yaml` (inert) |
+| P10 | Substrate may write golden snapshots under `gs://ate-snapshots/ewallet-sandbox/cicd-<sha12>/<execution>/`, and the objects are removed afterwards (exact prefix only) | The candidate's ActorTemplate takes a golden snapshot there | Read-only check of the Substrate identity's bucket rights before the run; cleanup of the prefix (§7) |
 | P11 | Credential release `sbx-20261115` still current (`jenkins/cd/sandbox-candidate.contract.json`) | The candidate reuses the production MCP client Secrets; a rotated release refuses with `MISSING_CREDENTIALS` | Update the contract after a rotation |
-| P12 | Agent Registry publication after a promotion that changed the Coordinator or fleet image | Registry entries compare image-digest labels; CI/CD never publishes | `ops/llm_agent/registry_catalog.py publish` (dry-run, then `--confirm-live-write`), then `agent_replay.sh registry` |
+| P12 | Agent Registry publication after a promotion that changed the Coordinator or fleet image | Registry entries compare image-digest labels; publication overwrites the record at the unchanged tag; CI/CD never publishes | The verdict's `registry.procedure`: capture, dry-run, approved publish, readback, `registry_release.py reconcile` (§8) |
+| P13 | Worker nodes can pull from `ewallet-platform/g3-byo-coordinator` (today the fleet runs `g3-byo-feature-rag-specialist`) | The fleet promotion switches repository (identical filesystem layers, §9) | Read-only check of the node pull identity's reader role on the repository |
 
 ## 5. Owner rehearsal sequence
 
@@ -132,11 +140,12 @@ FEAST_SNAPSHOT_ID=<id> FEATURE_RUN_ID=<id> uv run --locked --project infra/docke
    - **Optionally (P7):** `PROMOTE_TO_PRODUCTION=true` promotes `llm-agent-mcp`, then `platform-status`.
 3. **Row 35.** Run `edai2-cd-coordinator`.
    - **Expect:** `mcp-servers` → `agent-fleet` → `coordinator` PASS.
-   - **With P7–P11 (production, §7):** from the operator workstation with the plan Jenkins archived:
-     `agent-fleet-candidate` PASS (both candidates Ready with a golden actor, both known answers, both
-     deleted, `production_unchanged: true`) → `mcp-servers-production` → `agent-fleet-production` →
-     `coordinator-production` → `status` (reconciled), `e2e fraud`, `e2e drift`, `e2e combined`, `negative`
-     all PASS. Then P12 if the verdict's `registry.status` is `PUBLICATION_REQUIRES_APPROVAL`.
+   - **With P7–P13 (production, §7–§8):** Jenkins ends `READY_FOR_OPERATOR_PROMOTION`; the operator
+     verifies the handoff and runs the transaction: `agent-fleet-candidate` PASS (both candidates Ready
+     with a golden actor, both known answers, both deleted, `production_unchanged: true`) →
+     `mcp-servers-production` → `agent-fleet-production` → `coordinator-production` → `status`
+     (reconciled; any accepted exception listed), `e2e fraud`, `e2e drift`, `e2e combined`, `negative`
+     PASS → `DEPLOYED_PENDING_REGISTRY` → P12 → `registry_release.py reconcile` → `RELEASE_COMPLETE`.
 4. **Row 36.** Run `edai2-cd-streaming` (P6).
    - **Expect:**
      - image smoke PASS;
@@ -160,10 +169,11 @@ FEAST_SNAPSHOT_ID=<id> FEATURE_RUN_ID=<id> uv run --locked --project infra/docke
 - **Rehearsal failure.** The failing unit restores its previous workload, or removes a first
   deployment. Later units do not run. Locks are released, and the release failure stays the reported
   error.
-- **Promotion failure.**
-  - `helm --atomic` restores a failed upgrade.
-  - A failure after an upgrade (readback, a later unit, runtime verification) rolls every upgraded
-    release back to its recorded revision, in reverse order.
+- **Promotion failure** (details and states in §8).
+  - `helm --atomic` restores a failed upgrade; a failed, timed-out or lost upgrade is still inspected
+    (`UPGRADE_ATTEMPTED`) and rolled back if the revision moved.
+  - A failure after an upgrade (readback, a later unit, runtime verification, a verifier crash) rolls
+    every possibly changed release and SandboxAgent back, in reverse order.
 - **Streaming.** `cleanup --execute` always runs once the campaign has started. Two kinds of data
   remain by design: the campaign's GCS prefixes and the claimed `rehearsal-stream` Redis database.
 
@@ -195,8 +205,14 @@ production fleet is promoted only after the candidate passes.
 - **Candidate.** Two release-scoped SandboxAgents, `feature-rag-specialist-cicd` and
   `drift-specialist-cicd`, in `ewallet-sandbox` on the shared WorkerPool `business-agents`.
   - Rendered from the frozen fleet template.
-  - Only four things differ: name, labels, image digest, snapshot prefix `cicd-<sha12>`.
-    `contract_differences` proves nothing else changed.
+  - Only four things differ: name, labels (release SHA, execution id), image digest, snapshot prefix
+    `cicd-<sha12>/<execution>/`. `contract_differences` proves nothing else changed (security
+    context, network allow-list, ServiceAccount, credentials, WorkerPool reference included).
+  - This is NOT isolated staging: the candidates share the production WorkerPool, ServiceAccounts
+    and MCP credentials.
+  - Every run has a fresh execution id `<yyyymmdd>t<hhmmss>-<6 hex>`: the candidate label, the exact
+    snapshot prefix, every A2A request id (`cicd-<execution>-<agent>`) and the evidence directory carry
+    it, so a retry of the same SHA never reuses an earlier golden snapshot, idempotency entry or answer.
   - They reuse the production ServiceAccounts and MCP client Secrets.
   - They are verified through the kagent route `/api/a2a-sandboxes/ewallet-sandbox/<candidate>/` and
     then deleted.
@@ -207,17 +223,11 @@ production fleet is promoted only after the candidate passes.
   SandboxAgents. No Helm migration. Ownership, labels, the WorkerPool, credentials and every other
   field are untouched.
 
-**Where it runs.** Jenkins has no production identity. Its production stage is refused before any
-lock (no `AGI_ENV`). The operator runs the archived, re-verified plan:
-
-```bash
-export AGI_ENV=<campaign env whose CTX is the production context> REPLAY_DIR=<one dir>
-scripts/llm_agent/agent_replay.sh pf
-PROMOTION_APPROVED=yes scripts/ci/deploy_release.sh --plan <release-plan.json> --execute --production-context <ctx>
-```
-
-The dispatcher opens `kubectl --context <ctx> proxy` once. The locks, the SandboxAgent units and
-Helm all use that one identity (P9).
+**Where it runs.** On the operator workstation, from the Jenkins handoff (§8). The dispatcher opens
+`kubectl --context <ctx> proxy` once; the locks, the SandboxAgent units and Helm all use that one
+identity (P9). The E2E port-forward to the kagent controller is owned by the process: kubectl picks
+the local port and the dispatcher reads it from that child's own `Forwarding from` line, so a
+pre-existing listener is never mistaken for the controller; the child is terminated and reaped.
 
 **Candidate refusal and failure codes.** Each code names the check that stopped the run.
 
@@ -235,11 +245,16 @@ Helm all use that one identity (P9).
 | `NOT_ACCEPTED` | Run | kagent rejected the candidate |
 | `NOT_READY` | Run | Not Ready at the current generation within 900 s |
 | `ACTOR_STARTUP_FAILED` | Run | No gVisor ActorTemplate with a golden actor on the image |
-| `E2E_FAILED` | Run | `A2A_TIMEOUT`, `FAILED_TASK`, `INVALID_VERDICT`, `PARTIAL`, `KNOWN_ANSWER_MISMATCH` or `TRANSPORT_ERROR` |
-| `CLEANUP_FAILED` | Cleanup | A candidate or its ActorTemplate is still present after 300 s |
+| `E2E_FAILED` | Run | By gate: `TRANSPORT` (`TRANSPORT_ERROR`), `PROTOCOL` (`A2A_TIMEOUT`, `FAILED_TASK`), `SCHEMA` (`INVALID_VERDICT`), `BUSINESS` (`PARTIAL`, `BUSINESS_MISMATCH`, incl. a stale request id), `REGRESSION` (`KNOWN_ANSWER_MISMATCH`) |
+| `CANDIDATE_ERROR` | Run | An API error mid-run (for example the second create failed); cleanup still runs |
+| `CLEANUP_INCOMPLETE` | Cleanup | Something this execution created cannot be proven gone after 300 s; the verdict lists each kind, name and uid (critical, dominates the status) |
 | `PRODUCTION_CHANGED` | Cleanup | A production SandboxAgent's uid, generation or image changed during the run |
+| `PRODUCTION_STATE_UNKNOWN` | Cleanup | The production SandboxAgents could not be re-read |
 
-Cleanup always runs once anything was created.
+Cleanup always runs once anything was created, and only for what this execution created: each
+object is re-read and deleted by uid only if it still has that uid and this execution's label (a
+recreated object is `NOT_OURS_LEFT_UNTOUCHED`). A create whose response was lost is resolved by that
+label. Cleanup is idempotent (gone counts as deleted) and retries API errors until its deadline.
 
 **Known answers** (`jenkins/cd/sandbox-candidate.contract.json`). The source is the
 p2a-closure replays (same transaction and drift window).
@@ -247,6 +262,10 @@ p2a-closure replays (same transaction and drift window).
   0.0639895560144887, `prompt_revision` `feature-rag-specialist/byo-v1`.
 - Drift: `psi` 0.0004795543627041439, `prompt_revision` `drift-specialist/byo-v1`.
 - The artifact must be a `g3-orchestration/v1` SpecialistEvidence object with no unknown fields.
+- Tolerance: relative 1e-9. The values are float64 results of a deterministic computation on fixed
+  inputs and reproduced bit-for-bit on 2026-10-31, 2026-11-02 and 2026-11-16; 1e-9 absorbs only
+  platform floating-point noise and is far below business meaning. The candidate runs before any
+  production mutation, so a mismatch stops the release and never triggers a rollback.
 
 **Rollback order on any failure.** The Coordinator (`helm rollback`), then the fleet (patch back,
 guarded by the new image), then MCP. A rollback error makes the verdict `ROLLBACK_FAILED` and is
@@ -262,16 +281,18 @@ records:
 
 **Cleanup after a run.**
 - The candidates and their ActorTemplates are removed by the run.
-- Golden-snapshot objects under `gs://ate-snapshots/ewallet-sandbox/cicd-<sha12>/` may remain.
-  Removing them is an owner cleanup step (P10).
-- After `CLEANUP_FAILED`, delete the named candidate by uid and confirm that its ActorTemplate is
-  gone before rerunning (otherwise `STALE_CANDIDATE`).
+- Golden-snapshot objects under exactly `gs://ate-snapshots/ewallet-sandbox/cicd-<sha12>/<execution>/`
+  (the verdict's `snapshot_prefix`, also in the journal) may remain. Removing them is an owner cleanup
+  of that exact prefix only (P10), never a parent or fleet campaign prefix.
+- After `CLEANUP_INCOMPLETE` or `STALE_CANDIDATE`, follow `recovery-plan` (§8): delete the named
+  candidate by uid only if it still carries that uid and execution label, and confirm that its
+  ActorTemplate is gone before rerunning.
 
 **Side effects the candidate has in production.**
 - Two additional golden actors on the shared WorkerPool while it runs.
 - One A2A session actor per request.
 - Read-only MCP tool calls under the production client subjects. Audit rows carry
-  `request_id cicd-<sha12>-<agent>`.
+  `request_id cicd-<execution>-<agent>`.
 
 **Prompt Management.** `PROMPT_RUNTIME_CONSUMPTION_BLOCKED_BY_FREEZE`.
 - The Specialists report a code-pinned `PROMPT_REVISION`; the Coordinator prompt is fixed in
@@ -279,7 +300,120 @@ records:
 - The candidate checks the reported revision as identity evidence.
 - The registry gate proves registry consistency only.
 
-**Agent Registry provenance.** It reuses `ops/llm_agent/registry_catalog.py`.
+**Agent Registry provenance.** It reuses `ops/llm_agent/registry_catalog.py`; lifecycle in §8.
 - Readback is not a rollback gate: its image-digest labels go stale on any promotion.
-- The verdict's `registry` block lists the publication commands (dry-run, then
-  `--confirm-live-write`) and the readback for P12. CI/CD never publishes.
+- CI/CD never publishes.
+
+## 8. Release lifecycle, handoff, recovery and locks (Batch 2A.1)
+
+**Release states** (`verdict` of the production `release-verdict.json`, and the journal's `state`):
+
+| State | Meaning | Dispatcher exit |
+|---|---|---|
+| `CHECKED_NOT_EXECUTED` | No approval or no `--execute`; every unit checked, nothing changed | 1 |
+| `FAILED_NOTHING_CHANGED` | Failed before any production change (candidate cleaned up, or an attempt that provably changed nothing) | 1 |
+| `FAILED_ROLLED_BACK` | Failed after changes; every one rolled back and verified (`deployed` / Ready) | 1 |
+| `ROLLBACK_FAILED` | A rollback failed, did not become healthy, or met a concurrent change it must not overwrite | 4 (critical) |
+| `RECOVERY_REQUIRED` | Lock lost, candidate cleanup incomplete or state unknown | 4 (critical) |
+| `DEPLOYED_PENDING_REGISTRY` | Runtime verified; the Agent Registry still describes the previous images | 3 |
+| `RELEASE_COMPLETE` | Runtime verified and nothing registered changed, or `registry_release.py reconcile` passed | 0 |
+
+`REGISTRY_RECONCILIATION_FAILED` is the outcome of a reconciliation that did not pass; the runtime
+stays as verified (it is healthy and the publication has its own approval).
+
+**Fail-closed rules in the transaction** (`scripts/ci/production_release.py`):
+- `--execute` without a runtime verifier is refused before any mutation; a verifier that raises, or
+  returns anything but `True`, is a failed verification and enters the rollback path; the original
+  failure stays the reported cause.
+- Every mutation is preceded by a lock checkpoint and a durable journal entry (atomic rewrite with
+  fsync): Helm records `UPGRADE_ATTEMPTED` with the previous revision before `helm upgrade`; the fleet
+  records `PATCH_ATTEMPTED` with uid, previous and target image before the patch.
+- Rollback acts on attempts, not only confirmed promotions. A Helm attempt is inspected: the latest
+  revision still the recorded one is `NOT_CHANGED`, anything else is rolled back, and after a rollback
+  the latest revision must be `deployed`. A fleet attempt with the same uid and the target image is
+  patched back; with the previous image it is `NOT_CHANGED`; another uid or image is a concurrent change
+  that is never overwritten (`ROLLBACK_FAILED`).
+- Helm mutations run with a 25-minute process timeout (above Helm's own `--timeout 15m`); a timeout is
+  an ambiguous mutation, inspected before any rollback decision.
+
+**Runtime verdict.** `runtime_verify.reconcile_status` accepts a failing frozen row only when it is a
+`Helm <release>` revision row whose frozen detail and the snapshot's Helm history both show exactly the
+revision this transaction recorded, `deployed`, with the frozen helper's own failure exit (1). Each
+accepted exception is listed in `accepted_exceptions` and the check is `PASS_WITH_ACCEPTED_EXCEPTIONS`.
+Everything else fails: other failing rows, a missing, malformed or inconsistent verdict, an exit code
+other than 0/1, a verdict with no runtime row besides Helm, an empty or wrong identity expectation, a
+verdict the command did not (re)write. Business E2E verdicts are never reconciled.
+
+**Jenkins → operator handoff** (`scripts/ci/release_handoff.py`).
+- Jenkins (`Prepare operator handoff`) builds the production plan and `handoff/` with `handoff.json`:
+  job, build number, URL, tag; Git SHA and release branch; units with dependencies, namespaces and
+  digests; target context, production identity, triggering user and production approver; runtime
+  checks and the SHA-256 of the contracts; source snapshot identity; recovery entry point; SHA-256 of
+  the plan, image manifest, request, CI verdict, scan verdict, Jenkins build record and source metadata.
+  The console prints `RELEASE_HANDOFF sha256=<digest>` and `RELEASE_STATUS READY_FOR_OPERATOR_PROMOTION`.
+- Trust boundary: SHA-256 is integrity, not a signature. The anchor is the digest read from the
+  authenticated Jenkins console (or the archived fingerprint). A compromised controller is out of scope
+  and covered by the separate production approval and the operator's review of the plan.
+- The operator verifies before anything: the digest, every artifact, the SHA chain (reviewed SHA =
+  Jenkins checkout = source snapshot = manifest revision = plan = operator HEAD), the plan against the
+  catalog and release units, the target context and identity, approver ≠ trigger, units = plan, and
+  contracts = the operator checkout. Any mismatch refuses before any lock.
+
+```bash
+git checkout <git_sha>                                   # operator HEAD must equal the handoff SHA
+export AGI_ENV=<campaign env whose CTX is the production context> REPLAY_DIR=<one dir>
+scripts/llm_agent/agent_replay.sh pf
+uv run --locked --project infra/docker/llm-agent-tooling python -m scripts.ci.release_handoff verify \
+  --dir <archived handoff/> --handoff-sha256 <digest from the console> --production-context <ctx> \
+  --production-identity <identity>
+PROMOTION_APPROVED=yes scripts/ci/deploy_release.sh --plan <handoff>/release-plan.json --execute \
+  --production-context <ctx> --production-identity <identity> \
+  --handoff <handoff> --handoff-sha256 <digest> --evidence-dir <operator evidence root>
+# after DEPLOYED_PENDING_REGISTRY: follow release-verdict.json registry.procedure, then
+uv run --locked --project infra/docker/llm-agent-tooling python -m scripts.ci.registry_release reconcile \
+  --release-verdict <evidence>/<execution>/release-verdict.json --before <REPLAY_DIR>/registry/readback-before.json \
+  --after <REPLAY_DIR>/registry/readback.json --output <evidence>/<execution>/registry-verdict.json
+```
+
+**Agent Registry reconciliation** (`scripts/ci/registry_release.py`). Publication overwrites the record
+at an unchanged tag (agentregistry `/v0/apply` upserts), so the procedure captures the previous records
+first (strict readback), dry-runs, publishes under its own approval, reads back, and reconciles.
+`RELEASE_COMPLETE` needs the capture with every changed Agent registered, a strict readback (verdict
+PASS, every entry `matches`, rendered at the release SHA) and the changed Agents published at the
+release SHA; with the runtime identity rows this proves the registry digests are the plan digests.
+Records are never deleted to make a readback pass; a failed publication is restored by re-publishing
+the captured previous catalog (previous live values and fleet image are in the journal).
+
+**Recovery after an interruption.** The journal is `<evidence>/<execution>/transaction-journal.json`.
+
+```bash
+uv run --locked --project infra/docker/llm-agent-tooling python -m scripts.ci.production_release recovery-plan \
+  --journal <evidence>/<execution>/transaction-journal.json      # read-only; exit 1 when recovery is required
+```
+
+It lists, deterministically: `helm-inspect-then-rollback` (release, namespace, previous revision) for
+each unverified Helm attempt not rolled back; `sandboxagent-restore-image` (uid, previous and target
+image; only if uid and target image still match) for each unverified fleet attempt;
+`delete-candidate` (name, uid, execution) for each candidate not proven deleted;
+`gcs-remove-exact-prefix` for the execution's snapshot prefix; `verify-runtime` for any unfinished
+or failed state; `registry-publication` for `DEPLOYED_PENDING_REGISTRY`.
+
+**Locks.** Production locks are renewed at every checkpoint (before each unit, each Helm upgrade, each
+SandboxAgent patch and the verification) with a resourceVersion-guarded replace (`update` verb, P9).
+Renewal fails closed with `LOCK_LOST` when the Lease is gone, held by someone else, written by someone
+else since, or already expired; mutations stop and nothing is rolled back automatically (another
+release may hold the lock), so the state is `RECOVERY_REQUIRED`. A stale holder never deletes a lock
+another holder acquired. The Lease lasts 2 h; the longest step between checkpoints is 25 minutes.
+
+## 9. Artifact identity evidence (offline, 2026-11-18)
+
+- The fleet image is `g3-byo-coordinator` from `infra/docker/g3-byo-coordinator/Dockerfile`, which
+  copies `ai_platform/llm_agent` (both Specialist modules) into `/workspace` and the locked venv into
+  `/opt/venv`, exactly the actor's `PYTHONPATH` and `cmd` (`test_agent_cicd.py` checks this contract).
+- Locally cached images built from the same SHA (`21994c03`, `40027507`) in the
+  `g3-byo-coordinator`, `g3-byo-feature-rag-specialist` and `g3-byo-drift-specialist` repositories have
+  identical filesystem layers; only the image config (labels, timestamps) differs, so the digests differ.
+  The SandboxAgent overrides `cmd`/`args`, so the default `CMD` is irrelevant.
+- A local build at the release SHA imported both modules with the actor environment
+  (`/opt/venv/bin/python`, `PYTHONPATH=/workspace`, no network), running as uid 10001.
+- Not provable offline (P13): the worker nodes' pull rights on the `g3-byo-coordinator` repository.
