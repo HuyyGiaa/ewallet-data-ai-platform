@@ -13,6 +13,9 @@ caller's repository. It writes:
 * ``refs/heads/proof/{ml,agent,docs}`` at the same SHA (the CI-only proof jobs' branches);
 * ``refs/heads/base`` at the change-detection base (an ancestor of the SHA), so ``TARGET_BRANCH``
   and the merge base are inside the bundle;
+* ``refs/heads/provenance/<name>`` for every historical commit listed in
+  ``jenkins/catalog/snapshot-provenance.json``: commits the repository's own tests read by SHA that
+  are not ancestors of the release (a fresh Jenkins workspace must hold their objects);
 * ``source-metadata.txt`` with every ref, the bundle sha256 and the git version.
 
 ``verify`` re-reads a bundle with git alone: every expected ref at the expected SHA, the base an
@@ -34,6 +37,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[2]
 SHA = re.compile(r"^[0-9a-f]{40}$")
 PROOF_REFS = ("proof/ml", "proof/agent", "proof/docs")
+PROVENANCE = "jenkins/catalog/snapshot-provenance.json"
 REQUIRED_PATHS = ("scripts/ci/release_dispatch.py", "jenkins/catalog/release-units.json",
                   "jenkins/pipeline/componentPipeline.groovy")
 
@@ -54,6 +58,20 @@ def release_groups(root: Path = ROOT) -> list[str]:
     return sorted(units["groups"])
 
 
+def provenance_refs(root: Path = ROOT) -> dict[str, str]:
+    """refs/heads/provenance/<name> -> commit, from the reviewed provenance list (empty if absent)."""
+
+    path = root / PROVENANCE
+    if not path.is_file():
+        return {}
+    refs = {}
+    for name, item in json.loads(path.read_text(encoding="utf-8")).get("refs", {}).items():
+        if not re.fullmatch(r"[a-z0-9][a-z0-9-]{1,62}", name) or not SHA.fullmatch(item.get("sha", "")) or not item.get("reason"):
+            raise SnapshotError(f"invalid provenance ref {name}: needs a DNS-like name, a full SHA and a reason")
+        refs[f"refs/heads/provenance/{name}"] = item["sha"]
+    return refs
+
+
 def expected_refs(sha: str, base: str, groups: list[str]) -> dict[str, str]:
     refs = {f"refs/heads/{group}": sha for group in groups}
     refs.update({f"refs/heads/{name}": sha for name in PROOF_REFS})
@@ -70,6 +88,10 @@ def build(source: Path, sha: str, base: str, out: Path) -> dict[str, str]:
         raise SnapshotError("the base must be an ancestor of the release SHA")
     groups = release_groups(source)
     refs = expected_refs(sha, base, groups)
+    for ref, target in provenance_refs(source).items():
+        if subprocess.run(["git", "cat-file", "-e", f"{target}^{{commit}}"], cwd=source, capture_output=True).returncode:
+            raise SnapshotError(f"provenance commit {target} ({ref}) is not in the source repository")
+        refs[ref] = target
     out.mkdir(parents=True, exist_ok=True)
     bundle = out / "repository.bundle"
     with tempfile.TemporaryDirectory(prefix="snapshot.") as directory:
@@ -103,6 +125,8 @@ def verify(directory: Path, sha: str) -> list[str]:
         heads = dict(reversed(line.split(" ", 1)) for line in git("bundle", "list-heads", str(bundle), cwd=work).splitlines())
         groups = [ref.removeprefix("refs/heads/") for ref in heads if ref.startswith("refs/heads/release/")]
         expected = expected_refs(sha, metadata.get("base_sha", ""), sorted(groups))
+        expected.update({ref: target for ref, target in metadata.items() if ref.startswith("ref:refs/heads/provenance/")
+                         for ref, target in [(ref.removeprefix("ref:"), target)]})
         if not groups:
             problems.append("the bundle has no release refs")
         for ref, target in expected.items():

@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "description": "Historical commits the repository's own tests read by SHA (git show <sha>:<path>) that are not ancestors of a release SHA. The Jenkins source bundle carries each as refs/heads/provenance/<name> so a fresh Jenkins workspace can run those tests; without it they pass only in clones that happen to hold the object (Batch 2B-1, edai2-cd-prompt-management #1).",
+  "refs": {
+    "observability-source-validation": {
+      "sha": "a39d924e437bca59ac234451ea7bc092b7263a8f",
+      "reason": "docs/evidence/observability/source_validation/manifest.json artifact_bundle_sha, read by tests/observability/test_evidence.py"
+    }
+  }
+}

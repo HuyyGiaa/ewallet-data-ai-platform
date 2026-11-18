@@ -85,3 +85,72 @@ def test_the_repository_release_groups_are_the_ones_jenkins_seeds() -> None:
         assert f"'*/{group}'" in text, group
     for proof in snapshot.PROOF_REFS:
         assert f"'*/{proof}'" in text, proof
+
+
+def side_commit(repo: Path, base: str) -> str:
+    """A commit that is not an ancestor of the release (like a historical evidence commit)."""
+
+    git(repo, "checkout", "-q", "-b", "side", base)
+    (repo / "evidence.txt").write_text("historical artifact\n")
+    git(repo, "add", "-A")
+    git(repo, "-c", "user.name=t", "-c", "user.email=t@e.invalid", "commit", "-qm", "evidence")
+    sha = git(repo, "rev-parse", "HEAD")
+    git(repo, "checkout", "-q", "-")
+    return sha
+
+
+def write_provenance(repo: Path, refs: dict) -> None:
+    path = repo / snapshot.PROVENANCE
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"schema_version": 1, "refs": refs}))
+
+
+def test_provenance_commits_reach_a_fresh_jenkins_workspace(repository, tmp_path) -> None:
+    """Batch 2B-1: a test read `git show <historical sha>:path`; a fresh workspace lacked the object."""
+
+    repo, base, sha = repository
+    evidence = side_commit(repo, base)
+    write_provenance(repo, {"evidence-commit": {"sha": evidence, "reason": "read by a test"}})
+    metadata = snapshot.build(repo, sha, base, tmp_path / "out")
+    assert metadata["ref:refs/heads/provenance/evidence-commit"] == evidence
+    assert snapshot.verify(tmp_path / "out", sha) == []
+    workspace = tmp_path / "ws"
+    workspace.mkdir()
+    git(workspace, "init", "-q")
+    git(workspace, "fetch", "-q", str(tmp_path / "out/repository.bundle"), "+refs/heads/*:refs/remotes/origin/*")
+    git(workspace, "checkout", "-q", sha)
+    assert git(workspace, "show", f"{evidence}:evidence.txt") == "historical artifact"
+
+
+def test_without_the_provenance_ref_the_fresh_workspace_lacks_the_object(repository, tmp_path) -> None:
+    repo, base, sha = repository
+    evidence = side_commit(repo, base)
+    snapshot.build(repo, sha, base, tmp_path / "out")
+    workspace = tmp_path / "ws"
+    workspace.mkdir()
+    git(workspace, "init", "-q")
+    git(workspace, "fetch", "-q", str(tmp_path / "out/repository.bundle"), "+refs/heads/*:refs/remotes/origin/*")
+    assert subprocess.run(["git", "cat-file", "-e", evidence], cwd=workspace, capture_output=True).returncode != 0
+
+
+@pytest.mark.parametrize(("refs", "message"), [
+    ({"Bad Name": {"sha": "a" * 40, "reason": "x"}}, "invalid provenance ref"),
+    ({"ok": {"sha": "abc", "reason": "x"}}, "invalid provenance ref"),
+    ({"ok": {"sha": "a" * 40}}, "invalid provenance ref"),
+    ({"ok": {"sha": "a" * 40, "reason": "missing commit"}}, "not in the source repository"),
+])
+def test_invalid_or_missing_provenance_commits_are_refused(repository, tmp_path, refs, message) -> None:
+    repo, base, sha = repository
+    write_provenance(repo, refs)
+    with pytest.raises(snapshot.SnapshotError, match=message):
+        snapshot.build(repo, sha, base, tmp_path / "out")
+
+
+def test_a_bundle_missing_a_recorded_provenance_ref_fails_verification(repository, tmp_path) -> None:
+    repo, base, sha = repository
+    evidence = side_commit(repo, base)
+    write_provenance(repo, {"evidence-commit": {"sha": evidence, "reason": "read by a test"}})
+    snapshot.build(repo, sha, base, tmp_path / "out")
+    metadata = tmp_path / "out/source-metadata.txt"
+    metadata.write_text(metadata.read_text().replace(evidence, "f" * 40))
+    assert any("provenance/evidence-commit" in item for item in snapshot.verify(tmp_path / "out", sha))
