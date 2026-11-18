@@ -22,7 +22,6 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
-import yaml
 
 
 SA_DIR = Path("/var/run/secrets/kubernetes.io/serviceaccount")
@@ -111,6 +110,8 @@ def _path(kind: str, namespace: str, name: str | None = None) -> str:
 
 
 def load_documents(paths: list[Path], allowed_namespaces: set[str]) -> list[dict[str, Any]]:
+    import yaml  # lazily: the controller's system python3 has no PyYAML and imports this module indirectly
+
     documents: list[dict[str, Any]] = []
     for path in paths:
         for document in yaml.safe_load_all(path.read_text(encoding="utf-8")):

@@ -3,6 +3,9 @@
 # egress only DNS, 443 and the metadata server, and ewallet-prompts is default-deny. Two additive
 # objects open exactly that flow. Confirm the registry Pod labels read-only before applying
 # (kubectl -n ewallet-prompts get pods --show-labels; get networkpolicy).
+# NetworkPolicy ports match the destination POD port after Service translation: the Service
+# prompt-registry-agentregistry maps http 12121 -> container port 8080, so the policies allow 8080
+# (Batch 2B-1 found that 12121 allowed nothing: the pod refuses 12121 and the Service path timed out).
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -20,7 +23,7 @@ spec:
           podSelector:
             matchLabels: {app.kubernetes.io/name: agentregistry}
       ports:
-        - {port: 12121, protocol: TCP}
+        - {port: 8080, protocol: TCP}   # Service http 12121 -> targetPort 8080
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -38,4 +41,4 @@ spec:
           podSelector:
             matchLabels: {app.kubernetes.io/name: jenkins}
       ports:
-        - {port: 12121, protocol: TCP}
+        - {port: 8080, protocol: TCP}   # Service http 12121 -> targetPort 8080

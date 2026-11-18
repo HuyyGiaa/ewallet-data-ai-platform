@@ -31,7 +31,6 @@ from pathlib import Path
 import re
 from typing import Any, Mapping
 
-import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 CONTRACT = ROOT / "jenkins/cd/sandbox-candidate.contract.json"
@@ -78,6 +77,8 @@ def credential_secret(contract: Mapping[str, Any], agent: str) -> str:
 
 def frozen_documents(image: str, credential_release: str) -> dict[str, dict[str, Any]]:
     """The frozen fleet's SandboxAgents by name, exactly as render_sandbox renders them."""
+
+    import yaml  # lazily: catalog validation imports this module on the controller's stdlib-only python3
 
     from scripts.experiments.render_sandbox import render
 
