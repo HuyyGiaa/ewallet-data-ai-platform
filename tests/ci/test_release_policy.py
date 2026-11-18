@@ -280,7 +280,9 @@ class ReleaseUnitCatalogTests(unittest.TestCase):
         for forbidden in ("deploy_atomic", "agent-cd-specialist", "feature-rag-specialist\": {\"byo"):
             self.assertNotIn(forbidden, text)
         for unit in UNITS.units.values():
-            if unit.stage == "rehearsal" and unit.kind not in {"streaming-verification", "registry-gate"}:
+            if unit.kind == "agent-staging":   # V2-P3A: the isolated staging namespace, never production
+                self.assertEqual("ewallet-agents-staging", unit.target_namespace, unit.name)
+            elif unit.stage == "rehearsal" and unit.kind not in {"streaming-verification", "registry-gate"}:
                 self.assertEqual("ewallet-cicd", unit.target_namespace, unit.name)
 
 
