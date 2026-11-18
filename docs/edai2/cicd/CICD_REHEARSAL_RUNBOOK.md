@@ -103,7 +103,7 @@ FEAST_SNAPSHOT_ID=<id> FEATURE_RUN_ID=<id> uv run --locked --project infra/docke
 | P2 | Apply the updated Role `jenkins-bounded-workloads` (adds `leases` get/create/delete in `ewallet-cicd`) | Release locks are Leases | `infra/kubernetes/jenkins/rbac/batch-b-isolated.yaml` |
 | P3 | Grant the Jenkins GSA `roles/artifactregistry.reader` on the release repository, or run with `REGISTRY_LOOKUP=off` | Image reuse and digest readback read the registry. `off` always builds, does no readback, and records `SKIPPED_BY_PARAMETER`. A rerun of the same SHA then fails, because tags are immutable | Terraform `infra/terraform/gcp/modules/cicd_build` |
 | P4 | Cloud Build can run the scan step (runner SA already reads the repository; the scan downloads the Trivy DB) | `Scan images` stage | `scripts/ci/image_scan.py` |
-| P5 | Jenkins environment `PROMPT_REGISTRY_URL` reachable from the controller (`ewallet-prompts`) | `prompt-registry-gate`; an empty URL fails the gate | Jenkins global env / job env |
+| P5 | Jenkins environment `PROMPT_REGISTRY_URL` reachable from the controller (`ewallet-prompts`) | `prompt-registry-gate`; an empty URL fails the gate | `infra/kubernetes/jenkins/prompt-registry-access.proposed.yaml` (applied in Batch 2B-1; NetworkPolicy port is the pod's 8080, not the Service's 12121) |
 | P6 | Streaming campaign identity: rights in `ml-platform` (Jobs, Deployments, Services, ConfigMaps, `pods/exec` on the Flink JobManager) and `feature-store` (`pods/exec` on `statefulset/redis` for the claim), plus `FEAST_SNAPSHOT_ID` and `FEATURE_RUN_ID` | The frozen operator works in `ml-platform` and claims the `rehearsal-stream` Redis database. Jenkins has none of these rights today | Owner decision D6. Alternative: run `streaming_verify.py --execute` from the operator workstation with the same plan |
 | P7 | Production deployer identity (the operator's kube context) and a second Jenkins user for approvals | `PROMOTE_TO_PRODUCTION` records `PRODUCTION_IDENTITY`, the target context name and an approver distinct from the trigger in the handoff; the operator runs it (§8) | Owner decision D1/D2. Jenkins itself never receives production credentials |
 | P8 | Runtime verification needs `AGI_ENV` (its `CTX` must equal the production context), the cluster and `agent_replay.sh pf` port-forwards | `runtime_verify.py` reuses the owner-replay helper; the dispatcher refuses a production plan before any lock when the target does not match | `docs/edai2/agents/OWNER_AGENT_PLATFORM_EVIDENCE_REPLAY.md` |
@@ -527,3 +527,40 @@ the checkpoints.
   the unchanged tag, so the capture before publishing is mandatory.
 - Prompt Management: `PROMPT_RUNTIME_CONSUMPTION_BLOCKED_BY_FREEZE` (frozen application).
 - Nothing here has run on Jenkins or GKE; every runtime result comes from the Batch 2B rehearsal.
+
+## 11. Batch 2B-1 runtime findings (real Jenkins/GKE, 2026-11-18)
+
+Campaign `b2b1-20261118T051531Z`, owner-approved M0–M5 plus a 32Gi Jenkins PVC expansion. Final release
+SHA `d84ea4e9`. Production promotion, production E2E and streaming were not run.
+
+**Wake and sleep.** Every `cloud_lab wake-*` mode unpauses the ScaledObjects that a guarded sleep paused
+(WorkerPool, Coordinator) and `wake-full` restores the PDB-guarded Coordinator and MCP Deployments; the
+next plain `cloud_lab sleep` then refuses (PDBs, unpaused WorkerPool). For a CI/CD-only campaign the
+owner chose a resize-only wake (`gcloud container clusters resize ... --num-nodes=5`): KEDA stays paused,
+the production agents stay at 0, and the plain sleep passes its own gates. The API server is reachable
+through the DNS endpoint, so no authorized-network change is needed.
+
+**Defects found and fixed on the real controller** (each with a regression test):
+
+| Build | Symptom | Cause | Fix |
+|---|---|---|---|
+| preflight | `kubectl diff` refused the PVC (8Gi < 16Gi) | template behind the live, expanded PVC and quota | template requests the live size (now 32Gi) |
+| Job DSL | `edai2-cd-coordinator`, `edai2-cd-agent-fleet` 404 after start | CasC Job DSL writes first-time jobs to disk on a persisted `JENKINS_HOME` but does not load them | one `POST /reload` (non-destructive); later restarts load them |
+| `edai2-agent-ci #3` | every job failed at "Validate catalog" | the controller's system python3 has no PyYAML; `sandbox_agents` imported yaml at module level | yaml imported only where YAML is parsed; `test_controller_stdlib.py` runs the controller CLIs with yaml blocked |
+| M5 | Jenkins → registry timed out | NetworkPolicy ports match the pod port after Service translation (12121 → 8080) | policies allow 8080 |
+| `edai2-cd-prompt-management #1` | Component CI `SOURCE_REGRESSION` in a fresh workspace | an evidence test reads `git show a39d924e:…`, not an ancestor of the release; old workspaces held the object by chance | `jenkins/catalog/snapshot-provenance.json` → `refs/heads/provenance/*` in the bundle |
+| `edai2-cd-rag-pipeline #9` | checkout `No space left on device` | each job workspace + `@script` checkout is ~2.5 GB; 16Gi full | owner-approved expansion to 32Gi (quota and PVC; online, then a pod restart) |
+| `edai2-cd-mcp-agents #1` | smoke `URLError` | the smoke Job was applied with the Deployments and ran before they were ready | Job applied after every readiness wait; a failed first release also removes the Services it created |
+
+**Results at `d84ea4e9`.** `edai2-agent-ci #6` SUCCESS (1529 tests); `edai2-agent-negative #6` fails at
+the intentional gate (exit 42); `edai2-cd-prompt-management #3`, `edai2-cd-mcp-agents #2`,
+`edai2-cd-coordinator #1`, `edai2-cd-agent-fleet #1` SUCCESS (CI, Cloud Build or reuse, digest readback,
+Trivy PASS, rehearsal PASS, `production_changed: false`). `edai2-cd-rag-pipeline #10` (at `f9dbe884`)
+stopped at "Scan images": `rag-ingestion` VULNERABLE, 11 fixable HIGH/CRITICAL Python findings (feast
+CRITICAL; urllib3, msgpack, wheel, setuptools, filelock, fsspec, jaraco.context). Fixing them is an
+application dependency change (frozen); the gate was not weakened.
+
+**Operational notes.** One Jenkins executor: jobs run serially (~5 min CI each; release jobs 8–14 min).
+A rehearsal parks its Deployments at 0 replicas and keeps their Services (the designed footprint in
+`ewallet-cicd`); transient Jobs, ConfigMaps and Leases are removed.
+

@@ -20,9 +20,10 @@ spec:
     limits.cpu: "4"
     limits.memory: 6Gi
     persistentvolumeclaims: "1"
-    # The live jenkins-home was expanded to 16Gi (owner-approved, 2026-11-04); a PVC can only grow, so the
-    # template must never request less than the live capacity (Batch 2B-1 preflight: kubectl diff refused 8Gi).
-    requests.storage: 16Gi
+    # jenkins-home is 32Gi (owner-approved expansions: 16Gi on 2026-11-04, 32Gi on 2026-11-18 when release
+    # checkouts filled 16Gi in Batch 2B-1: each job workspace + @script copy of this repository is ~2.5 GB).
+    # A PVC can only grow, so the template must never request less than the live capacity.
+    requests.storage: 32Gi
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -44,7 +45,7 @@ spec:
   storageClassName: standard-rwo
   resources:
     requests:
-      storage: 16Gi
+      storage: 32Gi
 ---
 apiVersion: v1
 kind: ConfigMap
