@@ -53,7 +53,8 @@ args=(); while (($#)); do case "$1" in --kube-context|-n) shift 2 ;; *) args+=("
 set -- "${args[@]}"
 case "$1" in
   status) echo '{"info": {"status": "deployed"}, "version": 7}' ;;
-  get) [[ "$2" == values ]] && echo "a: 1" || cat "$FAKE_DIR/$3-live.yaml" ;;
+  get) if [[ "$2" == values ]]; then [[ -n "${FAKE_VALUES:-}" ]] && cat "$FAKE_VALUES" || echo "a: 1"
+       else cat "$FAKE_DIR/$3-live.yaml"; fi ;;
   template)
     [[ -n "${FAKE_TEMPLATE_FAIL:-}" ]] && { echo "template error" >&2; exit 1; }
     if [[ "$*" == *agi/* || ( -n "${FAKE_ON_MATCH:-}" && "$*" == *"${FAKE_ON_MATCH}"* ) ]]; then
@@ -71,10 +72,14 @@ echo "kubectl $*" >> "$FAKE_LOG"
 case "$*" in
   "config current-context") echo "$FAKE_CTX" ;;
   *"get deploy -o json"*) echo '{"items": [{"metadata": {"name": "x"}, "spec": {"replicas": 1}, "status": {"availableReplicas": 1}}]}' ;;
-  *"get agents.kagent.dev drift-specialist"*) printf %s "${FAKE_DRIFT_TYPE:-Declarative}" ;;
+  *"get agents.kagent.dev drift-specialist"*) [[ -n "${FAKE_DRIFT_ABSENT:-}" ]] && exit 1; printf %s "${FAKE_DRIFT_TYPE:-Declarative}" ;;
+  *"get agents.kagent.dev fraud-coordinator"*) printf %s "${FAKE_COORDINATOR_TYPE:-BYO}" ;;
+  *"-n ewallet-sandbox get sandboxagents.kagent.dev"*) [[ -n "${FAKE_SANDBOXAGENTS_MISSING:-}" ]] && exit 1
+    printf 'sandboxagent.kagent.dev/feature-rag-specialist\nsandboxagent.kagent.dev/drift-specialist\n' ;;
   *"delete scaledobject"*) echo "scaledobject deleted" ;;
   *"get hpa"*) [[ -n "${FAKE_HPA_MISSING:-}" ]] && exit 1; printf 2 ;;
-  *"get networkpolicy -o name"*) echo networkpolicy.networking.k8s.io/drift-specialist-to-mcp-gateway ;;
+  *"get networkpolicy -o name"*) echo networkpolicy.networking.k8s.io/drift-specialist-to-mcp-gateway
+    echo networkpolicy.networking.k8s.io/allow-sandbox-workers-to-mcp-gateway-ingress ;;
   *"get secret"*"-o name"*) echo secret/x ;;
   *"get secret"*token*) printf %s "$(printf 't%.0s' {1..40})" | base64 ;;
   *"get svc kubernetes"*) [[ -n "${FAKE_SVC_FAIL:-}" ]] && exit 1; echo 10.0.0.1 ;;
@@ -512,6 +517,51 @@ class CampaignGateTests(unittest.TestCase):
         self.assertNotEqual(upgrade.returncode, 0)
         self.assertIn("approval LF-AGENTS", upgrade.stderr)
         self.assertNotIn("REAL-UPGRADE", self.calls())
+
+    # P0.7 on the Sandbox-only release (replay-20261118T161231Z: lf-agents preflight failed P0.7 because lf-* was
+    # missing from the BYO packages, so it expected a Declarative drift-specialist that sp-cleanup had removed).
+    SANDBOX_ONLY = {"FAKE_DRIFT_ABSENT": "1"}
+
+    def sandbox_values(self) -> dict:
+        values = self.tmp / "sandbox-values.yaml"
+        values.write_text(yaml.safe_dump({"agents": {"specialists": {
+            "drift-specialist": {"runtime": "sandbox"}, "feature-rag-specialist": {"runtime": "sandbox"}}}}))
+        return {"FAKE_VALUES": str(values)}
+
+    def assert_p07_fails(self, **env):
+        result = self.run_script("preflight", **env)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse((self.ev / "stage0/PREFLIGHT_PASS").exists())
+        self.assertIn("FAIL P0.7", (self.ev / "campaign.log").read_text())
+        self.assertNotRegex(self.calls(), r"REAL-|kubectl .*(apply|create|delete|patch|scale)")
+
+    def test_lf_agents_preflight_accepts_the_sandbox_only_release(self):
+        self.preflight(AGI_PACKAGE="lf-agents", **self.SANDBOX_ONLY, **self.sandbox_values())
+        self.assertIn("get agents.kagent.dev fraud-coordinator", self.preflight_calls)
+        self.assertIn("-n ewallet-sandbox get sandboxagents.kagent.dev feature-rag-specialist drift-specialist",
+                      self.preflight_calls)
+        self.assertNotRegex(self.preflight_calls, r"REAL-|kubectl .*(apply|create|delete|patch|scale)")
+        gate = self.run_script("gate", "agents", AGI_PACKAGE="lf-agents")   # the official gate now runs
+        self.assertNotIn("Stage 0 has not passed", gate.stderr)
+
+    def test_lc_agents_and_earlier_packages_keep_their_p07_behaviour(self):
+        self.preflight(AGI_PACKAGE="lc-agents", **self.SANDBOX_ONLY, **self.sandbox_values())
+        self.preflight(AGI_PACKAGE="lc-agents", FAKE_DRIFT_TYPE="BYO")      # before sp-cleanup: BYO Agent CR
+        self.preflight()                                                    # agi: Declarative before the campaign
+        self.assert_p07_fails(FAKE_DRIFT_TYPE="BYO")                        # agi on a BYO drift-specialist
+
+    def test_lf_agents_rejects_every_other_architecture(self):
+        sandbox = self.sandbox_values()
+        cases = {
+            "Deployment Specialists, BYO Agent CR": {"FAKE_DRIFT_TYPE": "BYO"},
+            "Declarative drift-specialist": {"FAKE_DRIFT_TYPE": "Declarative"},
+            "legacy drift-specialist Agent CR still live": {**sandbox, "FAKE_DRIFT_TYPE": "BYO"},
+            "Declarative Coordinator": {**sandbox, **self.SANDBOX_ONLY, "FAKE_COORDINATOR_TYPE": "Declarative"},
+            "SandboxAgents missing": {**sandbox, **self.SANDBOX_ONLY, "FAKE_SANDBOXAGENTS_MISSING": "1"},
+        }
+        for label, env in cases.items():
+            with self.subTest(label):
+                self.assert_p07_fails(AGI_PACKAGE="lf-agents", **env)
 
     def test_gate_and_rollback_refuse_manifests_that_select_a_retired_credential(self):
         self.preflight()

@@ -970,6 +970,9 @@ and Agent Platform runtime behaviour is unaffected.
 - The reconstructed values equal the live readback taken after `lc-agents`.
 - The offline render's sha256 `01b90e1d…` equals the render that the `lc-agents` gate reviewed and deployed. The
   baseline is therefore the deployed manifest, not an approximation.
+- *Correction (replay-20261118T161231Z):* `01b90e1d…` is the sha256 of the `helm template` render. The stored
+  manifest (`helm get manifest llm-agent`, rev 59) is the same render plus one trailing newline, sha256
+  `784b349c…`; the live objects are structurally identical to the render (160 objects, 0/0/0).
 
 **Ownership.** All objects belong to release `llm-agent`; none is shared.
 - The Deployment, Service and PDB stopped rendering long ago (`enabled: false`).
@@ -1059,7 +1062,7 @@ gained no deletion step.
 | Phase | Steps | Stop condition |
 |---|---|---|
 | Wake | `wake-full --nodes 5 --manifest ~/ewallet-evidence/agents/legacy-cleanup/lc-20261117T002220Z/final-sleep/recovery-manifest` (75 workloads; MCP 2/2, Coordinator 2); temporary /32; `verify --expect awake` | any verify failure |
-| Preflight | revisions 59/19; live `helm get manifest llm-agent` sha256 `01b90e1d…`; `mcp_credential_check.sh pre` (4/4 replicas); registry strict readback 8/8; `mcp_auth_tables.sh plan` with the 2 reviewed names (must compute exactly those; the `ewallet-mcp` fin tables KEEP and verified); KEEP fingerprints snapshot | any difference from §13.2/§13.3 |
+| Preflight | revisions 59/19; live `helm get manifest llm-agent` sha256 `784b349c…` (= reviewed `helm template` render `01b90e1d…` plus Helm's trailing newline; corrected 2026-11-18, the earlier text gave the render hash) and `agi_campaign.sh preflight` P0.5 structural reproduce 0/0/0; `mcp_credential_check.sh pre` (4/4 replicas); registry strict readback 8/8; `mcp_auth_tables.sh plan` with the 2 reviewed names (must compute exactly those; the `ewallet-mcp` fin tables KEEP and verified); KEEP fingerprints snapshot | any difference from §13.2/§13.3 |
 | Cleanup | `lf-agents` preflight → gate (9 removed, 1 changed, server-side dry run) → `LF-AGENTS` upgrade `--atomic` → rev 60; absence readback of the 9 objects in all 3 namespaces; `allow-ewallet-mcp-*` peer policies unchanged; then `mcp_auth_tables.sh delete` (`AUTH-TABLES` approval, dry run, exact names, re-plan) | gate mismatch; 2 remediation attempts per checkpoint |
 | Verify | fingerprint compare (exactly the 9 objects and 2 Secrets removed, network-flows changed); `mcp_credential_check.sh post` | any unexpected difference |
 | Regression | 5 business E2E (`agent_replay.sh e2e`), 3 AGI-08 negatives (`negative`), credential verifier, registry readback (`registry`), Coordinator and WorkerPool KEDA 2→3→2, tracing (trace ids with the `ewallet-mcp` server spans), small concurrency run (6 jobs, unique request ids, launches staggered) | any failure |
