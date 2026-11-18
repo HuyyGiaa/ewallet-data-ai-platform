@@ -163,7 +163,8 @@ class PromptRegistryTests(unittest.TestCase):
         values = yaml.safe_load((ROOT / "infra/helm/llm-agent-platform/values.yaml").read_text())["agents"]
         default = [d for d in build_catalog(values, PROMPTS, "a" * 40) if d["kind"] == "Prompt"]
         every = [d for d in build_catalog(values, PROMPTS, "a" * 40, all_prompt_versions=True) if d["kind"] == "Prompt"]
-        self.assertEqual(len(default), 3)
+        self.assertEqual(len(default), 4)   # three agent prompts + the Coordinator intake prompt (V2-P2)
+        self.assertIn(("fraud-coordinator-intake-system", "v1"), {(d["metadata"]["name"], d["metadata"]["tag"]) for d in default})
         self.assertEqual({(d["metadata"]["name"], d["metadata"]["tag"]) for d in every},
                          {(f"{key.split('/')[0]}-system", key.split('/')[1]) for key in MANIFEST})
 
