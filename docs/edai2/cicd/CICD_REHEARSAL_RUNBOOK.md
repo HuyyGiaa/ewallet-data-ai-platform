@@ -314,7 +314,7 @@ records:
 | `FAILED_NOTHING_CHANGED` | Failed before any production change (candidate cleaned up, or an attempt that provably changed nothing) | 1 |
 | `FAILED_ROLLED_BACK` | Failed after changes; every one rolled back and verified (`deployed` / Ready) | 1 |
 | `ROLLBACK_FAILED` | A rollback failed, did not become healthy, or met a concurrent change it must not overwrite | 4 (critical) |
-| `RECOVERY_REQUIRED` | Lock lost, candidate cleanup incomplete or state unknown | 4 (critical) |
+| `RECOVERY_REQUIRED` | Lock ownership lost or unverifiable, deployment identity changed, candidate cleanup incomplete, or a Helm release in an ambiguous state (`STATE_UNKNOWN`) | 4 (critical) |
 | `DEPLOYED_PENDING_REGISTRY` | Runtime verified; the Agent Registry still describes the previous images | 3 |
 | `RELEASE_COMPLETE` | Runtime verified and nothing registered changed, or `registry_release.py reconcile` passed | 0 |
 
@@ -328,9 +328,20 @@ stays as verified (it is healthy and the publication has its own approval).
 - Every mutation is preceded by a lock checkpoint and a durable journal entry (atomic rewrite with
   fsync): Helm records `UPGRADE_ATTEMPTED` with the previous revision before `helm upgrade`; the fleet
   records `PATCH_ATTEMPTED` with uid, previous and target image before the patch.
-- Rollback acts on attempts, not only confirmed promotions. A Helm attempt is inspected: the latest
-  revision still the recorded one is `NOT_CHANGED`, anything else is rolled back, and after a rollback
-  the latest revision must be `deployed`. A fleet attempt with the same uid and the target image is
+- Rollback acts on attempts, not only confirmed promotions, and decides from the latest Helm revision,
+  its status and the deployed manifest against the pre-mutation snapshot (a SHA-256 of the canonical
+  manifest and the image list; values and Secrets are never stored):
+
+  | Latest revision | Status | Decision |
+  |---|---|---|
+  | = recorded | `deployed`, same manifest | `NOT_CHANGED` (unchanged and healthy) |
+  | = recorded | anything else, or another manifest | `STATE_UNKNOWN` |
+  | > recorded | `deployed` or `failed` | `helm rollback` to the recorded revision; it must end `deployed` with the recorded manifest and images, else `ROLLBACK_FAILED` |
+  | > recorded | `pending-upgrade`, `pending-rollback`, `superseded`, other | `STATE_UNKNOWN` (no destructive retry while an operation may run) |
+  | < recorded, or history unreadable | — | `STATE_UNKNOWN` |
+
+  `STATE_UNKNOWN` takes no automated action and makes the release `RECOVERY_REQUIRED`. A promotion
+  never starts on a release whose latest revision is not `deployed`. A fleet attempt with the same uid and the target image is
   patched back; with the previous image it is `NOT_CHANGED`; another uid or image is a concurrent change
   that is never overwritten (`ROLLBACK_FAILED`).
 - Helm mutations run with a 25-minute process timeout (above Helm's own `--timeout 15m`); a timeout is
@@ -356,18 +367,27 @@ verdict the command did not (re)write. Business E2E verdicts are never reconcile
   and covered by the separate production approval and the operator's review of the plan.
 - The operator verifies before anything: the digest, every artifact, the SHA chain (reviewed SHA =
   Jenkins checkout = source snapshot = manifest revision = plan = operator HEAD), the plan against the
-  catalog and release units, the target context and identity, approver ≠ trigger, units = plan, and
-  contracts = the operator checkout. Any mismatch refuses before any lock.
+  catalog and release units, the target context and identity, approver ≠ trigger, the unit graph (kind,
+  dependencies, namespace, digests) = the plan's, and contracts = the operator checkout. Any mismatch
+  refuses before any lock.
+- The artifacts are checked for meaning, not only checksums (Jenkins refuses to announce a handoff
+  that would fail these): `source-metadata.txt` is mandatory (source SHA, the release branch ref at that
+  SHA, a well-formed bundle digest); `ci-verdict.json` must be `PASS` for this SHA (`git_sha`, now
+  recorded by `run_ci.py`), with test cases executed, no failed command and every changed released
+  component tested (`NOT_APPLICABLE`, zero tests or another SHA are refused); `image-scan.json` must
+  be `PASS` from the pinned scanner for this SHA with every deployed image scanned at exactly the
+  manifest digest (`digest_ref`, now recorded by `image_scan.py`).
 
 ```bash
 git checkout <git_sha>                                   # operator HEAD must equal the handoff SHA
+IDENTITY=system:serviceaccount:ewallet-ci:ewallet-cicd-agent-release   # exactly the handoff's production_identity
 export AGI_ENV=<campaign env whose CTX is the production context> REPLAY_DIR=<one dir>
 scripts/llm_agent/agent_replay.sh pf
 uv run --locked --project infra/docker/llm-agent-tooling python -m scripts.ci.release_handoff verify \
   --dir <archived handoff/> --handoff-sha256 <digest from the console> --production-context <ctx> \
-  --production-identity <identity>
+  --production-identity "$IDENTITY"
 PROMOTION_APPROVED=yes scripts/ci/deploy_release.sh --plan <handoff>/release-plan.json --execute \
-  --production-context <ctx> --production-identity <identity> \
+  --production-context <ctx> --production-identity "$IDENTITY" \
   --handoff <handoff> --handoff-sha256 <digest> --evidence-dir <operator evidence root>
 # after DEPLOYED_PENDING_REGISTRY: follow release-verdict.json registry.procedure, then
 uv run --locked --project infra/docker/llm-agent-tooling python -m scripts.ci.registry_release reconcile \
@@ -398,12 +418,51 @@ image; only if uid and target image still match) for each unverified fleet attem
 `gcs-remove-exact-prefix` for the execution's snapshot prefix; `verify-runtime` for any unfinished
 or failed state; `registry-publication` for `DEPLOYED_PENDING_REGISTRY`.
 
-**Locks.** Production locks are renewed at every checkpoint (before each unit, each Helm upgrade, each
-SandboxAgent patch and the verification) with a resourceVersion-guarded replace (`update` verb, P9).
-Renewal fails closed with `LOCK_LOST` when the Lease is gone, held by someone else, written by someone
-else since, or already expired; mutations stop and nothing is rolled back automatically (another
-release may hold the lock), so the state is `RECOVERY_REQUIRED`. A stale holder never deletes a lock
-another holder acquired. The Lease lasts 2 h; the longest step between checkpoints is 25 minutes.
+**Deployment identity** (`scripts/ci/deploy_identity.py`). Two conditions, both before any lock or
+mutation, and identity is re-proven at every checkpoint:
+- A, approved: the handoff's `production_identity` is an exact Kubernetes principal
+  (`system:serviceaccount:<ns>:<name>` or a user e-mail) and the operator's `--production-identity`
+  equals it (required, never optional).
+- B, authenticated: the explicit context authenticates as that principal, by the read-only
+  `SelfSubjectReview` (`authentication.k8s.io/v1`, `v1beta1` only if `v1` is not served) on two views:
+  the `kubectl proxy` client that also takes the locks and changes the SandboxAgents, and a fresh
+  `kubectl --context <ctx> auth whoami`, which re-reads the kubeconfig the way every Helm call does
+  (a context edited or switched after preflight is caught at the next checkpoint).
+- No fallback: no Jenkins token, no current context, no default credentials, no `--api` override in
+  production. Any failure refuses before mutation; during a release it stops it as
+  `RECOVERY_REQUIRED` (`IDENTITY_UNVERIFIED`) without an automatic rollback.
+
+**Locks.** Ownership has three states, and only the first authorizes a mutation (a rollback included):
+
+| State | When | Effect |
+|---|---|---|
+| verified | Lease read, holder and resourceVersion are this holder's, not expired, renewal confirmed | continue |
+| `LOCK_LOST` | Lease gone, held by someone else, rewritten since this holder wrote it, expired, or a 409 on renewal | stop, no rollback, `RECOVERY_REQUIRED` |
+| `LOCK_OWNERSHIP_UNKNOWN` | any Lease API failure (HTTP 5xx/4xx, timeout, refused connection) or a renewal whose response was lost | stop, no rollback, `RECOVERY_REQUIRED` |
+
+An API outage is not proof that the lock was released. Transport failures of the API client are
+`KubeTransportError` (unknown outcome); programming errors are never turned into a lock state. The
+journal records `ownership-unproven` and `recovery-plan` starts with `lock-and-identity-check`. A
+stale holder never deletes a lock another holder acquired; overlapping releases are refused at
+acquisition (create-only Lease).
+
+**Checkpoints and lease lifetime.** The Lease lasts 7,200 s and is renewed (with the identity check)
+before and after every mutation, before each verification command and before any rollback. The
+longest interval between two checkpoints is bounded:
+
+| Step between checkpoints | Bound |
+|---|---|
+| `helm upgrade` / `helm rollback` (`--wait --timeout 15m`, process timeout) | 1,500 s |
+| SandboxAgent patch + readiness / golden actor wait (per agent) | 900 s |
+| Candidate create + readiness (checkpoint before create and before E2E) | 900 s + API time |
+| Candidate E2E (2 tasks) + cleanup | 2 × 240 s + 300 s |
+| One `agent_replay.sh` verification command (now bounded) | 1,200 s |
+| Kubernetes API call | 60 s |
+
+So no step can outlive the lease (largest 1,500 s < 7,200 s). If a step still exceeds it (a hung
+call, a suspended laptop), the next checkpoint finds the Lease expired (`LOCK_LOST`) and nothing
+further runs. No background heartbeat is used: it could not recover from a partition and would race
+the checkpoints.
 
 ## 9. Artifact identity evidence (offline, 2026-11-18)
 
@@ -417,3 +476,18 @@ another holder acquired. The Lease lasts 2 h; the longest step between checkpoin
 - A local build at the release SHA imported both modules with the actor environment
   (`/opt/venv/bin/python`, `PYTHONPATH=/workspace`, no network), running as uid 10001.
 - Not provable offline (P13): the worker nodes' pull rights on the `g3-byo-coordinator` repository.
+
+## 10. Batch 2B prerequisites and known runtime limitations (after Batch 2A.2)
+
+- Identity: the approved principal must exist with the P9 Roles (Leases include `update`), and the
+  operator's kubeconfig context must authenticate as it (`kubectl --context <ctx> auth whoami`; the
+  cluster must serve `SelfSubjectReview`, Kubernetes ≥ 1.27). Not testable offline.
+- Jenkins: the controller must run a snapshot whose `source-metadata.txt` is mounted at
+  `/opt/ewallet-source` (the production handoff refuses without it), and the CI and scan stages of the
+  same build must produce the verdicts with `git_sha` and `digest_ref` (this branch's scripts do).
+- Helm: an ambiguous release state (pending, unreadable history) is left to the operator by design;
+  `helm rollback` from a pending state is never automated.
+- Agent Registry: publication stays a separately approved owner step (P12); records are overwritten at
+  the unchanged tag, so the capture before publishing is mandatory.
+- Prompt Management: `PROMPT_RUNTIME_CONSUMPTION_BLOCKED_BY_FREEZE` (frozen application).
+- Nothing here has run on Jenkins or GKE; every runtime result comes from the Batch 2B rehearsal.
