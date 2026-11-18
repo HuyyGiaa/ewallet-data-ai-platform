@@ -270,7 +270,7 @@ def test_a_moved_release_in_a_pending_or_odd_state_is_never_rolled_back_automati
     report = transaction(kube, helm)
     assert report["verdict"] == "RECOVERY_REQUIRED" and report["state_unknown"] == ["mcp-servers-production"]
     assert not [c for c in helm.calls if c[:2] == ["helm", "rollback"]]  # no destructive retry
-    assert any(a["action"] == "helm-inspect-then-rollback" for a in report["recovery"]["actions"])
+    assert any(a["action"] == "helm-observe-then-decide" for a in report["recovery"]["actions"])
 
 
 def test_a_failed_upgrade_that_changed_nothing_is_not_rolled_back() -> None:
@@ -342,7 +342,7 @@ def test_an_incomplete_candidate_cleanup_requires_recovery() -> None:
     report = transaction(kube, helm)
     assert report["verdict"] == "RECOVERY_REQUIRED" and report["candidate_cleanup_incomplete"]
     actions = {a["action"] for a in report["recovery"]["actions"]}
-    assert "delete-candidate" in actions and report["recovery"]["recovery_required"]
+    assert "candidate-recovery" in actions and report["recovery"]["recovery_required"]
 
 
 def test_a_lost_lock_stops_mutations_without_an_automatic_rollback() -> None:
@@ -356,7 +356,7 @@ def test_a_lost_lock_stops_mutations_without_an_automatic_rollback() -> None:
     assert report["verdict"] == "RECOVERY_REQUIRED" and report["lock_lost"] and report["lock_state"] == "LOCK_LOST"
     assert report["recovery"]["actions"][0]["action"] == "lock-and-identity-check"
     assert not [c for c in helm.calls if c[:2] == ["helm", "rollback"]]  # never races the new holder
-    assert any(a["action"] == "helm-inspect-then-rollback" for a in report["recovery"]["actions"])
+    assert any(a["action"] == "helm-observe-then-decide" for a in report["recovery"]["actions"])
     assert all(u["status"] != "PATCHED" for u in report["units"]["fleet"])
 
 
@@ -380,7 +380,7 @@ def test_an_interrupted_operator_process_leaves_a_deterministic_recovery_plan(tm
     plan = production_release.recovery_plan(data)
     actions = [a["action"] for a in plan["actions"]]
     assert plan["recovery_required"]
-    assert actions.count("helm-inspect-then-rollback") == 2  # MCP upgraded, Coordinator attempted
+    assert actions.count("helm-observe-then-decide") == 2  # MCP upgraded, Coordinator attempted
     assert actions.count("sandboxagent-restore-image") == 2
     assert "gcs-remove-exact-prefix" in actions and "verify-runtime" in actions
     assert production_release.recovery_plan(data) == plan  # deterministic
@@ -1030,7 +1030,7 @@ def test_uncertain_ownership_after_a_mutation_stops_everything_without_a_rollbac
     assert helm.upgraded == {"llm-agent-mcp"}                      # no further Helm mutation
     assert not [c for c in kube.calls if c[0] == "patch"]           # no fleet mutation
     actions = [a["action"] for a in report["recovery"]["actions"]]
-    assert actions[0] == "lock-and-identity-check" and "helm-inspect-then-rollback" in actions
+    assert actions[0] == "lock-and-identity-check" and "helm-observe-then-decide" in actions
 
 
 def test_uncertain_ownership_during_verification_skips_the_rollback() -> None:
@@ -1301,3 +1301,269 @@ def test_an_identity_change_during_execution_stops_without_a_rollback() -> None:
     assert report["verdict"] == "RECOVERY_REQUIRED" and report["lock_state"] == "IDENTITY_UNVERIFIED"
     assert not [c for c in helm.calls if c[:2] == ["helm", "rollback"]]
     assert isinstance(deploy_identity.IdentityError("x"), OwnershipUncertain)
+
+
+# --- Batch 2A.3 P0: no candidate cleanup without mutation authority ------------------------------------------
+from scripts.ci.release_lock import LockOwnershipUnknown as _Unknown  # noqa: E402
+
+
+def deletes(kube: FakeKube) -> list:
+    return [c for c in kube.calls if c[0] == "delete"]
+
+
+def creates(kube: FakeKube) -> list:
+    return [c for c in kube.calls if c[0] == "create"]
+
+
+def after_creates(error: Exception, kube: FakeKube):  # type: ignore[no-untyped-def]
+    """A checkpoint that fails once both candidates exist (readiness done, before E2E)."""
+
+    def checkpoint() -> None:
+        if len(creates(kube)) == 2:
+            raise error
+    return checkpoint
+
+
+def candidate_records(report: dict) -> dict:
+    return {a["name"]: a for a in report["recovery"]["actions"] if a["action"] == "candidate-recovery"}
+
+
+@pytest.mark.parametrize(("error", "state"), [
+    (LockLost("LOCK_LOST: release lock production-release is now held by build-2"), "LOCK_LOST"),            # Case A
+    (_Unknown("LOCK_OWNERSHIP_UNKNOWN: GET -> HTTP 503"), "LOCK_OWNERSHIP_UNKNOWN"),                           # Case B
+    (deploy_identity.IdentityError("IDENTITY_MISMATCH: someone@example.com"), "IDENTITY_UNVERIFIED"),          # Case C
+])
+def test_ownership_unproven_after_candidate_creation_issues_no_cleanup_delete(tmp_path, error, state) -> None:
+    kube, helm = FakeKube(), FakeCluster()
+    report = transaction(kube, helm, checkpoint=after_creates(error, kube), journal=tmp_path / "j.json")
+    assert len(creates(kube)) == 2 and deletes(kube) == []          # nothing after the failure
+    assert not [c for c in kube.calls if c[0] == "patch"]
+    assert not [c for c in helm.calls if c[:2] in (["helm", "upgrade"], ["helm", "rollback"])]
+    assert report["verdict"] == "RECOVERY_REQUIRED" and report["lock_state"] == state
+    assert str(error) in report["failure"]                           # the original error, not CANDIDATE_ERROR
+    assert "CANDIDATE_ERROR" not in report["failure"]
+    records = candidate_records(report)
+    assert set(records) == {"feature-rag-specialist-cicd", "drift-specialist-cicd"}
+    for record in records.values():
+        assert record["uid"] and record["execution_id"] == EXEC and record["release_sha"] == SHA
+        assert record["label"] == "ewallet.io/cicd-execution" and record["cleanup_status"] == "SKIPPED_OWNERSHIP_UNPROVEN"
+        assert record["skipped_reason"] == str(error) and record["last_known_state"].startswith("Accepted=True")
+        assert len(record["prerequisites"]) == 2 and "never by name" in record["rule"]
+    assert report["recovery"]["actions"][0]["action"] == "lock-and-identity-check"
+    journal = json.loads((tmp_path / "j.json").read_text())
+    skipped = [e for e in journal["events"] if e["event"] == "candidate-cleanup-skipped"]
+    assert len(skipped) == 1 and len(skipped[0]["candidates"]) == 2
+
+
+def test_ownership_lost_during_cleanup_stops_after_the_authorized_delete() -> None:                          # Case D
+    kube = FakeKube()
+    created = {}
+    for agent in ("feature-rag-specialist", "drift-specialist"):
+        item = kube.create(sa_render(agent))
+        created[item["metadata"]["name"]] = item["metadata"]["uid"]
+    allowed = {"n": 0}
+
+    def checkpoint() -> None:
+        allowed["n"] += 1
+        if allowed["n"] > 1:
+            raise LockLost("LOCK_LOST: expired")
+
+    with pytest.raises(sandbox_candidate.CleanupHalted) as halted:
+        sandbox_candidate.cleanup(kube, CONTRACT, created, EXEC, checkpoint=checkpoint, sleep=lambda s: None)
+    assert len(deletes(kube)) == 1                                   # the second DELETE was never sent
+    remaining = {r["name"]: r["cleanup_status"] for r in halted.value.remaining}
+    first, second = list(created)
+    assert remaining == {first: "DELETE_REQUESTED", second: "SKIPPED_OWNERSHIP_UNPROVEN"} or \
+        remaining == {second: "SKIPPED_OWNERSHIP_UNPROVEN"}
+    assert isinstance(halted.value.cause, LockLost)
+
+
+def sa_render(agent: str) -> dict:
+    from scripts.ci import sandbox_agents
+
+    return sandbox_agents.render_candidate(CONTRACT, agent, NEW, SHA, EXEC)
+
+
+def test_ownership_lost_during_cleanup_after_an_ordinary_failure_in_the_transaction(tmp_path) -> None:
+    kube, helm = FakeKube(), FakeCluster()
+    wrong = lambda rid: specialist_reply("feature-rag-specialist", rid, fraud_score={"fraud_probability": 0.9})  # noqa: E731
+
+    def checkpoint() -> None:
+        if deletes(kube):                                            # after the first cleanup DELETE
+            raise _Unknown("LOCK_OWNERSHIP_UNKNOWN: GET -> no response")
+
+    report = transaction(kube, helm, checkpoint=checkpoint, post=fake_post({"feature-rag-specialist": wrong}),
+                         journal=tmp_path / "j.json")
+    assert len(deletes(kube)) == 1
+    assert report["verdict"] == "RECOVERY_REQUIRED" and report["lock_state"] == "LOCK_OWNERSHIP_UNKNOWN"
+    records = candidate_records(report)
+    assert len(records) == 2 and {r["cleanup_status"] for r in records.values()} == {"DELETE_REQUESTED",
+                                                                                     "SKIPPED_OWNERSHIP_UNPROVEN"}
+
+
+def test_an_ordinary_candidate_failure_with_verified_ownership_still_cleans_up() -> None:                    # Case E
+    kube, helm = FakeKube(behavior="pending"), FakeCluster()
+    report = transaction(kube, helm, checkpoint=lambda: None)
+    assert report["verdict"] == "FAILED_NOTHING_CHANGED" and "NOT_READY" in report["failure"]
+    assert len(deletes(kube)) == 2
+    assert not [k for k in kube.objects if k[0] in ("SandboxAgent", "ActorTemplate") and "-cicd" in k[2]]
+    assert not report["recovery"]["recovery_required"]
+
+
+def test_a_failing_cleanup_with_verified_ownership_is_bounded_and_never_passes() -> None:                   # Case F
+    kube, helm = FakeKube(delete_fails=True), FakeCluster()
+    report = transaction(kube, helm, checkpoint=lambda: None)
+    attempts = len(deletes(kube))
+    assert 2 < attempts < 200                                        # retried, but bounded by the cleanup deadline
+    assert report["verdict"] == "RECOVERY_REQUIRED" and report["candidate_cleanup_incomplete"]
+    assert report["units"]["candidates"][0]["status"] == "CLEANUP_INCOMPLETE"
+    assert not [c for c in helm.calls if c[:2] == ["helm", "upgrade"]]
+
+
+def test_a_replaced_candidate_is_reported_and_never_deleted() -> None:                                       # Case G
+    kube = FakeKube()
+    created = kube.create(sa_render("drift-specialist"))
+    del kube.objects[("SandboxAgent", "ewallet-sandbox", "drift-specialist-cicd")]
+    kube._admit(sandbox_candidate.sa.render_candidate(CONTRACT, "drift-specialist", NEW, SHA, "20261118t111111-ffffff"),
+                ready=True)
+    state, remaining = sandbox_candidate.cleanup(kube, CONTRACT, {"drift-specialist-cicd": created["metadata"]["uid"]},
+                                                 EXEC, checkpoint=lambda: None, sleep=lambda s: None)
+    assert state == {"drift-specialist-cicd": "NOT_OURS_LEFT_UNTOUCHED"} and remaining == [] and deletes(kube) == []
+
+
+def test_the_recovery_plan_for_a_failed_cleanup_is_deterministic_and_issues_nothing(tmp_path) -> None:      # Case H
+    kube, helm = FakeKube(), FakeCluster()
+    report = transaction(kube, helm, checkpoint=after_creates(LockLost("LOCK_LOST: x"), kube), journal=tmp_path / "j.json")
+    journal = json.loads((tmp_path / "j.json").read_text())
+    calls_before = (list(kube.calls), list(helm.calls))
+    first, second = production_release.recovery_plan(journal), production_release.recovery_plan(journal)
+    assert first == second == report["recovery"]
+    assert (kube.calls, helm.calls) == calls_before                  # planning never touches a cluster
+    assert first["recovery_required"]
+    text = json.dumps(first)
+    assert "token" not in text.lower() and "password" not in text.lower()
+
+
+# --- Batch 2A.3 P1: one Helm recovery policy -----------------------------------------------------------------
+PREVIOUS = {"revision": 19, "manifest_sha256": "a" * 64, "images": ["r.io/p/mcp-tools@sha256:" + "a" * 64]}
+CHANGED = {"manifest_sha256": "b" * 64, "images": ["r.io/p/mcp-tools@sha256:" + "b" * 64]}
+SAME = {"manifest_sha256": PREVIOUS["manifest_sha256"], "images": PREVIOUS["images"]}
+
+
+def helm_journal(**event) -> dict:  # type: ignore[no-untyped-def]
+    attempt = {"event": "helm-upgrade-attempted", "unit": "mcp-servers-production", "release": "llm-agent-mcp",
+               "namespace": "ewallet-mcp", "previous_revision": 19, "previous_status": "deployed",
+               "previous_manifest_sha256": PREVIOUS["manifest_sha256"], "previous_images": PREVIOUS["images"],
+               "target_images": ["r.io/p/mcp-tools@sha256:" + "b" * 64]}
+    attempt.update(event)
+    return {"state": "STARTED", "git_sha": SHA, "execution_id": EXEC, "events": [attempt]}
+
+
+def helm_step(journal: dict, latest, current, after_rollback: bool = False) -> dict:  # type: ignore[no-untyped-def]
+    observed = {"llm-agent-mcp": {"latest": latest, "current": current, "after_rollback": after_rollback}}
+    plan = production_release.recovery_plan(journal, observed)
+    return next(a for a in plan["actions"] if a.get("release") == "llm-agent-mcp")
+
+
+@pytest.mark.parametrize(("latest", "current", "after", "decision", "action"), [
+    ({"revision": 19, "status": "deployed"}, SAME, False, "NOT_CHANGED", "none-helm-unchanged"),            # 1
+    ({"revision": 19, "status": "deployed"}, CHANGED, False, "STATE_UNKNOWN", "helm-manual-inspection"),    # 2
+    ({"revision": 19, "status": "pending-upgrade"}, SAME, False, "STATE_UNKNOWN", "helm-manual-inspection"),  # 3
+    ({"revision": 19, "status": "failed"}, SAME, False, "STATE_UNKNOWN", "helm-manual-inspection"),         # 4
+    ({"revision": 20, "status": "deployed"}, CHANGED, False, "ROLLBACK", "helm-guarded-rollback"),          # 5
+    ({"revision": 20, "status": "failed"}, CHANGED, False, "ROLLBACK", "helm-guarded-rollback"),            # 6
+    ({"revision": 20, "status": "pending-upgrade"}, CHANGED, False, "STATE_UNKNOWN", "helm-manual-inspection"),  # 7
+    ({"revision": 20, "status": "pending-rollback"}, CHANGED, False, "STATE_UNKNOWN", "helm-manual-inspection"),  # 8
+    (None, None, False, "STATE_UNKNOWN", "helm-manual-inspection"),                                          # 9
+    ({"revision": 24, "status": "deployed"}, CHANGED, False, "STATE_UNKNOWN", "helm-manual-inspection"),    # 12
+    ({"revision": 18, "status": "deployed"}, SAME, False, "STATE_UNKNOWN", "helm-manual-inspection"),       # 12
+    ({"revision": 21, "status": "deployed"}, CHANGED, True, "STATE_UNKNOWN", "helm-manual-inspection"),     # 13
+    ({"revision": 21, "status": "deployed"}, {**SAME, "images": CHANGED["images"]}, True, "STATE_UNKNOWN",
+     "helm-manual-inspection"),                                                                              # 14
+    ({"revision": 21, "status": "deployed"}, SAME, True, "RESTORED", "none-helm-restored"),
+    ({"revision": 21, "status": "deployed"}, SAME, False, "RESTORED", "none-helm-restored"),                # helm --atomic
+    ({"revision": 20, "status": "deployed"}, None, False, "STATE_UNKNOWN", "helm-manual-inspection"),       # manifest unreadable
+])
+def test_the_recovery_plan_applies_the_hardened_helm_policy(latest, current, after, decision, action) -> None:
+    step = helm_step(helm_journal(), latest, current, after)
+    assert (step["decision"], step["action"]) == (decision, action)
+    assert step["prerequisites"] == list(production_release.PREREQUISITES)
+    if decision == "ROLLBACK":
+        assert step["command"].startswith("helm rollback llm-agent-mcp 19 ")
+        assert "only RESTORED" in step["then"] and "exit code alone does not" in step["then"]
+    else:
+        assert "command" not in step  # never an unconditional rollback
+
+
+@pytest.mark.parametrize("missing", ["previous_manifest_sha256", "previous_images"])                          # 10, 11
+def test_a_journal_without_the_fingerprint_gets_manual_inspection_only(missing) -> None:
+    journal = helm_journal()
+    del journal["events"][0][missing]
+    for observed in (None, {"llm-agent-mcp": {"latest": {"revision": 20, "status": "deployed"}, "current": CHANGED}}):
+        step = next(a for a in production_release.recovery_plan(journal, observed)["actions"] if a.get("release"))
+        assert step["action"] == "helm-manual-inspection" and "command" not in step
+
+
+def test_without_observations_the_plan_asks_to_observe_with_the_same_rules() -> None:
+    step = next(a for a in production_release.recovery_plan(helm_journal())["actions"] if a.get("release"))
+    assert step["action"] == "helm-observe-then-decide" and step["rules"] == list(promote.RECOVERY_RULES)
+    assert any("observe-helm" in command for command in step["observe"]) and "command" not in step
+
+
+def test_the_journal_captures_the_fingerprint_before_the_upgrade(tmp_path) -> None:                          # 15, 16
+    kube, helm = FakeKube(), FakeCluster()
+    pre_digest, pre_images = promote.manifest_fingerprint(helm, "llm-agent-mcp", "gke-prod")
+    original = helm.__call__
+
+    class Interrupted(BaseException):
+        pass
+
+    def crash_in_upgrade(command):  # type: ignore[no-untyped-def]
+        result = original(command)  # the upgrade is applied ...
+        if list(command[:3]) == ["helm", "upgrade", "llm-agent-mcp"]:
+            raise Interrupted()     # ... and the process dies before it learns the result
+        return result
+
+    journal = tmp_path / "j.json"
+    with pytest.raises(Interrupted):
+        transaction(kube, FakeClusterProxy(helm, crash_in_upgrade), journal=journal)
+    data = json.loads(journal.read_text())
+    attempt = next(e for e in data["events"] if e["event"] == "helm-upgrade-attempted")
+    assert attempt["previous_manifest_sha256"] == pre_digest and attempt["previous_images"] == pre_images
+    assert attempt["previous_status"] == "deployed" and attempt["previous_revision"] == 19
+    assert attempt["target_images"] == [MCP_NEW]
+    latest, current = promote.observe(helm, "llm-agent-mcp", "ewallet-mcp", "gke-prod")  # read-only
+    step = next(a for a in production_release.recovery_plan(data, {"llm-agent-mcp": {"latest": latest, "current": current}})
+                ["actions"] if a.get("release") == "llm-agent-mcp")
+    assert step["decision"] == "ROLLBACK"  # revision 20, deployed, not the recorded manifest
+
+
+@pytest.mark.parametrize("state", ["deployed", "failed", "pending-upgrade", "pending-rollback", "superseded"])
+def test_automated_rollback_and_recovery_plan_reach_the_same_decision(state) -> None:
+    helm = FakeCluster()
+    unit = attempted(helm)
+    move(helm, "llm-agent-mcp", state)
+    latest, current = promote.observe(helm, "llm-agent-mcp", "ewallet-mcp", "gke-prod")
+    journal = helm_journal(previous_revision=unit.previous_revision, previous_manifest_sha256=unit.previous_manifest_sha256,
+                           previous_images=unit.previous_images)
+    planned = helm_step(journal, latest, current)["decision"]
+    promote.rollback(helm, [unit], "gke-prod")
+    automated = {"ROLLED_BACK": "ROLLBACK", "NOT_CHANGED": "NOT_CHANGED", "STATE_UNKNOWN": "STATE_UNKNOWN"}[unit.status]
+    assert planned == automated
+
+
+def test_a_transient_ownership_failure_still_stops_all_later_cleanup() -> None:
+    """Once unproven, ownership is not re-acquired by a later successful check: an API blip at the E2E gate
+    must not be followed by cleanup DELETEs even though the next checkpoint would pass."""
+
+    kube, helm = FakeKube(), FakeCluster()
+    failed = {"once": False}
+
+    def checkpoint() -> None:
+        if len(creates(kube)) == 2 and not failed["once"]:
+            failed["once"] = True
+            raise _Unknown("LOCK_OWNERSHIP_UNKNOWN: GET -> HTTP 500 (transient)")
+
+    report = transaction(kube, helm, checkpoint=checkpoint)
+    assert failed["once"] and deletes(kube) == []
+    assert report["verdict"] == "RECOVERY_REQUIRED" and len(candidate_records(report)) == 2

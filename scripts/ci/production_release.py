@@ -127,11 +127,54 @@ class Journal:
         temporary.replace(self.path)
 
 
-def recovery_plan(journal: Mapping[str, Any]) -> dict[str, Any]:
-    """Deterministic recovery actions from a journal (read-only; an operator executes them by hand).
+PREREQUISITES = (
+    "re-establish the approved deployment identity: kubectl --context <ctx> auth whoami must return the handoff's "
+    "production_identity",
+    "re-establish lock ownership: no other holder in ewallet-cicd release-lock-* Leases (take the lock first)",
+)
+CANDIDATE_RULE = ("read the object; act only if it still has this uid and the ewallet.io/cicd-execution label of this "
+                  "execution, and its current state is understood; then delete with a uid precondition (never by name "
+                  "alone) and confirm its ActorTemplate is gone. Another uid or label: not ours, leave it and escalate")
+
+
+def _helm_action(item: Mapping[str, Any], observed: Mapping[str, Any] | None) -> dict[str, Any]:
+    """The recovery step for one unverified Helm attempt, from the same policy as the automated rollback."""
+
+    previous = {"revision": item.get("previous_revision"), "manifest_sha256": item.get("previous_manifest_sha256"),
+                "images": item.get("previous_images")}
+    base = {"release": item["release"], "namespace": item["namespace"], "previous": previous,
+            "target_images": item.get("target_images"), "prerequisites": list(PREREQUISITES)}
+    if not previous["manifest_sha256"] or not previous["images"] or item.get("previous_status") not in (None, "deployed"):
+        # An older journal (before the fingerprint was recorded) never gets a rollback recommendation.
+        return {**base, "action": "helm-manual-inspection", "decision": "STATE_UNKNOWN",
+                "reason": "the journal lacks the pre-mutation fingerprint; inspect by hand, no rollback recommended"}
+    if observed is None:
+        return {**base, "action": "helm-observe-then-decide", "decision": None,
+                "observe": [f"helm history {item['release']} -n {item['namespace']} --kube-context <ctx> --max 1 -o json",
+                            f"python -m scripts.ci.production_release observe-helm --release {item['release']} "
+                            f"--namespace {item['namespace']} --context <ctx>"],
+                "rules": list(promote.RECOVERY_RULES)}
+    decision, reason = promote.rollback_decision(previous, observed.get("latest"), observed.get("current"),
+                                                 after_rollback=bool(observed.get("after_rollback")))
+    action = {"NOT_CHANGED": "none-helm-unchanged", "RESTORED": "none-helm-restored",
+              "ROLLBACK": "helm-guarded-rollback", "STATE_UNKNOWN": "helm-manual-inspection"}[decision]
+    step = {**base, "action": action, "decision": decision, "reason": reason}
+    if decision == "ROLLBACK":
+        step["command"] = (f"helm rollback {item['release']} {previous['revision']} -n {item['namespace']} "
+                           "--kube-context <ctx> --wait --timeout 15m")
+        step["then"] = ("re-observe and re-run recovery-plan with after_rollback=true: only RESTORED (deployed, the "
+                        "recorded manifest SHA-256 and images) completes recovery; Helm's exit code alone does not")
+    return step
+
+
+def recovery_plan(journal: Mapping[str, Any], observed: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """Deterministic recovery actions from a journal (read-only planning; it never contacts a cluster).
 
     A mutation counts as possibly applied from the moment it was journaled as attempted until a
-    later event proves it rolled back, unchanged or verified.
+    later event proves it rolled back, unchanged or verified. ``observed`` optionally maps a Helm release
+    to read-only observations (``latest``: history entry, ``current``: manifest fingerprint,
+    ``after_rollback``) collected with ``observe-helm``; the decision is promote.rollback_decision, the
+    same policy as the automated rollback.
     """
 
     actions: list[dict[str, Any]] = []
@@ -141,17 +184,15 @@ def recovery_plan(journal: Mapping[str, Any]) -> dict[str, Any]:
               if e.get("event") in {"rolled-back", "not-changed"}}
     verified = state in SUCCESS  # the verified runtime confirms every attempted mutation
     candidates: dict[str, dict[str, Any]] = {}
+    skipped: dict[str, dict[str, Any]] = {}
     for item in events:
         kind = item.get("event")
         if kind == "helm-upgrade-attempted" and not verified and (item["unit"], item["release"]) not in closed:
-            actions.append({"action": "helm-inspect-then-rollback", "release": item["release"],
-                            "namespace": item["namespace"], "previous_revision": item["previous_revision"],
-                            "rule": "if the latest revision is not previous_revision: helm rollback <release> "
-                                    "<previous_revision> --wait, then confirm the latest revision is deployed"})
+            actions.append(_helm_action(item, (observed or {}).get(item["release"]) if observed is not None else None))
         elif kind == "fleet-patch-attempted" and not verified and (item["unit"], item["agent"]) not in closed:
             actions.append({"action": "sandboxagent-restore-image", "namespace": "ewallet-sandbox", "name": item["agent"],
                             "uid": item["uid"], "previous_image": item["previous_image"],
-                            "target_image": item["target_image"],
+                            "target_image": item["target_image"], "prerequisites": list(PREREQUISITES),
                             "rule": "only if uid and spec.byo.deployment.image still equal uid/target_image: JSON patch "
                                     "(test uid, test target_image, replace previous_image); otherwise a concurrent "
                                     "change - do not overwrite, escalate"})
@@ -160,15 +201,22 @@ def recovery_plan(journal: Mapping[str, Any]) -> dict[str, Any]:
         elif kind == "candidates-deleted":
             for name in item.get("names", []):
                 candidates.pop(name, None)
+        elif kind == "candidate-cleanup-skipped":
+            for candidate in item.get("candidates", []):
+                skipped[candidate["name"]] = {**candidate, "reason": item.get("reason")}
         elif kind == "candidate-snapshot-prefix":
             actions.append({"action": "gcs-remove-exact-prefix", "prefix": item["prefix"],
                             "rule": "remove objects under exactly this prefix only (owner cleanup, never a parent "
                                     "prefix and never a fleet campaign prefix)"})
-    for name, item in sorted(candidates.items()):
-        actions.append({"action": "delete-candidate", "namespace": "ewallet-sandbox", "name": name, "uid": item.get("uid"),
-                        "execution_id": journal.get("execution_id"),
-                        "rule": "delete with a uid precondition only if the object still has this uid and the "
-                                "ewallet.io/cicd-execution label; then confirm its ActorTemplate is gone"})
+    for name in sorted(set(candidates) | set(skipped)):
+        record = {**candidates.get(name, {}), **skipped.get(name, {})}
+        actions.append({"action": "candidate-recovery", "namespace": record.get("namespace", "ewallet-sandbox"),
+                        "name": name, "uid": record.get("uid"), "execution_id": journal.get("execution_id"),
+                        "release_sha": journal.get("git_sha"), "label": "ewallet.io/cicd-execution",
+                        "last_known_state": record.get("last_known_state"),
+                        "cleanup_status": record.get("cleanup_status", "NOT_PROVEN_DELETED"),
+                        "skipped_reason": record.get("reason"), "prerequisites": list(PREREQUISITES),
+                        "rule": CANDIDATE_RULE})
     for item in events:
         if item.get("event") == "ownership-unproven":
             actions.insert(0, {"action": "lock-and-identity-check", "state": item.get("state"),
@@ -182,8 +230,11 @@ def recovery_plan(journal: Mapping[str, Any]) -> dict[str, Any]:
     if state == "DEPLOYED_PENDING_REGISTRY":
         actions.append({"action": "registry-publication", "rule": "follow registry.procedure of the release verdict "
                         "under its own approval"})
-    # Only the snapshot prefix remains after a clean run; it is an owner cleanup, not a recovery.
-    critical = [a for a in actions if a["action"] not in {"gcs-remove-exact-prefix", "registry-publication"}]
+    # Owner cleanup and no-op decisions are not recovery.
+    benign = {"gcs-remove-exact-prefix", "registry-publication", "none-helm-unchanged", "none-helm-restored"}
+    critical = [a for a in actions if a["action"] not in benign]
+    if not critical and state not in SUCCESS | {"FAILED_ROLLED_BACK", "FAILED_NOTHING_CHANGED", "CHECKED_NOT_EXECUTED"}:
+        critical = ["state"]
     return {"state": state, "git_sha": journal.get("git_sha"), "recovery_required": bool(critical),
             "actions": actions}
 
@@ -244,6 +295,9 @@ def run(plan: Mapping[str, Any], context: str, manifest: Mapping[str, Any], *, e
         raise ProductionReleaseError(f"cannot read the Helm baseline: {error}") from error
     journal.event("baseline", helm_revisions=dict(revisions))
 
+    def target_images(unit_name: str) -> list[str]:
+        return sorted(next(u["images"] for u in plan["units"] if u["name"] == unit_name).values())
+
     def helm_attempt(unit_name: str) -> Callable[[promote.UnitPromotion], None]:
         def record(item: promote.UnitPromotion) -> None:
             try:
@@ -251,8 +305,12 @@ def run(plan: Mapping[str, Any], context: str, manifest: Mapping[str, Any], *, e
             except BaseException:
                 item.status = "NOT_STARTED"  # helm never ran
                 raise
+            # Durable before helm upgrade runs: everything the recovery decision needs, nothing sensitive
+            # (revision, status, manifest SHA-256, image references).
             journal.event("helm-upgrade-attempted", unit=unit_name, release=item.release, namespace=item.namespace,
-                          previous_revision=item.previous_revision)
+                          previous_revision=item.previous_revision, previous_status="deployed",
+                          previous_manifest_sha256=item.previous_manifest_sha256,
+                          previous_images=list(item.previous_images), target_images=target_images(unit_name))
         return record
 
     def fleet_attempt(unit_name: str) -> Callable[[fleet_promote.AgentPromotion], None]:
@@ -399,12 +457,26 @@ def main(argv: Sequence[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
     plan = sub.add_parser("recovery-plan", help="read-only: the recovery actions a journal requires")
     plan.add_argument("--journal", type=Path, required=True)
+    plan.add_argument("--observed", type=Path, help="observe-helm output per release (JSON object)")
+    look = sub.add_parser("observe-helm", help="read-only Helm observation for recovery-plan (history, fingerprint)")
+    look.add_argument("--release", required=True, choices=sorted(rs.RELEASE_NAMESPACE))
+    look.add_argument("--namespace", required=True)
+    look.add_argument("--context", required=True)
+    look.add_argument("--after-rollback", action="store_true")
     args = parser.parse_args(argv)
+    if args.command == "observe-helm":
+        if not args.context or args.context == "in-cluster":
+            parser.error("an explicit production context is required")
+        latest, current = promote.observe(rs.run_command, args.release, args.namespace, args.context)
+        print(json.dumps({args.release: {"latest": latest, "current": current, "after_rollback": args.after_rollback}},
+                         indent=2, sort_keys=True))
+        return 0
     try:
         journal = json.loads(args.journal.read_text(encoding="utf-8"))
+        observed = json.loads(args.observed.read_text(encoding="utf-8")) if args.observed else None
     except (OSError, ValueError) as error:
-        parser.error(f"cannot read the journal: {error}")
-    result = recovery_plan(journal)
+        parser.error(f"cannot read the journal or observations: {error}")
+    result = recovery_plan(journal, observed)
     print(json.dumps(result, indent=2, sort_keys=True))
     return 1 if result["recovery_required"] else 0
 

@@ -27,10 +27,16 @@ Steps (every refusal names a code; nothing is created before preflight passes):
    ``NOT_READY``, ``ACTOR_STARTUP_FAILED``);
 4. reconcile the deployed identity (label and digest) and run the typed Specialist E2E
    (``E2E_FAILED``) through a port-forward this process owns;
-5. always delete what this run created, by uid and only after re-reading it (same uid, this
-   execution's label), and wait until the candidates and their ActorTemplates are gone. Anything that
-   cannot be proven gone is ``CLEANUP_INCOMPLETE`` with its exact kind, name and uid. Finally prove the
-   production SandboxAgents did not change (``PRODUCTION_CHANGED`` / ``PRODUCTION_STATE_UNKNOWN``).
+5. delete what this run created, by uid and only after re-reading it (same uid, this execution's
+   label), and wait until the candidates and their ActorTemplates are gone. Anything that cannot be
+   proven gone is ``CLEANUP_INCOMPLETE`` with its exact kind, name and uid. Finally prove the production
+   SandboxAgents did not change (``PRODUCTION_CHANGED`` / ``PRODUCTION_STATE_UNKNOWN``).
+
+Mutation authority: every create and every delete (retries included) is preceded by the release
+checkpoint (lock ownership and deployment identity). Once it fails (``OwnershipUncertain``), no further
+Kubernetes mutation is issued, cleanup included: an ordinary failure with verified ownership is cleaned
+up, but an ownership failure skips (or halts) cleanup and records each remaining candidate's identity
+(``candidate-cleanup-skipped``) for the operator, and the transaction ends ``RECOVERY_REQUIRED``.
 """
 
 from __future__ import annotations
@@ -65,6 +71,7 @@ CHECKS = {
 }
 CRDS = (("kagent.dev/v1alpha2", "sandboxagents"), ("ate.dev/v1alpha1", "workerpools"),
         ("ate.dev/v1alpha1", "actortemplates"))
+CLEANUP_SKIPPED = "SKIPPED_OWNERSHIP_UNPROVEN"
 FORWARD_LINE = re.compile(r"Forwarding from 127\.0\.0\.1:([0-9]{2,5}) -> ([0-9]+)")
 Event = Callable[[dict[str, Any]], None]
 
@@ -185,6 +192,27 @@ class CandidateReport:
         self.problems.extend(problems)
 
 
+class CleanupHalted(Exception):
+    """Cleanup stopped because mutation authority could not be re-proven; carries what is left."""
+
+    def __init__(self, cause: Exception, state: dict[str, str], remaining: list[dict[str, str]]) -> None:
+        super().__init__(str(cause))
+        self.cause, self.cleanup_state, self.remaining = cause, state, remaining
+
+
+def _authorize(checkpoint: Callable[[], None]) -> None:
+    """Run the checkpoint before a mutation; any failure to prove authority is OwnershipUncertain."""
+
+    from scripts.ci.release_lock import LockOwnershipUnknown, OwnershipUncertain
+
+    try:
+        checkpoint()
+    except OwnershipUncertain:
+        raise
+    except Exception as error:  # an unexpected checkpoint failure proves nothing: fail closed
+        raise LockOwnershipUnknown(f"LOCK_OWNERSHIP_UNKNOWN: checkpoint failed: {type(error).__name__}: {error}") from error
+
+
 def _fingerprint(item: Mapping[str, Any] | None) -> dict[str, Any]:
     item = item or {}
     return {"uid": (item.get("metadata") or {}).get("uid"), "generation": (item.get("metadata") or {}).get("generation"),
@@ -296,7 +324,12 @@ def _wait_ready(kube: Kube, contract: Mapping[str, Any], created: Mapping[str, d
                 module=contract["agents"][agent]["module"])
             problems += agent_problems
             startup += template_problems
-            report.candidates[agent].update({"golden_actor": golden, "uid": (item or {}).get("metadata", {}).get("uid")})
+            found = sa.conditions(item or {})
+            report.candidates[agent].update({
+                "golden_actor": golden, "uid": (item or {}).get("metadata", {}).get("uid"),
+                "last_known_state": "MISSING" if not item else
+                f"Accepted={found.get('Accepted', {}).get('status')} Ready={found.get('Ready', {}).get('status')} "
+                f"golden={'yes' if golden else 'no'}"})
         if not problems and not startup:
             return True
         if clock() >= deadline:
@@ -307,13 +340,19 @@ def _wait_ready(kube: Kube, contract: Mapping[str, Any], created: Mapping[str, d
 
 def cleanup(kube: Kube, contract: Mapping[str, Any], created: Mapping[str, str], execution_id: str, *,
             clock: Callable[[], float] = time.monotonic, sleep: Callable[[float], None] = time.sleep,
-            emit: Event = lambda event: None) -> tuple[dict[str, str], list[dict[str, str]]]:
+            emit: Event = lambda event: None,
+            checkpoint: Callable[[], None] = lambda: None) -> tuple[dict[str, str], list[dict[str, str]]]:
     """Delete exactly the candidates this execution created; returns (per-name state, incomplete resources).
 
     Idempotent: an object already gone counts as deleted. An object with another uid or without this
     execution's label is not ours (recreated by someone else) and is never deleted. API errors are
     retried until the cleanup deadline; whatever cannot be proven gone is returned with its identity.
+    Every DELETE (retries included) is preceded by ``checkpoint``; if it fails, no further DELETE is sent
+    and :class:`CleanupHalted` carries the per-name state and every resource not proven gone.
     """
+
+    from scripts.ci.release_lock import OwnershipUncertain
+
 
     namespace = contract["namespace"]
     state: dict[str, str] = {}
@@ -332,6 +371,10 @@ def cleanup(kube: Kube, contract: Mapping[str, Any], created: Mapping[str, str],
             continue
         owned[name] = uid
         try:
+            _authorize(checkpoint)
+        except OwnershipUncertain as error:
+            raise _halted(error, namespace, created, owned, state) from error
+        try:
             kube.delete_uid("SandboxAgent", namespace, name, uid)
             state[name] = "DELETE_REQUESTED"
             emit({"event": "candidate-delete-requested", "name": name, "uid": uid})
@@ -347,6 +390,7 @@ def cleanup(kube: Kube, contract: Mapping[str, Any], created: Mapping[str, str],
                 if current is not None and _fingerprint(current)["uid"] == uid:
                     remaining.append({"kind": "SandboxAgent", "namespace": namespace, "name": name, "uid": uid})
                     if state[name].startswith("DELETE_FAILED"):
+                        _authorize(checkpoint)  # a retry is a mutation too
                         with contextlib.suppress(Exception):
                             kube.delete_uid("SandboxAgent", namespace, name, uid)
                             state[name] = "DELETE_REQUESTED"
@@ -357,6 +401,8 @@ def cleanup(kube: Kube, contract: Mapping[str, Any], created: Mapping[str, str],
                 if owner:
                     remaining.append({"kind": "ActorTemplate", "namespace": namespace,
                                       "name": template["metadata"]["name"], "owner_uid": owner["uid"]})
+        except OwnershipUncertain as error:
+            raise _halted(error, namespace, created, owned, state) from error
         except Exception as error:  # an API timeout: unknown is not gone
             remaining = [{"kind": "SandboxAgent", "namespace": namespace, "name": n, "uid": u,
                           "unknown": type(error).__name__} for n, u in owned.items()]
@@ -369,6 +415,21 @@ def cleanup(kube: Kube, contract: Mapping[str, Any], created: Mapping[str, str],
             return state, remaining
         sleep(5)
     return state, []
+
+
+def _halted(error: Exception, namespace: str, created: Mapping[str, str], owned: Mapping[str, str],
+            state: dict[str, str]) -> CleanupHalted:
+    """Everything created and not proven deleted, when cleanup must stop."""
+
+    remaining = []
+    for name, uid in created.items():
+        if state.get(name) in {"DELETED", "NOT_OURS_LEFT_UNTOUCHED"}:
+            continue
+        if name not in owned or not state.get(name, "").startswith("DELETE_REQUESTED"):
+            state[name] = CLEANUP_SKIPPED
+        remaining.append({"kind": "SandboxAgent", "namespace": namespace, "name": name, "uid": uid,
+                          "cleanup_status": state[name]})
+    return CleanupHalted(error, state, remaining)
 
 
 def run(kube: Kube, unit: Mapping[str, Any], plan: Mapping[str, Any], manifest: Mapping[str, Any], *,
@@ -397,8 +458,8 @@ def run(kube: Kube, unit: Mapping[str, Any], plan: Mapping[str, Any], manifest: 
 
     created: dict[str, str] = {}
     try:
-        checkpoint()  # ownership and identity before the first create
         for agent, document in rendered.items():
+            _authorize(checkpoint)  # ownership and identity before every create
             _create(kube, document, report.execution_id, created, emit)
         if _wait_ready(kube, contract, rendered, image, clock, sleep, report):
             namespace = contract["namespace"]
@@ -416,7 +477,7 @@ def run(kube: Kube, unit: Mapping[str, Any], plan: Mapping[str, Any], manifest: 
                 if drift:
                     report.fail("IDENTITY_MISMATCH", drift)
             if report.failure_code is None:
-                checkpoint()  # after a readiness wait of up to 15 minutes
+                _authorize(checkpoint)  # after a readiness wait of up to 15 minutes
                 with forward() as endpoint:
                     for agent, document in rendered.items():
                         verdict = specialist_e2e.verify(
@@ -436,10 +497,20 @@ def run(kube: Kube, unit: Mapping[str, Any], plan: Mapping[str, Any], manifest: 
     except Exception as error:  # API refusal mid-run: still clean up, report the cause
         report.fail("CANDIDATE_ERROR", [f"{type(error).__name__}: {str(error)[:300]}"])
     finally:
-        if created:
+        if created and report.ownership_error is not None:
+            # Mutation authority is unproven: no cleanup DELETE. Record what is left for the operator.
+            remaining = _halted(report.ownership_error, contract["namespace"], created, {}, report.cleanup).remaining
+            _record_skipped(report, plan, remaining, str(report.ownership_error), emit)
+        elif created:
             try:
                 report.cleanup, report.cleanup_incomplete = cleanup(kube, contract, created, report.execution_id,
-                                                                    clock=clock, sleep=sleep, emit=emit)
+                                                                    clock=clock, sleep=sleep, emit=emit,
+                                                                    checkpoint=checkpoint)
+            except CleanupHalted as halted:
+                report.cleanup = halted.cleanup_state
+                report.ownership_error = halted.cause  # stays the primary error of the transaction
+                report.fail(getattr(halted.cause, "state", "LOCK_OWNERSHIP_UNKNOWN"), [str(halted.cause)])
+                _record_skipped(report, plan, halted.remaining, str(halted.cause), emit)
             except Exception as error:  # never let cleanup replace the primary failure
                 report.cleanup_incomplete = [{"kind": "SandboxAgent", "namespace": contract["namespace"], "name": n,
                                               "uid": u, "unknown": type(error).__name__} for n, u in created.items()]
@@ -460,6 +531,19 @@ def run(kube: Kube, unit: Mapping[str, Any], plan: Mapping[str, Any], manifest: 
     if report.failure_code is None:
         report.status = "PASS"
     return _write(report, evidence)
+
+
+def _record_skipped(report: CandidateReport, plan: Mapping[str, Any], remaining: list[dict[str, str]], reason: str,
+                    emit: Event) -> None:
+    """Exact identities of candidates left because cleanup was not authorized (journal + verdict)."""
+
+    by_name = {item["name"]: item for item in report.candidates.values() if "name" in item}
+    records = [{**item, "execution_id": report.execution_id, "release_sha": plan["git_sha"], "label": sa.EXECUTION_LABEL,
+                "last_known_state": by_name.get(item["name"], {}).get("last_known_state", "UNKNOWN")}
+               for item in remaining]
+    report.cleanup_incomplete = records
+    if records:
+        emit({"event": "candidate-cleanup-skipped", "candidates": records, "reason": reason})
 
 
 def _write(report: CandidateReport, evidence: Path | None) -> CandidateReport:
