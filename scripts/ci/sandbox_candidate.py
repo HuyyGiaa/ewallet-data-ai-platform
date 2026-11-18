@@ -131,7 +131,9 @@ def kubectl_forward(context: str, contract: Mapping[str, Any], *, start_timeout:
     """
 
     kagent = contract["kagent"]
-    process = subprocess.Popen(["kubectl", "--context", context, "-n", kagent["namespace"], "port-forward",
+    # The in-cluster Jenkins identity (staging release) has no kubeconfig context: kubectl uses the pod's account.
+    selector = [] if context in ("", "in-cluster") else ["--context", context]
+    process = subprocess.Popen(["kubectl", *selector, "-n", kagent["namespace"], "port-forward",
                                 "--address", "127.0.0.1", f"svc/{kagent['service']}", f":{kagent['port']}"],
                                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
     try:

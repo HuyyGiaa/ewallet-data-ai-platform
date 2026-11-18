@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "description": "Isolated Agent staging (V2-P3A, Architecture A'): Helm release llm-agent-staging (values-staging.yaml) in ewallet-agents-staging, then the dedicated WorkerPool and both Specialist SandboxAgents in ewallet-sandbox-staging (infra/kubernetes/agent-staging/fleet.yaml.tmpl), then the typed Specialist and Coordinator E2E and the security negatives, then removal of everything this run created. Only staging namespaces are written; the kagent controller (shared control plane) is reached read-only through a port-forward.",
+  "agents_namespace": "ewallet-agents-staging",
+  "sandbox_namespace": "ewallet-sandbox-staging",
+  "helm": {
+    "release": "llm-agent-staging",
+    "chart": "infra/helm/llm-agent-platform",
+    "values": "values-staging.yaml",
+    "timeout": "10m"
+  },
+  "worker_pool": "staging-agents",
+  "fleet_template": "infra/kubernetes/agent-staging/fleet.yaml.tmpl",
+  "snapshot_prefix": "gs://ate-snapshots/ewallet-sandbox-staging/",
+  "required": {
+    "ewallet-agents-staging": {
+      "secrets": [
+        "coordinator-idempotency-redis-auth-staging",
+        "agentgateway-client-key-staging",
+        "mcp-auth-feature-rag-mcp-staging",
+        "mcp-auth-drift-mcp-staging",
+        "mcp-token-kagent-controller-feature-rag-mcp-staging",
+        "mcp-token-kagent-controller-drift-mcp-staging",
+        "feast-online-redis-staging-fraud",
+        "feast-online-redis-staging-rag"
+      ],
+      "configmaps": [
+        "feast-registry-fraud-staging",
+        "feast-registry-rag-staging",
+        "drift-baselines-staging",
+        "drift-window-staging"
+      ]
+    },
+    "ewallet-sandbox-staging": {
+      "secrets": [
+        "mcp-token-sandbox-feature-rag-feature-rag-mcp-staging",
+        "mcp-token-sandbox-drift-drift-mcp-staging"
+      ],
+      "configmaps": []
+    }
+  },
+  "drift_artifacts": {
+    "baselines": {
+      "configmap": "drift-baselines-staging",
+      "key": "baselines.json"
+    },
+    "window": {
+      "configmap": "drift-window-staging",
+      "key": "window-manifest.json"
+    }
+  },
+  "kagent": {
+    "namespace": "kagent",
+    "service": "kagent-controller",
+    "port": 8083,
+    "user_id": "service:ewallet-cicd-staging"
+  },
+  "a2a_gateway": {
+    "service": "a2a-gateway",
+    "port": 8083
+  },
+  "mcp_gateway": {
+    "service": "mcp-gateway",
+    "port": 8080
+  },
+  "coordinator": {
+    "name": "fraud-coordinator",
+    "cases": [
+      "fraud",
+      "drift",
+      "combined"
+    ]
+  },
+  "timeouts": {
+    "ready_seconds": 900,
+    "task_seconds": 240,
+    "e2e_seconds": 650,
+    "cleanup_seconds": 300
+  },
+  "agents": {
+    "feature-rag-specialist": {
+      "module": "ai_platform.llm_agent.byo_feature_rag_specialist",
+      "service_account": "sandbox-feature-rag",
+      "fixture": "configs/experiments/fixtures/agent-load-request.json",
+      "expect": {
+        "prompt_revision": "feature-rag-specialist/byo-v1",
+        "fraud_probability": 0.0639895560144887,
+        "features": true,
+        "citations": true,
+        "drift": false
+      },
+      "credential_secret": "mcp-token-sandbox-feature-rag-feature-rag-mcp-staging"
+    },
+    "drift-specialist": {
+      "module": "ai_platform.llm_agent.byo_drift_specialist",
+      "service_account": "sandbox-drift",
+      "fixture": "configs/experiments/fixtures/agent-load-drift-request.json",
+      "expect": {
+        "prompt_revision": "drift-specialist/byo-v1",
+        "psi": 0.0004795543627041439,
+        "features": false,
+        "citations": false,
+        "drift": true
+      },
+      "credential_secret": "mcp-token-sandbox-drift-drift-mcp-staging"
+    }
+  },
+  "known_answers_note": "The pinned answers are the production known answers of jenkins/cd/sandbox-candidate.contract.json. They hold in staging only when the staging Feast/RAG stores and the staging predictor serve the same fixture rows and model (V2-P3B data prerequisite); a mismatch fails the release, it is never relaxed."
+}

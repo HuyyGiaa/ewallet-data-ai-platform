@@ -1,0 +1,65 @@
+# CI/CD V2-P3A: the two staging namespaces. Applied ONCE by the operator with owner approval before V2-P3B
+# (cluster-scoped objects: the Jenkins staging identity cannot create namespaces). Not applied by any script.
+# Jenkins then creates and deletes only release-owned objects inside them; the namespaces stay.
+#
+# Quotas count what a new GKE namespace already holds (kube-root-ca.crt and three Istio ConfigMaps) plus the
+# staging release (llm-agent-staging: 53 objects; Helm stores its release in Secrets of the namespace).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ewallet-agents-staging
+  labels:
+    ewallet.io/environment: staging
+    istio.io/dataplane-mode: ambient
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata: {name: staging-budget, namespace: ewallet-agents-staging}
+spec:
+  hard:
+    requests.cpu: "2"
+    requests.memory: 4Gi
+    limits.cpu: "6"
+    limits.memory: 8Gi
+    pods: "12"
+    persistentvolumeclaims: "2"
+    requests.storage: 4Gi
+    configmaps: "30"
+    secrets: "30"
+    services: "8"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ewallet-sandbox-staging
+  labels:
+    ewallet.io/environment: staging
+    # Worker identity cluster.local/ns/ewallet-sandbox-staging/sa/default: admitted only by the staging MCP Gateway
+    # (values-staging.yaml crossNamespace), never by a production policy.
+    istio.io/dataplane-mode: ambient
+    # Worker pods need privileged Pod Security, as in ewallet-sandbox and kagent-pilot.
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+---
+# The worker identity holds no API token, so a sandbox escape finds no Kubernetes credential.
+apiVersion: v1
+kind: ServiceAccount
+metadata: {name: default, namespace: ewallet-sandbox-staging}
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata: {name: staging-budget, namespace: ewallet-sandbox-staging}
+spec:
+  hard:
+    requests.cpu: "1500m"
+    requests.memory: 3Gi
+    limits.cpu: "4"
+    limits.memory: 6Gi
+    pods: "4"
+    configmaps: "12"
+    secrets: "8"

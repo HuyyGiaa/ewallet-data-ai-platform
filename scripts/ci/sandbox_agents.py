@@ -178,7 +178,8 @@ def conditions(item: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:
     return {c.get("type"): c for c in ((item.get("status") or {}).get("conditions") or []) if isinstance(c, Mapping)}
 
 
-def assess_sandbox_agent(item: Mapping[str, Any] | None, *, image: str, name: str) -> list[str]:
+def assess_sandbox_agent(item: Mapping[str, Any] | None, *, image: str, name: str,
+                         pool_ref: Mapping[str, str] = POOL_REF) -> list[str]:
     if not item:
         return [f"SandboxAgent {name} is missing"]
     problems: list[str] = []
@@ -199,30 +200,32 @@ def assess_sandbox_agent(item: Mapping[str, Any] | None, *, image: str, name: st
     spec = item.get("spec") or {}
     if ((spec.get("byo") or {}).get("deployment") or {}).get("image") != image:
         problems.append(f"SandboxAgent {name} does not declare the release image")
-    if (spec.get("substrate") or {}).get("workerPoolRef") != POOL_REF:
-        problems.append(f"SandboxAgent {name} is not on WorkerPool {WORKER_POOL}")
+    if (spec.get("substrate") or {}).get("workerPoolRef") != dict(pool_ref):
+        problems.append(f"SandboxAgent {name} is not on WorkerPool {pool_ref['name']}")
     return problems
 
 
-def assess_worker_pool(pool: Mapping[str, Any] | None) -> list[str]:
-    """The shared WorkerPool is a prerequisite: it is verified, never created or scaled by CI/CD."""
+def assess_worker_pool(pool: Mapping[str, Any] | None, *, namespace: str = NAMESPACE,
+                       name: str = WORKER_POOL) -> list[str]:
+    """The shared production WorkerPool is a prerequisite: verified, never created or scaled by CI/CD.
+    The staging release (scripts/ci/agent_staging.py) checks its own pool with ``namespace``/``name``."""
 
     if not pool:
-        return [f"WorkerPool {NAMESPACE}/{WORKER_POOL} is missing"]
+        return [f"WorkerPool {namespace}/{name} is missing"]
     problems = []
     spec, status = pool.get("spec") or {}, pool.get("status") or {}
     if spec.get("sandboxClass") != SANDBOX_CLASS:
-        problems.append(f"WorkerPool {WORKER_POOL} sandboxClass is {spec.get('sandboxClass')}, not {SANDBOX_CLASS}")
+        problems.append(f"WorkerPool {name} sandboxClass is {spec.get('sandboxClass')}, not {SANDBOX_CLASS}")
     replicas = status.get("replicas")
     if not isinstance(replicas, int) or replicas < 1:
-        problems.append(f"WorkerPool {WORKER_POOL} has no workers (status.replicas={replicas})")
+        problems.append(f"WorkerPool {name} has no workers (status.replicas={replicas})")
     elif isinstance(spec.get("replicas"), int) and replicas != spec["replicas"]:
-        problems.append(f"WorkerPool {WORKER_POOL} is scaling ({replicas}/{spec['replicas']})")
+        problems.append(f"WorkerPool {name} is scaling ({replicas}/{spec['replicas']})")
     return problems
 
 
 def assess_actor_template(templates: list[Mapping[str, Any]], agent: Mapping[str, Any], *, image: str,
-                          module: str) -> tuple[list[str], str | None]:
+                          module: str, worker_pool: str = WORKER_POOL) -> tuple[list[str], str | None]:
     """The Substrate actor of one SandboxAgent; returns (problems, golden actor id)."""
 
     name = (agent.get("metadata") or {}).get("name")
@@ -237,8 +240,8 @@ def assess_actor_template(templates: list[Mapping[str, Any]], agent: Mapping[str
     problems = []
     if spec.get("sandboxClass") != SANDBOX_CLASS:
         problems.append(f"ActorTemplate of {name} is not gVisor ({spec.get('sandboxClass')})")
-    if (spec.get("workerSelector") or {}).get("matchLabels") != WORKER_SELECTOR:
-        problems.append(f"ActorTemplate of {name} does not select WorkerPool {WORKER_POOL}")
+    if (spec.get("workerSelector") or {}).get("matchLabels") != {"kagent.dev/worker-pool": worker_pool}:
+        problems.append(f"ActorTemplate of {name} does not select WorkerPool {worker_pool}")
     containers = spec.get("containers") or []
     if len(containers) != 1 or containers[0].get("image") != image:
         problems.append(f"ActorTemplate of {name} does not run the release image")

@@ -1,0 +1,90 @@
+# Agent staging release identity PROPOSAL (NOT APPROVED, NOT APPLIED; CI/CD V2-P3A).
+# Minimum rights for scripts/ci/agent_staging.py run by the in-cluster Jenkins agent account
+# ewallet-ci/jenkins (the account batch-b-isolated.yaml binds). Namespaced Roles only, no ClusterRole: the staging namespaces themselves are created
+# once by the operator (infra/kubernetes/agent-staging/namespaces.yaml), never by Jenkins.
+#
+# * ewallet-agents-staging: what `helm install/uninstall llm-agent-staging` creates (values-staging.yaml renders
+#   ConfigMaps, Services, ServiceAccounts, Deployments, a StatefulSet + PVC, NetworkPolicies, AuthorizationPolicies,
+#   kagent Agent/ModelConfig/RemoteMCPServer). Helm keeps its release record in Secrets of this namespace, so
+#   Secrets are writable here; the CD code reads staging Secrets by metadata only and no Helm value names a value.
+# * ewallet-sandbox-staging: the release-owned WorkerPool, ServiceAccounts and SandboxAgents (create, get, delete;
+#   uid-preconditioned deletes in code), ActorTemplates read-only, Secrets metadata only.
+# * kagent: port-forward to the shared controller for the SandboxAgent A2A route; nothing is written there.
+# Leases in ewallet-cicd (release locks) are already granted by batch-b-isolated.yaml.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: {name: agent-staging-release, namespace: ewallet-agents-staging}
+rules:
+- apiGroups: [""]
+  resources: [configmaps, services, serviceaccounts, persistentvolumeclaims, secrets]
+  verbs: [get, list, watch, create, update, patch, delete]
+- apiGroups: [""]
+  resources: [pods, pods/log, events, endpoints]
+  verbs: [get, list, watch]
+- apiGroups: [""]
+  resources: [pods/portforward]
+  verbs: [create]
+- apiGroups: [apps]
+  resources: [deployments, statefulsets, replicasets]
+  verbs: [get, list, watch, create, update, patch, delete]
+- apiGroups: [networking.k8s.io]
+  resources: [networkpolicies]
+  verbs: [get, list, watch, create, update, patch, delete]
+- apiGroups: [security.istio.io]
+  resources: [authorizationpolicies]
+  verbs: [get, list, watch, create, update, patch, delete]
+- apiGroups: [kagent.dev]
+  resources: [agents, modelconfigs, remotemcpservers]
+  verbs: [get, list, watch, create, update, patch, delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: agent-staging-release, namespace: ewallet-agents-staging}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: agent-staging-release}
+subjects:
+- {kind: ServiceAccount, name: jenkins, namespace: ewallet-ci}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: {name: agent-staging-fleet, namespace: ewallet-sandbox-staging}
+rules:
+- apiGroups: [ate.dev]
+  resources: [workerpools]
+  verbs: [get, list, create, delete]
+- apiGroups: [ate.dev]
+  resources: [actortemplates]
+  verbs: [get, list]
+- apiGroups: [kagent.dev]
+  resources: [sandboxagents]
+  verbs: [get, list, create, delete]
+- apiGroups: [""]
+  resources: [serviceaccounts]
+  verbs: [get, list, create, delete]
+- apiGroups: [""]
+  resources: [secrets]
+  verbs: [get, list]   # metadata-only reads in code (k8s_api METADATA_ONLY)
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: agent-staging-fleet, namespace: ewallet-sandbox-staging}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: agent-staging-fleet}
+subjects:
+- {kind: ServiceAccount, name: jenkins, namespace: ewallet-ci}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: {name: agent-staging-kagent-forward, namespace: kagent}
+rules:
+- apiGroups: [""]
+  resources: [services, pods]
+  verbs: [get, list]
+- apiGroups: [""]
+  resources: [pods/portforward]
+  verbs: [create]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: agent-staging-kagent-forward, namespace: kagent}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: agent-staging-kagent-forward}
+subjects:
+- {kind: ServiceAccount, name: jenkins, namespace: ewallet-ci}

@@ -3,8 +3,8 @@ CI/CD V2-P1 staging guard. Renders no object; it only fails the render.
 
 deploymentProfile production (default): nothing changes, except that a *-staging namespace needs the
 staging profile. deploymentProfile staging (values-staging.yaml): the release may own objects only in
-ewallet-agents-staging and may not point Gateways, policies or data at a production namespace. The only
-shared peer is the kagent controller, reached by policies rendered in the staging namespace itself.
+ewallet-agents-staging and may not point Gateways, policies or data at a production namespace. Peers: the shared
+kagent controller and the staging sandbox workers, through policies rendered in the staging namespace itself.
 tests/llm_agent/test_v2p1_staging_chart.py also inspects the rendered objects one by one.
 */ -}}
 {{- $profile := .Values.deploymentProfile | default "production" }}
@@ -26,8 +26,8 @@ tests/llm_agent/test_v2p1_staging_chart.py also inspects the rendered objects on
 {{- fail "staging profile: observabilityStack, dashboards, podLogs and kfpUiIngress must be disabled" }}
 {{- end }}
 {{- range $flow := .Values.crossNamespace.flows }}
-{{- if or (ne $flow.peer.namespace "kagent") $flow.peerIngress $flow.peerAuthorization }}
-{{- fail (printf "staging profile: crossNamespace flow %s may only reach the kagent controller, without peer policies" $flow.name) }}
+{{- if or (not (has $flow.peer.namespace (list "kagent" "ewallet-sandbox-staging"))) $flow.peerIngress $flow.peerAuthorization }}
+{{- fail (printf "staging profile: crossNamespace flow %s may only reach the kagent controller or the staging sandbox, without peer policies" $flow.name) }}
 {{- end }}
 {{- end }}
 {{- if not (has (.Values.mcpGateway.backendNamespace | default "") (list "" $stagingNs)) }}

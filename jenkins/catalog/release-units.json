@@ -80,6 +80,19 @@
       "lock": "block-a-verification",
       "verify": ["image-smoke", "flink-job-running", "offline-written", "online-written", "offline-online-parity", "run-identity"]
     },
+    "agent-staging": {
+      "description": "Isolated Agent staging (V2-P3A, Architecture A'): Helm release llm-agent-staging (values-staging.yaml) in ewallet-agents-staging, the dedicated WorkerPool staging-agents and both Specialist SandboxAgents in ewallet-sandbox-staging, typed Specialist and Coordinator E2E (fraud, drift, combined) and security negatives, then removal of everything the run created (scripts/ci/agent_staging.py). Runs only from release/agent-staging with DEPLOY_APPROVED and the Jenkins approval step; never touches a production namespace.",
+      "kind": "agent-staging",
+      "stage": "rehearsal",
+      "components": ["agents", "mcp-agents"],
+      "images": ["g3-byo-coordinator", "mcp-tools"],
+      "depends_on": [],
+      "prerequisites": ["kagent-watches-staging-namespaces", "staging-namespaces-present", "staging-secrets-present", "staging-data-seeded", "snapshot-capacity-checked"],
+      "contract": "jenkins/cd/agent-staging.contract.json",
+      "target_namespace": "ewallet-agents-staging",
+      "lock": "agent-staging",
+      "verify": ["staging-ready", "specialist-e2e-feature-rag", "specialist-e2e-drift", "coordinator-e2e-fraud", "coordinator-e2e-drift", "coordinator-e2e-combined", "security-negatives", "staging-cleanup"]
+    },
     "mcp-servers-production": {
       "description": "Image-only promotion of llm-agent-mcp through Helm (scripts/ci/release_state.py checks, helm upgrade --atomic).",
       "kind": "helm-image-promotion",
@@ -138,6 +151,7 @@
     "release/mcp-agents": {"rehearsal": ["prompt-registry-gate", "mcp-servers", "agent-fleet"], "production": ["mcp-servers-production"]},
     "release/agent-fleet": {"rehearsal": ["mcp-servers", "agent-fleet"], "production": ["agent-fleet-candidate", "agent-fleet-production"]},
     "release/coordinator": {"rehearsal": ["mcp-servers", "agent-fleet", "coordinator"], "production": ["agent-fleet-candidate", "mcp-servers-production", "agent-fleet-production", "coordinator-production"]},
-    "release/streaming": {"rehearsal": ["streaming-block-a"], "production": []}
+    "release/streaming": {"rehearsal": ["streaming-block-a"], "production": []},
+    "release/agent-staging": {"rehearsal": ["agent-staging"], "production": []}
   }
 }

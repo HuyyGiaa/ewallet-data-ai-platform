@@ -1,0 +1,151 @@
+# CI/CD V2-P3A staging fleet: rendered and created by scripts/ci/agent_staging.py (release unit agent-staging).
+# Not applied by hand. __AGENT_IMAGE__ (release digest), __EXECUTION__ (per-run id) and __RELEASE_SHA__ are filled
+# per run; the execution label is the ownership proof cleanup checks before deleting anything.
+#
+# Derived from the production fleet (infra/kubernetes/agent-sandbox/fleet.yaml.tmpl): the actor contract (cmd,
+# module, port 80, PATH/PYTHONPATH, egress proxy, resources, security context) is identical; only namespace,
+# WorkerPool, Gateway selector, credential Secrets, snapshot prefix and labels differ
+# (tests/ci/test_agent_staging.py compares the two).
+#
+# One dedicated WorkerPool for both Specialists. kagent 0.10.3 workerPoolRef has no namespace field, so the pool
+# lives in the SandboxAgents' namespace. Same patched ateom image as production (actor egress re-originated from
+# the worker pod, so ambient attaches cluster.local/ns/ewallet-sandbox-staging/sa/default). Fixed replicas: no
+# scaleSelector, no ScaledObject, no PDB. Snapshots go to the in-cluster RustFS bucket ate-snapshots (the gs://
+# syntax is Substrate's, not GCS) under a per-run staging prefix that production never uses.
+apiVersion: ate.dev/v1alpha1
+kind: WorkerPool
+metadata:
+  name: staging-agents
+  namespace: ewallet-sandbox-staging
+  labels: {kagent.dev/worker-pool: staging-agents, ewallet.io/environment: staging, ewallet.io/cicd-execution: __EXECUTION__, ewallet.io/release-sha: __RELEASE_SHA__, app.kubernetes.io/managed-by: ewallet-jenkins-cd}
+spec:
+  ateomImage: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/substrate-ateom-gvisor:0.0.9-ewallet.0291af52.d8d1db43@sha256:68a6f1a8dcbff6aa5456b5480c124a0c914faa632b7ee5d90cdbae5c21207de9
+  replicas: 1
+  sandboxClass: gvisor
+  template:
+    resources:
+      requests: {cpu: 500m, memory: 1Gi}
+      limits: {cpu: 1500m, memory: 2Gi}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sandbox-feature-rag
+  namespace: ewallet-sandbox-staging
+  labels: {ewallet.io/environment: staging, ewallet.io/cicd-execution: __EXECUTION__, ewallet.io/release-sha: __RELEASE_SHA__, app.kubernetes.io/managed-by: ewallet-jenkins-cd}
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sandbox-drift
+  namespace: ewallet-sandbox-staging
+  labels: {ewallet.io/environment: staging, ewallet.io/cicd-execution: __EXECUTION__, ewallet.io/release-sha: __RELEASE_SHA__, app.kubernetes.io/managed-by: ewallet-jenkins-cd}
+automountServiceAccountToken: false
+---
+apiVersion: kagent.dev/v1alpha2
+kind: SandboxAgent
+metadata:
+  name: feature-rag-specialist
+  namespace: ewallet-sandbox-staging
+  labels: {ewallet.io/environment: staging, ewallet.io/cicd-execution: __EXECUTION__, ewallet.io/release-sha: __RELEASE_SHA__, app.kubernetes.io/managed-by: ewallet-jenkins-cd, ewallet.io/agent: feature-rag-specialist}
+spec:
+  description: Fraud Investigation / Evidence specialist (staging, WorkerPool staging-agents)
+  version: 1.1.0
+  type: BYO
+  byo:
+    deployment:
+      image: __AGENT_IMAGE__
+      imagePullPolicy: IfNotPresent
+      cmd: /opt/venv/bin/python
+      args: [-m, ai_platform.llm_agent.byo_feature_rag_specialist]
+      serviceAccountName: sandbox-feature-rag
+      env:
+        - {name: EWALLET_AGENT_PORT, value: "80"}
+        - {name: PYTHONPATH, value: /workspace}
+        - {name: PATH, value: /opt/venv/bin:/usr/local/bin:/usr/bin:/bin}
+        - {name: PYTHONUNBUFFERED, value: "1"}
+        - {name: EWALLET_NL_INTAKE_ENABLED, value: "false"}
+        - {name: EWALLET_MCP_MAX_ATTEMPTS, value: "3"}
+        # Egress through the worker's ateom proxy, re-originated from the pod so Istio ambient
+        # attaches the worker identity (substrate-0.0.9-sandbox-egress-proxy.patch). Direct actor
+        # egress carries no identity and is refused or dropped.
+        - {name: HTTP_PROXY, value: "http://169.254.17.1:3128"}
+        - {name: http_proxy, value: "http://169.254.17.1:3128"}
+        - {name: NO_PROXY, value: "localhost,127.0.0.1"}
+        - {name: no_proxy, value: "localhost,127.0.0.1"}
+        - {name: OTEL_TRACING_ENABLED, value: "false"}
+        # Staging Gateway environment (ai_platform/llm_agent/gateway_environment.py): MCP routes resolve to
+        # mcp-gateway.ewallet-agents-staging; without the selector a staging actor fails at startup.
+        - {name: EWALLET_GATEWAY_NAMESPACE, value: ewallet-agents-staging}
+        - {name: EWALLET_RUNTIME_NAMESPACE, value: ewallet-sandbox-staging}
+        - name: EWALLET_MCP_SERVICE_TOKEN
+          valueFrom: {secretKeyRef: {name: mcp-token-sandbox-feature-rag-feature-rag-mcp-staging, key: token}}
+      resources:
+        requests: {cpu: 100m, memory: 256Mi}
+        limits: {cpu: 500m, memory: 512Mi}
+      podSecurityContext: {runAsNonRoot: true, seccompProfile: {type: RuntimeDefault}}
+      securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+  substrate:
+    workerPoolRef: {apiGroup: ate.dev, kind: WorkerPool, name: staging-agents}
+    snapshotsConfig:
+      location: gs://ate-snapshots/ewallet-sandbox-staging/__EXECUTION__/feature-rag-specialist/
+  sandbox:
+    network:
+      allowedDomains:
+        - mcp-gateway.ewallet-agents-staging.svc
+        - mcp-gateway.ewallet-agents-staging.svc.cluster.local
+        - kagent-controller.kagent
+---
+apiVersion: kagent.dev/v1alpha2
+kind: SandboxAgent
+metadata:
+  name: drift-specialist
+  namespace: ewallet-sandbox-staging
+  labels: {ewallet.io/environment: staging, ewallet.io/cicd-execution: __EXECUTION__, ewallet.io/release-sha: __RELEASE_SHA__, app.kubernetes.io/managed-by: ewallet-jenkins-cd, ewallet.io/agent: drift-specialist}
+spec:
+  description: Feature drift specialist (staging, WorkerPool staging-agents)
+  version: 1.1.0
+  type: BYO
+  byo:
+    deployment:
+      image: __AGENT_IMAGE__
+      imagePullPolicy: IfNotPresent
+      cmd: /opt/venv/bin/python
+      args: [-m, ai_platform.llm_agent.byo_drift_specialist]
+      serviceAccountName: sandbox-drift
+      env:
+        - {name: EWALLET_AGENT_PORT, value: "80"}
+        - {name: PYTHONPATH, value: /workspace}
+        - {name: PATH, value: /opt/venv/bin:/usr/local/bin:/usr/bin:/bin}
+        - {name: PYTHONUNBUFFERED, value: "1"}
+        - {name: EWALLET_MCP_MAX_ATTEMPTS, value: "3"}
+        # Egress through the worker's ateom proxy, re-originated from the pod so Istio ambient
+        # attaches the worker identity (substrate-0.0.9-sandbox-egress-proxy.patch). Direct actor
+        # egress carries no identity and is refused or dropped.
+        - {name: HTTP_PROXY, value: "http://169.254.17.1:3128"}
+        - {name: http_proxy, value: "http://169.254.17.1:3128"}
+        - {name: NO_PROXY, value: "localhost,127.0.0.1"}
+        - {name: no_proxy, value: "localhost,127.0.0.1"}
+        - {name: OTEL_TRACING_ENABLED, value: "false"}
+        # Staging Gateway environment (ai_platform/llm_agent/gateway_environment.py): MCP routes resolve to
+        # mcp-gateway.ewallet-agents-staging; without the selector a staging actor fails at startup.
+        - {name: EWALLET_GATEWAY_NAMESPACE, value: ewallet-agents-staging}
+        - {name: EWALLET_RUNTIME_NAMESPACE, value: ewallet-sandbox-staging}
+        - name: EWALLET_MCP_SERVICE_TOKEN
+          valueFrom: {secretKeyRef: {name: mcp-token-sandbox-drift-drift-mcp-staging, key: token}}
+      resources:
+        requests: {cpu: 100m, memory: 256Mi}
+        limits: {cpu: 500m, memory: 512Mi}
+      podSecurityContext: {runAsNonRoot: true, seccompProfile: {type: RuntimeDefault}}
+      securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+  substrate:
+    workerPoolRef: {apiGroup: ate.dev, kind: WorkerPool, name: staging-agents}
+    snapshotsConfig:
+      location: gs://ate-snapshots/ewallet-sandbox-staging/__EXECUTION__/drift-specialist/
+  sandbox:
+    network:
+      allowedDomains:
+        - mcp-gateway.ewallet-agents-staging.svc
+        - mcp-gateway.ewallet-agents-staging.svc.cluster.local
+        - kagent-controller.kagent

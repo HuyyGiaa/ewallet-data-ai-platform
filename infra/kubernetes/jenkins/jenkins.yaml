@@ -137,6 +137,7 @@ data:
           createPipeline('edai2-cd-coordinator', '*/release/coordinator', 'Jenkinsfile.llm-agent', '', false)
           createPipeline('edai2-cd-prompt-management', '*/release/prompt-management', 'Jenkinsfile.llm-agent', '', false)
           createPipeline('edai2-cd-streaming', '*/release/streaming', 'Jenkinsfile', '', false)
+          createPipeline('edai2-cd-agent-staging', '*/release/agent-staging', 'Jenkinsfile.llm-agent', '', false)
 ---
 apiVersion: apps/v1
 kind: Deployment

@@ -67,6 +67,10 @@ def commands_for(unit: Mapping, plan: Mapping, evidence: Path, *, prompt_registr
         return [["scripts/ci/deploy/rag_pipeline.sh", *common, *_image_args(unit)]]
     if kind == "bounded-rehearsal":
         return [[*TOOLING, "scripts.ci.bounded_cd", "--contract", unit["contract"], *common, *_image_args(unit)]]
+    if kind == "agent-staging":
+        return [[*TOOLING, "scripts.ci.agent_staging", *common, *_image_args(unit), "--contract", unit["contract"],
+                 "--target-namespace", unit["target_namespace"], "--image-manifest", plan["image_manifest_path"],
+                 "--environment", plan["environment"], "--kube-context", plan["kube_context"]]]
     if kind == "registry-gate":
         return [[*TOOLING, "scripts.ci.registry_gate", *common, "--registry", prompt_registry]]
     if kind == "streaming-verification":

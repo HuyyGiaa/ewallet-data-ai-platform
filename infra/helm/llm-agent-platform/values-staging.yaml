@@ -63,8 +63,8 @@ networkFlows:
   enforced:
     - {name: fraud-coordinator-to-a2a-gateway, from: fraud-coordinator, to: a2a-gateway, port: 8083}
 
-# The kagent controller is the one shared peer (shared control plane). Every policy below is rendered in
-# ewallet-agents-staging; none has peerIngress or peerAuthorization, so nothing is written to kagent.
+# Peers: the kagent controller (shared control plane) and the staging sandbox workers. Every policy below is
+# rendered in ewallet-agents-staging; none has peerIngress or peerAuthorization, so nothing is written elsewhere.
 crossNamespace:
   flows:
     - name: a2a-gateway-to-kagent-controller
@@ -87,6 +87,14 @@ crossNamespace:
       local: mcp-gateway
       port: 8080
       peer: {namespace: kagent, ambient: true, serviceAccount: kagent-controller, podLabels: {app.kubernetes.io/name: kagent, app.kubernetes.io/component: controller}}
+    # V2-P3A: the staging Specialist actors (WorkerPool staging-agents, infra/kubernetes/agent-staging/fleet.yaml.tmpl)
+    # reach the staging MCP Gateway. Worker pods run as the namespace default account (WorkerPool has no
+    # serviceAccountName) and carry ate.dev/worker-pool=<pool> (the label the production scaleSelector selects).
+    - name: staging-sandbox-workers-to-mcp-gateway
+      direction: ingress
+      local: mcp-gateway
+      port: 8080
+      peer: {namespace: ewallet-sandbox-staging, ambient: true, serviceAccount: default, podLabels: {ate.dev/worker-pool: staging-agents}}
 
 agents:
   enabled: true
@@ -147,7 +155,7 @@ mcpGateway:
   authorizationMode: ambient-backend-token
   # MCP backends are the in-release staging servers.
   backendNamespace: ""
-  # Sandbox worker admission (staging identities only) is added with the staging WorkerPool in V2-P3.
+  # Sandbox workers are admitted by the staging-sandbox-workers-to-mcp-gateway flow (staging identity only).
   callerServiceAccounts: {}
   discoveryCallers:
     - {namespace: kagent, serviceAccount: kagent-controller}
