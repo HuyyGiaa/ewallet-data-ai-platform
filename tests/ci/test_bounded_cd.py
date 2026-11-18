@@ -235,6 +235,30 @@ class ReleaseFlowTest(ReleaseCase):
         with self.assertRaises(ReleaseError):
             self.run_it("mcp-servers", kube)
         self.assertNotIn(("Deployment", "mcp-cd-drift"), kube.objects)
+        # Batch 2B-1: the first-release rollback left the two Services behind.
+        self.assertNotIn(("Service", "mcp-cd-drift"), kube.objects)
+        self.assertNotIn(("Service", "mcp-cd-feature-rag"), kube.objects)
+
+    def test_a_failed_release_keeps_services_that_existed_before(self):
+        kube = FakeKube(passing_log("mcp-servers"), previous_image=OLD_IMAGE, job_passes=False)
+        kube.objects[("Service", "mcp-cd-drift")] = {"metadata": {"name": "mcp-cd-drift"}}
+        with self.assertRaises(ReleaseError):
+            self.run_it("mcp-servers", kube)
+        self.assertIn(("Service", "mcp-cd-drift"), kube.objects)
+
+    def test_the_smoke_job_starts_only_after_every_deployment_is_ready(self):
+        """Batch 2B-1, edai2-cd-mcp-agents #1: applied with the Deployments, the Job hit servers that still
+        refused connections (URLError) and failed with backoffLimit 0."""
+        for name in ("mcp-servers", "agent-fleet", "coordinator"):
+            with self.subTest(name=name):
+                kube = FakeKube(passing_log(name))
+                try:
+                    self.run_it(name, kube)
+                except ReleaseError:
+                    pass
+                job_apply = next(i for i, c in enumerate(kube.calls) if c[0] == "apply" and c[1] == "Job")
+                waits = [i for i, c in enumerate(kube.calls) if c[0] == "wait"]
+                self.assertTrue(waits and max(waits) < job_apply, kube.calls)
 
     def test_a_contract_mismatch_fails_even_when_the_job_succeeds(self):
         expected = contract("mcp-servers").expected

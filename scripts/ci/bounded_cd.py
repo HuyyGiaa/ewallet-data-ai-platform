@@ -292,13 +292,20 @@ def run_release(
     if contract.requires_prompt_registry and prompt_registry_ok is not True:
         failures.append("prompt registry was not verified")
     previous = {name: kube.read("Deployment", name) for name in contract.deployments}
+    # Services this run creates (absent before): a failed first release removes them with the Deployments.
+    created_services = [item["metadata"]["name"] for item in documents
+                        if item["kind"] == "Service" and kube.read("Service", item["metadata"]["name"]) is None]
     previous_images = {name: deployment_image(item) if item else None for name, item in previous.items()}
     transient = [(item["kind"], item["metadata"]["name"]) for item in documents if item["kind"] in {"Job", "ConfigMap"}]
     transient += contract.ephemeral
     summary: dict[str, Any] = {}
     try:
         if not failures:
-            kube.apply_documents(documents)
+            # The smoke Job is applied only after every Deployment is ready: applied together, it started
+            # while the servers still refused connections and failed at once (Batch 2B-1, mcp-agents #1).
+            workloads = [item for item in documents if item["kind"] != "Job"]
+            jobs = [item for item in documents if item["kind"] == "Job"]
+            kube.apply_documents(workloads)
             for kind, name in contract.ephemeral:
                 if kind == "Deployment":
                     kube.wait_deployment(name, ready_timeout)
@@ -307,6 +314,7 @@ def run_release(
                 deployed = kube.read("Deployment", name)
                 if deployed is None or deployment_image(deployed) != image:
                     failures.append(f"Deployment {name} does not run {image}")
+            kube.apply_documents(jobs)
             job_passed = kube.wait_for_job(contract.smoke_job, job_timeout)
             log = kube.logs(contract.smoke_job)
             (evidence / "smoke.log").write_text(log, encoding="utf-8")
@@ -338,6 +346,9 @@ def run_release(
                 kube.apply_documents([_restorable(item)])
             else:
                 kube.remove("Deployment", name)
+        if not any(previous.values()):
+            for name in created_services:  # leave no Service of a workload that never deployed
+                kube.remove("Service", name)
         verdict["rollback"] = "restored previous workloads" if any(previous.values()) else "removed first deployment"
     else:
         kube.apply_documents([
