@@ -198,6 +198,23 @@ spec:
           value: "otel-collector.{{ $.Values.namespace.name }}.svc.cluster.local:4317"
         {{- end }}
         {{- $nl := index $byo "naturalLanguageIntake" | default dict }}
+        {{- /* V2-P2 managed prompt: the Coordinator's intake system prompt comes from the Prompt Registry
+               ConfigMap <agent>-prompt-managed (ops/llm_agent/prompt_registry.py configmap); version and
+               sha256 are pinned here from prompts/manifest.json and re-checked by the agent at startup. */}}
+        {{- $managedPrompt := and (index $nl "enabled") (dig "managedPrompt" "enabled" false $nl) }}
+        {{- $promptKey := dig "managedPrompt" "version" "fraud-coordinator-intake/v1" $nl }}
+        {{- if $managedPrompt }}
+        {{- if not $isCoordinator }}
+        {{- fail "naturalLanguageIntake.managedPrompt is supported only on the Coordinator" }}
+        {{- end }}
+        {{- $pinned := index $manifest.prompts $promptKey }}
+        {{- if not $pinned }}
+        {{- fail (printf "managed prompt %s is not in prompts/manifest.json" $promptKey) }}
+        {{- end }}
+        {{- if ne (sha256sum ($.Files.Get (printf "prompts/%s" $pinned.path))) $pinned.sha256 }}
+        {{- fail (printf "managed prompt %s does not match its manifest sha256" $promptKey) }}
+        {{- end }}
+        {{- end }}
         {{- /* BYO is approved only for the Coordinator and feature-rag-specialist. */}}
         {{- if (index $nl "enabled") }}
         {{- if not $.Values.agentgateway.enabled }}
@@ -235,6 +252,14 @@ spec:
         {{- end }}
         - name: EWALLET_LLM_TIMEOUT_SECONDS
           value: {{ index $nl "timeoutSeconds" | default 190 | quote }}
+        {{- if $managedPrompt }}
+        - name: EWALLET_NL_PROMPT_SOURCE
+          value: registry
+        - name: EWALLET_NL_PROMPT_VERSION
+          value: {{ $promptKey | quote }}
+        - name: EWALLET_NL_PROMPT_SHA256
+          value: {{ (index $manifest.prompts $promptKey).sha256 | quote }}
+        {{- end }}
         {{- $ab := index $byo "abExperiment" | default dict }}
         {{- if (index $ab "enabled") }}
         {{- if not $isCoordinator }}
@@ -320,11 +345,15 @@ spec:
               name: {{ $authName }}
               key: {{ $authKey }}
         {{- end }}
-      {{- if and (index $nl "enabled") $.Values.modelConfig.byoResolver.enabled }}
+      {{- $kubeApi := and (index $nl "enabled") $.Values.modelConfig.byoResolver.enabled }}
+      {{- if or $kubeApi $managedPrompt }}
+      {{- if $kubeApi }}
       # Kubernetes API credentials for the ModelConfig GET only: a short-lived
       # projected token (the ServiceAccount keeps automountServiceAccountToken
       # false), the cluster CA and the pod namespace, read once at startup.
+      {{- end }}
       volumes:
+        {{- if $kubeApi }}
         - name: kube-api-modelconfig
           projected:
             defaultMode: 0444
@@ -339,10 +368,24 @@ spec:
                   items:
                     - path: namespace
                       fieldRef: {fieldPath: metadata.namespace}
+        {{- end }}
+        {{- if $managedPrompt }}
+        - name: managed-prompt
+          configMap:
+            name: {{ printf "%s-prompt-managed" (first (splitList "/" $promptKey)) }}
+            defaultMode: 0444
+        {{- end }}
       volumeMounts:
+        {{- if $kubeApi }}
         - name: kube-api-modelconfig
           mountPath: {{ include "llm-agent-platform.kubeApiTokenDir" $ }}
           readOnly: true
+        {{- end }}
+        {{- if $managedPrompt }}
+        - name: managed-prompt
+          mountPath: /var/run/ewallet/prompt
+          readOnly: true
+        {{- end }}
       {{- end }}
       {{- with $.Values.llmPlacement.nodeSelector }}
       nodeSelector:

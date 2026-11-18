@@ -138,6 +138,16 @@ def build_catalog(values: Mapping[str, Any], prompts_dir: Path, git_sha: str, *,
         for version in versions:
             documents.append(_prompt_document(name, version, spec["displayName"], manifest[f"{name}/{version}"],
                                               prompts_dir))
+    # V2-P2: the BYO Coordinator's natural-language intake prompt (nl_intake.SYSTEM_PROMPT) is managed as its own
+    # prompt; publishing it is what lets prompt_registry.py configmap resolve it for the Coordinator.
+    intake = ((values["coordinator"].get("byo") or {}).get("naturalLanguageIntake") or {}).get("managedPrompt") or {}
+    if intake.get("version"):
+        name, pinned = str(intake["version"]).split("/", 1)
+        versions = sorted(key.split("/", 1)[1] for key in manifest if key.split("/", 1)[0] == name) \
+            if all_prompt_versions else [pinned]
+        for version in versions:
+            documents.append(_prompt_document(name, version, "Fraud Coordinator natural-language intake",
+                                              manifest[f"{name}/{version}"], prompts_dir))
     for server in sorted(values["mcpServers"]):
         route = values["mcpServers"][server]
         documents.append({

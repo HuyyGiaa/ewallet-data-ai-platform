@@ -49,6 +49,13 @@
    "sha256": "a3ccfe5ce07f05ea155bfb3ff658df4dff8ac928f0ea23fb35481dc7519b2112",
    "version": "v5"
   },
+  "fraud-coordinator-intake/v1": {
+   "agent": "fraud-coordinator-intake",
+   "langfuse_name": "ewallet/fraud-coordinator-intake",
+   "path": "fraud-coordinator-intake/v1.md",
+   "sha256": "cbb0c51b0edad83bd5640a3d03e542c44e5070018c2b83a5565ee82c17244380",
+   "version": "v1"
+  },
   "fraud-coordinator/v1": {
    "agent": "fraud-coordinator",
    "langfuse_name": "ewallet/fraud-coordinator",

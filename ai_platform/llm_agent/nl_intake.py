@@ -18,7 +18,9 @@ import hashlib
 import json
 import math
 import os
+from pathlib import Path
 import re
+import sys
 from typing import Literal
 
 import httpx
@@ -208,6 +210,7 @@ class OpenAIToolPlanner:
         variant: str = "",
         tools: tuple[Mapping[str, object], ...] = (TOOL_SCHEMA,),
         max_tool_calls: int = 1,
+        system_prompt: str = SYSTEM_PROMPT,
     ) -> None:
         # None: the agentgateway route of this process's approved Gateway environment.
         base_url = approved_llm_base_url() if base_url is None else base_url
@@ -232,6 +235,8 @@ class OpenAIToolPlanner:
         self._tools = tuple(tools)
         self._tool_names = frozenset(names)
         self._max_tool_calls = max_tool_calls
+        # The built-in SYSTEM_PROMPT, or the registry-approved prompt (system_prompt_from_env).
+        self._system_prompt = system_prompt
 
     def available(self) -> bool:
         return bool(self._key_reader().strip())
@@ -259,7 +264,7 @@ class OpenAIToolPlanner:
             "tool_choice": "auto",
             "tools": list(self._tools if tools is None else tools),
             "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": self._system_prompt},
                 {"role": "user", "content": text},
             ],
         }
@@ -376,6 +381,8 @@ def planner_from_env(
 
     if os.getenv("EWALLET_NL_INTAKE_ENABLED", "false").lower() != "true":
         return None
+    # Resolved once, before the planner exists: a managed prompt that cannot be verified stops startup.
+    system_prompt = system_prompt_from_env()
     timeout_seconds = float(os.getenv("EWALLET_LLM_TIMEOUT_SECONDS", "190"))
     resolved = model_config_from_env()
     if resolved is None:
@@ -400,12 +407,62 @@ def planner_from_env(
                     variant=variant.name,
                     tools=tools,
                     max_tool_calls=max_tool_calls,
+                    system_prompt=system_prompt,
                 )
                 for variant in experiment.variants
             },
         )
     return OpenAIToolPlanner(base_url=base_url, model=model, timeout_seconds=timeout_seconds,
-                             tools=tools, max_tool_calls=max_tool_calls)
+                             tools=tools, max_tool_calls=max_tool_calls, system_prompt=system_prompt)
+
+
+# Managed system prompt (CI/CD V2-P2). ops/llm_agent/prompt_registry.py ``configmap`` resolves the approved
+# version from the Prompt Registry, checks it against the Git manifest sha256 and writes the ConfigMap
+# <agent>-prompt-managed (system.md + prompt.json); Helm mounts it here and pins version and sha256.
+MANAGED_PROMPT_DIR = Path("/var/run/ewallet/prompt")
+_PROMPT_VERSION = re.compile(r"^[a-z0-9-]{1,63}/v[0-9]{1,4}$")
+
+
+class ManagedPromptError(ValueError):
+    """The registry-managed system prompt is missing, unapproved or tampered."""
+
+
+def system_prompt_from_env(environ: Mapping[str, str] = os.environ, *,
+                           prompt_dir: Path | None = None) -> str:
+    """``EWALLET_NL_PROMPT_SOURCE``: ``builtin`` (default, SYSTEM_PROMPT) or ``registry``.
+
+    ``registry`` requires ``EWALLET_NL_PROMPT_VERSION`` (``<agent>/<version>``) and
+    ``EWALLET_NL_PROMPT_SHA256`` (pinned by Helm from the Git manifest). The mounted prompt is used
+    only when its metadata names that version, its source is the registry (not the pinned-Git
+    fallback) and its bytes hash to the pinned sha256. Anything else raises: no fallback to SYSTEM_PROMPT.
+    """
+
+    source = environ.get("EWALLET_NL_PROMPT_SOURCE", "builtin")
+    if source == "builtin":
+        return SYSTEM_PROMPT
+    if source != "registry":
+        raise ManagedPromptError("EWALLET_NL_PROMPT_SOURCE must be builtin or registry")
+    version = environ.get("EWALLET_NL_PROMPT_VERSION", "")
+    expected = environ.get("EWALLET_NL_PROMPT_SHA256", "")
+    if not _PROMPT_VERSION.fullmatch(version) or not re.fullmatch(r"[0-9a-f]{64}", expected):
+        raise ManagedPromptError("EWALLET_NL_PROMPT_VERSION and EWALLET_NL_PROMPT_SHA256 must pin one prompt")
+    prompt_dir = MANAGED_PROMPT_DIR if prompt_dir is None else prompt_dir
+    try:
+        content = (prompt_dir / "system.md").read_bytes()
+        meta = json.loads((prompt_dir / "prompt.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise ManagedPromptError(f"managed prompt {version} is not mounted or unreadable") from exc
+    if not isinstance(meta, dict) or f"{meta.get('agent')}/{meta.get('version')}" != version:
+        raise ManagedPromptError(f"mounted prompt is not {version}")
+    if meta.get("source") != "registry":
+        raise ManagedPromptError("mounted prompt was not resolved from the Prompt Registry")
+    digest = hashlib.sha256(content).hexdigest()
+    if meta.get("sha256") != expected or digest != expected:
+        raise ManagedPromptError(f"managed prompt {version} sha256 {digest} differs from the pinned {expected}")
+    # Identity and checksum only; the prompt body is not logged.
+    print(json.dumps({"event": "nl_prompt.resolved", "prompt": version, "sha256": digest, "source": "registry"}),
+          file=sys.stderr)
+    return content.decode("utf-8")
 
 
 def model_config_from_env() -> ResolvedModelConfig | None:

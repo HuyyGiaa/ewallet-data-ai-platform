@@ -547,6 +547,12 @@ agents:
         enabled: false
         # Must exceed agentgateway.requestTimeout (nested budgets, chart guard).
         timeoutSeconds: 190
+        # V2-P2: take the intake system prompt from the Prompt Registry instead of the built-in
+        # SYSTEM_PROMPT. Needs the ConfigMap fraud-coordinator-intake-prompt-managed written by
+        # `ops/llm_agent/prompt_registry.py configmap` (registry resolve + Git-pinned sha256).
+        managedPrompt:
+          enabled: false
+          version: fraud-coordinator-intake/v1
       # C7.2: two model configurations for the tool-selection call, assigned per
       # conversation. Needs the routes in modelExperiments. Overlays: c7/.
       abExperiment:

@@ -11,7 +11,10 @@ pins each version's sha256. Resolution is fail-closed:
   when the caller allows it; the result records which source was used.
 
 ``configmap`` renders the ``system.md`` ConfigMap a kagent declarative agent
-reads through ``systemMessageFrom``, annotated with the resolved version.
+reads through ``systemMessageFrom``, annotated with the resolved version. Its
+``prompt.json`` key repeats the identity, sha256 and source for a BYO agent that
+mounts the ConfigMap (the BYO Coordinator's natural-language intake, V2-P2): the
+agent checks them at startup, since a mounted volume carries no annotations.
 
 ``gate`` (security assessment M3) is the mandatory fail-closed check around any
 prompt publication or promotion: ``--phase pre`` passes only if every Git-pinned
@@ -149,7 +152,9 @@ def configmap(prompt: ResolvedPrompt, *, name: str, namespace: str) -> str:
                      "annotations": {"ewallet.io/prompt-version": f"{prompt.agent}/{prompt.version}",
                                      "ewallet.io/prompt-sha256": prompt.sha256,
                                      "ewallet.io/prompt-source": prompt.source}},
-        "data": {"system.md": prompt.text},
+        "data": {"system.md": prompt.text,
+                 "prompt.json": json.dumps({"agent": prompt.agent, "version": prompt.version,
+                                            "sha256": prompt.sha256, "source": prompt.source}, sort_keys=True)},
     }, sort_keys=False)
 
 
