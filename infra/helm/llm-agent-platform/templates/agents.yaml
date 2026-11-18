@@ -1,6 +1,11 @@
 {{- if .Values.agents.enabled }}
 {{- $a := .Values.agents }}
 {{- $ns := .Values.namespace.name }}
+{{- /* Approved Gateway namespaces (ai_platform/llm_agent/gateway_environment.py): BYO agents derive every
+Gateway address from this namespace, so the chart renders agents only into one of them. */}}
+{{- if not (has $ns (list "ewallet-agents" "ewallet-agents-staging")) }}
+{{- fail "agents render only into an approved Gateway namespace: ewallet-agents or ewallet-agents-staging" }}
+{{- end }}
 {{- $credentialRelease := .Values.mcpCredentialLifecycle.clientRelease }}
 {{- if not (or (eq $credentialRelease "legacy") (regexMatch "^[a-z0-9]([-a-z0-9]{0,22}[a-z0-9])?$" $credentialRelease)) }}
 {{- fail "mcpCredentialLifecycle.clientRelease must be legacy or a 1..24 character lowercase DNS label" }}
@@ -143,18 +148,33 @@ spec:
         ewallet.io/specialist-runtime: byo-v1
         {{- end }}
       env:
+        {{- /* Traces go to the collector of this release's namespace; agents.byoTelemetry.traces.enabled
+               false turns them off explicitly (the staging profile has no collector). */}}
+        {{- $byoTraces := dig "traces" "enabled" true $.Values.agents.byoTelemetry }}
         - name: OTEL_TRACING_ENABLED
-          value: "true"
+          value: {{ ternary "true" "false" $byoTraces | quote }}
         - name: OTEL_LOGGING_ENABLED
           value: "false"
+        {{- if $byoTraces }}
         - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
-          value: "otel-collector.ewallet-agents.svc.cluster.local:4317"
+          value: "otel-collector.{{ $ns }}.svc.cluster.local:4317"
         - name: OTEL_EXPORTER_OTLP_TRACES_INSECURE
           value: "true"
         - name: OTEL_EXPORTER_OTLP_TRACES_PROTOCOL
           value: grpc
         - name: OTEL_EXPORTER_OTLP_TRACES_TIMEOUT
           value: "15000"
+        {{- end }}
+        {{- if ne $ns "ewallet-agents" }}
+        # Non-production Gateway environment: the agent derives every Gateway address from this approved
+        # namespace and checks it against its own namespace (gateway_environment.py); no production fallback.
+        - name: EWALLET_GATEWAY_NAMESPACE
+          value: {{ $ns | quote }}
+        - name: EWALLET_RUNTIME_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        {{- end }}
         {{- if $.Values.agents.byoTelemetry.auditLogs.enabled }}
         {{- if not $.Values.otelCollector.enabled }}
         {{- fail "agents.byoTelemetry.auditLogs requires otelCollector.enabled (shared Loki pipeline)" }}

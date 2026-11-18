@@ -1,0 +1,63 @@
+{{- /*
+CI/CD V2-P1 staging guard. Renders no object; it only fails the render.
+
+deploymentProfile production (default): nothing changes, except that a *-staging namespace needs the
+staging profile. deploymentProfile staging (values-staging.yaml): the release may own objects only in
+ewallet-agents-staging and may not point Gateways, policies or data at a production namespace. The only
+shared peer is the kagent controller, reached by policies rendered in the staging namespace itself.
+tests/llm_agent/test_v2p1_staging_chart.py also inspects the rendered objects one by one.
+*/ -}}
+{{- $profile := .Values.deploymentProfile | default "production" }}
+{{- $ns := .Values.namespace.name }}
+{{- $stagingNs := "ewallet-agents-staging" }}
+{{- if not (has $profile (list "production" "staging")) }}
+{{- fail "deploymentProfile must be production or staging" }}
+{{- end }}
+{{- if and (ne $profile "staging") (hasSuffix "-staging" $ns) }}
+{{- fail (printf "namespace %s is a staging namespace: set deploymentProfile: staging (values-staging.yaml)" $ns) }}
+{{- end }}
+{{- if eq $profile "staging" }}
+{{- $productionRef := "(^|[./@])(ewallet-agents|ewallet-sandbox|ewallet-mcp|feature-store|fraud-serving|ml-platform|kubeflow)([.:/]|$)" }}
+{{- if or (ne $ns $stagingNs) .Values.namespace.create }}
+{{- fail (printf "staging profile: namespace.name must be %s and namespace.create false" $stagingNs) }}
+{{- end }}
+{{- /* Templates that write into other namespaces. */}}
+{{- if or .Values.observabilityStack.enabled .Values.dashboards.enabled .Values.podLogs.enabled (dig "kfpUiIngress" "enabled" false .Values.networkPolicy) }}
+{{- fail "staging profile: observabilityStack, dashboards, podLogs and kfpUiIngress must be disabled" }}
+{{- end }}
+{{- range $flow := .Values.crossNamespace.flows }}
+{{- if or (ne $flow.peer.namespace "kagent") $flow.peerIngress $flow.peerAuthorization }}
+{{- fail (printf "staging profile: crossNamespace flow %s may only reach the kagent controller, without peer policies" $flow.name) }}
+{{- end }}
+{{- end }}
+{{- if not (has (.Values.mcpGateway.backendNamespace | default "") (list "" $stagingNs)) }}
+{{- fail "staging profile: mcpGateway.backendNamespace must be the staging namespace" }}
+{{- end }}
+{{- if and .Values.a2aGateway.enabled .Values.a2aGateway.sandboxRoutes.agents (ne .Values.a2aGateway.sandboxRoutes.namespace "ewallet-sandbox-staging") }}
+{{- fail "staging profile: a2aGateway.sandboxRoutes.namespace must be ewallet-sandbox-staging" }}
+{{- end }}
+{{- if regexMatch $productionRef .Values.agents.mcpGatewayUrl }}
+{{- fail "staging profile: agents.mcpGatewayUrl points at a production namespace" }}
+{{- end }}
+{{- if .Values.agents.autoscaling.enabled }}
+{{- fail "staging profile: fixed replicas only (agents.autoscaling must be disabled)" }}
+{{- end }}
+{{- if and .Values.idempotencyRedis.enabled (ne .Values.idempotencyRedis.coordinator.tenant $stagingNs) }}
+{{- fail (printf "staging profile: idempotencyRedis.coordinator.tenant must be %s" $stagingNs) }}
+{{- end }}
+{{- range $name, $service := .Values.mcpServices.services }}
+{{- if kindIs "map" $service }}
+{{- if dig "enabled" true ($service.pdb | default dict) }}
+{{- fail (printf "staging profile: mcpServices.services.%s.pdb.enabled must be false" $name) }}
+{{- end }}
+{{- range $envName, $value := $service.env }}
+{{- if regexMatch $productionRef (toString $value) }}
+{{- fail (printf "staging profile: mcpServices.services.%s.env.%s points at a production namespace" $name $envName) }}
+{{- end }}
+{{- end }}
+{{- if eq (toString (dig "env" "EWALLET_FRAUD_ALLOW_PRODUCTION_DB" "false" $service)) "true" }}
+{{- fail (printf "staging profile: mcpServices.services.%s may not use the production Feast database" $name) }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

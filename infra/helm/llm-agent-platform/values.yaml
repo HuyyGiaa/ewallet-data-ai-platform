@@ -1,3 +1,7 @@
+# production (default) or staging. staging turns on the isolation guard (templates/staging-guard.yaml):
+# only ewallet-agents-staging, no production-namespace object or destination. Profile: values-staging.yaml.
+deploymentProfile: production
+
 namespace:
   create: true
   name: ewallet-agents
@@ -556,6 +560,9 @@ agents:
   # Bounded OTLP audit records (ids, status, codes; no prompts or business
   # data) from the BYO agents to the shared collector -> Loki. Off by default.
   byoTelemetry:
+    # OTLP traces to otel-collector.<namespace>; false renders OTEL_TRACING_ENABLED=false and no endpoint.
+    traces:
+      enabled: true
     auditLogs:
       enabled: false
     # N12: bounded OTLP counters (agent invocations, PII prompt screening).
