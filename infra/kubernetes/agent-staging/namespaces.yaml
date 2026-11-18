@@ -29,7 +29,7 @@ spec:
     requests.storage: 4Gi
     configmaps: "30"
     secrets: "30"
-    services: "8"
+    services: "10"   # chart 5 + kagent Agent Service + feast-staging-redis + KServe predictor (+ margin; V2-P3B-0)
 ---
 apiVersion: v1
 kind: Namespace

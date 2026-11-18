@@ -1,14 +1,19 @@
-# Agent staging release identity PROPOSAL (NOT APPROVED, NOT APPLIED; CI/CD V2-P3A).
+# Agent staging release identity PROPOSAL (NOT APPROVED, NOT APPLIED; CI/CD V2-P3A, audited V2-P3B-0).
 # Minimum rights for scripts/ci/agent_staging.py run by the in-cluster Jenkins agent account
 # ewallet-ci/jenkins (the account batch-b-isolated.yaml binds). Namespaced Roles only, no ClusterRole: the staging namespaces themselves are created
 # once by the operator (infra/kubernetes/agent-staging/namespaces.yaml), never by Jenkins.
 #
 # * ewallet-agents-staging: what `helm install/uninstall llm-agent-staging` creates (values-staging.yaml renders
 #   ConfigMaps, Services, ServiceAccounts, Deployments, a StatefulSet + PVC, NetworkPolicies, AuthorizationPolicies,
-#   kagent Agent/ModelConfig/RemoteMCPServer). Helm keeps its release record in Secrets of this namespace, so
-#   Secrets are writable here; the CD code reads staging Secrets by metadata only and no Helm value names a value.
+#   kagent Agent/ModelConfig/RemoteMCPServer; no Secret). Helm runs with HELM_DRIVER=configmap (agent_staging.py
+#   _helm_runner), so its release record is a ConfigMap and Jenkins never writes a Secret. Preflight checks that the
+#   staging Secrets exist and reads the operator-applied dependency Deployments (Feast Redis, fraud predictor).
+# * Secrets (both staging namespaces): get/list only. The code asks for metadata only (k8s_api METADATA_ONLY), but
+#   RBAC cannot express that: `get`/`list` on secrets DOES allow reading the values of every Secret in that
+#   namespace. Accepted because the two namespaces hold only the staging-only credentials of
+#   ops/llm_agent/staging_credentials.py; no production Secret is reachable.
 # * ewallet-sandbox-staging: the release-owned WorkerPool, ServiceAccounts and SandboxAgents (create, get, delete;
-#   uid-preconditioned deletes in code), ActorTemplates read-only, Secrets metadata only.
+#   uid-preconditioned deletes in code), ActorTemplates read-only.
 # * kagent: port-forward to the shared controller for the SandboxAgent A2A route; nothing is written there.
 # Leases in ewallet-cicd (release locks) are already granted by batch-b-isolated.yaml.
 apiVersion: rbac.authorization.k8s.io/v1
@@ -16,8 +21,11 @@ kind: Role
 metadata: {name: agent-staging-release, namespace: ewallet-agents-staging}
 rules:
 - apiGroups: [""]
-  resources: [configmaps, services, serviceaccounts, persistentvolumeclaims, secrets]
+  resources: [configmaps, services, serviceaccounts, persistentvolumeclaims]
   verbs: [get, list, watch, create, update, patch, delete]
+- apiGroups: [""]
+  resources: [secrets]
+  verbs: [get, list]   # existence checks; RBAC get/list also exposes values (see header)
 - apiGroups: [""]
   resources: [pods, pods/log, events, endpoints]
   verbs: [get, list, watch]
@@ -62,7 +70,7 @@ rules:
   verbs: [get, list, create, delete]
 - apiGroups: [""]
   resources: [secrets]
-  verbs: [get, list]   # metadata-only reads in code (k8s_api METADATA_ONLY)
+  verbs: [get, list]   # existence checks; RBAC get/list also exposes values (see header)
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

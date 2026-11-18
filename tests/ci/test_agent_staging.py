@@ -105,6 +105,27 @@ class ReleaseUnitTests(unittest.TestCase):
                 st.load_contract(path)
 
 
+class InventoryTests(unittest.TestCase):
+    def test_contract_requires_exactly_the_level_a_credential_inventory(self):
+        from ops.llm_agent.staging_credentials import LLM_ONLY, SECRETS
+
+        required = {(ns, name) for ns, scope in CONTRACT["required"].items() for name in scope["secrets"]}
+        self.assertEqual(required, {(s.namespace, s.name) for s in SECRETS})
+        self.assertEqual(len(required), 10)
+        self.assertEqual(CONTRACT["dependencies"]["llm_only_secrets"], [s.name for s in LLM_ONLY])
+
+    def test_dependency_pins_match_the_manifests(self):
+        import yaml
+
+        images = set()
+        for name in ("feast-redis.yaml", "fraud-predictor.yaml"):
+            for doc in yaml.safe_load_all((ROOT / "infra/kubernetes/agent-staging" / name).read_text()):
+                self.assertEqual(doc["metadata"]["namespace"], st.AGENTS_NAMESPACE)
+                pod = doc.get("spec", {}).get("template", doc.get("spec", {}).get("predictor", {}))
+                images |= {c["image"] for c in (pod.get("spec", pod).get("containers") or [])}
+        self.assertEqual(images, {d["image"] for d in CONTRACT["dependencies"]["deployments"]})
+
+
 class FleetTests(unittest.TestCase):
     def test_fleet_validates_against_the_pinned_crds_and_stays_in_staging(self):
         import jsonschema
@@ -162,9 +183,13 @@ class FakeKube:
         for item in stale:
             self.objects[item] = {"metadata": {"uid": "old", "labels": {}}}
         data = {"drift-baselines-staging": {"baselines.json": "{}"},
-                "drift-window-staging": {"window-manifest.json": json.dumps({"lineage": {"snapshot_id": "staging-v1"}})}}
+                "drift-window-staging": {"window-manifest.json": json.dumps({"schema_version": "ewallet-drift-window/v1", "dataset_revision": "staging-v1"})}}
         for name, content in data.items():
             self.objects[("ConfigMap", st.AGENTS_NAMESPACE, name)] = {"metadata": {"name": name}, "data": content}
+        for dependency in CONTRACT["dependencies"]["deployments"]:   # operator-applied, Ready
+            self.objects[("Deployment", st.AGENTS_NAMESPACE, dependency["name"])] = {
+                "metadata": {"name": dependency["name"]}, "status": {"readyReplicas": 1},
+                "spec": {"template": {"spec": {"containers": [{"image": dependency["image"]}]}}}}
 
     def available(self, group_version, plural):
         return True
@@ -278,6 +303,20 @@ class ExecutorTests(unittest.TestCase):
                 self.assertEqual(report.failure_code, code, report.problems)
                 self.assertEqual(kube.mutations, [])
                 self.assertNotIn("install", helm.calls)
+        for problem in ("missing", "image", "not-ready"):   # the staging data dependencies
+            with self.subTest(problem):
+                kube = FakeKube()
+                key = ("Deployment", st.AGENTS_NAMESPACE, "fraud-detector-predictor")
+                if problem == "missing":
+                    del kube.objects[key]
+                elif problem == "image":
+                    kube.objects[key]["spec"]["template"]["spec"]["containers"][0]["image"] = "fraud-detector-predictor:latest"
+                else:
+                    kube.objects[key]["status"] = {}
+                report = self.execute(kube, FakeHelm(kube))
+                self.assertEqual(report.failure_code, "MISSING_PREREQUISITE")
+                self.assertTrue(any("fraud-detector-predictor" in p for p in report.problems), report.problems)
+                self.assertEqual(kube.mutations, [])
         kube = FakeKube()
         helm = FakeHelm(kube, existing=True)   # an earlier release is never adopted
         self.assertEqual(self.execute(kube, helm).failure_code, "STALE_STAGING")
@@ -303,6 +342,11 @@ class ExecutorTests(unittest.TestCase):
         self.assertEqual(report.status, "CLEANUP_INCOMPLETE")
         self.assertIn(("WorkerPool", st.SANDBOX_NAMESPACE, "staging-agents"), kube.objects)
         self.assertIn("NOT_OURS_LEFT_UNTOUCHED", {item["state"] for item in report.cleanup})
+
+    def test_helm_keeps_its_release_record_in_configmaps(self):
+        with mock.patch.object(st.subprocess, "run") as run:
+            st._helm_runner("in-cluster")(["status", st.RELEASE])
+        self.assertEqual(run.call_args.kwargs["env"]["HELM_DRIVER"], "configmap")
 
     def test_helm_values_carry_only_release_identities(self):
         args = st.helm_install_args(CONTRACT, UNIT["images"], SHA, EXECUTION,

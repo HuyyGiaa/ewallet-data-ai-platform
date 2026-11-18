@@ -1,0 +1,79 @@
+# CI/CD V2-P3B staging Feast Online Redis. Applied once by the operator (owner-approved preparation), never by
+# Jenkins; removed at cleanup. Pattern: infra/kubernetes/feast-online/redis.yaml, reduced for a disposable fixture
+# store: one pod, no persistence (the seed is re-run after a restart), no AOF, small memory.
+# It holds only what ops/llm_agent/staging_feature_seed.py copies: the four fixture entity keys of
+# ewallet_fraud_online in DB 1 and the RAG verification project in DB 4. No production host, credential or data
+# path: feature-rag-mcp (llm-agent-staging) reaches it through the chart's staging network flow.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: feast-staging-redis
+  namespace: ewallet-agents-staging
+  labels: {app.kubernetes.io/name: feast-staging-redis, ewallet.io/environment: staging}
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: feast-staging-redis
+  namespace: ewallet-agents-staging
+  labels: {app.kubernetes.io/name: feast-staging-redis, ewallet.io/environment: staging}
+spec:
+  type: ClusterIP
+  selector: {app.kubernetes.io/name: feast-staging-redis}
+  ports:
+    - {name: redis, port: 6379, targetPort: redis}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: feast-staging-redis
+  namespace: ewallet-agents-staging
+  labels: {app.kubernetes.io/name: feast-staging-redis, ewallet.io/environment: staging}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app.kubernetes.io/name: feast-staging-redis}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: feast-staging-redis, ewallet.io/environment: staging}
+    spec:
+      serviceAccountName: feast-staging-redis
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 1000
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: redis
+          image: docker.io/library/redis:7.4.2-alpine@sha256:02419de7eddf55aa5bcf49efb74e88fa8d931b4d77c07eff8a6b2144472b6952
+          command: ["/bin/sh", "-ec"]
+          args:
+            - >-
+              exec redis-server --requirepass "$REDIS_PASSWORD"
+              --appendonly no --save ""
+              --maxmemory 64mb --maxmemory-policy noeviction
+              --protected-mode yes --dir /tmp
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom: {secretKeyRef: {name: feast-staging-redis-auth, key: password}}
+            - name: REDISCLI_AUTH
+              valueFrom: {secretKeyRef: {name: feast-staging-redis-auth, key: password}}
+          ports:
+            - {name: redis, containerPort: 6379}
+          readinessProbe:
+            exec: {command: ["redis-cli", "ping"]}
+            periodSeconds: 5
+          resources:
+            requests: {cpu: 50m, memory: 96Mi}
+            limits: {cpu: 250m, memory: 192Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: tmp
+          emptyDir: {sizeLimit: 64Mi}

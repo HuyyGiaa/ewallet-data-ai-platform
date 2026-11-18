@@ -30,6 +30,7 @@ import contextlib
 from dataclasses import asdict, dataclass, field
 import hashlib
 import json
+import os
 from pathlib import Path
 import subprocess
 import time
@@ -96,7 +97,27 @@ def load_contract(path: Path = CONTRACT) -> dict[str, Any]:
         raise StagingContractError("every staging Secret reference must be a dedicated -staging Secret")
     if set(contract["agents"]) != {"feature-rag-specialist", "drift-specialist"}:
         raise StagingContractError("the staging fleet is exactly the two Specialists")
+    if any("@sha256:" not in d.get("image", "") for d in contract["dependencies"]["deployments"]):
+        raise StagingContractError("every staging data dependency must be pinned by image digest")
     return contract
+
+
+def dependency_problems(kube: Any, contract: Mapping[str, Any]) -> list[str]:
+    """The operator-applied Feast Redis and fraud predictor: Ready, and serving exactly the pinned image."""
+
+    problems = []
+    for dependency in contract["dependencies"]["deployments"]:
+        ident = f"Deployment {AGENTS_NAMESPACE}/{dependency['name']}"
+        deployment = kube.get("Deployment", AGENTS_NAMESPACE, dependency["name"])
+        if not deployment:
+            problems.append(f"{ident} is missing")
+            continue
+        images = [c.get("image") for c in deployment["spec"]["template"]["spec"]["containers"]]
+        if dependency["image"] not in images:
+            problems.append(f"{ident} does not run the pinned image {dependency['image']}")
+        if (deployment.get("status") or {}).get("readyReplicas", 0) < 1:
+            problems.append(f"{ident} is not ready")
+    return problems
 
 
 # --- rendering -----------------------------------------------------------------------------------------------
@@ -182,6 +203,7 @@ def preflight(kube: Any, unit: Mapping[str, Any], plan: Mapping[str, Any], manif
     for namespace, required in contract["required"].items():
         missing += [f"Secret {namespace}/{n}" for n in required["secrets"] if not kube.exists("Secret", namespace, n)]
         missing += [f"ConfigMap {namespace}/{n}" for n in required["configmaps"] if not kube.exists("ConfigMap", namespace, n)]
+    missing += dependency_problems(kube, contract)
     if missing:
         report.fail("MISSING_PREREQUISITE", missing)   # never replaced by a production dependency
         return None
@@ -197,11 +219,11 @@ def preflight(kube: Any, unit: Mapping[str, Any], plan: Mapping[str, Any], manif
     window = (kube.get("ConfigMap", AGENTS_NAMESPACE, artifacts["window"]["configmap"]) or {}).get("data", {})
     try:
         window_text = window[artifacts["window"]["key"]]
-        revision = json.loads(window_text)["lineage"]["snapshot_id"]
+        revision = json.loads(window_text)["dataset_revision"]   # ewallet-drift-window/v1 (drift_artifacts.py)
         return {"baselines_sha256": _sha(baselines[artifacts["baselines"]["key"]]), "window_sha256": _sha(window_text),
                 "dataset_revision": str(revision)}
     except (KeyError, TypeError, ValueError):
-        report.fail("MISSING_PREREQUISITE", ["the staging drift ConfigMaps lack baselines, window manifest or lineage.snapshot_id"])
+        report.fail("MISSING_PREREQUISITE", ["the staging drift ConfigMaps lack baselines, window manifest or its dataset_revision"])
         return None
 
 
@@ -424,7 +446,10 @@ def _write(report: StagingReport, evidence: Path) -> StagingReport:
 # --- CLI (dispatched by scripts/ci/release_dispatch.py) ---------------------------------------------------------
 def _helm_runner(context: str) -> Helm:
     selector = [] if context in ("", "in-cluster") else ["--kube-context", context]
-    return lambda args: subprocess.run(["helm", *args, *selector], cwd=ROOT, capture_output=True, text=True, check=False)
+    # Release records in ConfigMaps, so the Jenkins identity needs no Secret writes (V2-P3B-0 RBAC).
+    env = {**os.environ, "HELM_DRIVER": "configmap"}
+    return lambda args: subprocess.run(["helm", *args, *selector], cwd=ROOT, capture_output=True, text=True, check=False,
+                                       env=env)
 
 
 def _forwarder(context: str) -> Forward:

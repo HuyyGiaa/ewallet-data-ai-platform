@@ -1,0 +1,78 @@
+# CI/CD V2-P3B staging fraud-detector predictor. Applied once by the operator (owner-approved preparation), never
+# by Jenkins; removed at cleanup. Same resource and settings as the production predictor
+# (infra/kubernetes/fraud-serving/inferenceservice.yaml.tmpl: KServe Standard mode, model baked in the image,
+# CPU, one replica, no autoscaling) with the image pinned to the digest that served the pinned known answers
+# (fraud-serving/fraud-detector-predictor in the recovery manifests of lc-20261117T002220Z and
+# replay-20261118T161231Z). KServe creates Deployment/Service fraud-detector-predictor in this namespace, the
+# host values-staging.yaml gives feature-rag-mcp. No production inference call, no retraining.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: fraud-detector
+  namespace: ewallet-agents-staging
+  labels: {ewallet.io/environment: staging}
+automountServiceAccountToken: false
+---
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: fraud-detector
+  namespace: ewallet-agents-staging
+  annotations:
+    serving.kserve.io/deploymentMode: Standard
+    serving.kserve.io/autoscalerClass: none
+  labels:
+    app.kubernetes.io/part-of: ewallet-mlops
+    ewallet.io/environment: staging
+    ewallet.io/model-version: "1"
+spec:
+  predictor:
+    serviceAccountName: fraud-detector
+    minReplicas: 1
+    maxReplicas: 1
+    securityContext:
+      runAsNonRoot: true
+      seccompProfile: {type: RuntimeDefault}
+    containers:
+      - name: kserve-container
+        image: asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/fraud-detector-predictor@sha256:cba90c22787c672559ceaeba26ad9f23faa6eae3fbbdb83cb7c2e48f10b5b896
+        args: ["--model_name", "fraud-detector", "--http_port", "8080", "--enable_grpc", "false"]
+        ports:
+          - {containerPort: 8080, protocol: TCP}
+        readinessProbe:
+          httpGet: {path: /v2/models/fraud-detector/ready, port: 8080}
+          periodSeconds: 5
+          failureThreshold: 3
+        livenessProbe:
+          httpGet: {path: /v2/health/live, port: 8080}
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        startupProbe:
+          httpGet: {path: /v2/health/live, port: 8080}
+          periodSeconds: 3
+          failureThreshold: 60
+        resources:
+          requests: {cpu: 250m, memory: 768Mi}
+          limits: {cpu: "1", memory: 1536Mi}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities: {drop: ["ALL"]}
+---
+# The chart's namespace default-deny also selects this non-chart pod: allow its HTTP kubelet probes from the
+# ambient SNAT source (as templates/security.yaml does for chart workloads; the staging Redis uses an exec probe and
+# needs none). Traffic from feature-rag-mcp is the chart's staging network flow (values-staging.yaml networkFlows).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ambient-probes-staging-predictor
+  namespace: ewallet-agents-staging
+  labels: {ewallet.io/environment: staging}
+spec:
+  podSelector:
+    matchLabels: {serving.kserve.io/inferenceservice: fraud-detector}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - ipBlock: {cidr: 169.254.7.127/32}
+      ports:
+        - {protocol: TCP, port: 8080}

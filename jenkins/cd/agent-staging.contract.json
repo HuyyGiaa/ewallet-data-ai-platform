@@ -16,7 +16,7 @@
     "ewallet-agents-staging": {
       "secrets": [
         "coordinator-idempotency-redis-auth-staging",
-        "agentgateway-client-key-staging",
+        "feast-staging-redis-auth",
         "mcp-auth-feature-rag-mcp-staging",
         "mcp-auth-drift-mcp-staging",
         "mcp-token-kagent-controller-feature-rag-mcp-staging",
@@ -38,6 +38,22 @@
       ],
       "configmaps": []
     }
+  },
+  "dependencies": {
+    "description": "Level A data dependencies applied once by the operator (infra/kubernetes/agent-staging/feast-redis.yaml, fraud-predictor.yaml) and seeded by ops/llm_agent/staging_feature_seed.py; preflight requires each Deployment Ready with exactly this image.",
+    "deployments": [
+      {
+        "name": "feast-staging-redis",
+        "image": "docker.io/library/redis:7.4.2-alpine@sha256:02419de7eddf55aa5bcf49efb74e88fa8d931b4d77c07eff8a6b2144472b6952"
+      },
+      {
+        "name": "fraud-detector-predictor",
+        "image": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/fraud-detector-predictor@sha256:cba90c22787c672559ceaeba26ad9f23faa6eae3fbbdb83cb7c2e48f10b5b896"
+      }
+    ],
+    "llm_only_secrets": [
+      "agentgateway-client-key-staging"
+    ]
   },
   "drift_artifacts": {
     "baselines": {
