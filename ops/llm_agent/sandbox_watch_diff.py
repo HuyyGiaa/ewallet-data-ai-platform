@@ -1,4 +1,4 @@
-"""Exact object diffs for the sandbox watch packages (PKG-K kagent, PKG-W KEDA).
+"""Exact object diffs for the sandbox watch packages (PKG-K kagent, PKG-KS kagent staging, PKG-W KEDA).
 
 ``identity`` proves that the pinned chart, the live values and (for kagent) the pilot
 post-renderer reproduce the live release manifest object for object; otherwise an upgrade
@@ -6,7 +6,7 @@ would also change objects nobody reviewed. ``candidate`` proves the overlay chan
 the reviewed objects and fields, and nothing else.
 
     python -m ops.llm_agent.sandbox_watch_diff identity <live-manifest> <baseline-render>
-    python -m ops.llm_agent.sandbox_watch_diff candidate <kagent|keda> <baseline-render> <candidate-render>
+    python -m ops.llm_agent.sandbox_watch_diff candidate <kagent|kagent-staging|keda> <baseline-render> <candidate-render>
 """
 
 from __future__ import annotations
@@ -19,6 +19,10 @@ import yaml
 
 Key = tuple[str, str, str]
 SANDBOX = "ewallet-sandbox"
+AGENTS_STAGING, SANDBOX_STAGING = "ewallet-agents-staging", "ewallet-sandbox-staging"
+_WRITER_GETTER = (("Role", "kagent-getter-role"), ("RoleBinding", "kagent-getter-rolebinding"),
+                  ("Role", "kagent-writer-role"), ("RoleBinding", "kagent-writer-rolebinding"))
+_ENV_SOURCES = (("Role", "kagent-ate-api-env-sources"), ("RoleBinding", "kagent-ate-api-env-sources"))
 
 # Objects each overlay may add (all namespaced, in ewallet-sandbox) and, per changed object,
 # the only leaf paths that may differ.
@@ -34,6 +38,20 @@ EXPECTED: dict[str, dict[str, Any]] = {
             ("Deployment", "kagent", "kagent-controller"): {"spec.template.metadata.annotations.checksum/configmap"},
         },
         "values": {"ConfigMap/kagent-controller WATCH_NAMESPACES": "ewallet-agents,kagent-pilot,ewallet-sandbox"},
+        "namespaces": {SANDBOX},
+    },
+    # PKG-KS (CI/CD V2-P3B), from the live PKG-K state: writer/getter RBAC in both staging namespaces, env-source
+    # RBAC only in the staging sandbox (the post-renderer removes it from ewallet-agents-staging).
+    "kagent-staging": {
+        "added": {(kind, ns, name) for ns in (AGENTS_STAGING, SANDBOX_STAGING) for kind, name in _WRITER_GETTER}
+                 | {(kind, SANDBOX_STAGING, name) for kind, name in _ENV_SOURCES},
+        "changed": {
+            ("ConfigMap", "kagent", "kagent-controller"): {"data.WATCH_NAMESPACES"},
+            ("Deployment", "kagent", "kagent-controller"): {"spec.template.metadata.annotations.checksum/configmap"},
+        },
+        "values": {"ConfigMap/kagent-controller WATCH_NAMESPACES":
+                   "ewallet-agents,kagent-pilot,ewallet-sandbox,ewallet-agents-staging,ewallet-sandbox-staging"},
+        "namespaces": {AGENTS_STAGING, SANDBOX_STAGING},
     },
     "keda": {
         "added": {("RoleBinding", SANDBOX, "keda-operator")},
@@ -42,6 +60,7 @@ EXPECTED: dict[str, dict[str, Any]] = {
             for name in ("keda-operator", "keda-operator-metrics-apiserver", "keda-admission-webhooks")
         },
         "values": {"WATCH_NAMESPACE": "ewallet-agents,ml-platform,ewallet-sandbox"},
+        "namespaces": {SANDBOX},
     },
 }
 
@@ -105,8 +124,8 @@ def candidate(target: str, base: Mapping[Key, dict], cand: Mapping[Key, dict]) -
         if paths != expected["changed"][key]:
             problems.append(f"{key} changed paths {sorted(paths)} != {sorted(expected['changed'][key])}")
     for key in added:
-        if key[1] != SANDBOX:
-            problems.append(f"added object outside {SANDBOX}: {key}")
+        if key[1] not in expected["namespaces"]:
+            problems.append(f"added object outside {sorted(expected['namespaces'])}: {key}")
     values = _candidate_values(target, cand)
     for label, want in expected["values"].items():
         for got in values.get(label, [None]):
@@ -116,7 +135,7 @@ def candidate(target: str, base: Mapping[Key, dict], cand: Mapping[Key, dict]) -
 
 
 def _candidate_values(target: str, cand: Mapping[Key, dict]) -> dict[str, list[Any]]:
-    if target == "kagent":
+    if target in ("kagent", "kagent-staging"):
         config = cand.get(("ConfigMap", "kagent", "kagent-controller"), {})
         return {"ConfigMap/kagent-controller WATCH_NAMESPACES": [(config.get("data") or {}).get("WATCH_NAMESPACES")]}
     found = []

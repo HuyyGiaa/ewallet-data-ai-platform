@@ -1,0 +1,24 @@
+# PKG-KS (CI/CD V2-P3B): let the existing kagent release also reconcile the isolated Agent staging namespaces:
+# the BYO Coordinator Agent in ewallet-agents-staging and the staging SandboxAgents in ewallet-sandbox-staging.
+# Applied with --reuse-values on top of the live values (PKG-K already added ewallet-sandbox) and the pilot
+# post-renderer: scripts/llm_agent/sandbox_watch.sh kagent-staging <action> <work-dir>.
+# Helm replaces lists, so both lists repeat every namespace that is live today, then add the two staging ones.
+# The post-renderer keeps ate-api env-source RBAC in ewallet-sandbox-staging only (SandboxAgent secretKeyRef env)
+# and removes it from ewallet-agents-staging, as it does for ewallet-agents and kagent.
+# Changing this restarts the shared kagent controller (production): owner approval PKG-KS only.
+rbac:
+  namespaces:
+    - kagent
+    - ewallet-agents
+    - kagent-pilot
+    - ewallet-sandbox
+    - ewallet-agents-staging
+    - ewallet-sandbox-staging
+
+controller:
+  watchNamespaces:
+    - ewallet-agents
+    - kagent-pilot
+    - ewallet-sandbox
+    - ewallet-agents-staging
+    - ewallet-sandbox-staging

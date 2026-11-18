@@ -3,9 +3,12 @@
 
 The upstream kagent chart creates ate-api env-source RBAC in every watched
 namespace when Substrate is enabled.  Only the dedicated sandbox namespaces need
-it: ``kagent-pilot`` always, and ``ewallet-sandbox`` (the business-agent fleet)
-when the kagent sandbox-watch overlay adds it to ``rbac.namespaces``.  Production
-namespaces never keep it.  The live kagent PostgreSQL deployment also
+it: ``kagent-pilot`` always, ``ewallet-sandbox`` (the business-agent fleet)
+when the kagent sandbox-watch overlay adds it to ``rbac.namespaces``, and
+``ewallet-sandbox-staging`` (the staging fleet, CI/CD V2-P3B) when the staging
+watch overlay adds it.  Agent namespaces never keep it: ``ewallet-agents`` and
+``kagent`` always lose it, and ``ewallet-agents-staging`` loses it whenever it is
+watched.  The live kagent PostgreSQL deployment also
 has an approved scheduling selector that was added by the original release
 post-renderer and is not represented by the upstream chart template.
 
@@ -22,7 +25,9 @@ import yaml
 
 PILOT_NAMESPACE = "kagent-pilot"
 # Isolated sandbox namespaces that may keep env-source RBAC, besides the pilot.
-OPTIONAL_SANDBOX_NAMESPACES = frozenset({"ewallet-sandbox"})
+OPTIONAL_SANDBOX_NAMESPACES = frozenset({"ewallet-sandbox", "ewallet-sandbox-staging"})
+# Agent namespaces whose env-source RBAC is removed when they are watched (besides ewallet-agents and kagent).
+OPTIONAL_AGENT_NAMESPACES = frozenset({"ewallet-agents-staging"})
 ENV_SOURCE_RBAC_NAME = "kagent-ate-api-env-sources"
 POSTGRES_NAME = "kagent-postgresql"
 WORKER_POOL_NAME = "kagent-pilot"
@@ -96,7 +101,13 @@ def transform(documents: list[dict]) -> list[dict]:
         ("Role", "kagent", ENV_SOURCE_RBAC_NAME),
         ("RoleBinding", "kagent", ENV_SOURCE_RBAC_NAME),
     }
-    if removed_env_source_identities != expected_removed:
+    optional_removed = removed_env_source_identities - expected_removed
+    for namespace in OPTIONAL_AGENT_NAMESPACES:
+        pair = {("Role", namespace, ENV_SOURCE_RBAC_NAME), ("RoleBinding", namespace, ENV_SOURCE_RBAC_NAME)}
+        if optional_removed & pair and not pair <= optional_removed:
+            raise ValueError(f"env-source RBAC in {namespace} must be removed as a Role and RoleBinding pair")
+        optional_removed -= pair
+    if not expected_removed <= removed_env_source_identities or optional_removed:
         raise ValueError(
             "unexpected cross-namespace env-source RBAC set: "
             f"{sorted(removed_env_source_identities)}"

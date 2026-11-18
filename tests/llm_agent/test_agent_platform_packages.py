@@ -3,10 +3,15 @@
 from __future__ import annotations
 
 import copy
+from pathlib import Path
 import unittest
+
+import yaml
 
 from ops.llm_agent import agi_packages
 from ops.llm_agent import sandbox_watch_diff as watch
+
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def obj(kind, namespace, name, **body):
@@ -51,6 +56,35 @@ class WatchDiffTests(unittest.TestCase):
         removed = dict(cand)
         base_extra = {**base, ("Role", "ewallet-agents", "kagent-writer-role"): obj("Role", "ewallet-agents", "kagent-writer-role")}
         self.assertTrue(any("removed" in p for p in watch.candidate("kagent", base_extra, removed)))
+
+    def test_kagent_staging_candidate_is_exactly_the_reviewed_change(self):
+        """PKG-KS starts from the live PKG-K state and adds RBAC only in the two staging namespaces."""
+
+        base = kagent("ewallet-agents,kagent-pilot,ewallet-sandbox", "b")
+        expected = watch.EXPECTED["kagent-staging"]
+        added = {key: obj(key[0], key[1], key[2]) for key in expected["added"]}
+        self.assertEqual({key[1] for key in added}, {"ewallet-agents-staging", "ewallet-sandbox-staging"})
+        self.assertNotIn(("Role", "ewallet-agents-staging", "kagent-ate-api-env-sources"), added)
+        full = "ewallet-agents,kagent-pilot,ewallet-sandbox,ewallet-agents-staging,ewallet-sandbox-staging"
+        cand = {**kagent(full, "c"), **added}
+        self.assertEqual(watch.candidate("kagent-staging", base, cand), [])
+        self.assertTrue(watch.candidate("kagent", base, cand), "the PKG-K definition must not accept PKG-KS")
+        dropped = {**kagent("ewallet-agents,ewallet-agents-staging,ewallet-sandbox-staging", "c"), **added}
+        self.assertTrue(watch.candidate("kagent-staging", base, dropped), "existing namespaces must stay")
+        env_in_agents = {**cand, ("Role", "ewallet-agents-staging", "kagent-ate-api-env-sources"):
+                         obj("Role", "ewallet-agents-staging", "kagent-ate-api-env-sources")}
+        self.assertTrue(watch.candidate("kagent-staging", base, env_in_agents))
+        production = {**cand, ("Role", "ewallet-agents", "kagent-extra"): obj("Role", "ewallet-agents", "kagent-extra")}
+        self.assertTrue(any("outside" in p or "added" in p for p in watch.candidate("kagent-staging", base, production)))
+
+    def test_kagent_staging_overlay_preserves_every_live_namespace(self):
+        overlay = yaml.safe_load((ROOT / "infra/kubernetes/kagent-pilot/values/kagent-staging-watch-overlay.yaml").read_text())
+        pkg_k = yaml.safe_load((ROOT / "infra/kubernetes/kagent-pilot/values/kagent-sandbox-watch-overlay.yaml").read_text())
+        for key, path in (("watchNamespaces", ("controller",)), ("namespaces", ("rbac",))):
+            live = pkg_k[path[0]][key]
+            new = overlay[path[0]][key]
+            self.assertEqual(new[:len(live)], live, f"{path[0]}.{key} must keep the live entries first and unchanged")
+            self.assertEqual(new[len(live):], ["ewallet-agents-staging", "ewallet-sandbox-staging"])
 
     def test_identity_reports_every_kind_of_difference(self):
         live = kagent("a", "1")

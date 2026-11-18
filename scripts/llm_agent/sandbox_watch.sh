@@ -1,26 +1,28 @@
 #!/usr/bin/env bash
-# Sandbox watch packages: add ewallet-sandbox to an existing controller's watch scope.
-#   PKG-K  kagent  release kagent/kagent (chart 0.10.3, pilot post-renderer)
-#   PKG-W  keda    release keda/keda     (chart 2.21.0)
-# The two are separate packages with separate approvals; this script never touches both.
+# Sandbox watch packages: add namespaces to an existing controller's watch scope.
+#   PKG-K   kagent          release kagent/kagent (chart 0.10.3, pilot post-renderer): + ewallet-sandbox (applied)
+#   PKG-KS  kagent-staging  the same release: + ewallet-agents-staging, ewallet-sandbox-staging (CI/CD V2-P3B)
+#   PKG-W   keda            release keda/keda     (chart 2.21.0)
+# Separate packages with separate approvals; this script never touches two in one run.
 #
-# usage: sandbox_watch.sh <kagent|keda> <action> <work-dir>
+# usage: sandbox_watch.sh <kagent|kagent-staging|keda> <action> <work-dir>
 #   preflight  [READ-ONLY]  pinned chart digest, release deployed, live values/manifest saved
 #                           (mode 600), identity: chart + live values (+ post-renderer) == live
-#                           manifest, ewallet-sandbox exists
+#                           manifest, the package's namespaces exist
 #   diff       [READ-ONLY]  preflight, then the overlay's exact object diff (sandbox_watch_diff)
 #   dry-run    [READ-ONLY]  diff, then helm upgrade --dry-run=server
-#   upgrade    [MUTATES]    WATCH_APPROVAL=<PKG-K|PKG-W>:<context>; diff and a server-side dry-run in the
+#   upgrade    [MUTATES]    WATCH_APPROVAL=<PKG-K|PKG-KS|PKG-W>:<context>; diff and a server-side dry-run in the
 #                           same execution, then helm upgrade --atomic; any failed gate stops before it
-#   verify     [READ-ONLY]  watch value, rollouts, RBAC in ewallet-sandbox, controller readback
-#   rollback   [MUTATES]    WATCH_APPROVAL=<PKG-K|PKG-W>-ROLLBACK:<context>; helm rollback to the
+#   verify     [READ-ONLY]  watch value, rollouts, RBAC in the package's namespaces, controller readback,
+#                           production SandboxAgents in ewallet-sandbox still Accepted and Ready
+#   rollback   [MUTATES]    WATCH_APPROVAL=<PKG-K|PKG-KS|PKG-W>-ROLLBACK:<context>; helm rollback to the
 #                           revision recorded by upgrade, then identity against that revision
 #
 # Env: KUBE_CONTEXT (required; the kubeconfig default is never used), KUBECONFIG, HELM, KUBECTL.
 set -euo pipefail
 target=${1:-} action=${2:-} work=${3:-}
 die() { echo "sandbox_watch: FAIL: $*" >&2; exit 1; }
-case "$target" in kagent|keda) ;; *) die "usage: sandbox_watch.sh <kagent|keda> <action> <work-dir>";; esac
+case "$target" in kagent|kagent-staging|keda) ;; *) die "usage: sandbox_watch.sh <kagent|kagent-staging|keda> <action> <work-dir>";; esac
 case "$action" in preflight|diff|dry-run|upgrade|verify|rollback) ;; *) die "unknown action '$action'";; esac
 [[ -n "$work" ]] || die "work directory required"
 [[ -n "${KUBE_CONTEXT:-}" ]] || die "KUBE_CONTEXT is required"
@@ -33,25 +35,35 @@ H() { "$helm" --kube-context "$KUBE_CONTEXT" "$@"; }
 K() { "$kubectl" --context "$KUBE_CONTEXT" --request-timeout=60s "$@"; }
 log() { printf '%s %s %s\n' "$(date -u +%FT%TZ)" "$target" "$*" | tee -a "$work/package.log"; }
 
-if [[ $target == kagent ]]; then
-  package=PKG-K release=kagent namespace=kagent
-  overlay=$root/infra/kubernetes/kagent-pilot/values/kagent-sandbox-watch-overlay.yaml
+# added: the namespaces this package adds (they must exist; the controller's RBAC must appear there);
+# original: the watch value before the package, which a rollback must restore.
+if [[ $target == kagent || $target == kagent-staging ]]; then
+  release=kagent namespace=kagent
   renderer=(--post-renderer "$root/infra/kubernetes/kagent-pilot/scripts/kagent_runtime_post_renderer.py")
   # shellcheck source=../../infra/kubernetes/kagent-pilot/versions.env
   . "$root/infra/kubernetes/kagent-pilot/versions.env"
-  expected_watch=ewallet-agents,kagent-pilot,ewallet-sandbox
+  if [[ $target == kagent ]]; then
+    package=PKG-K overlay=$root/infra/kubernetes/kagent-pilot/values/kagent-sandbox-watch-overlay.yaml
+    original=ewallet-agents,kagent-pilot added=(ewallet-sandbox)
+  else
+    package=PKG-KS overlay=$root/infra/kubernetes/kagent-pilot/values/kagent-staging-watch-overlay.yaml
+    original=ewallet-agents,kagent-pilot,ewallet-sandbox added=(ewallet-agents-staging ewallet-sandbox-staging)
+  fi
+  expected_watch=$original,$(IFS=,; echo "${added[*]}")
 else
   package=PKG-W release=keda namespace=keda
   overlay=$root/infra/helm/keda/values-sandbox-watch.yaml
   renderer=()
   # shellcheck source=../../infra/helm/keda/versions.env
   . "$root/infra/helm/keda/versions.env"
-  expected_watch=ewallet-agents,ml-platform,ewallet-sandbox
+  original=ewallet-agents,ml-platform added=(ewallet-sandbox)
+  expected_watch=$original,ewallet-sandbox
 fi
+kind=$target; [[ $target == kagent-staging ]] && kind=kagent   # same release, chart and post-renderer
 
 fetch_chart() {
   rm -rf "$work/chart" && mkdir -p "$work/chart"
-  if [[ $target == kagent ]]; then
+  if [[ $kind == kagent ]]; then
     "$helm" pull "$KAGENT_CHART" --version "$KAGENT_VERSION" --destination "$work/chart" > "$work/chart/pull.txt" 2>&1 \
       || die "helm pull kagent failed: $(tail -1 "$work/chart/pull.txt")"
     grep -q "Digest: $KAGENT_CHART_DIGEST" "$work/chart/pull.txt" || die "kagent chart digest is not $KAGENT_CHART_DIGEST"
@@ -78,7 +90,10 @@ preflight() {
     || die "baseline render failed"
   diff_tool identity "$work/manifest-live.yaml" "$work/render-baseline.yaml" > "$work/identity.txt" 2>&1 \
     || { cat "$work/identity.txt" >&2; die "chart + live values do not reproduce the live release; stop"; }
-  K get namespace ewallet-sandbox -o name > /dev/null 2>&1 || die "namespace ewallet-sandbox does not exist (create it first)"
+  local ns
+  for ns in "${added[@]}"; do
+    K get namespace "$ns" -o name > /dev/null 2>&1 || die "namespace $ns does not exist (create it first)"
+  done
   log "preflight PASS: $namespace/$release revision $(cat "$work/revision-live"), identity PASS"
 }
 
@@ -100,14 +115,14 @@ server_dry_run() {   # the exact upgrade, validated by the API server; fails clo
 }
 
 watch_value() {
-  if [[ $target == kagent ]]; then
+  if [[ $kind == kagent ]]; then
     K -n kagent get configmap kagent-controller -o 'jsonpath={.data.WATCH_NAMESPACES}'
   else
     K -n keda get deployment keda-operator -o 'jsonpath={.spec.template.spec.containers[0].env[?(@.name=="WATCH_NAMESPACE")].value}'
   fi
 }
 
-deployments() { if [[ $target == kagent ]]; then echo kagent-controller; else echo keda-operator keda-operator-metrics-apiserver keda-admission-webhooks; fi; }
+deployments() { if [[ $kind == kagent ]]; then echo kagent-controller; else echo keda-operator keda-operator-metrics-apiserver keda-admission-webhooks; fi; }
 
 verify() {
   local expected=$1 got deployment
@@ -116,11 +131,18 @@ verify() {
   for deployment in $(deployments); do
     K -n "$namespace" rollout status "deployment/$deployment" --timeout=300s > /dev/null || die "$deployment is not rolled out"
   done
-  local rbac
-  rbac=$(K -n ewallet-sandbox get role,rolebinding -l "app.kubernetes.io/instance=$release" -o name 2>/dev/null | sort | tr '\n' ' ')
-  if [[ "$expected" == *ewallet-sandbox* ]]; then
-    [[ -n "$rbac" ]] || die "no $release RBAC in ewallet-sandbox"
-    if [[ $target == kagent ]]; then
+  local rbac="" ns found
+  for ns in "${added[@]}"; do
+    found=$(K -n "$ns" get role,rolebinding -l "app.kubernetes.io/instance=$release" -o name 2>/dev/null | sort | tr '\n' ' ')
+    if [[ "$expected" == "$expected_watch" ]]; then
+      [[ -n "$found" ]] || die "no $release RBAC in $ns"
+    else
+      [[ -z "$found" ]] || die "$release RBAC still present in $ns: $found"
+    fi
+    rbac+="$ns: ${found:-none} "
+  done
+  if [[ "$expected" == "$expected_watch" ]]; then
+    if [[ $kind == kagent ]]; then
       # The controller logs the namespaces its cache watches at start-up. Read the newest Running
       # pod of the Deployment's own selector: right after a rollout the old pod may still exist.
       local selector pod
@@ -129,23 +151,29 @@ verify() {
       pod=$(K -n kagent get pods -l "$selector" --field-selector=status.phase=Running \
         --sort-by=.metadata.creationTimestamp -o 'jsonpath={.items[-1:].metadata.name}')
       [[ -n "$pod" ]] || die "no Running kagent-controller pod"
-      K -n kagent logs "$pod" --tail=400 | grep 'Watching specific namespaces' | tail -1 | grep -q ewallet-sandbox \
-        || die "kagent-controller pod $pod start-up log does not list ewallet-sandbox"
+      for ns in "${added[@]}"; do
+        K -n kagent logs "$pod" --tail=400 | grep 'Watching specific namespaces' | tail -1 | grep -q "\"$ns\"" \
+          || die "kagent-controller pod $pod start-up log does not list $ns"
+      done
       log "controller pod $pod watches: $(K -n kagent logs "$pod" --tail=400 | grep 'Watching specific namespaces' | tail -1 | grep -o '"namespaces":\[[^]]*\]')"
       local agents
       agents=$(K -n ewallet-sandbox get sandboxagents.kagent.dev -o 'jsonpath={range .items[*]}{.metadata.name}={.status.conditions[?(@.type=="Accepted")].status}{" "}{end}')
       log "SandboxAgents in ewallet-sandbox: ${agents:-none yet (AGS-01 checks reconciliation)}"
       [[ "$agents" != *"=False"* ]] || die "a SandboxAgent in ewallet-sandbox is not Accepted: $agents"
+      if [[ $target == kagent-staging ]]; then   # the production fleet must reconcile again after the restart
+        local ready
+        ready=$(K -n ewallet-sandbox get sandboxagents.kagent.dev -o 'jsonpath={range .items[*]}{.metadata.name}={.status.conditions[?(@.type=="Ready")].status}{" "}{end}')
+        [[ -n "$ready" && "$ready" != *"=False"* && "$ready" != *"= "* ]] || die "production SandboxAgents not Ready after the restart: ${ready:-none}"
+        log "production SandboxAgents Ready: $ready"
+      fi
     else
       local objects
       objects=$(K get scaledobjects.keda.sh -A -o 'jsonpath={range .items[*]}{.metadata.namespace}/{.metadata.name}={.status.conditions[?(@.type=="Ready")].status}{" "}{end}')
       log "ScaledObjects: ${objects:-none}"
       [[ "$objects" != *"=False"* ]] || die "a ScaledObject is not Ready after the change: $objects"
     fi
-  else
-    [[ -z "$rbac" ]] || die "$release RBAC still present in ewallet-sandbox: $rbac"
   fi
-  log "verify PASS: watch scope $got; RBAC in ewallet-sandbox: ${rbac:-none}"
+  log "verify PASS: watch scope $got; RBAC: $rbac"
 }
 
 approval() {
@@ -172,7 +200,6 @@ case "$action" in
     approval "$package-ROLLBACK:$KUBE_CONTEXT"
     [[ -s "$work/revision-before-upgrade" ]] || die "no recorded pre-upgrade revision in $work"
     before=$(cat "$work/revision-before-upgrade")
-    original=${expected_watch%,ewallet-sandbox}
     H rollback "$release" "$before" -n "$namespace" --wait --timeout 10m > "$work/rollback.txt" 2>&1 \
       || { tail -5 "$work/rollback.txt" >&2; die "helm rollback failed"; }
     verify "$original"

@@ -473,6 +473,40 @@ spec: {replicas: 1}
         self.assertNotEqual(half.returncode, 0)
         self.assertIn("must be a Role and RoleBinding pair", half.stderr)
 
+    def test_kagent_runtime_post_renderer_handles_the_staging_namespaces(self) -> None:
+        """PKG-KS: env-source stays in ewallet-sandbox-staging only and leaves ewallet-agents-staging as a pair."""
+
+        def rbac(ns, kinds=("Role", "RoleBinding")):
+            return "".join(f"\n---\napiVersion: rbac.authorization.k8s.io/v1\nkind: {kind}\n"
+                           f"metadata: {{name: kagent-ate-api-env-sources, namespace: {ns}}}\n" for kind in kinds)
+
+        base = rbac("ewallet-agents") + rbac("kagent") + rbac("kagent-pilot") + rbac("ewallet-sandbox") + """
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: kagent-postgresql, namespace: kagent}
+spec: {template: {spec: {containers: []}}}
+---
+apiVersion: ate.dev/v1alpha1
+kind: WorkerPool
+metadata: {name: kagent-pilot, namespace: kagent}
+spec: {replicas: 1}
+"""
+        renderer = [str(PILOT / "scripts" / "kagent_runtime_post_renderer.py")]
+        result = subprocess.run(renderer, input=base + rbac("ewallet-agents-staging") + rbac("ewallet-sandbox-staging"),
+                                check=True, capture_output=True, text=True)
+        kept = {(d["kind"], d["metadata"]["namespace"]) for d in load_documents_from_text(result.stdout)
+                if d["metadata"]["name"] == "kagent-ate-api-env-sources"}
+        self.assertEqual({ns for _, ns in kept}, {"kagent-pilot", "ewallet-sandbox", "ewallet-sandbox-staging"})
+        half = subprocess.run(renderer, input=base + rbac("ewallet-agents-staging", ("Role",)), check=False,
+                              capture_output=True, text=True)
+        self.assertNotEqual(half.returncode, 0)
+        self.assertIn("removed as a Role and RoleBinding pair", half.stderr)
+        unknown = subprocess.run(renderer, input=base + rbac("ewallet-agents-dev"), check=False, capture_output=True,
+                                 text=True)
+        self.assertNotEqual(unknown.returncode, 0)   # an unreviewed namespace still fails closed
+        self.assertIn("unexpected cross-namespace env-source RBAC set", unknown.stderr)
+
     def test_kagent_runtime_post_renderer_fails_on_unexpected_rbac_shape(self) -> None:
         rendered = """
 apiVersion: rbac.authorization.k8s.io/v1
