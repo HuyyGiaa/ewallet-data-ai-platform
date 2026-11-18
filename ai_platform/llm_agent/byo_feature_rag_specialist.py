@@ -69,14 +69,17 @@ from ai_platform.llm_agent.byo_mcp import (
     validate_gateway_route,
 )
 from ai_platform.llm_agent.contracts import Citation, VersionContext
+from ai_platform.llm_agent.gateway_environment import PRODUCTION_GATEWAY, GatewayEnvironment, resolve_gateway_environment
 from ai_platform.llm_agent.programmatic_coordinator import SpecialistEvidence
 
 
 LOGGER = logging.getLogger(__name__)
 APP_NAME = "feature-rag-specialist"
 APP_VERSION = "1.0.0"
-APP_URL = "http://feature-rag-specialist.ewallet-agents:8080"
-APPROVED_MCP_GATEWAY = "http://mcp-gateway.ewallet-agents.svc:8080/feature-rag/mcp"
+FEATURE_RAG_ROUTE = "/feature-rag/mcp"
+# Production addresses (the defaults); the running process resolves its approved environment.
+APP_URL = PRODUCTION_GATEWAY.agent_card_url(APP_NAME)
+APPROVED_MCP_GATEWAY = PRODUCTION_GATEWAY.mcp_route(FEATURE_RAG_ROUTE)
 APPROVED_TOOLS = frozenset({"feature_lookup", "fraud_scoring", "knowledge_search"})
 MAX_REQUEST_BYTES = 8_192
 MAX_ERROR_CHARS = 512
@@ -94,9 +97,9 @@ class FeatureRagFailure(ValueError):
         self.code = code
 
 
-def _validate_endpoint(value: str) -> None:
+def _validate_endpoint(value: str, gateway: GatewayEnvironment | None = None) -> None:
     try:
-        validate_gateway_route(value, "/feature-rag/mcp")
+        validate_gateway_route(value, FEATURE_RAG_ROUTE, gateway=gateway)
     except ValueError as exc:
         raise ValueError("MCP endpoint must be the approved Feature-RAG Gateway route") from exc
 
@@ -218,13 +221,17 @@ class FeatureRagMCPClient:
     def __init__(
         self,
         *,
-        endpoint: str = APPROVED_MCP_GATEWAY,
+        endpoint: str | None = None,
         timeout_seconds: float = 30.0,
         token_reader: TokenReader = _environment_token,
         session_factory: SessionFactory = _official_session,
         failover: FailoverPolicy = FailoverPolicy(),
+        gateway: GatewayEnvironment | None = None,
     ) -> None:
-        _validate_endpoint(endpoint)
+        # The route of this process's approved Gateway environment; staging never defaults to production.
+        gateway = resolve_gateway_environment() if gateway is None else gateway
+        endpoint = gateway.mcp_route(FEATURE_RAG_ROUTE) if endpoint is None else endpoint
+        _validate_endpoint(endpoint, gateway)
         if not 0.1 <= timeout_seconds <= MAX_MCP_TIMEOUT_SECONDS:
             raise ValueError("timeout_seconds must be between 0.1 and 120")
         self._endpoint = endpoint
@@ -568,7 +575,7 @@ def agent_card() -> AgentCard:
         name="feature_rag_specialist",
         description="Fraud Investigation / Evidence specialist",
         version=APP_VERSION,
-        url=APP_URL,
+        url=resolve_gateway_environment().agent_card_url(APP_NAME),
         preferredTransport="JSONRPC",
         protocolVersion="0.3",
         # kagent Chat uses message/stream; the Coordinator keeps message/send.

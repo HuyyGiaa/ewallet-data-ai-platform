@@ -35,6 +35,7 @@ from ai_platform.llm_agent.model_config import (
     APPROVED_LLM_PORT,
     MAX_LLM_TIMEOUT_SECONDS,
     ModelConfigError,
+    approved_llm_base_url,
     ResolvedModelConfig,
     log_resolution,
     resolve_from_env,
@@ -197,7 +198,7 @@ class OpenAIToolPlanner:
     def __init__(
         self,
         *,
-        base_url: str = APPROVED_LLM_BASE_URL,
+        base_url: str | None = None,
         model: str = DEFAULT_LLM_MODEL,
         timeout_seconds: float = 190.0,
         key_reader: Callable[[], str] = _environment_key,
@@ -208,6 +209,8 @@ class OpenAIToolPlanner:
         tools: tuple[Mapping[str, object], ...] = (TOOL_SCHEMA,),
         max_tool_calls: int = 1,
     ) -> None:
+        # None: the agentgateway route of this process's approved Gateway environment.
+        base_url = approved_llm_base_url() if base_url is None else base_url
         _validate_base_url(base_url)
         names = [str(tool["function"]["name"]) for tool in tools]  # type: ignore[index]
         if not names or len(set(names)) != len(names):
@@ -376,7 +379,7 @@ def planner_from_env(
     timeout_seconds = float(os.getenv("EWALLET_LLM_TIMEOUT_SECONDS", "190"))
     resolved = model_config_from_env()
     if resolved is None:
-        base_url = os.getenv("EWALLET_LLM_BASE_URL", APPROVED_LLM_BASE_URL).strip()
+        base_url = os.getenv("EWALLET_LLM_BASE_URL", approved_llm_base_url()).strip()
         model = os.getenv("EWALLET_LLM_MODEL", DEFAULT_LLM_MODEL).strip()
     else:
         base_url, model = resolved.base_url, resolved.model

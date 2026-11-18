@@ -36,7 +36,18 @@ from urllib.parse import quote, urlparse
 
 import httpx
 
+try:
+    from ai_platform.llm_agent.gateway_environment import (
+        LLM_GATEWAY_PORT,
+        GatewayEnvironment,
+        resolve_gateway_environment,
+        validate_service_url,
+    )
+except ImportError:  # loaded on its own (infra/k8s/modelconfig-canary): production only, fail closed otherwise
+    GatewayEnvironment = None  # type: ignore[assignment,misc]
 
+
+# Production LLM route (the default). Other approved environments: gateway_environment.py.
 APPROVED_LLM_HOST = "agentgateway.ewallet-agents.svc.cluster.local"
 APPROVED_LLM_PORT = 3000
 APPROVED_LLM_BASE_URL = f"http://{APPROVED_LLM_HOST}:{APPROVED_LLM_PORT}/v1"
@@ -82,21 +93,47 @@ class ResolvedModelConfig:
         return {"event": "modelconfig.resolved", **asdict(self)}
 
 
-def validate_base_url(value: str) -> None:
-    """Only the in-cluster agentgateway route; never a model server or an external host."""
+def approved_llm_base_url(gateway: "GatewayEnvironment | None" = None) -> str:
+    """The agentgateway route of this process's approved Gateway environment."""
 
-    parsed = urlparse(value)
-    if (
-        parsed.scheme != "http"
-        or parsed.hostname != APPROVED_LLM_HOST
-        or parsed.port != APPROVED_LLM_PORT
-        or parsed.path != "/v1"
-        or parsed.query
-        or parsed.fragment
-        or parsed.username
-        or parsed.password
-    ):
-        raise ValueError("LLM base URL must be the approved in-cluster agentgateway route")
+    if GatewayEnvironment is None:
+        _standalone_production_only()
+        return APPROVED_LLM_BASE_URL
+    environment = resolve_gateway_environment() if gateway is None else gateway
+    return environment.llm_base_url
+
+
+def _standalone_production_only() -> None:
+    selected = os.environ.get("EWALLET_GATEWAY_NAMESPACE")
+    if selected not in (None, "ewallet-agents"):
+        raise ValueError("a standalone model_config load supports only the production Gateway")
+
+
+def validate_base_url(value: str, *, gateway: "GatewayEnvironment | None" = None) -> None:
+    """Only the in-cluster agentgateway route of the approved environment; never a model server or an
+    external host. ``gateway`` None resolves the environment from the process (production by default)."""
+
+    if GatewayEnvironment is None:
+        _standalone_production_only()
+        parsed = urlparse(value)
+        if (
+            parsed.scheme != "http"
+            or parsed.hostname != APPROVED_LLM_HOST
+            or parsed.port != APPROVED_LLM_PORT
+            or parsed.path != "/v1"
+            or parsed.query
+            or parsed.fragment
+            or parsed.username
+            or parsed.password
+        ):
+            raise ValueError("LLM base URL must be the approved in-cluster agentgateway route")
+        return
+    environment = resolve_gateway_environment() if gateway is None else gateway
+    try:
+        validate_service_url(value, host=environment.llm_host, port=LLM_GATEWAY_PORT, path="/v1",
+                             what="LLM base URL")
+    except ValueError as exc:
+        raise ValueError("LLM base URL must be the approved in-cluster agentgateway route") from exc
 
 
 def _secret_ref(value: str) -> tuple[str, str]:
@@ -108,6 +145,7 @@ def _secret_ref(value: str) -> tuple[str, str]:
 
 def parse_model_config(
     document: Mapping[str, object], *, name: str, namespace: str, secret_ref: tuple[str, str],
+    gateway: "GatewayEnvironment | None" = None,
 ) -> ResolvedModelConfig:
     """Validate one ModelConfig object as returned by the API server."""
 
@@ -141,7 +179,7 @@ def parse_model_config(
     if not isinstance(base_url, str):
         raise bad("modelconfig_invalid", "spec.openAI.baseUrl is missing")
     try:
-        validate_base_url(base_url)
+        validate_base_url(base_url, gateway=gateway)
     except ValueError as exc:
         raise bad("modelconfig_endpoint_unauthorized", str(exc)) from exc
     timeout = openai.get("timeout")
@@ -244,6 +282,10 @@ def resolve_from_env(
             namespace = ""
     if not _NAME.fullmatch(namespace):
         raise ModelConfigError("modelconfig_misconfigured", "the ModelConfig namespace is unknown")
+    try:
+        gateway = resolve_gateway_environment(environ) if GatewayEnvironment is not None else None
+    except ValueError as exc:
+        raise ModelConfigError("modelconfig_misconfigured", str(exc)) from exc
     secret_ref = _secret_ref(environ.get("EWALLET_LLM_API_KEY_SECRET_REF", "").strip())
     api_host = environ.get("KUBERNETES_SERVICE_HOST", "").strip()
     try:
@@ -254,7 +296,7 @@ def resolve_from_env(
         raise ModelConfigError("modelconfig_misconfigured", "KUBERNETES_SERVICE_HOST/PORT are not set")
     document = fetch_model_config(name, namespace, token_dir=token_dir, api_host=api_host, api_port=api_port,
                                   transport=transport)
-    return parse_model_config(document, name=name, namespace=namespace, secret_ref=secret_ref)
+    return parse_model_config(document, name=name, namespace=namespace, secret_ref=secret_ref, gateway=gateway)
 
 
 def log_resolution(resolved: ResolvedModelConfig) -> None:

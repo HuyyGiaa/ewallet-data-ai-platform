@@ -29,7 +29,6 @@ from threading import Event
 import time
 from typing import Callable, Mapping, Protocol, Union
 from urllib.error import HTTPError
-from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 from uuid import uuid4
 
@@ -49,6 +48,16 @@ from ai_platform.llm_agent.agent_metrics import record_sandbox_admission_wait, t
 from ai_platform.llm_agent.contracts import Citation
 from ai_platform.llm_agent.gateway_backoff import RATE_LIMITED, rate_limited_delay, retry_after_seconds
 from ai_platform.llm_agent.drift_evidence import DriftFinding
+from ai_platform.llm_agent.gateway_environment import (
+    PRODUCTION_GATEWAY,
+    PRODUCTION_GATEWAY_NAMESPACE,
+    APPROVED_GATEWAY_NAMESPACES,
+    A2A_GATEWAY_PORT,
+    GatewayEnvironment,
+    is_staging_namespace,
+    resolve_gateway_environment,
+    validate_service_url,
+)
 from ai_platform.llm_agent.idempotency import (
     Claim,
     ClaimStatus,
@@ -60,7 +69,8 @@ from ai_platform.llm_agent.idempotency import (
 )
 
 
-APPROVED_A2A_GATEWAY = "http://a2a-gateway.ewallet-agents.svc.cluster.local:8083/"
+# Production A2A Gateway (the default). Other approved environments: gateway_environment.py.
+APPROVED_A2A_GATEWAY = PRODUCTION_GATEWAY.a2a_endpoint
 MAX_SPECIALIST_RESPONSE_BYTES = 16_384
 MAX_A2A_RESPONSE_BYTES = 32_768
 MAX_SYNTHESIS_CHARS = 512
@@ -238,35 +248,38 @@ class GatewayPolicy:
     message ``contextId``, which is the member ``request_id``, so a retried request
     resumes the same actor. The caller's ``X-User-Id`` is not sent from here: the
     Gateway sets it on that route, so a client cannot choose the principal.
+
+    ``gateway_namespace`` selects one approved Gateway environment (gateway_environment.py); the
+    endpoint, the ``x-kagent-host`` suffix and the allowed sandbox namespace all follow it, so a
+    staging Coordinator can never address the production Gateway or production Specialists.
     """
 
     endpoint: str = APPROVED_A2A_GATEWAY
     timeout_seconds: float = 30.0
     sandbox_specialists: frozenset[str] = frozenset()
     sandbox_namespace: str = ""
+    gateway_namespace: str = PRODUCTION_GATEWAY_NAMESPACE
 
     def __post_init__(self) -> None:
-        parsed = urlparse(self.endpoint)
-        if (
-            parsed.scheme != "http"
-            or parsed.hostname != "a2a-gateway.ewallet-agents.svc.cluster.local"
-            or parsed.port != 8083
-            or parsed.path != "/"
-            or parsed.query
-            or parsed.fragment
-            or parsed.username
-            or parsed.password
-        ):
-            raise ValueError("A2A endpoint must be the approved in-cluster Gateway")
+        try:
+            environment = GatewayEnvironment(self.gateway_namespace)
+            validate_service_url(self.endpoint, host=environment.a2a_host, port=A2A_GATEWAY_PORT, path="/",
+                                 what="A2A endpoint")
+        except ValueError as exc:
+            raise ValueError("A2A endpoint must be the approved in-cluster Gateway") from exc
         if not 0.1 <= self.timeout_seconds <= MAX_A2A_TIMEOUT_SECONDS:
             raise ValueError("A2A timeout must be between 0.1 and 600 seconds")
         object.__setattr__(self, "sandbox_specialists", frozenset(self.sandbox_specialists))
         if not self.sandbox_specialists <= _SPECIALISTS:
             raise ValueError("sandbox_specialists must be approved Specialists")
         if self.sandbox_specialists and (
-            not _NAMESPACE.fullmatch(self.sandbox_namespace) or self.sandbox_namespace == "ewallet-agents"
+            not _NAMESPACE.fullmatch(self.sandbox_namespace) or self.sandbox_namespace in APPROVED_GATEWAY_NAMESPACES
         ):
             raise ValueError("sandbox Specialists need a dedicated sandbox namespace")
+        if self.sandbox_specialists and environment.is_staging and self.sandbox_namespace != environment.sandbox_namespace:
+            raise ValueError(f"staging sandbox Specialists must run in {environment.sandbox_namespace}")
+        if self.sandbox_specialists and not environment.is_staging and is_staging_namespace(self.sandbox_namespace):
+            raise ValueError("production sandbox Specialists cannot run in a staging namespace")
 
     def call_for(self, request: SpecialistRequest) -> GatewayCall:
         if request.target_agent not in _SPECIALISTS:
@@ -286,7 +299,7 @@ class GatewayPolicy:
             url=self.endpoint,
             headers={
                 "content-type": "application/json",
-                "x-kagent-host": f"{request.target_agent}.ewallet-agents",
+                "x-kagent-host": GatewayEnvironment(self.gateway_namespace).agent_host(request.target_agent),
             },
             payload=payload,
             timeout_seconds=self.timeout_seconds,
@@ -294,12 +307,15 @@ class GatewayPolicy:
 
     @classmethod
     def from_env(cls, environment: Mapping[str, str], *, timeout_seconds: float) -> "GatewayPolicy":
-        """``EWALLET_SANDBOX_SPECIALISTS`` (comma list) and ``EWALLET_SANDBOX_NAMESPACE``."""
+        """``EWALLET_SANDBOX_SPECIALISTS`` (comma list), ``EWALLET_SANDBOX_NAMESPACE`` and the approved
+        Gateway environment (``EWALLET_GATEWAY_NAMESPACE``, checked against the runtime namespace)."""
 
+        gateway = resolve_gateway_environment(environment)
         names = frozenset(item.strip() for item in environment.get("EWALLET_SANDBOX_SPECIALISTS", "").split(",")
                           if item.strip())
-        return cls(timeout_seconds=timeout_seconds, sandbox_specialists=names,
-                   sandbox_namespace=environment.get("EWALLET_SANDBOX_NAMESPACE", "").strip() if names else "")
+        return cls(endpoint=gateway.a2a_endpoint, timeout_seconds=timeout_seconds, sandbox_specialists=names,
+                   sandbox_namespace=environment.get("EWALLET_SANDBOX_NAMESPACE", "").strip() if names else "",
+                   gateway_namespace=gateway.namespace)
 
 
 def _terminal_evidence(response: Mapping[str, object], request: SpecialistRequest) -> SpecialistEvidence:

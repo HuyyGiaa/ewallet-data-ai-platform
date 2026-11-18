@@ -14,7 +14,6 @@ from contextlib import asynccontextmanager
 import os
 import re
 from typing import Protocol
-from urllib.parse import urlparse
 
 import httpx2
 from mcp.client.session import ClientSession
@@ -23,10 +22,18 @@ from mcp.shared.exceptions import MCPError
 
 from ai_platform.llm_agent.gateway_backoff import RATE_LIMITED, rate_limited_delay, retry_after_seconds
 from ai_platform.llm_agent.mcp_failover import READ_ONLY_TOOLS, GatewayStatusError
+from ai_platform.llm_agent.gateway_environment import (
+    MCP_GATEWAY_PORT as _MCP_GATEWAY_PORT,
+    PRODUCTION_GATEWAY,
+    GatewayEnvironment,
+    resolve_gateway_environment,
+    validate_service_url,
+)
 from pydantic import BaseModel, ConfigDict, Field
 
-MCP_GATEWAY_HOST = "mcp-gateway.ewallet-agents.svc"
-MCP_GATEWAY_PORT = 8080
+# Production MCP Gateway (the default). Other approved environments: gateway_environment.py.
+MCP_GATEWAY_HOST = PRODUCTION_GATEWAY.mcp_host
+MCP_GATEWAY_PORT = _MCP_GATEWAY_PORT
 
 # agentgateway's MCP rate limit answers inside the protocol as well as with HTTP 429 (observed on GKE,
 # AGR-06): initialize/list get JSON-RPC error -32003 "rate limit exceeded" with data.retryAfterSeconds in
@@ -216,18 +223,23 @@ def environment_token() -> str:
     return os.getenv("EWALLET_MCP_SERVICE_TOKEN", "").strip()
 
 
-def validate_gateway_route(value: str, path: str) -> None:
-    """Accept only the approved in-cluster MCP Gateway route for one server."""
+def validate_gateway_route(value: str, path: str, *, gateway: GatewayEnvironment | None = None) -> None:
+    """Accept only the approved in-cluster MCP Gateway route for one server.
 
-    parsed = urlparse(value)
-    if (
-        parsed.scheme != "http"
-        or parsed.hostname != MCP_GATEWAY_HOST
-        or parsed.port != MCP_GATEWAY_PORT
-        or parsed.path != path
-        or parsed.query
-        or parsed.fragment
-        or parsed.username
-        or parsed.password
-    ):
-        raise ValueError(f"MCP endpoint must be the approved Gateway route {path}")
+    ``gateway`` is the approved Gateway environment; None resolves it from the process environment
+    (production unless EWALLET_GATEWAY_NAMESPACE selects staging), so staging never accepts the
+    production Gateway and production never accepts the staging one.
+    """
+
+    environment = resolve_gateway_environment() if gateway is None else gateway
+    try:
+        validate_service_url(value, host=environment.mcp_host, port=MCP_GATEWAY_PORT, path=path, what="MCP endpoint")
+    except ValueError as exc:
+        raise ValueError(f"MCP endpoint must be the approved Gateway route {path}") from exc
+
+
+def gateway_route(path: str, *, gateway: GatewayEnvironment | None = None) -> str:
+    """The approved MCP Gateway route of one server in this process's Gateway environment."""
+
+    environment = resolve_gateway_environment() if gateway is None else gateway
+    return environment.mcp_route(path)

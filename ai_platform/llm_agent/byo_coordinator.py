@@ -67,6 +67,7 @@ from ai_platform.llm_agent.programmatic_coordinator import (
 from ai_platform.llm_agent.gateway_backoff import RATE_LIMITED, retry_after_seconds
 from ai_platform.llm_agent.idempotency import IdempotencyScope
 from ai_platform.llm_agent.redis_idempotency import idempotency_store_from_env
+from ai_platform.llm_agent.gateway_environment import PRODUCTION_GATEWAY, resolve_gateway_environment
 from ai_platform.llm_agent.workflow_intake import (
     WORKFLOW_TOOLS,
     WorkflowIntakeResult,
@@ -78,7 +79,8 @@ from ai_platform.llm_agent.workflow_intake import (
 LOGGER = logging.getLogger(__name__)
 APP_NAME = "fraud-coordinator"
 APP_VERSION = "1.0.0"
-APP_URL = "http://fraud-coordinator.ewallet-agents:8080"
+# Production Agent Card address (the default); the running process resolves its approved environment.
+APP_URL = PRODUCTION_GATEWAY.agent_card_url("fraud-coordinator")
 MAX_REQUEST_BYTES = 8_192
 MAX_ERROR_CHARS = 512
 DEFAULT_TASK_TIMEOUT_SECONDS = 480.0
@@ -480,7 +482,7 @@ def agent_card() -> AgentCard:
         name="fraud_coordinator",
         description="Fraud Investigation Coordinator",
         version=APP_VERSION,
-        url=APP_URL,
+        url=resolve_gateway_environment().agent_card_url("fraud-coordinator"),
         preferredTransport="JSONRPC",
         protocolVersion="0.3",
         # kagent Chat always uses message/stream; the executor publishes the same

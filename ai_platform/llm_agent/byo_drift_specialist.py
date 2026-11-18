@@ -64,6 +64,7 @@ from ai_platform.llm_agent.byo_runtime import (
 )
 from ai_platform.llm_agent.contracts import VersionContext
 from ai_platform.llm_agent.drift_evidence import DriftFinding
+from ai_platform.llm_agent.gateway_environment import PRODUCTION_GATEWAY, GatewayEnvironment, resolve_gateway_environment
 from ai_platform.llm_agent.mcp_failover import FailoverPolicy, is_recoverable, policy_from_env, with_failover
 from ai_platform.llm_agent.programmatic_coordinator import SpecialistEvidence
 
@@ -71,9 +72,10 @@ from ai_platform.llm_agent.programmatic_coordinator import SpecialistEvidence
 LOGGER = logging.getLogger(__name__)
 APP_NAME = "drift-specialist"
 APP_VERSION = "1.1.0"
-APP_URL = "http://drift-specialist.ewallet-agents:8080"
+# Production addresses (the defaults); the running process resolves its approved environment.
+APP_URL = PRODUCTION_GATEWAY.agent_card_url(APP_NAME)
 DRIFT_ROUTE = "/drift/mcp"
-APPROVED_MCP_GATEWAY = f"http://mcp-gateway.ewallet-agents.svc:8080{DRIFT_ROUTE}"
+APPROVED_MCP_GATEWAY = PRODUCTION_GATEWAY.mcp_route(DRIFT_ROUTE)
 APPROVED_TOOLS = frozenset({"drift_detection"})
 MAX_REQUEST_BYTES = 8_192
 MAX_ERROR_CHARS = 512
@@ -149,13 +151,17 @@ class DriftMCPClient:
     def __init__(
         self,
         *,
-        endpoint: str = APPROVED_MCP_GATEWAY,
+        endpoint: str | None = None,
         timeout_seconds: float = 30.0,
         token_reader: TokenReader = environment_token,
         session_factory: SessionFactory = official_session,
         failover: FailoverPolicy = FailoverPolicy(),
+        gateway: GatewayEnvironment | None = None,
     ) -> None:
-        validate_gateway_route(endpoint, DRIFT_ROUTE)
+        # The route of this process's approved Gateway environment; staging never defaults to production.
+        gateway = resolve_gateway_environment() if gateway is None else gateway
+        endpoint = gateway.mcp_route(DRIFT_ROUTE) if endpoint is None else endpoint
+        validate_gateway_route(endpoint, DRIFT_ROUTE, gateway=gateway)
         if not 0.1 <= timeout_seconds <= MAX_MCP_TIMEOUT_SECONDS:
             raise ValueError("timeout_seconds must be between 0.1 and 120")
         self._endpoint = endpoint
@@ -365,7 +371,7 @@ def agent_card() -> AgentCard:
         name="drift_specialist",
         description="Feature drift specialist (PSI against a versioned baseline)",
         version=APP_VERSION,
-        url=APP_URL,
+        url=resolve_gateway_environment().agent_card_url(APP_NAME),
         preferredTransport="JSONRPC",
         protocolVersion="0.3",
         capabilities=AgentCapabilities(streaming=True, stateTransitionHistory=True),
