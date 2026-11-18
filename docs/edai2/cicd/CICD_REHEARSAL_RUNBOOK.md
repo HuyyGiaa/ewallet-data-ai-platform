@@ -251,10 +251,24 @@ pre-existing listener is never mistaken for the controller; the child is termina
 | `PRODUCTION_CHANGED` | Cleanup | A production SandboxAgent's uid, generation or image changed during the run |
 | `PRODUCTION_STATE_UNKNOWN` | Cleanup | The production SandboxAgents could not be re-read |
 
-Cleanup always runs once anything was created, and only for what this execution created: each
-object is re-read and deleted by uid only if it still has that uid and this execution's label (a
-recreated object is `NOT_OURS_LEFT_UNTOUCHED`). A create whose response was lost is resolved by that
-label. Cleanup is idempotent (gone counts as deleted) and retries API errors until its deadline.
+Cleanup runs once anything was created, while mutation authority is proven, and only for what this
+execution created: each object is re-read and deleted by uid only if it still has that uid and this
+execution's label (a recreated object is `NOT_OURS_LEFT_UNTOUCHED`). A create whose response was lost
+is resolved by that label. Cleanup is idempotent (gone counts as deleted) and retries API errors until
+its deadline.
+
+Mutation authority. Every candidate create and every cleanup DELETE (retries included) is preceded by
+the release checkpoint (Lease ownership and deployment identity):
+- an ordinary failure (not Ready, actor startup, E2E, unexpected response) with verified ownership is
+  cleaned up as above;
+- once a checkpoint fails (`LOCK_LOST`, `LOCK_OWNERSHIP_UNKNOWN`, `IDENTITY_UNVERIFIED`), no further
+  Kubernetes mutation is issued by this run, cleanup included, even if a later check would pass. If it
+  fails between two cleanup DELETEs, the next DELETE is not sent. The candidates left are recorded with
+  their exact identity (`candidate-cleanup-skipped` in the journal and `cleanup_incomplete` in the
+  verdict: execution id, release SHA, name, namespace, uid, the `ewallet.io/cicd-execution` label, the
+  last known state, `cleanup_status` `SKIPPED_OWNERSHIP_UNPROVEN` or `DELETE_REQUESTED`, the reason).
+  The ownership error stays the primary failure and the release ends `RECOVERY_REQUIRED` without a
+  rollback.
 
 **Known answers** (`jenkins/cd/sandbox-candidate.contract.json`). The source is the
 p2a-closure replays (same transaction and drift window).
@@ -328,20 +342,21 @@ stays as verified (it is healthy and the publication has its own approval).
 - Every mutation is preceded by a lock checkpoint and a durable journal entry (atomic rewrite with
   fsync): Helm records `UPGRADE_ATTEMPTED` with the previous revision before `helm upgrade`; the fleet
   records `PATCH_ATTEMPTED` with uid, previous and target image before the patch.
-- Rollback acts on attempts, not only confirmed promotions, and decides from the latest Helm revision,
-  its status and the deployed manifest against the pre-mutation snapshot (a SHA-256 of the canonical
-  manifest and the image list; values and Secrets are never stored):
+- Rollback acts on attempts, not only confirmed promotions. One Helm policy,
+  `promote.rollback_decision`, decides both the automated rollback and the operator recovery plan,
+  from the latest Helm revision and status and the deployed manifest fingerprint against the
+  pre-mutation snapshot (a SHA-256 of the canonical manifest and the image list; values and Secrets
+  are never stored):
 
-  | Latest revision | Status | Decision |
+  | Decision | Condition | Action |
   |---|---|---|
-  | = recorded | `deployed`, same manifest | `NOT_CHANGED` (unchanged and healthy) |
-  | = recorded | anything else, or another manifest | `STATE_UNKNOWN` |
-  | > recorded | `deployed` or `failed` | `helm rollback` to the recorded revision; it must end `deployed` with the recorded manifest and images, else `ROLLBACK_FAILED` |
-  | > recorded | `pending-upgrade`, `pending-rollback`, `superseded`, other | `STATE_UNKNOWN` (no destructive retry while an operation may run) |
-  | < recorded, or history unreadable | — | `STATE_UNKNOWN` |
+  | `NOT_CHANGED` | latest = recorded, `deployed`, manifest SHA-256 and images = recorded | none |
+  | `RESTORED` | latest = recorded+1 or +2 (`helm --atomic`, or a finished rollback), `deployed`, manifest and images = recorded | none |
+  | `ROLLBACK` | latest = recorded+1, `deployed` or `failed`, manifest readable and different, not after a rollback | `helm rollback <release> <recorded>`, then observe again: only `RESTORED` completes it, else `ROLLBACK_FAILED`; Helm's exit code alone never does |
+  | `STATE_UNKNOWN` | anything else: `pending-*`/other status, older revision, more than recorded+2 or +2 not restored (concurrent modification), unreadable history or manifest, missing fingerprint, same revision not `deployed` or with another manifest, a rollback that did not restore | no automated or recommended rollback; manual inspection and a separately authorized decision; `RECOVERY_REQUIRED` |
 
-  `STATE_UNKNOWN` takes no automated action and makes the release `RECOVERY_REQUIRED`. A promotion
-  never starts on a release whose latest revision is not `deployed`. A fleet attempt with the same uid and the target image is
+  A promotion never starts on a release whose latest revision is not `deployed`.
+- A fleet attempt with the same uid and the target image is
   patched back; with the previous image it is `NOT_CHANGED`; another uid or image is a concurrent change
   that is never overwritten (`ROLLBACK_FAILED`).
 - Helm mutations run with a 25-minute process timeout (above Helm's own `--timeout 15m`); a timeout is
@@ -411,12 +426,33 @@ uv run --locked --project infra/docker/llm-agent-tooling python -m scripts.ci.pr
   --journal <evidence>/<execution>/transaction-journal.json      # read-only; exit 1 when recovery is required
 ```
 
-It lists, deterministically: `helm-inspect-then-rollback` (release, namespace, previous revision) for
-each unverified Helm attempt not rolled back; `sandboxagent-restore-image` (uid, previous and target
-image; only if uid and target image still match) for each unverified fleet attempt;
-`delete-candidate` (name, uid, execution) for each candidate not proven deleted;
-`gcs-remove-exact-prefix` for the execution's snapshot prefix; `verify-runtime` for any unfinished
-or failed state; `registry-publication` for `DEPLOYED_PENDING_REGISTRY`.
+Recovery planning is read-only: it never contacts a cluster. For each unverified Helm attempt it needs
+the journal's `helm-upgrade-attempted` event, written durably before `helm upgrade` runs: release,
+namespace, previous revision and status, previous manifest SHA-256, previous image references, target
+images. Then, optionally with read-only observations:
+
+```bash
+uv run --locked --project infra/docker/llm-agent-tooling python -m scripts.ci.production_release observe-helm \
+  --release <release> --namespace <ns> --context <ctx> [--after-rollback] > observed.json   # helm history + manifest
+uv run --locked --project infra/docker/llm-agent-tooling python -m scripts.ci.production_release recovery-plan \
+  --journal <journal> --observed observed.json
+```
+
+It lists, deterministically, and every mutating action carries the prerequisites (re-establish the
+approved identity with `kubectl auth whoami`, take the release lock):
+- `lock-and-identity-check` first, when ownership or identity was unproven;
+- per Helm attempt: `helm-observe-then-decide` (no observation: the read-only commands and the rules),
+  or the decision of `promote.rollback_decision`: `none-helm-unchanged`, `none-helm-restored`,
+  `helm-guarded-rollback` (the command plus the post-rollback observation that must be `RESTORED`) or
+  `helm-manual-inspection` (`STATE_UNKNOWN`, also for a journal without the fingerprint; never a
+  rollback recommendation);
+- `sandboxagent-restore-image` (uid, previous and target image; only if uid and target image still
+  match) for each unverified fleet attempt;
+- `candidate-recovery` for each candidate not proven deleted, with its identity and cleanup status: read
+  it, act only if it still has that uid and execution label and its state is understood, then delete
+  with a uid precondition (never by name alone);
+- `gcs-remove-exact-prefix` for the execution's snapshot prefix; `verify-runtime` for any unfinished or
+  failed state; `registry-publication` for `DEPLOYED_PENDING_REGISTRY`.
 
 **Deployment identity** (`scripts/ci/deploy_identity.py`). Two conditions, both before any lock or
 mutation, and identity is re-proven at every checkpoint:
