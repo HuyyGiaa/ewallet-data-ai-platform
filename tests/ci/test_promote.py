@@ -34,6 +34,9 @@ class FakeCluster:
         # Failure injection: an upgrade that changes the cluster and then fails (timeout, lost
         # result), a rollback that fails, a rollback that leaves the release not deployed.
         self.partial_upgrade_of: str | None = None
+        self.partial_state: str = "pending-upgrade"
+        self.rollback_image: str | None = None  # a rollback that "succeeds" with the wrong image
+        self.history_error: set[str] = set()
         self.fail_rollback_of: str | None = None
         self.rollback_state: str = "deployed"
 
@@ -49,6 +52,8 @@ class FakeCluster:
         command = list(command)
         self.calls.append(command)
         if command[:2] == ["helm", "history"]:
+            if command[2] in self.history_error:
+                raise rs.ReleaseStateError("helm history failed with exit 1")
             return json.dumps([{"revision": self.revisions[command[2]], "status": self.states.get(command[2], "deployed")}])
         if command[:3] == ["helm", "get", "values"]:
             return "x: 1\n"
@@ -65,7 +70,7 @@ class FakeCluster:
                 files = [command[i + 1] for i, item in enumerate(command) if item == "-f"]
                 self.images[release] = self.render_image(release, files)
                 self.revisions[release] += 1
-                self.states[release] = "pending-upgrade"
+                self.states[release] = self.partial_state
                 raise rs.AmbiguousMutationError("helm upgrade timed out after 1500s; the release state is unknown")
             files = [command[i + 1] for i, item in enumerate(command) if item == "-f"]
             self.images[release] = self.render_image(release, files)
@@ -76,7 +81,8 @@ class FakeCluster:
             release = command[2]
             if release == self.fail_rollback_of:
                 raise rs.ReleaseStateError("helm rollback failed with exit 1")
-            self.images[release] = OLD["mcp-tools"] if release == "llm-agent-mcp" else OLD["coordinator"]
+            self.images[release] = self.rollback_image or (OLD["mcp-tools"] if release == "llm-agent-mcp"
+                                                           else OLD["coordinator"])
             self.revisions[release] += 1  # a rollback is a new revision
             self.states[release] = self.rollback_state
             return ""

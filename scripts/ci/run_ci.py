@@ -295,7 +295,7 @@ def main() -> int:
         writer = EvidenceWriter(args.evidence_dir, {**metadata, "components": list(selected)})
         writer.finalize(status=status, results=results)
     verdict = write_verdict(args.evidence_dir, status=status, reason=reason, scope_components=scope_components,
-                            selected=selected, profile=args.profile, results=results)
+                            selected=selected, profile=args.profile, results=results, git_sha=metadata["git_sha"])
     # One line for the Jenkins console: why the stage passed, failed or had nothing to test.
     print("CI_VERDICT " + json.dumps({key: verdict[key] for key in (
         "status", "reason", "selected_components", "test_commands", "test_cases")}, sort_keys=True), flush=True)
@@ -316,7 +316,8 @@ def selection_status(scope: dict, scope_components: tuple[str, ...], selected: t
 
 
 def write_verdict(evidence_dir: Path, *, status: str, reason: str | None, scope_components: tuple[str, ...],
-                  selected: tuple[str, ...], profile: str | None, results: list[dict[str, Any]]) -> dict[str, Any]:
+                  selected: tuple[str, ...], profile: str | None, results: list[dict[str, Any]],
+                  git_sha: str | None = None) -> dict[str, Any]:
     tests = [item for item in results if item.get("kind") == "test"]
     cases = {"tests": 0, "failures": 0, "errors": 0, "skipped": 0}
     for item in tests:
@@ -324,6 +325,8 @@ def write_verdict(evidence_dir: Path, *, status: str, reason: str | None, scope_
             cases[key] += value
     verdict = {
         "status": status, "reason": reason, "profile": profile,
+        # The commit these results belong to (a production handoff refuses a verdict of another SHA).
+        "git_sha": git_sha,
         "scope_components": list(scope_components), "selected_components": list(selected),
         "commands_executed": len(results), "test_commands": len(tests),
         "check_commands": sum(1 for item in results if item.get("kind") == "check"),

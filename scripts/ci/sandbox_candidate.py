@@ -176,6 +176,8 @@ class CandidateReport:
     cleanup_incomplete: list[dict[str, str]] = field(default_factory=list)
     production_before: dict[str, dict[str, Any]] = field(default_factory=dict)
     production_unchanged: bool | None = None
+    # Set when a checkpoint could not prove lock ownership or identity; the transaction re-raises it.
+    ownership_error: Any = field(default=None, repr=False)
 
     def fail(self, code: str, problems: list[str], status: str = "FAIL") -> None:
         if self.failure_code is None:
@@ -372,7 +374,8 @@ def cleanup(kube: Kube, contract: Mapping[str, Any], created: Mapping[str, str],
 def run(kube: Kube, unit: Mapping[str, Any], plan: Mapping[str, Any], manifest: Mapping[str, Any], *,
         execute: bool, forward: Callable[[], contextlib.AbstractContextManager[str]],
         contract: Mapping[str, Any] | None = None, evidence: Path | None = None, execution_id: str | None = None,
-        emit: Event = lambda event: None, post: specialist_e2e.Post = specialist_e2e.http_post,
+        emit: Event = lambda event: None, checkpoint: Callable[[], None] = lambda: None,
+        post: specialist_e2e.Post = specialist_e2e.http_post,
         clock: Callable[[], float] = time.monotonic, sleep: Callable[[float], None] = time.sleep) -> CandidateReport:
     contract = contract or sa.load_contract()
     report = CandidateReport(unit["name"], execution_id or sa.new_execution_id())
@@ -390,8 +393,11 @@ def run(kube: Kube, unit: Mapping[str, Any], plan: Mapping[str, Any], manifest: 
     if not execute:
         report.status = "CHECKED_NOT_EXECUTED"
         return _write(report, evidence)
+    from scripts.ci.release_lock import OwnershipUncertain
+
     created: dict[str, str] = {}
     try:
+        checkpoint()  # ownership and identity before the first create
         for agent, document in rendered.items():
             _create(kube, document, report.execution_id, created, emit)
         if _wait_ready(kube, contract, rendered, image, clock, sleep, report):
@@ -410,6 +416,7 @@ def run(kube: Kube, unit: Mapping[str, Any], plan: Mapping[str, Any], manifest: 
                 if drift:
                     report.fail("IDENTITY_MISMATCH", drift)
             if report.failure_code is None:
+                checkpoint()  # after a readiness wait of up to 15 minutes
                 with forward() as endpoint:
                     for agent, document in rendered.items():
                         verdict = specialist_e2e.verify(
@@ -422,6 +429,10 @@ def run(kube: Kube, unit: Mapping[str, Any], plan: Mapping[str, Any], manifest: 
                           for item in report.e2e if item["verdict"] != "PASS"]
                 if failed:
                     report.fail("E2E_FAILED", failed)
+    except OwnershipUncertain as error:
+        # Stop: no further candidate step. Cleanup below still runs (uid-guarded, this execution only).
+        report.ownership_error = error
+        report.fail(error.state, [str(error)])
     except Exception as error:  # API refusal mid-run: still clean up, report the cause
         report.fail("CANDIDATE_ERROR", [f"{type(error).__name__}: {str(error)[:300]}"])
     finally:
@@ -455,6 +466,7 @@ def _write(report: CandidateReport, evidence: Path | None) -> CandidateReport:
     if evidence is not None:
         directory = evidence / report.execution_id if report.execution_id else evidence
         directory.mkdir(parents=True, exist_ok=True)  # fresh evidence per execution, never overwritten
-        (directory / "candidate-verdict.json").write_text(json.dumps(report.__dict__, indent=2, sort_keys=True) + "\n",
+        data = {k: v for k, v in report.__dict__.items() if k != "ownership_error"}
+        (directory / "candidate-verdict.json").write_text(json.dumps(data, indent=2, sort_keys=True) + "\n",
                                                           encoding="utf-8")
     return report

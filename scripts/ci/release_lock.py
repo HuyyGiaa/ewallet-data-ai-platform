@@ -38,8 +38,24 @@ class LockError(RuntimeError):
     """A release lock is held by another release or could not be handled safely."""
 
 
-class LockLost(LockError):
-    """A lock this holder had is no longer provably its own: stop mutating, recover by hand."""
+class OwnershipUncertain(LockError):
+    """This holder can no longer prove it owns the release: stop every mutation (including an automatic
+    rollback) and recover by hand from the journal. Subclasses say whether loss is confirmed or unknown."""
+
+    state = "LOCK_OWNERSHIP_UNKNOWN"
+
+
+class LockLost(OwnershipUncertain):
+    """Confirmed: the Lease is gone, held by someone else, rewritten by someone else, or expired."""
+
+    state = "LOCK_LOST"
+
+
+class LockOwnershipUnknown(OwnershipUncertain):
+    """Unverifiable: the Lease API failed (HTTP error, timeout, lost response). An outage is not proof
+    that the lock was released, nor that this holder still has it."""
+
+    state = "LOCK_OWNERSHIP_UNKNOWN"
 
 
 class LeaseApi(Protocol):
@@ -118,10 +134,21 @@ class ReleaseLocks:
     held: dict = field(default_factory=dict)  # lock name -> resourceVersion this holder last wrote
 
     def renew(self) -> None:
-        """Checkpoint: prove every held lock is still this holder's and extend it, or raise LockLost."""
+        """Checkpoint: prove every held lock is still this holder's and extend it.
 
+        Raises :class:`LockLost` when loss is confirmed and :class:`LockOwnershipUnknown` when it cannot
+        be verified (any Lease API failure, including a renewal whose response was lost: the version this
+        holder knows is then stale, so ownership can no longer be proven). Programming errors propagate
+        unchanged.
+        """
+
+        if not self.held:
+            raise LockLost("LOCK_LOST: no release lock is held")
         for name in sorted(self.held):
-            current = self.api.get(PREFIX + name)
+            try:
+                current = self.api.get(PREFIX + name)
+            except KubeError as error:
+                raise LockOwnershipUnknown(f"LOCK_OWNERSHIP_UNKNOWN: cannot read release lock {name}: {error}") from error
             if current is None:
                 raise LockLost(f"LOCK_LOST: release lock {name} disappeared")
             spec, metadata = current.get("spec", {}), current.get("metadata", {})
@@ -135,8 +162,14 @@ class ReleaseLocks:
             try:
                 updated = self.api.replace(document)
             except KubeError as error:
-                raise LockLost(f"LOCK_LOST: release lock {name} renewal failed: {error}") from error
-            self.held[name] = str(updated["metadata"]["resourceVersion"])
+                if "HTTP 409" in str(error):
+                    raise LockLost(f"LOCK_LOST: release lock {name} was rewritten concurrently") from error
+                raise LockOwnershipUnknown(f"LOCK_OWNERSHIP_UNKNOWN: renewal of {name} has no confirmed outcome: "
+                                           f"{error}") from error
+            version = (updated or {}).get("metadata", {}).get("resourceVersion")
+            if not version:
+                raise LockOwnershipUnknown(f"LOCK_OWNERSHIP_UNKNOWN: renewal of {name} returned no resourceVersion")
+            self.held[name] = str(version)
 
     def _document(self, name: str) -> dict:
         now = _timestamp(self.clock())

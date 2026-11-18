@@ -196,8 +196,17 @@ class CheckResult:
     status: str
 
 
+# One agent_replay command (an E2E waits up to 650 s for its task) must finish within this bound, so a
+# verification can never outlive the release lock between two checkpoints. A timeout is a failure.
+HELPER_TIMEOUT = 1200
+TIMED_OUT = 124
+
+
 def _run(argv: Sequence[str], env: dict[str, str]) -> int:
-    return subprocess.run(list(argv), env=env, check=False).returncode
+    try:
+        return subprocess.run(list(argv), env=env, check=False, timeout=HELPER_TIMEOUT).returncode
+    except subprocess.TimeoutExpired:
+        return TIMED_OUT
 
 
 def checks_for(units: Sequence[dict]) -> list[str]:
@@ -213,7 +222,7 @@ def checks_for(units: Sequence[dict]) -> list[str]:
 
 def run_checks(names: Sequence[str], replay_dir: Path, *, helper: Path = HELPER, run: Runner = _run,
                environment: dict[str, str] | None = None, expected: Mapping[str, Any] | None = None,
-               production_context: str | None = None) -> dict:
+               production_context: str | None = None, checkpoint: Callable[[], None] | None = None) -> dict:
     unknown = [name for name in names if name not in CHECKS]
     if unknown:
         raise VerificationError(f"unknown runtime checks {unknown}")
@@ -229,6 +238,8 @@ def run_checks(names: Sequence[str], replay_dir: Path, *, helper: Path = HELPER,
             previous = done[arguments]
             results.append(CheckResult(name, previous.command, previous.exit_code, previous.verdicts, previous.status))
             continue
+        if checkpoint is not None:
+            checkpoint()  # lock ownership and identity before every helper command (raises to stop)
         # Only verdicts this command wrote count: new files, or files it rewrote (status, registry).
         before = {path: path.stat().st_mtime_ns for path in replay_dir.glob(pattern)}
         code = run([str(helper), *arguments], env)

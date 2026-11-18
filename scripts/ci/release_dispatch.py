@@ -173,13 +173,17 @@ PRODUCTION_EXIT = {"RELEASE_COMPLETE": 0, "DEPLOYED_PENDING_REGISTRY": 3, "ROLLB
 def _production(args: argparse.Namespace, units, holder: str) -> int:  # type: ignore[no-untyped-def]
     """The operator side of the handoff: verify it, then run the production transaction."""
 
-    from scripts.ci import production_release, release_handoff, runtime_verify
+    from scripts.ci import deploy_identity, production_release, release_handoff, runtime_verify
     from scripts.ci.k8s_api import Client, KubeError
     from scripts.ci.release_lock import LockError
     from scripts.ci.sandbox_agents import new_execution_id
     from scripts.ci.sandbox_candidate import ClientKube
 
     context = args.production_context
+    if not args.production_identity:
+        print("release_dispatch: refused before any deployment: --production-identity (the approved principal) is "
+              "required", flush=True)
+        return 2
     if not args.handoff or not args.handoff_sha256:
         print("release_dispatch: refused before any deployment: a production plan runs only from a verified Jenkins "
               "handoff (--handoff <dir> --handoff-sha256 <digest from the Jenkins console>)", flush=True)
@@ -211,9 +215,12 @@ def _production(args: argparse.Namespace, units, holder: str) -> int:  # type: i
     evidence_root.mkdir(parents=True, exist_ok=True)
     manifest_data = json.loads((args.handoff / "image-manifest.json").read_text(encoding="utf-8"))
 
+    checkpoints: list = []  # filled once the locks and the proxy client exist
+
     def verify(expected) -> bool:  # type: ignore[no-untyped-def]
         result = runtime_verify.run_checks(runtime_verify.checks_for(plan["units"]), evidence_root / "runtime",
-                                           expected=expected, production_context=context)
+                                           expected=expected, production_context=context,
+                                           checkpoint=checkpoints[0] if checkpoints else None)
         (evidence_root / "runtime-verdict.json").write_text(json.dumps(result, indent=2, sort_keys=True) + "\n",
                                                              encoding="utf-8")
         return result["verdict"] == "PASS"
@@ -222,14 +229,29 @@ def _production(args: argparse.Namespace, units, holder: str) -> int:  # type: i
         # One identity for the whole transaction: the locks, the SandboxAgent units and Helm all go
         # through the explicit production context (an operator workstation has no in-cluster token).
         with production_release.kubectl_proxy(context) as api:
-            locks = _locks(units.lock_namespace, holder, args.api or api)
+            client = Client(api)
+            # B: the explicit context authenticates as the approved principal (proxy and kubeconfig views),
+            # before any lock or mutation; the locks then go through this same proxy client.
+            principal = deploy_identity.verify(args.production_identity, context, client)
+            print(f"release_dispatch: production identity verified: {principal}", flush=True)
+            if args.api:
+                raise production_release.ProductionReleaseError("--api is not accepted for production: the locks must "
+                                                                "use the verified production context")
+            locks = _locks(units.lock_namespace, holder, api)
+
+            def checkpoint() -> None:
+                locks.renew()
+                deploy_identity.verify(args.production_identity, context, client)
+
+            checkpoints.append(checkpoint)
             with locks.hold(sorted({unit["lock"] for unit in plan["units"]})):
                 report = production_release.run(
-                    plan, context, manifest_data, execute=True, kube=ClientKube(Client(api)), verify=verify,
-                    evidence=evidence_root / "units", checkpoint=locks.renew,
+                    plan, context, manifest_data, execute=True, kube=ClientKube(client), verify=verify,
+                    evidence=evidence_root / "units", checkpoint=checkpoint,
                     journal_path=evidence_root / "transaction-journal.json", execution_id=execution_id,
                     handoff={"sha256": args.handoff_sha256, "jenkins": (handoff or {}).get("jenkins")})
     except (KubeError, LockError, production_release.ProductionReleaseError) as error:
+        # LockError includes deploy_identity.IdentityError and the ownership errors.
         journal = evidence_root / "transaction-journal.json"
         print(f"release_dispatch: production transaction stopped: {error}"
               + (f"; recovery: python -m scripts.ci.production_release recovery-plan --journal {journal}"

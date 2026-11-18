@@ -12,6 +12,10 @@
 # * the WorkerPool and ActorTemplates are read-only; nothing here can create, scale or delete them;
 # * kubectl port-forward to the kagent controller needs pods/portforward in kagent (pods have generated
 #   names, so this is namespace-wide in kagent).
+# * identity proof (scripts/ci/deploy_identity.py): SelfSubjectReview create is granted to every
+#   authenticated user by the default system:basic-user ClusterRole; nothing is added here for it.
+# * the approved principal of this identity, as the handoff must name it:
+#   system:serviceaccount:ewallet-ci:ewallet-cicd-agent-release
 apiVersion: v1
 kind: ServiceAccount
 metadata:

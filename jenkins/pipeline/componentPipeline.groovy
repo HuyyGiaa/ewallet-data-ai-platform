@@ -22,7 +22,7 @@ def run(Map configuration) {
         choice(name: 'REGISTRY_LOOKUP', choices: ['required', 'off'], description: 'Artifact Registry lookup for image reuse and digest readback'),
         booleanParam(name: 'PROMOTE_TO_PRODUCTION', defaultValue: false, description: 'After a passing rehearsal, take the separate production approval and archive the operator handoff (Jenkins never deploys production)'),
         string(name: 'PRODUCTION_KUBE_CONTEXT', defaultValue: '', description: 'Name of the approved production target context (recorded in the handoff; no credentials)'),
-        string(name: 'PRODUCTION_IDENTITY', defaultValue: '', description: 'Name of the approved production deployer identity (owner decision D1)'),
+        string(name: 'PRODUCTION_IDENTITY', defaultValue: '', description: 'Exact Kubernetes principal approved to deploy, e.g. system:serviceaccount:ewallet-ci:ewallet-cicd-agent-release (owner decision D1; verified by SelfSubjectReview)'),
         string(name: 'PROMPT_REGISTRY_URL', defaultValue: 'http://prompt-registry-agentregistry.ewallet-prompts.svc.cluster.local:12121', description: 'Prompt Management gate (agentregistry)'),
         string(name: 'STREAMING_SERVICE_ACCOUNT', defaultValue: '', description: 'Streaming campaign identity in ewallet-ci'),
         string(name: 'FEAST_SNAPSHOT_ID', defaultValue: '', description: 'Streaming campaign Feast snapshot id'),
@@ -226,13 +226,13 @@ def run(Map configuration) {
                 python3 -m scripts.ci.release_policy --root "$WORKSPACE" build \\
                   --request '${evidenceDir}/production-request.json' --image-manifest '${imageManifest}' \\
                   --output '${evidenceDir}/production-plan.json'
-                source_metadata=()
-                if [ -f '${evidenceDir}/source-metadata.txt' ]; then source_metadata=(--source-metadata '${evidenceDir}/source-metadata.txt'); fi
+                # The immutable source snapshot identity is mandatory for a production handoff.
+                test -f '${evidenceDir}/source-metadata.txt' || { echo "no source snapshot metadata (/opt/ewallet-source)" >&2; exit 1; }
                 python3 -m scripts.ci.release_handoff build --out '${evidenceDir}/handoff' \\
                   --release-plan '${evidenceDir}/production-plan.json' --image-manifest '${imageManifest}' \\
                   --release-request '${evidenceDir}/production-request.json' --ci-verdict '${evidenceDir}/ci-verdict.json' \\
                   --image-scan '${evidenceDir}/image-scan.json' --jenkins-build '${evidenceDir}/jenkins-build.txt' \\
-                  "\${source_metadata[@]}" > '${evidenceDir}/handoff-digest.txt'
+                  --source-metadata '${evidenceDir}/source-metadata.txt' > '${evidenceDir}/handoff-digest.txt'
               """
             }
             String digestLine = readFile("${evidenceDir}/handoff-digest.txt").trim()

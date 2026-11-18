@@ -17,8 +17,13 @@ Fail-closed rules:
 * The first failure stops the release, including an exception raised by the verifier. Every unit this
   run may have changed (attempted, not only confirmed) is rolled back in reverse order; the original
   failure stays the reported cause and each rollback error is listed.
-* A lost lock (``LockLost``) stops mutations and does NOT roll back automatically: another release may
-  hold the lock now, so recovery is by the journal, by hand (``RECOVERY_REQUIRED``).
+* Ownership is re-proven before and after every mutation and before any rollback. When it cannot be
+  proven - confirmed loss (``LockLost``), an unverifiable Lease (``LockOwnershipUnknown``: API error,
+  timeout, lost renewal response) or a changed deployment identity (``deploy_identity.IdentityError``)
+  - no further mutation runs, NOT EVEN an automatic rollback: another release may hold the lock, or the
+  credentials are not the approved ones. Recovery is by the journal, by hand (``RECOVERY_REQUIRED``).
+* A Helm release left in an ambiguous state (pending, unreadable, unchanged revision but not deployed or
+  with another manifest) is ``STATE_UNKNOWN``: no automated action, ``RECOVERY_REQUIRED``.
 
 Lifecycle states (``verdict``):
 
@@ -49,7 +54,7 @@ from typing import Any, Callable, Mapping, Sequence
 
 from scripts.ci import fleet_promote, promote, registry_release, sandbox_candidate
 from scripts.ci import release_state as rs
-from scripts.ci.release_lock import LockLost
+from scripts.ci.release_lock import OwnershipUncertain
 
 SUCCESS = frozenset({"RELEASE_COMPLETE", "DEPLOYED_PENDING_REGISTRY"})
 CRITICAL = frozenset({"ROLLBACK_FAILED", "RECOVERY_REQUIRED"})
@@ -164,6 +169,12 @@ def recovery_plan(journal: Mapping[str, Any]) -> dict[str, Any]:
                         "execution_id": journal.get("execution_id"),
                         "rule": "delete with a uid precondition only if the object still has this uid and the "
                                 "ewallet.io/cicd-execution label; then confirm its ActorTemplate is gone"})
+    for item in events:
+        if item.get("event") == "ownership-unproven":
+            actions.insert(0, {"action": "lock-and-identity-check", "state": item.get("state"),
+                               "rule": "before anything else: read the release Leases in ewallet-cicd and the "
+                                       "authenticated principal; act only after proving no other release holds "
+                                       "the lock and the credentials are the approved identity"})
     if state not in {"RELEASE_COMPLETE", "DEPLOYED_PENDING_REGISTRY", "FAILED_ROLLED_BACK", "FAILED_NOTHING_CHANGED",
                      "CHECKED_NOT_EXECUTED"}:
         actions.append({"action": "verify-runtime", "rule": "run agent_replay.sh status and the E2E cases against the "
@@ -221,7 +232,7 @@ def run(plan: Mapping[str, Any], context: str, manifest: Mapping[str, Any], *, e
     fleet: list[fleet_promote.AgentPromotion] = []
     candidates: list[dict[str, Any]] = []
     revisions: dict[str, int] = {}
-    failure, failed_unit, lock_lost = "", None, False
+    failure, failed_unit, lock_lost, lock_state = "", None, False, None
     forward = forward or (lambda: sandbox_candidate.kubectl_forward(context, sandbox_candidate.sa.load_contract()))
     check = checkpoint or (lambda: None)
     # Baseline of both Helm releases (read-only): a release this run does not upgrade must stay at it.
@@ -235,7 +246,11 @@ def run(plan: Mapping[str, Any], context: str, manifest: Mapping[str, Any], *, e
 
     def helm_attempt(unit_name: str) -> Callable[[promote.UnitPromotion], None]:
         def record(item: promote.UnitPromotion) -> None:
-            check()
+            try:
+                check()
+            except BaseException:
+                item.status = "NOT_STARTED"  # helm never ran
+                raise
             journal.event("helm-upgrade-attempted", unit=unit_name, release=item.release, namespace=item.namespace,
                           previous_revision=item.previous_revision)
         return record
@@ -257,10 +272,13 @@ def run(plan: Mapping[str, Any], context: str, manifest: Mapping[str, Any], *, e
                                   prefix=sandbox_candidate.sa.snapshot_prefix(contract, plan["git_sha"], execution_id))
                     report = sandbox_candidate.run(
                         kube, unit, plan, manifest, execute=approved, forward=forward, execution_id=execution_id,
+                        checkpoint=check,
                         emit=lambda event, unit_name=unit["name"]: journal.event(event.pop("event"), unit=unit_name,
                                                                                 **event),
                         evidence=(evidence / unit["name"]) if evidence else None)
-                    candidates.append(report.__dict__)
+                    candidates.append({k: v for k, v in report.__dict__.items() if k != "ownership_error"})
+                    if report.ownership_error is not None:
+                        raise report.ownership_error  # cleaned up already; stop as an ownership failure
                     if report.status not in {"PASS", "CHECKED_NOT_EXECUTED"}:
                         raise ProductionReleaseError(f"{unit['name']}: {report.failure_code}: "
                                                      f"{'; '.join(report.problems[:3])}")
@@ -272,14 +290,16 @@ def run(plan: Mapping[str, Any], context: str, manifest: Mapping[str, Any], *, e
                                                                            context)
                         journal.event("helm-upgraded", unit=unit["name"], release=item.release,
                                       revision=revisions[item.release])
+                        check()  # the upgrade may have run up to 25 minutes: prove ownership again
                 elif unit["kind"] == "fleet-image-promotion":
                     fleet_promote.promote(kube, unit, execute=approved, record=fleet,
                                           before_mutation=fleet_attempt(unit["name"]), checkpoint=check)
+                    check()  # after the last SandboxAgent readiness wait
                 else:
                     raise ProductionReleaseError(f"{unit['name']}: kind {unit['kind']} is not a production executor")
                 journal.event("unit-finished", unit=unit["name"])
-            except LockLost as error:
-                failure, failed_unit, lock_lost = str(error), unit["name"], True
+            except OwnershipUncertain as error:
+                failure, failed_unit, lock_lost, lock_state = str(error), unit["name"], True, error.state
                 break
             except Exception as error:  # every failure, typed or not, enters the same recovery path
                 failure, failed_unit = (str(error) if isinstance(error, (ProductionReleaseError, promote.PromotionError,
@@ -297,14 +317,24 @@ def run(plan: Mapping[str, Any], context: str, manifest: Mapping[str, Any], *, e
                 verification = {"status": "PASS" if passed is True else "FAIL"}
                 if passed is not True:
                     failure = "runtime verification failed after promotion"
-            except LockLost as error:
-                failure, lock_lost = str(error), True
-                verification = {"status": "NOT_RUN", "reason": "lock lost"}
+            except OwnershipUncertain as error:
+                failure, lock_lost, lock_state = str(error), True, error.state
+                verification = {"status": "NOT_RUN", "reason": error.state}
             except Exception as error:  # a verifier crash is a failed verification, never a pass
                 failure = f"runtime verification raised {type(error).__name__}: {str(error)[:300]}"
                 verification = {"status": "ERROR", "error": failure}
             journal.event("verification-finished", **verification)
     rollback_errors: list[str] = []
+    if failure and not lock_lost:
+        # A rollback is a production mutation too: it runs only while ownership and identity still hold.
+        try:
+            check()
+        except OwnershipUncertain as error:
+            lock_lost, lock_state = True, error.state
+            journal.event("rollback-skipped", reason=str(error), state=error.state)
+        except Exception as error:  # an unexpected checkpoint failure: ownership unproven, fail closed
+            lock_lost, lock_state = True, "LOCK_OWNERSHIP_UNKNOWN"
+            journal.event("rollback-skipped", reason=f"{type(error).__name__}: {error}", state=lock_state)
     if failure and not lock_lost:
         journal.event("rollback-started", failure=failure)
         contract = sandbox_candidate.sa.load_contract()
@@ -332,7 +362,8 @@ def run(plan: Mapping[str, Any], context: str, manifest: Mapping[str, Any], *, e
                       for i in fleet))
     cleanup_incomplete = [r for report in candidates for r in report.get("cleanup_incomplete") or []]
     registry: dict[str, Any] = {"status": "NOT_APPLICABLE"}
-    if lock_lost or cleanup_incomplete:
+    state_unknown = [i.name for i in helm if i.status == "STATE_UNKNOWN"]
+    if lock_lost or cleanup_incomplete or state_unknown:
         state = "RECOVERY_REQUIRED"
     elif rollback_errors:
         state = "ROLLBACK_FAILED"
@@ -346,6 +377,8 @@ def run(plan: Mapping[str, Any], context: str, manifest: Mapping[str, Any], *, e
             plan, coordinator_changed=any(i.release == "llm-agent" and i.status == "UPGRADED" for i in helm),
             fleet_changed=any(i.status == "PROMOTED" for i in fleet))
         state = "RELEASE_COMPLETE" if registry["status"] == "NOT_REQUIRED" else "DEPLOYED_PENDING_REGISTRY"
+    if lock_lost:
+        journal.event("ownership-unproven", state=lock_state, failure=failure)
     journal.finish(state)
     created = any(report.get("cleanup") for report in candidates)
     return {
@@ -353,7 +386,8 @@ def run(plan: Mapping[str, Any], context: str, manifest: Mapping[str, Any], *, e
         "production_changed": changed,
         # Candidates are additive objects in the production namespace, removed before the verdict.
         "candidate_objects_created": created, "candidate_cleanup_incomplete": cleanup_incomplete,
-        "failure": failure or None, "failed_unit": failed_unit, "lock_lost": lock_lost,
+        "failure": failure or None, "failed_unit": failed_unit, "lock_lost": lock_lost, "lock_state": lock_state,
+        "state_unknown": state_unknown,
         "rollback_errors": rollback_errors, "verification": verification, "expected_runtime": expected,
         "registry": registry, "recovery": recovery_plan(journal.data),
         "units": {"candidates": candidates, "helm": [i.__dict__ for i in helm], "fleet": [asdict(i) for i in fleet]},

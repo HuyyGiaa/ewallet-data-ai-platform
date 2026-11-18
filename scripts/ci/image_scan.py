@@ -106,27 +106,35 @@ def scan_image(http: Http, settings: Settings, name: str, image: str, git_sha: s
                 break
             sleep(15)
         if build["status"] != "SUCCESS":
-            return {"status": "SCANNER_ERROR", "detail": f"scan build {build_id} ended {build['status']}"}
+            return {"status": "SCANNER_ERROR", "detail": f"scan build {build_id} ended {build['status']}", "image": image}
         raw = http.call("GET", f"https://storage.googleapis.com/storage/v1/b/{settings.logs_bucket}/o/"
                                f"{quote(prefix + '/trivy.json', safe='')}?alt=media", raw=True)
-        return {"status": "REPORT", "report": json.loads(raw), "build_id": build_id}
+        return {"status": "REPORT", "report": json.loads(raw), "build_id": build_id, "image": image}
     except (BuildError, ValueError, KeyError) as error:
-        return {"status": "SCANNER_ERROR", "detail": str(error)}
+        return {"status": "SCANNER_ERROR", "detail": str(error), "image": image}
 
 
-def gate(scans: dict[str, dict[str, Any]], exceptions: list[Exception_], today: date) -> dict[str, Any]:
+def gate(scans: dict[str, dict[str, Any]], exceptions: list[Exception_], today: date,
+         git_sha: str | None = None) -> dict[str, Any]:
+    """Policy verdict; each image result names the digest it scanned (the handoff binds it to the manifest)."""
+
     images: dict[str, Any] = {}
     for name, scan in sorted(scans.items()):
         if scan.get("status") != "REPORT":
             images[name] = {"status": "SCANNER_ERROR", "detail": scan.get("detail")}
         else:
             images[name] = evaluate(scan["report"], exceptions, today)
+        if scan.get("image"):
+            images[name]["digest_ref"] = scan["image"]
     statuses = {item["status"] for item in images.values()}
     if not scans:
         verdict = "NOT_APPLICABLE"  # the release consumes no image (e.g. the Prompt Management gate)
     else:
         verdict = "PASS" if statuses == {"PASS"} else ("SCANNER_ERROR" if "SCANNER_ERROR" in statuses else "VULNERABLE")
-    return {"verdict": verdict, "scanner": TRIVY, "severities": list(SEVERITIES), "images": images}
+    result = {"verdict": verdict, "scanner": TRIVY, "severities": list(SEVERITIES), "images": images}
+    if git_sha is not None:
+        result["git_sha"] = git_sha
+    return result
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -144,7 +152,7 @@ def main(argv: list[str] | None = None) -> int:
     http = Http()
     scans = {name: scan_image(http, settings, name, image["digest_ref"], manifest["git_sha"])
              for name, image in manifest.get("images", {}).items()}
-    result = gate(scans, load_exceptions(), date.today())
+    result = gate(scans, load_exceptions(), date.today(), git_sha=manifest["git_sha"])
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps({"verdict": result["verdict"],

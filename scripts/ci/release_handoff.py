@@ -24,7 +24,13 @@ that no longer verifies against the catalog, the release units, the checked-out 
 manifest, any SHA mismatch along the chain (reviewed SHA = Jenkins checkout = source snapshot =
 manifest revision = plan SHA = operator HEAD), a target context or production identity other than
 the approved ones, an approver equal to the trigger, units that differ from the plan, and a
-verification contract that differs from the operator's checkout.
+verification contract that differs from the operator's checkout. It also checks the artifacts'
+meaning, not only their checksums: the source snapshot metadata (``source-metadata.txt``, mandatory:
+source SHA, the release branch ref at that SHA, a well-formed bundle digest), the CI verdict (PASS for
+this SHA, real test cases executed, no failed command, every changed released component tested), the
+image scan (PASS for every image the plan deploys, at exactly the manifest digest, by the pinned
+scanner, for this SHA), the units (kind, dependencies, namespace and digests equal the plan's), and
+the approved production identity (an exact Kubernetes principal; ``deploy_identity``).
 """
 
 from __future__ import annotations
@@ -33,6 +39,7 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import re
 import shutil
 import subprocess
 from typing import Any, Mapping, Sequence
@@ -41,8 +48,9 @@ ROOT = Path(__file__).resolve().parents[2]
 STATUS = "READY_FOR_OPERATOR_PROMOTION"
 SCHEMA = 1
 ARTIFACTS = ("release-plan.json", "image-manifest.json", "release-request.json", "ci-verdict.json",
-             "image-scan.json", "jenkins-build.txt")
-OPTIONAL_ARTIFACTS = ("source-metadata.txt",)
+             "image-scan.json", "jenkins-build.txt", "source-metadata.txt")
+OPTIONAL_ARTIFACTS: tuple[str, ...] = ()
+HEX64 = re.compile(r"^[0-9a-f]{64}$")
 CONTRACTS = ("jenkins/cd/sandbox-candidate.contract.json", "jenkins/catalog/release-units.json")
 
 
@@ -78,8 +86,21 @@ def build(out: Path, sources: Mapping[str, Path], root: Path = ROOT) -> tuple[di
     plan = json.loads((out / "release-plan.json").read_text(encoding="utf-8"))
     if plan.get("stage") != "production":
         raise HandoffError("a handoff carries a production plan only")
+    from scripts.ci.deploy_identity import valid_principal
+
+    if not valid_principal(plan.get("production_identity")):
+        raise HandoffError("the production identity must be an exact Kubernetes principal "
+                           "(system:serviceaccount:<namespace>:<name> or a user e-mail)")
     build_record = key_values(out / "jenkins-build.txt")
     source = key_values(out / "source-metadata.txt")
+    manifest = json.loads((out / "image-manifest.json").read_text(encoding="utf-8"))
+    problems = [*source_problems(source, plan["git_sha"], plan["release_branch"]),
+                *ci_problems(json.loads((out / "ci-verdict.json").read_text(encoding="utf-8")), plan["git_sha"], plan),
+                *scan_problems(json.loads((out / "image-scan.json").read_text(encoding="utf-8")), plan["git_sha"], plan,
+                               manifest)]
+    if problems:
+        # Jenkins never announces READY_FOR_OPERATOR_PROMOTION for artifacts that would not verify.
+        raise HandoffError("; ".join(problems))
     handoff = {
         "schema": SCHEMA, "status": STATUS,
         "jenkins": {key: build_record.get(key, "") for key in ("job_name", "build_number", "build_url", "build_tag",
@@ -88,8 +109,7 @@ def build(out: Path, sources: Mapping[str, Path], root: Path = ROOT) -> tuple[di
         "target_context": plan["kube_context"], "production_identity": plan["production_identity"],
         "approval": {"triggered_by": plan["triggered_by"], "production_approved_by": plan["approved_by"]},
         "image_manifest_sha256": plan["image_manifest_sha256"],
-        "units": [{"name": u["name"], "kind": u["kind"], "depends_on": u["depends_on"],
-                   "target_namespace": u["target_namespace"], "images": u["images"]} for u in plan["units"]],
+        "units": unit_graph(plan),
         "verification": {
             "runtime_checks": checks_for(plan["units"]),
             "requires": ["AGI_ENV whose CTX equals target_context", "PROMOTION_APPROVED=yes",
@@ -108,8 +128,86 @@ def build(out: Path, sources: Mapping[str, Path], root: Path = ROOT) -> tuple[di
     return handoff, hashlib.sha256(text.encode()).hexdigest()
 
 
+def unit_graph(plan: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """The release-unit graph as the handoff records it; verify compares it field by field with the plan."""
+
+    return [{"name": u["name"], "kind": u["kind"], "depends_on": u["depends_on"],
+             "target_namespace": u["target_namespace"], "images": u["images"]} for u in plan["units"]]
+
+
+def source_problems(metadata: Mapping[str, str], sha: str, branch: str) -> list[str]:
+    problems = []
+    if metadata.get("source_sha") != sha:
+        problems.append(f"SOURCE_MISMATCH: the snapshot source_sha is {metadata.get('source_sha')}, not {sha}")
+    if metadata.get(f"ref:refs/heads/{branch}") != sha:
+        problems.append(f"SOURCE_MISMATCH: the snapshot does not carry {branch} at {sha}")
+    if not HEX64.fullmatch(metadata.get("bundle_sha256", "")):
+        problems.append("SOURCE_MISMATCH: the snapshot metadata has no valid bundle_sha256")
+    return problems
+
+
+def ci_problems(verdict: Any, sha: str, plan: Mapping[str, Any]) -> list[str]:
+    """Semantic check of scripts/ci/run_ci.py's ci-verdict.json for a production release."""
+
+    if not isinstance(verdict, dict):
+        return ["CI_VERDICT_INVALID: ci-verdict.json is not an object"]
+    problems = []
+    if verdict.get("status") != "PASS":
+        problems.append(f"CI_NOT_PASSED: status {verdict.get('status')} ({verdict.get('reason')})")
+    if verdict.get("git_sha") != sha:
+        problems.append(f"CI_WRONG_RELEASE: the CI verdict is for {verdict.get('git_sha')}, not {sha}")
+    cases = verdict.get("test_cases") if isinstance(verdict.get("test_cases"), dict) else {}
+    if not isinstance(verdict.get("test_commands"), int) or verdict["test_commands"] < 1 or not cases.get("tests"):
+        problems.append("CI_NO_TESTS: no test case was executed")
+    if cases.get("failures") or cases.get("errors"):
+        problems.append(f"CI_FAILED_TESTS: failures {cases.get('failures')}, errors {cases.get('errors')}")
+    failed = [item.get("stage") for item in verdict.get("executed") or []
+              if item.get("exit_code") != 0 or item.get("classification")]
+    if failed:
+        problems.append(f"CI_FAILED_COMMANDS: {failed}")
+    released = {c for unit in plan.get("units") or [] for c in unit.get("components") or []}
+    changed = released & set(verdict.get("scope_components") or [])
+    untested = sorted(changed - set(verdict.get("selected_components") or []))
+    if not changed:
+        problems.append("CI_NOT_APPLICABLE: none of the released components was in the CI scope")
+    if untested:
+        problems.append(f"CI_UNTESTED_COMPONENTS: {untested} changed but were not tested")
+    return problems
+
+
+def scan_problems(scan: Any, sha: str, plan: Mapping[str, Any], manifest: Mapping[str, Any]) -> list[str]:
+    """Semantic check of scripts/ci/image_scan.py's image-scan.json against the plan and the manifest."""
+
+    from scripts.ci.image_scan import TRIVY
+
+    required = {image: ref for unit in plan.get("units") or [] for image, ref in (unit.get("images") or {}).items()}
+    if not isinstance(scan, dict):
+        return ["SCAN_INVALID: image-scan.json is not an object"]
+    if not required:
+        return [] if scan.get("verdict") == "NOT_APPLICABLE" else [f"SCAN_UNEXPECTED: {scan.get('verdict')} for no image"]
+    problems = []
+    if scan.get("verdict") != "PASS":
+        problems.append(f"SCAN_NOT_PASSED: verdict {scan.get('verdict')}")
+    if scan.get("scanner") != TRIVY:
+        problems.append("SCAN_WRONG_SCANNER: not the pinned scanner")
+    if scan.get("git_sha") != sha:
+        problems.append(f"SCAN_WRONG_RELEASE: the scan is for {scan.get('git_sha')}, not {sha}")
+    images = scan.get("images") if isinstance(scan.get("images"), dict) else {}
+    manifest_images = manifest.get("images") or {}
+    for name, ref in sorted(required.items()):
+        result = images.get(name)
+        if not isinstance(result, dict):
+            problems.append(f"SCAN_MISSING: {name} was not scanned")
+            continue
+        if result.get("status") != "PASS":
+            problems.append(f"SCAN_FAILED: {name} is {result.get('status')}")
+        if not (result.get("digest_ref") == ref == (manifest_images.get(name) or {}).get("digest_ref")):
+            problems.append(f"SCAN_DIGEST_MISMATCH: {name} was scanned at {result.get('digest_ref')}, deployed at {ref}")
+    return problems
+
+
 def verify(directory: Path, expected_sha256: str, *, head_sha: str, production_context: str,
-           production_identity: str | None = None, root: Path = ROOT) -> tuple[dict[str, Any] | None, list[str]]:
+           production_identity: str | None, root: Path = ROOT) -> tuple[dict[str, Any] | None, list[str]]:
     """Return (handoff, problems); the operator may proceed only with no problems."""
 
     from scripts.ci.catalog import CatalogError, load_catalog
@@ -144,9 +242,8 @@ def verify(directory: Path, expected_sha256: str, *, head_sha: str, production_c
     manifest = json.loads((directory / "image-manifest.json").read_text(encoding="utf-8"))
     sha = handoff.get("git_sha")
     chain = {"plan": plan.get("git_sha"), "image manifest": manifest.get("git_sha"),
-             "Jenkins checkout": (handoff.get("jenkins") or {}).get("git_sha"), "operator HEAD": head_sha}
-    if handoff.get("source_snapshot"):
-        chain["source snapshot"] = handoff["source_snapshot"].get("source_sha")
+             "Jenkins checkout": (handoff.get("jenkins") or {}).get("git_sha"), "operator HEAD": head_sha,
+             "source snapshot": (handoff.get("source_snapshot") or {}).get("source_sha")}
     for label, value in chain.items():
         if value != sha:
             problems.append(f"SHA_MISMATCH: {label} is {value}, the handoff is {sha}")
@@ -155,13 +252,31 @@ def verify(directory: Path, expected_sha256: str, *, head_sha: str, production_c
             problems.append(f"SHA_MISMATCH: image {name} was built from {image.get('revision')}")
     if handoff.get("target_context") != production_context or plan.get("kube_context") != production_context:
         problems.append(f"WRONG_TARGET: approved context {handoff.get('target_context')}, operator uses {production_context}")
-    if production_identity is not None and handoff.get("production_identity") != production_identity:
-        problems.append(f"WRONG_IDENTITY: approved {handoff.get('production_identity')}, operator is {production_identity}")
+    from scripts.ci.deploy_identity import IdentityError, require_approved
+
+    if plan.get("production_identity") != handoff.get("production_identity"):
+        problems.append("WRONG_IDENTITY: the plan and the handoff approve different identities")
+    try:
+        require_approved(handoff.get("production_identity"), production_identity)
+    except IdentityError as error:
+        problems.append(f"WRONG_IDENTITY: {error}")
     approval = handoff.get("approval") or {}
     if not approval.get("production_approved_by") or approval.get("production_approved_by") == approval.get("triggered_by"):
         problems.append("APPROVAL: the production approver must exist and differ from the triggering user")
-    if [u.get("name") for u in handoff.get("units") or []] != [u.get("name") for u in plan.get("units") or []]:
-        problems.append("UNITS_MISMATCH: the handoff units are not the plan units")
+    if handoff.get("units") != unit_graph(plan):
+        problems.append("UNITS_MISMATCH: the handoff unit graph (kinds, dependencies, namespaces, digests) is not the plan's")
+    if handoff.get("release_branch") != plan.get("release_branch"):
+        problems.append("UNITS_MISMATCH: the handoff release branch is not the plan's")
+    problems += source_problems(key_values(directory / "source-metadata.txt"), sha, plan.get("release_branch", ""))
+    try:
+        problems += ci_problems(json.loads((directory / "ci-verdict.json").read_text(encoding="utf-8")), sha, plan)
+    except ValueError:
+        problems.append("CI_VERDICT_INVALID: ci-verdict.json is not JSON")
+    try:
+        problems += scan_problems(json.loads((directory / "image-scan.json").read_text(encoding="utf-8")), sha, plan,
+                                  manifest)
+    except ValueError:
+        problems.append("SCAN_INVALID: image-scan.json is not JSON")
     for contract, digest in ((handoff.get("verification") or {}).get("contracts") or {}).items():
         if not (root / contract).is_file() or sha256(root / contract) != digest:
             problems.append(f"CONTRACT_MISMATCH: {contract} differs from the operator checkout")
@@ -189,7 +304,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     checked.add_argument("--dir", type=Path, required=True)
     checked.add_argument("--handoff-sha256", required=True)
     checked.add_argument("--production-context", required=True)
-    checked.add_argument("--production-identity")
+    checked.add_argument("--production-identity", required=True)
     args = parser.parse_args(argv)
     if args.command == "build":
         sources = {name: getattr(args, name.split(".")[0].replace("-", "_")) for name in ARTIFACTS + OPTIONAL_ARTIFACTS}

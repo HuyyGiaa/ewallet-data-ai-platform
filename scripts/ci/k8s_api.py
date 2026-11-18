@@ -18,7 +18,7 @@ import ssl
 import sys
 import time
 from typing import Any, Callable
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
@@ -53,6 +53,10 @@ METADATA_ONLY = "application/json;as=PartialObjectMetadata;g=meta.k8s.io;v=v1"
 
 class KubeError(RuntimeError):
     """A Kubernetes call failed or a CD policy check rejected the request."""
+
+
+class KubeTransportError(KubeError):
+    """No HTTP answer (timeout, refused or reset connection, TLS failure): the request's outcome is unknown."""
 
 
 @dataclass(frozen=True)
@@ -90,6 +94,9 @@ class Client:
         except HTTPError as error:
             detail = error.read().decode(errors="replace")[:500]
             raise KubeError(f"{method} {path} -> HTTP {error.code}: {detail}") from error
+        except (URLError, TimeoutError, ConnectionError, ssl.SSLError) as error:
+            # A mutation may or may not have been applied; callers must treat this as unknown, not as "not done".
+            raise KubeTransportError(f"{method} {path} -> no response: {type(error).__name__}") from error
         if raw:
             return payload.decode(errors="replace")
         return json.loads(payload) if payload else {}

@@ -21,6 +21,7 @@ Production credentials are never implied: the caller passes an explicit kube con
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -46,6 +47,17 @@ class UnitPromotion:
     previous_revision: int | None = None
     status: str = "PENDING"
     detail: list[str] = field(default_factory=list)
+    # Pre-mutation snapshot of the deployed manifest: a digest and the image set, never values or Secrets.
+    previous_manifest_sha256: str | None = None
+    previous_images: list[str] = field(default_factory=list)
+
+
+def manifest_fingerprint(run: Runner, release: str, context: str) -> tuple[str, list[str]]:
+    """(sha256 of the canonical deployed manifest, sorted images); compares configuration without storing it."""
+
+    documents = rs.load_documents(rs._helm_read(run, "manifest", release, context))
+    canonical = json.dumps(sorted([list(key), document] for key, document in documents.items()), sort_keys=True)
+    return hashlib.sha256(canonical.encode()).hexdigest(), sorted(rs.rendered_images(documents))
 
 
 def latest_release(run: Runner, release: str, namespace: str, context: str) -> dict[str, Any]:
@@ -78,7 +90,14 @@ def promote_unit(run: Runner, unit: Mapping[str, Any], git_sha: str, context: st
     overlay = workdir / f"{unit['name']}-promotion.yaml"
     overlay.write_text(yaml.safe_dump(rs.promotion_values(release, images, git_sha), sort_keys=True), encoding="utf-8")
     live_values = workdir / f"{unit['name']}-live-values.yaml"
-    result.previous_revision = current_revision(run, release, namespace, context)
+    latest = latest_release(run, release, namespace, context)
+    result.previous_revision = latest["revision"]
+    if latest.get("status") != "deployed":
+        # Another operation is pending or the release is failed: never start a promotion on top of it.
+        result.status = "REFUSED"
+        raise PromotionError(f"{unit['name']}: {release} revision {latest['revision']} is {latest.get('status')}, "
+                             "not deployed")
+    result.previous_manifest_sha256, result.previous_images = manifest_fingerprint(run, release, context)
     problems = [*rs.check_drift(run, release, context),
                 *rs.check_promotion(run, release, context, overlay, live_values)]
     if problems:
@@ -107,15 +126,38 @@ def promote_unit(run: Runner, unit: Mapping[str, Any], git_sha: str, context: st
 
 
 MUTATED = frozenset({"UPGRADE_ATTEMPTED", "UPGRADED"})
+# Helm states from which an automated rollback to the recorded revision is safe. A pending state means
+# another operation may still be running: a destructive retry is never attempted.
+ROLLBACK_FROM = frozenset({"deployed", "failed"})
+
+
+def _restored(run: Runner, unit: UnitPromotion, context: str) -> list[str]:
+    """Problems with a finished rollback: it must be deployed AND restore the recorded configuration."""
+
+    after = latest_release(run, unit.release, unit.namespace, context)
+    problems = []
+    if after.get("status") != "deployed":
+        problems.append(f"the latest revision {after.get('revision')} is {after.get('status')}, not deployed")
+    digest, images = manifest_fingerprint(run, unit.release, context)
+    if images != unit.previous_images:
+        problems.append("the deployed images are not the pre-promotion images")
+    elif digest != unit.previous_manifest_sha256:
+        problems.append("the deployed manifest differs from the pre-promotion manifest")
+    return problems
 
 
 def rollback(run: Runner, promoted: Sequence[UnitPromotion], context: str) -> list[str]:
     """Roll back every unit this run may have changed, in reverse order; return the errors (never raises).
 
-    ``UPGRADED`` units are rolled back. ``UPGRADE_ATTEMPTED`` units (the upgrade failed, timed out or
-    its result was lost) are inspected first: if the latest revision is still the recorded one nothing
-    changed (``NOT_CHANGED``); otherwise they are rolled back too. A release whose state cannot be read
-    is an error, never assumed unchanged. After a rollback the latest revision must be ``deployed``.
+    For an attempted or confirmed upgrade the release is inspected first (latest revision, its status,
+    the deployed manifest against the pre-promotion snapshot):
+
+    * same revision, ``deployed``, same manifest -> ``NOT_CHANGED`` (unchanged and healthy);
+    * newer revision, ``deployed`` or ``failed`` -> ``helm rollback`` to the recorded revision, then the
+      release must be ``deployed`` and run the recorded manifest and images (``ROLLED_BACK``), otherwise
+      ``ROLLBACK_FAILED``;
+    * anything else (a pending state, an older revision, unreadable history, same revision but not
+      deployed or a different manifest) -> ``STATE_UNKNOWN``: no automated action, recovery by hand.
     """
 
     errors = []
@@ -123,18 +165,32 @@ def rollback(run: Runner, promoted: Sequence[UnitPromotion], context: str) -> li
         if unit.status not in MUTATED or unit.previous_revision is None:
             continue
         try:
-            if unit.status == "UPGRADE_ATTEMPTED":
-                latest = current_revision(run, unit.release, unit.namespace, context)
-                if latest == unit.previous_revision:
+            latest = latest_release(run, unit.release, unit.namespace, context)
+        except (rs.ReleaseStateError, PromotionError, ValueError, OSError) as error:
+            unit.status = "STATE_UNKNOWN"
+            errors.append(f"{unit.name}: STATE_UNKNOWN: Helm history unreadable after the failure: {error}")
+            continue
+        revision, state = latest["revision"], latest.get("status")
+        try:
+            if revision == unit.previous_revision:
+                digest = manifest_fingerprint(run, unit.release, context)[0] if state == "deployed" else None
+                if state == "deployed" and digest == unit.previous_manifest_sha256:
                     unit.status = "NOT_CHANGED"
                     continue
-                unit.detail.append(f"failed upgrade left revision {latest} (recorded {unit.previous_revision})")
+                unit.status = "STATE_UNKNOWN"
+                errors.append(f"{unit.name}: STATE_UNKNOWN: revision {revision} unchanged but {state}"
+                              + (", manifest changed" if state == "deployed" else ""))
+                continue
+            if revision < unit.previous_revision or state not in ROLLBACK_FROM:
+                unit.status = "STATE_UNKNOWN"
+                errors.append(f"{unit.name}: STATE_UNKNOWN: revision {revision} is {state}; no automated rollback")
+                continue
+            unit.detail.append(f"rollback from revision {revision} ({state}) to {unit.previous_revision}")
             run(["helm", "rollback", unit.release, str(unit.previous_revision), "--kube-context", context,
                  "--namespace", unit.namespace, "--wait", "--timeout", "15m"])
-            after = latest_release(run, unit.release, unit.namespace, context)
-            if after.get("status") != "deployed":
-                raise PromotionError(f"after the rollback the latest revision {after.get('revision')} is "
-                                     f"{after.get('status')}, not deployed")
+            problems = _restored(run, unit, context)
+            if problems:
+                raise PromotionError("; ".join(problems))
             unit.status = "ROLLED_BACK"
         except (rs.ReleaseStateError, PromotionError, ValueError, OSError) as error:
             unit.status = "ROLLBACK_FAILED"
