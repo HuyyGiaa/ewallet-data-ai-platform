@@ -26,8 +26,8 @@ Mọi thao tác cloud nằm ở mục G và cần owner duyệt.
 | Feast Redis staging `feast-staging-redis` | ✔ | – | ✔ | manifest mới `infra/kubernetes/agent-staging/feast-redis.yaml` | operator apply một lần (mục G.5 bước 5) | PREPARED |
 | Fraud online rows (DB 1) | ✔ | – | ✔ | Feature Store Redis production, DB 0, project `ewallet_fraud_online`: 4 key entity của fixture | `staging_feature_seed.py copy fraud`: đọc DUMP từ production, RESTORE sang staging, so digest | PREPARED; cần **owner duyệt đọc production** |
 | RAG online rows (DB 4) | ✔ | – | ✔ | Feature Store Redis production, DB 3, project `ewallet_rag_hybrid_20261114t144825` (DB verification, ≤ 64 key) | `staging_feature_seed.py copy rag` | PREPARED; cần **owner duyệt đọc production** |
-| Feast registry `feast-registry-fraud-staging` | ✔ | – | ✔ | ConfigMap live `ewallet-mcp/feast-registry-fraud-online` (sha256 ghi nhận `0f578d53…5960`, 13547 byte) | copy ConfigMap, kiểm tra sha (G.1 bước 7, G.5 bước 3) | PREPARED; nguồn chỉ có trên cluster |
-| Feast registry `feast-registry-rag-staging` | ✔ | – | ✔ | ConfigMap live `ewallet-mcp/feast-registry-rag-agi` (sha256 ghi nhận `2ca68299…5930`, 2275 byte) | như trên | PREPARED; nguồn chỉ có trên cluster |
+| Feast registry `feast-registry-fraud-staging` | ✔ | – | ✔ | ConfigMap live `ewallet-mcp/feast-registry-fraud-online` (sha256 ghi nhận `0f578d53a62f0f447fd693153aa860735ddaf9e8cad5bda388be7acabb685960`, 13547 byte) | copy ConfigMap, kiểm tra sha (G.1 bước 7, G.5 bước 3) | PREPARED; nguồn chỉ có trên cluster |
+| Feast registry `feast-registry-rag-staging` | ✔ | – | ✔ | ConfigMap live `ewallet-mcp/feast-registry-rag-agi` (sha256 ghi nhận `2ca6829930f96f2189b929abe877f0149eb5335f17a38fb89f10d1500b715930`, 2275 byte) | như trên | PREPARED; nguồn chỉ có trên cluster |
 | KServe predictor `fraud-detector-predictor` | ✔ | – | ✔ | cùng image digest với production (`fraud-detector-predictor@sha256:cba90c22…b896`) | manifest mới `infra/kubernetes/agent-staging/fraud-predictor.yaml` | PREPARED |
 | `drift-baselines-staging` (`baselines.json`) | – | ✔ | ✔ | artifact local `agi-20261115T145608Z/inputs/drift/baselines.json`, sha256 `d6f87cc7…e473` | `agi_inputs drift-configmaps --suffix staging` | PREPARED (không cần đọc production) |
 | `drift-window-staging` (`window-manifest.json` + `account_behavior.csv.gz`) | – | ✔ | ✔ | artifact local, manifest sha256 `3215b11e…a2c2`, csv sha256 `fbad1a8a…2aa0`, `dataset_revision` `feast-r5gb-20261111-214544` | như trên | PREPARED |
@@ -246,7 +246,7 @@ Thứ tự 5 giai đoạn bám theo điều kiện thật của script: `sandbox
 Không có thao tác ghi nào.
 
 1. `python3 ops/gcp/cloud_lab.py verify --expect awake --manifest "$M"`.
-2. Ghi lại Helm revision và values hiện tại của `kagent`, `llm-agent`, `llm-agent-mcp`:
+2. Ghi lại Helm revision và values hiện tại của `kagent` (namespace `kagent`), `llm-agent` (namespace `default`), `llm-agent-mcp` (namespace `ewallet-mcp`):
    ```bash
    helm --kube-context $CTX -n kagent history kagent --max 3; helm --kube-context $CTX -n kagent get values kagent -o yaml > $W/kagent-values-before.yaml
    ```
@@ -258,7 +258,7 @@ Không có thao tác ghi nào.
    ```bash
    kubectl -n ewallet-mcp get cm feast-registry-fraud-online -o jsonpath='{.binaryData.registry\.db}' | base64 -d | sha256sum
    ```
-   Kết quả phải là `0f578d53…5960`. Làm tương tự với `feast-registry-rag-agi`, kết quả phải là `2ca68299…5930`.
+   Kết quả phải là `0f578d53a62f0f447fd693153aa860735ddaf9e8cad5bda388be7acabb685960`. Làm tương tự với `feast-registry-rag-agi`, kết quả phải là `2ca6829930f96f2189b929abe877f0149eb5335f17a38fb89f10d1500b715930`.
 8. Offline: `python -m ops.llm_agent.staging_credentials plan`, `python -m ops.llm_agent.staging_feature_seed plan`.
 
 ### G.2 Giai đoạn 2 — Tạo namespace staging (owner duyệt)
