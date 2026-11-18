@@ -3,19 +3,24 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import importlib.util
 import io
 import json
+import os
 from contextlib import redirect_stdout
 from pathlib import Path
 import unittest
 from unittest import mock
 
 from ai_platform.llm_agent.tools.security import SERVICE_TOKEN_ENV, SERVICE_TOKEN_HEADER, ServiceTokenAuthenticator
+from ai_platform.llm_agent.rag.online_target import parse_connection
 from ops.llm_agent import staging_credentials as cred
 from ops.llm_agent import staging_feature_seed as seed
 
 ROOT = Path(__file__).resolve().parents[2]
+SRC = seed.SOURCE_HOST + ":6379,password=p,db={db}"
+TGT = seed.TARGET_HOST + ":6379,password=p,db={db}"
 
 
 class FakeRedis:
@@ -24,6 +29,10 @@ class FakeRedis:
     def __init__(self, data=None):
         self.data = dict(data or {})
         self.restored = []
+        self.run_id = str(id(self))
+
+    def info(self, section):
+        return {"run_id": self.run_id}
 
     def dump(self, key):
         return self.data.get(key)
@@ -79,14 +88,73 @@ class FeatureSeedTests(unittest.TestCase):
         with mock.patch.object(seed, "keys_for", return_value=[b"absent"]), self.assertRaises(seed.SeedError):
             seed.verify("fraud", FakeRedis(), FakeRedis())
 
-    def test_only_the_feature_store_source_and_the_staging_target(self):
-        good = (seed.Endpoint(seed.SOURCE_HOST, 0), seed.Endpoint(seed.TARGET_HOST, 1))
-        seed.check_endpoints("fraud", *good)
-        for source, target in ((seed.Endpoint(seed.SOURCE_HOST, 0), seed.Endpoint(seed.SOURCE_HOST, 1)),   # production target
-                               (seed.Endpoint(seed.SOURCE_HOST, 0), seed.Endpoint(seed.TARGET_HOST, 0)),   # wrong DB
-                               (seed.Endpoint(seed.TARGET_HOST, 0), seed.Endpoint(seed.TARGET_HOST, 1))):  # wrong source
-            with self.subTest(source=source, target=target), self.assertRaises(seed.SeedError):
-                seed.check_endpoints("fraud", source, target)
+    def test_endpoint_identity_comes_from_the_connection_strings(self):
+        seed.check_endpoints("fraud", parse_connection(SRC.format(db=0)), parse_connection(TGT.format(db=1)))
+        seed.check_endpoints("rag", parse_connection(SRC.format(db=3)), parse_connection(TGT.format(db=4)))
+        cases = {
+            "wrong target Service": (SRC.format(db=0), "other-redis.ewallet-agents-staging.svc.cluster.local:6379,password=p,db=1"),
+            "production as target": (SRC.format(db=0), SRC.format(db=1)),
+            "wrong source Service": (TGT.format(db=0), TGT.format(db=1)),
+            "wrong DB mapping": (SRC.format(db=3), TGT.format(db=1)),
+            "production DB as target": (SRC.format(db=0), TGT.format(db=0)),
+            "operator port-forward (127.0.0.1)": (SRC.format(db=0), "127.0.0.1:6379,password=p,db=1"),
+            "wrong port": (SRC.format(db=0), TGT.format(db=1).replace(":6379", ":6380")),
+        }
+        for name, (source, target) in cases.items():
+            with self.subTest(name), self.assertRaises(seed.SeedError):
+                seed.check_endpoints("fraud", parse_connection(source), parse_connection(target))
+
+    def test_a_hostname_flag_cannot_assert_the_identity(self):
+        with self.assertRaises(SystemExit):   # the old --target-host/--source-host flags no longer exist
+            seed.main(["copy", "fraud", "--target-host", seed.TARGET_HOST])
+
+    def test_no_connection_and_no_write_after_a_failed_check(self):
+        factory = mock.Mock()
+        env = {"EWALLET_SEED_SOURCE": SRC.format(db=0), "EWALLET_SEED_TARGET": "127.0.0.1:6379,password=p,db=1"}
+        with mock.patch.dict(os.environ, env), mock.patch.object(seed, "_redis", factory), \
+                mock.patch.object(seed, "_forward") as forward:
+            self.assertEqual(seed.main(["copy", "fraud", "--context", "ctx", "--approve"]), 2)
+        factory.assert_not_called()
+        forward.assert_not_called()
+
+    def test_port_forward_mode_connects_only_through_its_own_forwards_to_the_fixed_services(self):
+        servers = {"src": rag_source(), "tgt": FakeRedis()}
+        servers["src"].run_id, servers["tgt"].run_id = "a", "b"
+        opened = []
+
+        @contextlib.contextmanager
+        def forward(context, namespace, service):
+            opened.append((context, namespace, service))
+            yield 40000 + len(opened)
+
+        def factory(host, port, endpoint):
+            self.assertEqual(host, "127.0.0.1")   # never the operator's host, never a fixed port
+            return servers["src" if port == 40001 else "tgt"]
+
+        with seed.connections("rag", SRC.format(db=3), TGT.format(db=4), "ctx", redis_factory=factory,
+                              forward=forward) as (source, target):
+            report = seed.copy("rag", source, target, approve=True)
+        self.assertEqual(opened, [("ctx", "feature-store", "redis"), ("ctx", "ewallet-agents-staging", "feast-staging-redis")])
+        self.assertEqual(report["source_digest"], report["target_digest"])
+
+    def test_forward_reuses_the_owned_kubectl_port_forward(self):
+        @contextlib.contextmanager
+        def fake_forward(context, contract):
+            self.assertEqual((context, contract), ("ctx", {"kagent": {"namespace": "feature-store", "service": "redis",
+                                                                      "port": 6379}}))
+            yield "http://127.0.0.1:41234/"
+
+        with mock.patch("scripts.ci.sandbox_candidate.kubectl_forward", fake_forward):
+            with seed._forward("ctx", "feature-store", "redis") as port:
+                self.assertEqual(port, 41234)
+
+    def test_the_same_server_behind_both_names_is_refused_before_any_write(self):
+        shared = rag_source()
+        with self.assertRaises(seed.SeedError):
+            with seed.connections("rag", SRC.format(db=3), TGT.format(db=4), None,
+                                  redis_factory=lambda host, port, endpoint: shared):
+                self.fail("reached the copy")
+        self.assertEqual(shared.restored, [])
 
     def test_fixture_entities_are_the_four_join_keys(self):
         self.assertEqual(set(seed.fixture_entities()), set(seed.JOIN_KEYS))
@@ -143,6 +211,29 @@ class CredentialTests(unittest.TestCase):
         self.assertNotIn("secret-value-", out.getvalue())
         self.assertEqual(len(json.loads(out.getvalue().splitlines()[0])), 10)
 
+
+
+class RunbookOrderTests(unittest.TestCase):
+    """The V2-P3B runbook follows what sandbox_watch.sh actually requires (namespaces before PKG-KS preflight)."""
+
+    def test_pkg_ks_steps_follow_the_script_prerequisites(self):
+        script = (ROOT / "scripts/llm_agent/sandbox_watch.sh").read_text()
+        self.assertIn('die "namespace $ns does not exist (create it first)"', script)   # preflight needs them
+        runbook = (ROOT / "docs/workplans/edai2/CICD_V2_P3B0_PREREQUISITES.md").read_text()
+        section = runbook[runbook.index("## G. Runbook V2-P3B"):runbook.index("## H.")]
+
+        def first(marker):
+            self.assertIn(marker, section)
+            return section.index(marker)
+
+        order = [first("cloud_lab.py verify --expect awake"),             # read-only inspection
+                 first("apply -f infra/kubernetes/agent-staging/namespaces.yaml"),
+                 first("kagent-staging preflight $W"), first("kagent-staging diff $W"), first("kagent-staging dry-run $W"),
+                 first("WATCH_APPROVAL=PKG-KS:"), first("kagent-staging verify"),
+                 first("staging_credentials create"), first("staging_feature_seed copy fraud --context")]
+        self.assertEqual(order, sorted(order))
+        self.assertIn("WATCH_APPROVAL=PKG-KS-ROLLBACK:", section)
+        self.assertLess(first("kagent-staging rollback"), first("### G.5"))
 
 if __name__ == "__main__":
     unittest.main()

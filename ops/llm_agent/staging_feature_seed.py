@@ -19,28 +19,39 @@ Bounds, all fail-closed before any write:
   the fixture entities only; a missing key is an error, never skipped;
 * RAG keys are the whole verification database, at most ``MAX_RAG_KEYS``, and its Feature Store ownership marker
   must name the RAG project the staging MCP server reads;
-* the source must be the Feature Store Redis in DB 0 (fraud) or DB 3 (RAG); the target must be the staging Redis
-  (``feast-staging-redis.ewallet-agents-staging``) in DB 1 (fraud) or DB 4 (RAG), and empty;
-* connection strings come from the environment (port-forwards), are never printed or written.
+* endpoint identity is checked on the parsed connection strings, before any network I/O: the source must name
+  the Feature Store Service ``redis.feature-store.svc.cluster.local:6379`` in DB 0 (fraud) or DB 3 (RAG), the target
+  the staging Service ``feast-staging-redis.ewallet-agents-staging.svc.cluster.local:6379`` in DB 1 (fraud) or DB 4
+  (RAG). Any other host (``127.0.0.1`` included), port or database is refused;
+* the target database must be empty, and source and target must be different Redis servers (``INFO`` run_id);
+* connection strings come from the environment, are never printed or written.
+
+Two ways to reach the Services:
+
+* direct (in-cluster): the client connects to the Service DNS names it was given and checked;
+* ``--context CTX`` (from a workstation): this process starts its own ``kubectl port-forward`` to exactly
+  ``feature-store/svc/redis`` and ``ewallet-agents-staging/svc/feast-staging-redis`` in that context
+  (scripts/ci/sandbox_candidate.kubectl_forward reads the local port from its own child), and connects only there.
+  An operator-started port-forward is never accepted: nothing would bind its local port to a Service.
 
     python -m ops.llm_agent.staging_feature_seed plan
-    EWALLET_SEED_SOURCE=<conn> EWALLET_SEED_TARGET=<conn> python -m ops.llm_agent.staging_feature_seed copy fraud --approve
-    EWALLET_SEED_SOURCE=<conn> EWALLET_SEED_TARGET=<conn> python -m ops.llm_agent.staging_feature_seed verify fraud
+    EWALLET_SEED_SOURCE=<conn> EWALLET_SEED_TARGET=<conn> python -m ops.llm_agent.staging_feature_seed copy fraud --context CTX [--approve]
+    EWALLET_SEED_SOURCE=<conn> EWALLET_SEED_TARGET=<conn> python -m ops.llm_agent.staging_feature_seed verify fraud --context CTX
 
-``<conn>`` is a Feast Redis setting (``host:port,password=...,db=N``); through a port-forward the host is
-127.0.0.1, so the operator also passes ``--source-host`` / ``--target-host`` naming the forwarded Service.
+``<conn>`` is a Feast Redis setting naming the Service DNS (``<service host>:6379,password=...,db=N``).
 """
 
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
+import contextlib
 import hashlib
 import json
 import os
 from pathlib import Path
 import sys
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable, Iterator
+from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = ROOT / "configs/experiments/fixtures/agent-load-request.json"
@@ -51,6 +62,9 @@ ENTITY_KEY_SERIALIZATION_VERSION = 3
 JOIN_KEYS = ("user_id", "account_id", "device_id", "merchant_id")
 SOURCE_HOST = "redis.feature-store.svc.cluster.local"
 TARGET_HOST = "feast-staging-redis.ewallet-agents-staging.svc.cluster.local"
+REDIS_PORT = 6379
+# (namespace, Service) a --context port-forward is opened to; the only two Services this tool ever reaches.
+SERVICES = {"source": ("feature-store", "redis"), "target": ("ewallet-agents-staging", "feast-staging-redis")}
 SOURCE_DB = {"fraud": 0, "rag": 3}
 TARGET_DB = {"fraud": 1, "rag": 4}
 MAX_RAG_KEYS = 64
@@ -59,12 +73,6 @@ OWNER_KEY = b"__ewallet_feature_store_campaign_owner_v1__"
 
 class SeedError(RuntimeError):
     """The copy would leave its bounds; nothing was written."""
-
-
-@dataclass(frozen=True)
-class Endpoint:
-    service_host: str   # the in-cluster Service the connection reaches (port-forward target)
-    database: int
 
 
 def fixture_entities(path: Path = FIXTURE) -> dict[str, str]:
@@ -93,11 +101,20 @@ def fraud_keys(entities: dict[str, str]) -> list[bytes]:
     return keys
 
 
-def check_endpoints(kind: str, source: Endpoint, target: Endpoint) -> None:
-    if source.service_host != SOURCE_HOST or source.database != SOURCE_DB[kind]:
-        raise SeedError(f"{kind} source must be {SOURCE_HOST} DB {SOURCE_DB[kind]}")
-    if target.service_host != TARGET_HOST or target.database != TARGET_DB[kind]:
-        raise SeedError(f"{kind} target must be the staging Redis {TARGET_HOST} DB {TARGET_DB[kind]}")
+def check_endpoints(kind: str, source: Any, target: Any) -> None:
+    """``source``/``target`` are the parsed connection strings (RedisEndpoint), never operator assertions."""
+
+    if (source.host, source.port, source.database) != (SOURCE_HOST, REDIS_PORT, SOURCE_DB[kind]):
+        raise SeedError(f"{kind} source must be {SOURCE_HOST}:{REDIS_PORT} DB {SOURCE_DB[kind]}")
+    if (target.host, target.port, target.database) != (TARGET_HOST, REDIS_PORT, TARGET_DB[kind]):
+        raise SeedError(f"{kind} target must be the staging Redis {TARGET_HOST}:{REDIS_PORT} DB {TARGET_DB[kind]}")
+
+
+def check_distinct(source: Any, target: Any) -> None:
+    """Two Service names could still route to one server; a write target equal to the source is refused."""
+
+    if source.info("server")["run_id"] == target.info("server")["run_id"]:
+        raise SeedError("source and target are the same Redis server; refusing to write")
 
 
 def digest(pairs: Iterable[tuple[bytes, bytes | None]]) -> str:
@@ -151,14 +168,42 @@ def verify(kind: str, source: Any, target: Any) -> dict[str, Any]:
             "extra_target_keys": extra, "verdict": "PASS" if source_digest == target_digest and extra == 0 else "FAIL"}
 
 
-def _client(connection: str):
+def _redis(host: str, port: int, endpoint: Any):
     import redis
+
+    return redis.Redis(host=host, port=port, db=endpoint.database, password=endpoint.password, ssl=endpoint.ssl,
+                       socket_timeout=10)
+
+
+@contextlib.contextmanager
+def _forward(context: str, namespace: str, service: str) -> Iterator[int]:
+    """This process's own ``kubectl port-forward`` to one fixed Service; yields the local port."""
+
+    from scripts.ci.sandbox_candidate import kubectl_forward
+
+    with kubectl_forward(context, {"kagent": {"namespace": namespace, "service": service, "port": REDIS_PORT}}) as url:
+        yield urlsplit(url).port
+
+
+@contextlib.contextmanager
+def connections(kind: str, source_connection: str, target_connection: str, context: str | None, *,
+                redis_factory: Callable[..., Any] = _redis, forward: Callable[..., Any] = _forward) -> Iterator[tuple]:
+    """Checked (source, target) clients. Every check runs before the first byte is sent to either server."""
 
     from ai_platform.llm_agent.rag.online_target import parse_connection
 
-    endpoint = parse_connection(connection)
-    return endpoint, redis.Redis(host=endpoint.host, port=endpoint.port, db=endpoint.database,
-                                 password=endpoint.password, ssl=endpoint.ssl, socket_timeout=10)
+    endpoints = {"source": parse_connection(source_connection), "target": parse_connection(target_connection)}
+    check_endpoints(kind, endpoints["source"], endpoints["target"])
+    with contextlib.ExitStack() as stack:
+        clients = []
+        for role, endpoint in endpoints.items():
+            if context:   # connect only through the port this process forwarded to the fixed Service
+                port = stack.enter_context(forward(context, *SERVICES[role]))
+                clients.append(redis_factory("127.0.0.1", port, endpoint))
+            else:         # in-cluster: the Service DNS checked above
+                clients.append(redis_factory(endpoint.host, endpoint.port, endpoint))
+        check_distinct(*clients)
+        yield tuple(clients)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -168,8 +213,8 @@ def main(argv: list[str] | None = None) -> int:
     for name in ("copy", "verify"):
         command = commands.add_parser(name)
         command.add_argument("kind", choices=("fraud", "rag"))
-        command.add_argument("--source-host", default=SOURCE_HOST, help="Service behind the source port-forward")
-        command.add_argument("--target-host", default=TARGET_HOST, help="Service behind the target port-forward")
+        command.add_argument("--context", help="kube context: open this process's own port-forwards to the two "
+                                               "fixed Services (omit only when running inside the cluster)")
         if name == "copy":
             command.add_argument("--approve", action="store_true", help="write; without it only the plan is computed")
     args = parser.parse_args(argv)
@@ -182,13 +227,11 @@ def main(argv: list[str] | None = None) -> int:
                               "rag_project": RAG_PROJECT, "source_db": SOURCE_DB, "target_db": TARGET_DB,
                               "target_host": TARGET_HOST}, indent=1, sort_keys=True))
             return 0
-        source_endpoint, source = _client(os.environ["EWALLET_SEED_SOURCE"])
-        target_endpoint, target = _client(os.environ["EWALLET_SEED_TARGET"])
-        check_endpoints(args.kind, Endpoint(args.source_host, source_endpoint.database),
-                        Endpoint(args.target_host, target_endpoint.database))
-        report = copy(args.kind, source, target, approve=args.approve) if args.command == "copy" \
-            else verify(args.kind, source, target)
-    except (SeedError, KeyError, ValueError) as error:
+        with connections(args.kind, os.environ["EWALLET_SEED_SOURCE"], os.environ["EWALLET_SEED_TARGET"],
+                         args.context) as (source, target):
+            report = copy(args.kind, source, target, approve=args.approve) if args.command == "copy" \
+                else verify(args.kind, source, target)
+    except (SeedError, KeyError, ValueError, RuntimeError) as error:
         print(f"staging_feature_seed: {error}", file=sys.stderr)
         return 2
     print(json.dumps(report, sort_keys=True))

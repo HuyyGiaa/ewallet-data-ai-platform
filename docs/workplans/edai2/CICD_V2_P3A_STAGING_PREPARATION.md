@@ -153,4 +153,4 @@ Mutation check: bỏ kiểm tra ownership khi cleanup, hoặc bỏ kiểm tra re
 
 ## 9. Runbook V2-P3B
 
-Đã được thay bằng runbook ở `CICD_V2_P3B0_PREREQUISITES.md` mục G, chia thành 3 nhóm: preflight chỉ đọc, chuẩn bị có owner duyệt, và Jenkins E2E.
+Đã được thay bằng runbook ở `CICD_V2_P3B0_PREREQUISITES.md` mục G, theo thứ tự: kiểm tra chỉ đọc → tạo namespace staging → preflight/diff/dry-run của PKG-KS → upgrade watch scope có owner duyệt → chuẩn bị còn lại → Jenkins E2E.

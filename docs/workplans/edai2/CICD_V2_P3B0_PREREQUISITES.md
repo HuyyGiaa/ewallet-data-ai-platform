@@ -23,17 +23,17 @@ Mọi thao tác cloud nằm ở mục G và cần owner duyệt.
 
 | Dependency | Fraud | Drift | Combined | Nguồn | Cách chuẩn bị | Trạng thái |
 |---|---|---|---|---|---|---|
-| Feast Redis staging `feast-staging-redis` | ✔ | – | ✔ | manifest mới `infra/kubernetes/agent-staging/feast-redis.yaml` | operator apply một lần (mục G.2) | PREPARED |
+| Feast Redis staging `feast-staging-redis` | ✔ | – | ✔ | manifest mới `infra/kubernetes/agent-staging/feast-redis.yaml` | operator apply một lần (mục G.5 bước 5) | PREPARED |
 | Fraud online rows (DB 1) | ✔ | – | ✔ | Feature Store Redis production, DB 0, project `ewallet_fraud_online`: 4 key entity của fixture | `staging_feature_seed.py copy fraud`: đọc DUMP từ production, RESTORE sang staging, so digest | PREPARED; cần **owner duyệt đọc production** |
 | RAG online rows (DB 4) | ✔ | – | ✔ | Feature Store Redis production, DB 3, project `ewallet_rag_hybrid_20261114t144825` (DB verification, ≤ 64 key) | `staging_feature_seed.py copy rag` | PREPARED; cần **owner duyệt đọc production** |
-| Feast registry `feast-registry-fraud-staging` | ✔ | – | ✔ | ConfigMap live `ewallet-mcp/feast-registry-fraud-online` (sha256 ghi nhận `0f578d53…5960`, 13547 byte) | copy ConfigMap, kiểm tra sha (G.2 bước 5) | PREPARED; nguồn chỉ có trên cluster |
+| Feast registry `feast-registry-fraud-staging` | ✔ | – | ✔ | ConfigMap live `ewallet-mcp/feast-registry-fraud-online` (sha256 ghi nhận `0f578d53…5960`, 13547 byte) | copy ConfigMap, kiểm tra sha (G.1 bước 7, G.5 bước 3) | PREPARED; nguồn chỉ có trên cluster |
 | Feast registry `feast-registry-rag-staging` | ✔ | – | ✔ | ConfigMap live `ewallet-mcp/feast-registry-rag-agi` (sha256 ghi nhận `2ca68299…5930`, 2275 byte) | như trên | PREPARED; nguồn chỉ có trên cluster |
 | KServe predictor `fraud-detector-predictor` | ✔ | – | ✔ | cùng image digest với production (`fraud-detector-predictor@sha256:cba90c22…b896`) | manifest mới `infra/kubernetes/agent-staging/fraud-predictor.yaml` | PREPARED |
 | `drift-baselines-staging` (`baselines.json`) | – | ✔ | ✔ | artifact local `agi-20261115T145608Z/inputs/drift/baselines.json`, sha256 `d6f87cc7…e473` | `agi_inputs drift-configmaps --suffix staging` | PREPARED (không cần đọc production) |
 | `drift-window-staging` (`window-manifest.json` + `account_behavior.csv.gz`) | – | ✔ | ✔ | artifact local, manifest sha256 `3215b11e…a2c2`, csv sha256 `fbad1a8a…2aa0`, `dataset_revision` `feast-r5gb-20261111-214544` | như trên | PREPARED |
 | RAG corpus/manifest | ✔ | – | ✔ | nằm trong image MCP (`/workspace/data/llm_agent/rag/fraud-policy-v1/manifest.json`) | không cần làm gì | SOURCE_VERIFIED |
 
-Không có dependency nào ở trạng thái `SOURCE_NOT_AVAILABLE`. Hai registry ConfigMap chỉ có bản trên cluster, chưa có bản local cùng sha. Vì vậy ở bước G.2, sha live phải khớp giá trị đã ghi nhận ở trên. Nếu sha khác thì dừng, không tự chọn nguồn khác.
+Không có dependency nào ở trạng thái `SOURCE_NOT_AVAILABLE`. Hai registry ConfigMap chỉ có bản trên cluster, chưa có bản local cùng sha. Vì vậy ở G.1 bước 7 và G.5 bước 3, sha live phải khớp giá trị đã ghi nhận ở trên. Nếu sha khác thì dừng, không tự chọn nguồn khác.
 
 ### A.2 Vì sao copy đúng byte thay vì materialize lại
 
@@ -45,8 +45,9 @@ Vì vậy `ops/llm_agent/staging_feature_seed.py` làm như sau:
 - **Fraud:** key được tính bằng hàm `_redis_key` của chính Feast (project, entity key, serialization v3), chỉ cho 4 entity của fixture `agent-load-request.json`. Thiếu key nào là lỗi, không bỏ qua. Đã chạy offline với feast 0.66 và ra 4 key khác nhau.
 - **RAG:** copy toàn bộ DB verification, tối đa 64 key. Owner marker của Feature Store phải ghi đúng project RAG.
 - **Ràng buộc fail-closed, kiểm tra trước khi ghi:**
-  - source phải là `redis.feature-store` với DB 0 (fraud) hoặc DB 3 (RAG);
-  - target phải là `feast-staging-redis.ewallet-agents-staging` với DB 1 (fraud) hoặc DB 4 (RAG), và DB phải rỗng;
+  - identity được kiểm tra trên chính connection string, trước mọi kết nối: source phải là `redis.feature-store.svc.cluster.local:6379` với DB 0 (fraud) hoặc DB 3 (RAG), target phải là `feast-staging-redis.ewallet-agents-staging.svc.cluster.local:6379` với DB 1 (fraud) hoặc DB 4 (RAG). Host khác (kể cả `127.0.0.1`), port khác hay DB khác đều bị từ chối;
+  - khi chạy từ máy trạm (`--context CTX`), script tự mở port-forward tới đúng 2 Service cố định và chỉ kết nối qua port đó (xem H.1); không chấp nhận port-forward do operator tự mở;
+  - source và target phải là hai Redis server khác nhau (`INFO` run_id), và DB target phải rỗng;
   - `RESTORE` không dùng `REPLACE`;
   - sau khi ghi, digest SHA-256 của source phải bằng của target.
 - **Production chỉ bị đọc:** chỉ dùng lệnh `DUMP`, `SCAN`, `GET`.
@@ -236,55 +237,99 @@ Việc Substrate có tự xóa snapshot khi SandboxAgent bị xóa hay không v�
 
 ## G. Runbook V2-P3B
 
-`CTX` là context GKE. Mọi lệnh đều chạy trên nhánh `release/agent-staging` tại `EXPECTED_GIT_SHA`. Nhánh này do owner tạo; phase này không tạo.
+`CTX` là context GKE, `W` là thư mục làm việc của campaign. Mọi lệnh chạy trên nhánh `release/agent-staging` tại `EXPECTED_GIT_SHA`. Nhánh này do owner tạo; phase này không tạo.
 
-### G.1 Preflight chỉ đọc (sau khi wake đã được duyệt)
+Thứ tự 5 giai đoạn bám theo điều kiện thật của script: `sandbox_watch.sh kagent-staging preflight` dừng với `namespace … does not exist (create it first)` nếu 2 namespace staging chưa có. Vì vậy namespace phải được tạo (giai đoạn 2) trước khi chạy preflight/diff/dry-run của PKG-KS (giai đoạn 3).
 
-1. `python3 ops/gcp/cloud_lab.py verify --expect awake --manifest "$M"`. Kiểm tra `kagent`, `ate-system` và KServe controller đều Ready. Ghi lại Helm revision của `kagent`, `llm-agent`, `llm-agent-mcp`.
-2. Chạy lần lượt `KUBE_CONTEXT=$CTX scripts/llm_agent/sandbox_watch.sh kagent-staging preflight $W`, rồi `diff`, rồi `dry-run`. Chỉ được đi tiếp khi diff đúng như mục B.
-3. Đo RustFS và áp quy tắc GO/NO-GO (C.3).
-4. `kubectl auth can-i` (C.2), chạy sau khi RBAC đã được apply ở G.2.
-5. Kiểm tra sha của 2 registry nguồn:
+### G.1 Giai đoạn 1 — Kiểm tra cluster chỉ đọc (sau khi owner duyệt wake)
+
+Không có thao tác ghi nào.
+
+1. `python3 ops/gcp/cloud_lab.py verify --expect awake --manifest "$M"`.
+2. Ghi lại Helm revision và values hiện tại của `kagent`, `llm-agent`, `llm-agent-mcp`:
+   ```bash
+   helm --kube-context $CTX -n kagent history kagent --max 3; helm --kube-context $CTX -n kagent get values kagent -o yaml > $W/kagent-values-before.yaml
+   ```
+3. Watch scope hiện tại: `kubectl --context $CTX -n kagent get cm kagent-controller -o jsonpath='{.data.WATCH_NAMESPACES}'`. Kết quả phải là `ewallet-agents,kagent-pilot,ewallet-sandbox`.
+4. Agent và SandboxAgent production đều Ready (`kubectl get agents -n ewallet-agents`, `get sandboxagents,workerpools -n ewallet-sandbox`). Controller `kagent`, `ate-system` và KServe Ready.
+5. Tài nguyên còn trống của node (`kubectl describe nodes | grep -A6 'Allocated resources'`).
+6. Đo RustFS và áp quy tắc GO/NO-GO (C.3).
+7. Kiểm tra sha của 2 registry nguồn:
    ```bash
    kubectl -n ewallet-mcp get cm feast-registry-fraud-online -o jsonpath='{.binaryData.registry\.db}' | base64 -d | sha256sum
    ```
    Kết quả phải là `0f578d53…5960`. Làm tương tự với `feast-registry-rag-agi`, kết quả phải là `2ca68299…5930`.
-6. `python -m ops.llm_agent.staging_credentials plan` và `python -m ops.llm_agent.staging_feature_seed plan` (offline).
+8. Offline: `python -m ops.llm_agent.staging_credentials plan`, `python -m ops.llm_agent.staging_feature_seed plan`.
 
-### G.2 Chuẩn bị (mỗi bước cần owner duyệt riêng)
+### G.2 Giai đoạn 2 — Tạo namespace staging (owner duyệt)
 
-1. `kubectl apply -f infra/kubernetes/agent-staging/namespaces.yaml`.
-2. `WATCH_APPROVAL=PKG-KS:$CTX sandbox_watch.sh kagent-staging upgrade $W`, sau đó chạy `verify`. Nếu SandboxAgent production không còn Ready thì chạy `rollback` ngay.
-3. Apply RBAC đã duyệt (`agent-staging-cd.proposed.yaml`), rồi chạy G.1 bước 4.
-4. `python -m ops.llm_agent.staging_credentials create --context $CTX --approve`.
-5. Copy 2 registry ConfigMap (chỉ là ConfigMap, không phải Secret):
+```bash
+kubectl --context $CTX apply -f infra/kubernetes/agent-staging/namespaces.yaml
+```
+
+File này chỉ tạo `ewallet-agents-staging`, `ewallet-sandbox-staging` và quota/ServiceAccount của chúng. Không đụng tới production.
+
+### G.3 Giai đoạn 3 — Kiểm tra PKG-KS (chỉ đọc, sau khi namespace đã có)
+
+```bash
+KUBE_CONTEXT=$CTX scripts/llm_agent/sandbox_watch.sh kagent-staging preflight $W
+KUBE_CONTEXT=$CTX scripts/llm_agent/sandbox_watch.sh kagent-staging diff $W
+KUBE_CONTEXT=$CTX scripts/llm_agent/sandbox_watch.sh kagent-staging dry-run $W
+```
+
+Cả 3 lệnh phải PASS, và diff phải đúng như mục B. Nếu có lệnh nào fail thì dừng; không thay đổi cấu hình controller.
+
+### G.4 Giai đoạn 4 — Nâng watch scope của controller (owner duyệt)
+
+```bash
+WATCH_APPROVAL=PKG-KS:$CTX KUBE_CONTEXT=$CTX scripts/llm_agent/sandbox_watch.sh kagent-staging upgrade $W
+KUBE_CONTEXT=$CTX scripts/llm_agent/sandbox_watch.sh kagent-staging verify $W
+```
+
+`upgrade` tự chạy lại diff và server dry-run trong cùng lần chạy rồi mới `helm upgrade --atomic`, đồng thời ghi lại revision trước upgrade. `verify` kiểm tra Agent và SandboxAgent production vẫn Ready.
+
+Nếu upgrade hoặc verify fail:
+
+```bash
+WATCH_APPROVAL=PKG-KS-ROLLBACK:$CTX KUBE_CONTEXT=$CTX scripts/llm_agent/sandbox_watch.sh kagent-staging rollback $W
+```
+
+Lệnh này đưa release về revision đã ghi lúc upgrade, sau đó dừng campaign.
+
+### G.5 Giai đoạn 5 — Chuẩn bị còn lại (mỗi bước cần owner duyệt riêng, theo thứ tự)
+
+1. Apply RBAC đã duyệt (`agent-staging-cd.proposed.yaml`), rồi chạy các lệnh `kubectl auth can-i` ở C.2.
+2. `python -m ops.llm_agent.staging_credentials create --context $CTX --approve`. Bước này phải chạy trước bước 5, vì Redis staging đọc `feast-staging-redis-auth`.
+3. Copy 2 registry ConfigMap (chỉ là ConfigMap, không phải Secret):
    ```bash
    kubectl -n ewallet-mcp get cm feast-registry-fraud-online -o jsonpath='{.binaryData.registry\.db}' | base64 -d > $W/fraud-registry.db
    ```
-   Kiểm tra sha256 như G.1 bước 5, rồi chạy:
+   Kiểm tra sha256 như G.1 bước 7, rồi chạy:
    ```bash
    kubectl -n ewallet-agents-staging create cm feast-registry-fraud-staging --from-file=registry.db=$W/fraud-registry.db
    ```
    Làm tương tự với RAG. Sau đó đọc lại sha của ConfigMap staging.
-6. Tạo drift ConfigMap:
+4. Tạo drift ConfigMap:
    ```bash
    python -m ops.llm_agent.agi_inputs drift-configmaps --context $CTX --namespace ewallet-agents-staging --suffix staging \
      --baselines $I/drift/baselines.json --window-manifest $I/drift/window/window-manifest.json --approve
    ```
    Ở đây `I=~/ewallet-evidence/agents/integration/agi-20261115T145608Z/inputs`. Kiểm tra sha như ở A.1.
-7. Apply `feast-redis.yaml` và `fraud-predictor.yaml`, rồi chờ hai Deployment Ready.
-8. Seed dữ liệu. Bước này **đọc production Redis**, nên cần approval riêng:
-   - Port-forward `svc/redis` trong `feature-store` và `svc/feast-staging-redis`.
-   - Lấy connection production từ Secret `feast-online-redis` (đọc giá trị Secret production chỉ khi owner duyệt).
-   - Đặt `EWALLET_SEED_SOURCE` và `EWALLET_SEED_TARGET` (có `,db=N`), rồi chạy:
+5. Apply `feast-redis.yaml` và `fraud-predictor.yaml`, rồi chờ hai Deployment Ready.
+6. Seed dữ liệu. Bước này **đọc Redis production**, nên cần owner review và duyệt riêng việc copy các row này sang staging:
+   - Connection string phải dùng tên DNS của Service (không dùng `127.0.0.1`) và có `,db=N`.
+   - Nên dùng credential chỉ đọc cho source nếu có. Hiện Feature Store Redis chỉ có `requirepass` (không có ACL), nên quyền chỉ đọc chỉ được đảm bảo ở mức code: tool chỉ gọi `DUMP`/`SCAN`/`GET`/`INFO` trên source.
+   - Lấy password production từ Secret `feast-online-redis` (đọc giá trị Secret production chỉ khi owner duyệt), đặt `EWALLET_SEED_SOURCE` và `EWALLET_SEED_TARGET`. **Không** tự mở port-forward; truyền `--context` để script tự mở:
      ```bash
-     python -m ops.llm_agent.staging_feature_seed copy fraud     # plan
-     python -m ops.llm_agent.staging_feature_seed copy fraud --approve
-     python -m ops.llm_agent.staging_feature_seed verify fraud
+     export EWALLET_SEED_SOURCE="redis.feature-store.svc.cluster.local:6379,password=…,db=0"
+     export EWALLET_SEED_TARGET="feast-staging-redis.ewallet-agents-staging.svc.cluster.local:6379,password=…,db=1"
+     python -m ops.llm_agent.staging_feature_seed copy fraud --context $CTX              # plan, no write
+     python -m ops.llm_agent.staging_feature_seed copy fraud --context $CTX --approve
+     python -m ops.llm_agent.staging_feature_seed verify fraud --context $CTX
      ```
-   - Làm lại với `rag`. Lưu file JSON digest làm evidence.
+   - Làm lại với `rag` (`db=3` → `db=4`). Lưu file JSON digest làm evidence.
 
-### G.3 Jenkins E2E
+### G.6 Jenkins E2E
 
 1. Owner push `release/agent-staging` tại SHA.
 2. Chạy job `edai2-cd-agent-staging` với các tham số `EXPECTED_GIT_SHA`, `RELEASE_BRANCH=release/agent-staging`, `DEPLOY_APPROVED=true`, rồi bấm Approve.
@@ -295,3 +340,30 @@ Việc Substrate có tự xóa snapshot khi SandboxAgent bị xóa hay không v�
    - Đo lại prefix RustFS staging.
    - Thu hồi credential: `staging_credentials revoke --approve`.
    - Watch scope (rollback PKG-KS) và namespace staging chỉ gỡ khi owner muốn.
+
+## H. Hotfix sau review của owner
+
+### H.1 Kiểm tra endpoint của seed Redis
+
+- **Lỗi cũ:** `check_endpoints` so sánh hostname lấy từ cờ `--source-host`/`--target-host` do operator tự khai. Một connection string trỏ nhầm (ví dụ tới Redis production) vẫn qua được nếu cờ ghi đúng tên Service staging.
+- **Thay đổi:**
+  - Bỏ hai cờ trên. Identity giờ được kiểm tra trên connection string đã parse (host, port 6379, DB) trước khi mở bất kỳ kết nối nào.
+  - Chế độ in-cluster: kết nối thẳng tới DNS của Service đã được kiểm tra.
+  - Chế độ `--context`: script tự mở `kubectl port-forward` tới đúng `feature-store/svc/redis` và `ewallet-agents-staging/svc/feast-staging-redis`, dùng lại `scripts/ci/sandbox_candidate.kubectl_forward`. Port local được đọc từ output của chính process con, nên ràng buộc context → namespace → Service → port local → client Redis được thiết lập ngay khi tạo. Port-forward do operator tự mở (`127.0.0.1`) bị từ chối.
+  - Thêm một lớp kiểm tra cuối: source và target phải có `run_id` khác nhau, nên cùng một server sau hai tên vẫn bị từ chối trước khi ghi.
+- **Vì sao an toàn hơn:** không còn giá trị nào do operator khai được coi là bằng chứng về identity. Target production bị chặn ở 3 lớp: host/DB, Service của port-forward, và run_id. Các bảo vệ cũ giữ nguyên: key giới hạn theo fixture, RAG ≤ 64 key, owner marker, target phải rỗng, `RESTORE` không `REPLACE`, so digest, `--approve`, không log credential.
+- **Test:** `test_staging_prerequisites.py`:
+  - endpoint đúng được chấp nhận;
+  - các trường hợp bị từ chối: sai Service target, production làm target, sai Service source, sai mapping DB, `127.0.0.1`, sai port;
+  - cờ hostname cũ không còn tồn tại;
+  - không kết nối và không ghi khi kiểm tra fail;
+  - chế độ `--context` chỉ kết nối qua port-forward của chính nó tới 2 Service cố định;
+  - cùng server bị từ chối;
+  - `_forward` dùng lại `kubectl_forward`.
+
+### H.2 Thứ tự PKG-KS trong runbook
+
+- **Lỗi cũ:** runbook chạy `sandbox_watch.sh kagent-staging preflight/diff/dry-run` trước khi tạo namespace staging, trong khi preflight bắt buộc 2 namespace đã tồn tại. Trên cluster sạch, runbook sẽ fail ngay bước đó.
+- **Thay đổi:** chỉ sửa tài liệu (G.1–G.5): kiểm tra chỉ đọc → tạo namespace → preflight/diff/dry-run → upgrade có approval và verify (rollback nếu fail) → các bước chuẩn bị còn lại. Script, semantics của approval, exact diff và rollback giữ nguyên.
+- **Vì sao an toàn hơn:** thao tác ghi đầu tiên chỉ là tạo namespace riêng của staging. Controller dùng chung chỉ bị thay đổi sau khi preflight, diff và dry-run đều PASS trên cluster thật.
+- **Test:** `test_staging_prerequisites.py::RunbookOrderTests` kiểm tra thứ tự lệnh trong mục G với chính điều kiện preflight của `sandbox_watch.sh`.
