@@ -146,51 +146,11 @@ Mutation check: bỏ kiểm tra ownership khi cleanup, hoặc bỏ kiểm tra re
 1. **Watch scope kagent:** cập nhật overlay như mục 1. Controller dùng chung sẽ restart; cần owner duyệt.
 2. **WorkerPool:** pool thứ hai dùng ateom đã vá cùng chạy với `business-agents`; worker nhận identity `ns/ewallet-sandbox-staging/sa/default` qua ambient; nhãn `ate.dev/worker-pool` có trên worker pod.
 3. **Dung lượng RustFS:** chưa biết dung lượng trống thực tế (256Mi trong values pilot không chứng minh gì). Check chỉ đọc trước khi chạy: `kubectl -n ate-system get pvc,statefulset -l app.kubernetes.io/name=rustfs` và dung lượng đã dùng của bucket `ate-snapshots` (ví dụ `kubectl -n ate-system exec <rustfs-pod> -- du -sh /data`). Phải đủ ít nhất 2 lần kích thước golden snapshot của hai Specialist.
-4. **Credential (tạo ngoài Helm, thu hồi sau run, không tái dùng production):**
-
-   | Namespace | Secret | Nguồn và chủ sở hữu |
-   |---|---|---|
-   | `ewallet-sandbox-staging` | `mcp-token-sandbox-feature-rag-feature-rag-mcp-staging`, `mcp-token-sandbox-drift-drift-mcp-staging` | token client MCP (`ops/llm_agent/g3_mcp_credentials.py`, release `staging`); owner |
-   | `ewallet-agents-staging` | `mcp-auth-feature-rag-mcp-staging`, `mcp-auth-drift-mcp-staging` | bảng token server (subject `sandbox-feature-rag`, `sandbox-drift`, `kagent-controller`); owner |
-   | `ewallet-agents-staging` | `mcp-token-kagent-controller-{feature-rag,drift}-mcp-staging` | token list-only cho discovery của kagent; owner |
-   | `ewallet-agents-staging` | `coordinator-idempotency-redis-auth-staging` | `connection_url`, `password`, `users.acl` của Redis staging; owner |
-   | `ewallet-agents-staging` | `feast-online-redis-staging-fraud`, `feast-online-redis-staging-rag` | connection tới Feast Redis staging; owner |
-   | `ewallet-agents-staging` | `agentgateway-client-key-staging` | chỉ là tham chiếu của ModelConfig (NL tắt); owner |
-
-5. **Dữ liệu downstream (blocker chính cho E2E).** Known answers chỉ đúng khi staging phục vụ đúng các fixture row và cùng model. Mức tối thiểu khả thi:
-   - Feast Online Redis staging (DB fraud `1`, rag `4`) chỉ chứa entity của fixture `agent-load-request.json`, materialize từ offline snapshot bằng `ai_platform/features/feast/online_operator.py` (registry `feast-registry-fraud-staging` / `-rag-staging`);
-   - KServe predictor `fraud-detector-predictor.ewallet-agents-staging` dùng cùng model artifact `fraud-detector/1`, kèm network flow từ `feature-rag-mcp` tới Redis và predictor (khai báo sau khi có identity);
-   - ConfigMap `drift-baselines-staging` / `drift-window-staging` là bản sao của artifact drift (executor tự tính SHA và `lineage.snapshot_id`).
-
-   Không dùng Redis hay transaction production, và không thay known answers bằng kết quả giả. Owner cần quyết định có được đọc offline snapshot (chỉ đọc) để seed hay không.
-6. **RBAC Jenkins:** `agent-staging-cd.proposed.yaml`: Role theo namespace, không có ClusterRole, có port-forward tới kagent. Owner duyệt rồi apply.
+4. **Credential:** đã được thay bằng inventory chính thức ở `CICD_V2_P3B0_PREREQUISITES.md` mục C: **10 Secret Level A** cộng 1 Secret chỉ dùng cho LLM (`agentgateway-client-key-staging`). Con số "12" trong báo cáo V2-P3A là sai. Tạo bằng `ops/llm_agent/staging_credentials.py`.
+5. **Dữ liệu downstream:** đã được giải quyết offline ở `CICD_V2_P3B0_PREREQUISITES.md` mục A. Feast Redis staging và predictor riêng (`infra/kubernetes/agent-staging/`); copy đúng byte các row production mà known answers dựa vào (`ops/llm_agent/staging_feature_seed.py`), không materialize lại; drift dùng artifact local đã xác minh SHA.
+6. **RBAC Jenkins:** `agent-staging-cd.proposed.yaml`: Role theo namespace, không có ClusterRole, có port-forward tới kagent. Đã audit ở V2-P3B-0 (mục C): Helm dùng `HELM_DRIVER=configmap`, Secret chỉ còn get/list. Owner duyệt rồi apply.
 7. **Managed prompt (Row 34):** test riêng, sau Level A: publish prompt → `prompt_registry.py configmap` → bật `managedPrompt` + NL intake → LLM Gateway và backend thật. Không chạy trong Level A.
 
-## 9. Runbook V2-P3B (chỉ thực hiện khi owner duyệt)
+## 9. Runbook V2-P3B
 
-**Preflight**
-1. Có owner approval cho: wake (resize-only), nâng watch scope kagent, RBAC staging, seed dữ liệu staging, chi phí.
-2. Ghi lại `EXPECTED_GIT_SHA` (HEAD của `release/agent-staging`) và digest image (từ build hoặc reuse).
-3. Wake GKE resize-only; kagent controller và `ate-system` Ready; ghi trạng thái production (Helm revisions, SandboxAgent production Ready).
-4. Apply `infra/kubernetes/agent-staging/namespaces.yaml`; nâng overlay watch scope; xác nhận SandboxAgent production vẫn Ready.
-5. Tạo các Secret ở mục 8.4 và các ConfigMap registry/drift staging; seed dữ liệu theo mục 8.5.
-6. Apply RBAC proposal đã duyệt. Đo dung lượng RustFS (mục 8.3). Kiểm tra NetworkPolicy/ambient của hai namespace.
-
-**Deploy và verify**
-- Push `release/agent-staging` tại SHA.
-- Chạy job `edai2-cd-agent-staging` với `EXPECTED_GIT_SHA`, `RELEASE_BRANCH=release/agent-staging`, `DEPLOY_APPROVED=true`, rồi bấm Approve.
-- Pipeline tự chạy: CI → build/scan → `agent-staging` (deploy → ready → Specialist E2E → Coordinator fraud/drift/combined → negatives → cleanup).
-- Test managed prompt (tùy chọn) chạy riêng, sau Level A.
-
-**Evidence (owner tự chụp):**
-- Jenkins Stage View và Console Output;
-- kết quả build và Trivy;
-- `kubectl get` của hai namespace staging, WorkerPool và SandboxAgent Ready (chụp trong lúc job chạy);
-- `staging-verdict.json` (E2E, negatives);
-- Jenkins SUCCESS.
-
-**Cleanup**
-1. Executor tự xóa object của mình và uninstall release. Kiểm tra lại: `kubectl get all,workerpools,sandboxagents -n ewallet-*-staging` phải trống, và `helm list -n ewallet-agents-staging` phải trống.
-2. Xóa snapshot dưới prefix `ewallet-sandbox-staging/<execution>/`; thu hồi các token staging.
-3. Tùy owner: trả watch scope về như cũ; xóa namespace staging.
-4. Sleep GKE theo quy trình đã duyệt. Không dùng guarded sleep nếu chưa có approval.
+Đã được thay bằng runbook ở `CICD_V2_P3B0_PREREQUISITES.md` mục G, chia thành 3 nhóm: preflight chỉ đọc, chuẩn bị có owner duyệt, và Jenkins E2E.
