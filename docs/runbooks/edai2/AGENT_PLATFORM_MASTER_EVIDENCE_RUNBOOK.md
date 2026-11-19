@@ -8,7 +8,7 @@ The evidence for rubric rows 16–27 comes from three groups:
 - **AGS-01–07**, the sandbox and the Substrate pool. Section 4.
 
 The design is in the
-[completion audit](../../edai2/agents/AGENT_PLATFORM_COMPLETION_AUDIT.md). The
+[Agent Platform evidence](../../edai2/agents/AGENT_PLATFORM_EVIDENCE.md). The
 campaign state is in
 [`docs/workplans/edai2/agent-platform-campaign/`](../../workplans/edai2/agent-platform-campaign/):
 `checkpoints.json`, `HANDOFF.md`, and `images.json` (the image digests).
@@ -635,7 +635,7 @@ references in the stored values. The active `ewallet-mcp` servers are not change
 
 Prepared offline in `lf-offline-20261117`, with no cluster access. Nothing here has run on GKE. Every step needs
 the owner's approval. The plan, the exact matrices and the evidence of the historical basis are in
-[AGENT_PLATFORM_COMPLETION.md §13](../../edai2/agents/AGENT_PLATFORM_COMPLETION.md#13-offline-audit-and-final-cleanup-proposal-lf-offline-20261117).
+the former completion page (removed in the 2026-11-20 Agent docs consolidation; current evidence: [AGENT_PLATFORM_EVIDENCE.md](../../edai2/agents/AGENT_PLATFORM_EVIDENCE.md)).
 
 1. **Preflight** (read-only). Expect `llm-agent` rev 59 and `llm-agent-mcp` rev 19. Three different checks, not to be
    mixed up:

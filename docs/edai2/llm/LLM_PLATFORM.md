@@ -18,7 +18,7 @@ The two serving optimizations, EXP-V1 and EXP-V2, are reported in [BENCHMARK_RES
 
 ## 1. Overview
 
-The agents use the LLM for a narrow task: understand an analyst's question, then choose a tool and its arguments (see [Agents](../agents/AGENTS_REGISTRY_GATEWAYS.md)). That task does not need a large model, so the platform serves **Qwen3-0.6B on CPU nodes**. Three constraints drove this choice:
+The agents use the LLM for a narrow task: understand an analyst's question, then choose a tool and its arguments (see [Agents](../agents/AGENT_PLATFORM_ARCHITECTURE.md)). That task does not need a large model, so the platform serves **Qwen3-0.6B on CPU nodes**. Three constraints drove this choice:
 
 - the GKE project has no GPU quota;
 - the same nodes also run the MLOps workloads;

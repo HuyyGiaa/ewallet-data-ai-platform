@@ -1,0 +1,65 @@
+{
+  "verdict": "PASS",
+  "rows": [
+    [
+      "PASS",
+      "Sandbox session turns executed",
+      "24/24 ok"
+    ],
+    [
+      "INFO",
+      "first response, new session, drift-specialist",
+      "n=4 median 14.2 s, p95 14.3 s (end to end through kagent: activation + turn; not activation alone)"
+    ],
+    [
+      "INFO",
+      "first response, resume session, drift-specialist",
+      "n=4 median 13.7 s, p95 14.7 s (end to end through kagent: activation + turn; not activation alone)"
+    ],
+    [
+      "INFO",
+      "first response, new session, feature-rag-specialist",
+      "n=8 median 14.5 s, p95 17.7 s (end to end through kagent: activation + turn; not activation alone)"
+    ],
+    [
+      "INFO",
+      "first response, resume session, feature-rag-specialist",
+      "n=8 median 14.2 s, p95 14.4 s (end to end through kagent: activation + turn; not activation alone)"
+    ],
+    [
+      "PASS",
+      "both new and resumed sessions measured",
+      "new, resume"
+    ],
+    [
+      "INFO",
+      "worker business-agents-deployment-7c4b97b9f4-5szts",
+      "drift-specialist=2 actors, feature-rag-specialist=6 actors"
+    ],
+    [
+      "INFO",
+      "worker business-agents-deployment-7c4b97b9f4-np6fz",
+      "drift-specialist=3 actors, feature-rag-specialist=6 actors"
+    ],
+    [
+      "PASS",
+      "actors placed on WorkerPool pods",
+      "2 worker pod(s)"
+    ],
+    [
+      "PASS",
+      "an actor seen both Running and Suspended (suspend/resume)",
+      "5 actor(s)"
+    ],
+    [
+      "INFO",
+      "peak running session actors / worker pods",
+      "1 / 2 (a worker runs one actor at a time; idle actors are suspended to snapshots)"
+    ],
+    [
+      "PASS",
+      "one worker hosted actors of both Specialists (sharing)",
+      "business-agents-deployment-7c4b97b9f4-5szts, business-agents-deployment-7c4b97b9f4-np6fz"
+    ]
+  ]
+}

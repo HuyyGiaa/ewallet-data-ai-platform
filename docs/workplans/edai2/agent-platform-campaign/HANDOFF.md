@@ -433,7 +433,7 @@ PKG-W.
 
 ## Final remediation `rem-20261116T050511Z` (2026-11-16): current state
 
-Results: [AGENT_PLATFORM_COMPLETION.md §6](../../../edai2/agents/AGENT_PLATFORM_COMPLETION.md#6-final-remediation-rem-20261116t050511z).
+Results: [AGENT_PLATFORM_EVIDENCE.md](../../../edai2/agents/AGENT_PLATFORM_EVIDENCE.md) (the earlier completion page was removed in the 2026-11-20 consolidation).
 
 - **Deployed:**
   - `llm-agent` rev 52, with 3 BYO images from `21994c03`.
@@ -450,8 +450,8 @@ Results: [AGENT_PLATFORM_COMPLETION.md §6](../../../edai2/agents/AGENT_PLATFORM
 
 ## Final integration `agi-20261115T145608Z` (2026-11-15/16): read this first
 
-Results: [AGENT_PLATFORM_COMPLETION.md](../../../edai2/agents/AGENT_PLATFORM_COMPLETION.md). Owner replay:
-[OWNER_AGENT_PLATFORM_EVIDENCE_REPLAY.md](../../../edai2/agents/OWNER_AGENT_PLATFORM_EVIDENCE_REPLAY.md), helper
+Results: [AGENT_PLATFORM_EVIDENCE.md](../../../edai2/agents/AGENT_PLATFORM_EVIDENCE.md). Owner replay:
+[AGENT_PLATFORM_OPERATIONS.md](../../../edai2/agents/AGENT_PLATFORM_OPERATIONS.md), helper
 `scripts/llm_agent/agent_replay.sh`. Raw evidence: `~/ewallet-evidence/agents/integration/agi-20261115T145608Z/` with
 `SHA256SUMS.txt`, mirrored in `docs/evidence/edai2/agents/agi-20261115T145608Z/`.
 

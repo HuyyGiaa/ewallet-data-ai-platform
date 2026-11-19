@@ -1,0 +1,40 @@
+{
+  "verdict": "PASS",
+  "rows": [
+    [
+      "PASS",
+      "ScaledObject ewallet-agents/fraud-coordinator configured and Ready",
+      "kind=ScaledObject Ready=True Active=False Paused=False Fallback=False min/max 2/3"
+    ],
+    [
+      "PASS",
+      "HPA owned by ewallet-agents/fraud-coordinator",
+      "fraud-coordinator: current/desired 2/2"
+    ],
+    [
+      "PASS",
+      "ScaledObject ewallet-sandbox/business-agents-workerpool configured and Ready",
+      "kind=ScaledObject Ready=True Active=False Paused=False Fallback=False min/max 2/3"
+    ],
+    [
+      "PASS",
+      "HPA owned by ewallet-sandbox/business-agents-workerpool",
+      "business-agents-workerpool: current/desired 2/2"
+    ],
+    [
+      "PASS",
+      "Coordinator replicas",
+      "spec 2, ready 2"
+    ],
+    [
+      "PASS",
+      "WorkerPool replicas",
+      "spec 2, status 2"
+    ],
+    [
+      "INFO",
+      "scale-out / scale-in",
+      "not assessed: read-only state; observed only by `autoscale`"
+    ]
+  ]
+}

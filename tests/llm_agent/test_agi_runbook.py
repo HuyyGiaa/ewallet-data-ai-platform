@@ -21,7 +21,6 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 RUNBOOK = ROOT / "docs/runbooks/edai2/AGENT_INTEGRATION_EVIDENCE_RUNBOOK.md"
-CONTRACTS = ROOT / "docs/edai2/agents/AGENT_INTEGRATION_CONTRACTS.md"   # archived AGI-era contract map
 FENCE = re.compile(r"^( *)```bash\n(.*?)^\1```", re.S | re.M)
 TOOLS = {
     "scripts/llm_agent/agi_probe.py": ("script", ("request", "mcp", "a2a-route")),
@@ -136,18 +135,6 @@ class RunbookTests(unittest.TestCase):
         agi14 = text[text.index("### AGI-14"):text.index("## Stage 5")]
         self.assertIn("**not** evidence for row 27", agi14)
         self.assertNotRegex(agi14, r"Rubric:[^\n]*\b25[–-]27\b")
-        contracts = CONTRACTS.read_text(encoding="utf-8")
-        matrix = contracts[contracts.index("## 8. Evidence-to-rubric matrix"):]
-        separate = matrix[matrix.index("Requirements that stay separate"):]
-        for row in ("18", "19", "20", "22", "25", "27", "34"):
-            with self.subTest(row=row):
-                self.assertRegex(separate, rf"\n\| {row}\b")
-        agi_table = matrix[:matrix.index("Requirements that stay separate")]
-        agi_rows = [line.split("|")[1:3] for line in agi_table.splitlines() if re.match(r"\| \d\d \|", line)]
-        self.assertEqual(len(agi_rows), 14)
-        for number, primary in agi_rows:
-            with self.subTest(agi=number.strip()):
-                self.assertNotRegex(primary, r"\b27\b", "no AGI item is primary evidence for Substrate")
 
 
 @unittest.skipUnless(shutil.which("bash"), "bash required")

@@ -1,0 +1,100 @@
+{
+  "verdict": "PASS",
+  "rows": [
+    [
+      "PASS",
+      "replica timeline samples",
+      "141"
+    ],
+    [
+      "PASS",
+      "Coordinator (ewallet-agents/fraud-coordinator) 2 -> 3 -> 2",
+      "first 2, peak 3, last 2; series 2x7 3x124 2x10"
+    ],
+    [
+      "PASS",
+      "WorkerPool (ewallet-sandbox/business-agents) 2 -> 3 -> 2",
+      "first 2, peak 3, last 2; series 2x7 3x128 2x6"
+    ],
+    [
+      "INFO",
+      "added worker startup (pod created -> Ready)",
+      "business-agents-deployment-7c4b97b9f4-np6fz 3 s"
+    ],
+    [
+      "PASS",
+      "Substrate actor samples",
+      "109"
+    ],
+    [
+      "INFO",
+      "worker business-agents-deployment-7c4b97b9f4-5szts",
+      "27 actors placed, 2 seen Running"
+    ],
+    [
+      "INFO",
+      "worker business-agents-deployment-7c4b97b9f4-hr9hk",
+      "26 actors placed, 4 seen Running"
+    ],
+    [
+      "INFO",
+      "worker business-agents-deployment-7c4b97b9f4-np6fz (added during the run)",
+      "47 actors placed, 3 seen Running"
+    ],
+    [
+      "PASS",
+      "the added worker executed Sandbox actors",
+      "business-agents-deployment-7c4b97b9f4-np6fz: 3 Running"
+    ],
+    [
+      "PASS",
+      "load harness exit code",
+      "0"
+    ],
+    [
+      "PASS",
+      "workload results",
+      "100/100 tasks completed, availability 100.0 %, states {'completed': 100}"
+    ],
+    [
+      "INFO",
+      "task latency and throughput (end to end through the Coordinator)",
+      "p50 43.5 s, p95 148.4 s, mean 59.3 s, throughput 0.131 task/s"
+    ],
+    [
+      "PASS",
+      "resource usage samples (kubectl top)",
+      "18 pod(s)"
+    ],
+    [
+      "INFO",
+      "peak usage ewallet-agents/fraud-coordinator-85f4449954-8d88n",
+      "cpu 20m, memory 77Mi"
+    ],
+    [
+      "INFO",
+      "peak usage ewallet-agents/fraud-coordinator-85f4449954-znwmz",
+      "cpu 223m, memory 85Mi"
+    ],
+    [
+      "INFO",
+      "peak usage ewallet-agents/fraud-coordinator-85f4449954-zzctv",
+      "cpu 21m, memory 78Mi"
+    ],
+    [
+      "INFO",
+      "peak usage ewallet-sandbox/business-agents-deployment-7c4b97b9f4-5szts",
+      "cpu 253m, memory 20Mi"
+    ],
+    [
+      "INFO",
+      "peak usage ewallet-sandbox/business-agents-deployment-7c4b97b9f4-hr9hk",
+      "cpu 242m, memory 20Mi"
+    ],
+    [
+      "INFO",
+      "peak usage ewallet-sandbox/business-agents-deployment-7c4b97b9f4-np6fz",
+      "cpu 286m, memory 9Mi"
+    ]
+  ]
+}

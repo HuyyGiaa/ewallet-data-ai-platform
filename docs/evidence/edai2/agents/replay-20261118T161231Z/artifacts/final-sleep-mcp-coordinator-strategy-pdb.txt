@@ -1,0 +1,8 @@
+ewallet-agents/fraud-coordinator ready 2 / 2 {'maxSurge': 1, 'maxUnavailable': 0}
+ewallet-mcp/drift-mcp ready 2 / 2 {'maxSurge': 1, 'maxUnavailable': 0}
+ewallet-mcp/feature-rag-mcp ready 2 / 2 {'maxSurge': 1, 'maxUnavailable': 0}
+NAMESPACE        NAME                                    MIN AVAILABLE   MAX UNAVAILABLE   ALLOWED DISRUPTIONS   AGE
+ewallet-agents   fraud-coordinator                       1               N/A               1                     17d
+ewallet-mcp      drift-mcp                               1               N/A               1                     18d
+ewallet-mcp      feature-rag-mcp                         1               N/A               1                     4d5h
+kube-system      filestore-lock-release-controller-pdb   N/A             1                 1                     28d

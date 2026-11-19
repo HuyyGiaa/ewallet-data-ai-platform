@@ -25,7 +25,6 @@ from ops.llm_agent import replay_verdict as rv
 ROOT = Path(__file__).resolve().parents[2]
 FIX = ROOT / "tests/fixtures/agent_replay"
 SCRIPT = ROOT / "scripts/llm_agent/agent_replay.sh"
-RUNBOOK = ROOT / "docs/edai2/agents/OWNER_AGENT_PLATFORM_EVIDENCE_REPLAY.md"
 CTX = "gke_test_ctx"
 MUTATING = re.compile(r"\b(apply|delete|patch|scale|annotate|label|create|edit|replace|rollout|cordon|drain|taint)\b")
 
@@ -666,67 +665,6 @@ def test_stop_pf_kills_only_its_own_port_forwards(env, tmp_path):
     finally:
         for p in (ours, unrelated, old_style):
             p.kill()
-
-
-# ------------------------------------------------------------------ the runbook
-
-def test_runbook_required_steps_name_no_retired_resource_or_stale_procedure():
-    text = RUNBOOK.read_text()
-    required = text.split("## Reference: history", 1)[0]
-    for stale in ("sleep_20261106T163042Z --nodes", "scale deploy/feature-rag-mcp", "3 Agents `BYO`",
-                  "3 ScaledObjects", "feature-rag-specialist)'", "annotate scaledobject", "not implemented yet",
-                  "has no span", "registry_catalog publish", "mcp-token-drift-specialist", "mcp-token-feature-rag-specialist"):
-        assert stale not in required, stale
-    assert "lc-20261117T002220Z/final-sleep/recovery-manifest" in required and "--nodes 5" in required
-    assert "business-agents-workerpool" in required and "kagent-controller" in required
-    assert "REPLAY_EXPERIMENT_APPROVED" in required and "LIVE_VERIFICATION_PENDING" in required
-
-
-def test_runbook_cloud_lab_and_helper_commands_exist():
-    text = RUNBOOK.read_text()
-    cloud_lab = (ROOT / "ops/gcp/cloud_lab.py").read_text()
-    for command in set(re.findall(r"cloud_lab\.py (?:--kubeconfig \S+ )?([a-z-]+)", text)):
-        assert f'"{command}"' in cloud_lab, command
-    for flag in set(re.findall(r"cloud_lab\.py [^\n]*", text)):
-        for name in re.findall(r"(--[a-z-]+)", flag):
-            assert f'"{name}"' in cloud_lab, name
-    helper = SCRIPT.read_text()
-    for command in set(re.findall(r"agent_replay\.sh ([a-z][a-z0-9-]*)", text)):
-        assert re.search(rf"^\s+{re.escape(command)}\)", helper, re.M), command
-
-
-def test_runbook_screenshot_vocabulary_is_defined_once_and_has_no_historical_substitute():
-    """Every screenshot named in the runbook phases is defined once in the checklist; no H (historical) class."""
-    runbook = RUNBOOK.read_text()
-    body, rest = runbook.split("## Screenshot checklist", 1)
-    checklist = rest.split("## Reference: history", 1)[0]
-    defined = re.findall(r"^\| `(AGENT_[A-H]\d{2}_[A-Z0-9_]+\.png)` \| ([MC]) \|", checklist, re.M)
-    names = [name for name, _ in defined]
-    assert len(names) == len(set(names)) and names, "each screenshot is defined once"
-    assert set(re.findall(r"AGENT_[A-H]\d{2}_[A-Z0-9_]+\.png", body)) == set(names), "phases and checklist agree"
-    assert not re.search(r"^\| [^|]+ \| H \|", checklist, re.M), "no historical row stands in for a screenshot"
-    classes = dict(defined)
-    for name in ("AGENT_D02_GRAFANA_KEDA_SIGNALS.png", "AGENT_D03_COORDINATOR_SCALEOUT.png", "AGENT_D04_WORKERPOOL_SCALEOUT.png",
-                 "AGENT_D05_THIRD_WORKER_ACTORS.png", "AGENT_D06_AUTOSCALE_VERDICT.png", "AGENT_D07_RESOURCE_USAGE.png",
-                 "AGENT_E01_FLEET_SESSIONS.png"):
-        assert classes.get(name) == "M", name
-    assert not re.search(r"AGENT_\d{2}", runbook), "no screenshot names from the earlier scheme"
-
-
-def test_runbook_makes_b_prime_the_single_primary_autoscaling_replay():
-    text = RUNBOOK.read_text()
-    required = text.split("## Reference: history", 1)[0]
-    assert "REPLAY_AUTOSCALE_APPROVED=yes scripts/llm_agent/agent_replay.sh autoscale" in required
-    assert "100 typed business tasks, concurrency 8, at most\n900 s" in required
-    assert "REPLAY_LOAD_APPROVED=yes scripts/llm_agent/agent_replay.sh keda demo" not in required, "demo is not in the sequence"
-    assert "export REPLAY_DIR=" in required and required.count("export REPLAY_DIR=") == 1
-    assert "~/ewallet-evidence/agents/replay/$RC-recovery-manifest" not in required
-    # --also-approve only from not_covered: no fixed PDB on the sleep commands
-    for line in re.findall(r"cloud_lab\.py sleep [^\n]*(?:\n  [^\n]*)*", required):
-        assert "--also-approve ewallet-mcp" not in line, line
-    assert '"${ALSO[@]}"' in required and "not_covered" in required
-    assert '--manifest "$P"' in required and 'verify --expect sleep --manifest "$REPLAY_DIR/recovery-manifest"' in required
-    assert "agent_experiment.sh exp-c5-keda optimized run \"$REPLAY_DIR/agr06\"" not in required
 
 
 def test_evidence_commands_need_one_campaign_replay_dir(env):

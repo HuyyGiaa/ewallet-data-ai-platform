@@ -1,0 +1,60 @@
+{
+  "verdict": "PASS",
+  "rows": [
+    [
+      "PASS",
+      "registry_catalog readback exit code",
+      "0"
+    ],
+    [
+      "PASS",
+      "strict readback verdict",
+      "PASS"
+    ],
+    [
+      "PASS",
+      "catalog entries (3 Agents, 2 MCPServers, 3 Prompts)",
+      "{'Prompt': 3, 'MCPServer': 2, 'Agent': 3}"
+    ],
+    [
+      "PASS",
+      "Prompt    drift-specialist-system v2",
+      "matches"
+    ],
+    [
+      "PASS",
+      "Prompt    feature-rag-specialist-system v5",
+      "matches"
+    ],
+    [
+      "PASS",
+      "Prompt    fraud-coordinator-system v5",
+      "matches"
+    ],
+    [
+      "PASS",
+      "MCPServer drift-mcp v1",
+      "matches"
+    ],
+    [
+      "PASS",
+      "MCPServer feature-rag-mcp v1",
+      "matches"
+    ],
+    [
+      "PASS",
+      "Agent     drift-specialist 1.1.0",
+      "matches"
+    ],
+    [
+      "PASS",
+      "Agent     feature-rag-specialist 1.0.0",
+      "matches"
+    ],
+    [
+      "PASS",
+      "Agent     fraud-coordinator 1.1.0",
+      "matches"
+    ]
+  ]
+}

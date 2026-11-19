@@ -1,0 +1,16 @@
+{
+  "verdict": "COMPLETE",
+  "reasons": [],
+  "case": "drift",
+  "elapsed_seconds": 16.61,
+  "state": "completed",
+  "contract_version": "g3-orchestration/v2",
+  "status": "complete",
+  "workflow": "drift",
+  "unavailable": [],
+  "request_id": "replay-drift-20261119T105717Z-92363-a96074cc",
+  "specialists": {
+    "drift-specialist": "ok"
+  },
+  "psi": 0.0004795543627041439
+}

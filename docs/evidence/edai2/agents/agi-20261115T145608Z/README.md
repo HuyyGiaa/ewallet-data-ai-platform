@@ -20,5 +20,5 @@ No Secret, token or credential is included; the mirrored files were checked agai
 | `final-regression/` | final bounded regression: status, 5 E2E with hops, KEDA after P4, shared workers, failover, Sandbox concurrency reproduction |
 | `approvals.txt`, `blockers.txt` | every owner approval and blocker, with timestamps |
 
-Owner screenshots are captured later with [the replay runbook](../../../../edai2/agents/OWNER_AGENT_PLATFORM_EVIDENCE_REPLAY.md).
+Owner screenshots were captured later by the owner replay; see [AGENT_PLATFORM_EVIDENCE.md](../../../../edai2/agents/AGENT_PLATFORM_EVIDENCE.md).
 They are stored apart from this directory, which holds only Claude-run results.

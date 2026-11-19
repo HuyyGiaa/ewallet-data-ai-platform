@@ -1,0 +1,110 @@
+{
+  "verdict": "PASS",
+  "rows": [
+    [
+      "PASS",
+      "Helm llm-agent",
+      "revision 60 deployed: after the lf-agents cleanup (LIVE_VERIFICATION_PENDING)"
+    ],
+    [
+      "PASS",
+      "Helm llm-agent-mcp",
+      "revision 19 deployed: current"
+    ],
+    [
+      "PASS",
+      "Coordinator Deployment fraud-coordinator (KEDA floor 2)",
+      "ready 2/2"
+    ],
+    [
+      "PASS",
+      "Gateway a2a-gateway",
+      "ready 1/1"
+    ],
+    [
+      "PASS",
+      "Gateway mcp-gateway",
+      "ready 1/1"
+    ],
+    [
+      "PASS",
+      "Gateway agentgateway",
+      "ready 1/1"
+    ],
+    [
+      "PASS",
+      "kagent Agents: only the BYO Coordinator",
+      "fraud-coordinator type=BYO Ready=True"
+    ],
+    [
+      "PASS",
+      "SandboxAgent feature-rag-specialist",
+      "conditions {'Accepted': 'True', 'Ready': 'True'}"
+    ],
+    [
+      "PASS",
+      "SandboxAgent drift-specialist",
+      "conditions {'Accepted': 'True', 'Ready': 'True'}"
+    ],
+    [
+      "PASS",
+      "WorkerPool business-agents (shared)",
+      "spec/status 2/2"
+    ],
+    [
+      "PASS",
+      "MCP server ewallet-mcp/feature-rag-mcp",
+      "ready 2/2, RollingUpdate maxUnavailable=0, PDB=yes"
+    ],
+    [
+      "PASS",
+      "MCP server ewallet-mcp/drift-mcp",
+      "ready 2/2, RollingUpdate maxUnavailable=0, PDB=yes"
+    ],
+    [
+      "PASS",
+      "KEDA ScaledObject ewallet-agents/fraud-coordinator",
+      "Ready=True Active=False Paused=False Fallback=False; min/max 2/3; HPA fraud-coordinator current/desired 2/2"
+    ],
+    [
+      "PASS",
+      "KEDA ScaledObject ewallet-sandbox/business-agents-workerpool",
+      "Ready=True Active=False Paused=False Fallback=False; min/max 2/3; HPA business-agents-workerpool current/desired 2/2"
+    ],
+    [
+      "PASS",
+      "retired Deployment ewallet-agents/feature-rag-specialist absent",
+      "absent (expected)"
+    ],
+    [
+      "PASS",
+      "retired Deployment ewallet-agents/drift-specialist absent",
+      "absent (expected)"
+    ],
+    [
+      "PASS",
+      "retired Deployment ewallet-agents/drift-mcp absent",
+      "absent (expected)"
+    ],
+    [
+      "PASS",
+      "retired Deployment ewallet-agents/feature-rag-mcp absent",
+      "absent (expected)"
+    ],
+    [
+      "PASS",
+      "retired ScaledObject ewallet-agents/feature-rag-specialist absent",
+      "absent (expected)"
+    ],
+    [
+      "PASS",
+      "retired ScaledObject ewallet-agents/drift-specialist absent",
+      "absent (expected)"
+    ],
+    [
+      "WARN",
+      "container restarts",
+      "ewallet-agents/a2a-gateway-9d966f55c-p7hgz=3, ewallet-agents/agentgateway-59ccc6b6db-s7gp2=2, ewallet-agents/mcp-gateway-69658c7f94-q2kcx=3, ewallet-agents/otel-collector-7dd78d64d4-pqg9l=2"
+    ]
+  ]
+}
