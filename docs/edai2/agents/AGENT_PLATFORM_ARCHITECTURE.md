@@ -72,7 +72,7 @@ flowchart LR
   coord & a2agw & mcpgw & frm & drm -.-> otel["OTel Collector -> Prometheus / Tempo; Alloy -> Loki"]
 ```
 
-The diagram shows only components that run in the deployed release and appear in the live status output ([evidence §3](AGENT_PLATFORM_EVIDENCE.md#3-gke-workloads-and-platform-status)):
+The diagram shows only components that run in the deployed release and appear in the live status output ([evidence §2](AGENT_PLATFORM_EVIDENCE.md#2-gke-workloads-and-platform-status)):
 
 - Feature-RAG and Drift Specialists run **only** as SandboxAgents. The earlier Deployment-based Specialists were removed from the release, and the status check confirms they are absent.
 - The Coordinator is the only kagent `Agent`, of type `BYO`.
@@ -182,7 +182,7 @@ spec:
 ```
 
 - **One pool shared by both Specialists.** Both SandboxAgents reference `business-agents`, so actors of either Specialist run on the same 2–3 warm workers. This is the Agent Fleet pattern: many agent sessions share a few warm workers instead of one Deployment per agent.
-- **One running actor per worker.** A worker runs one actor at a time, and idle actors stay suspended as snapshots in GCS (`snapshotsConfig.location`, [fleet L70](../../../infra/kubernetes/agent-sandbox/fleet.yaml.tmpl#L70)). The G6 replay measured this directly ([evidence §11](AGENT_PLATFORM_EVIDENCE.md#11-shared-workerpool-g6)).
+- **One running actor per worker.** A worker runs one actor at a time, and idle actors stay suspended as snapshots in GCS (`snapshotsConfig.location`, [fleet L70](../../../infra/kubernetes/agent-sandbox/fleet.yaml.tmpl#L70)). The G6 replay measured this directly ([evidence §10](AGENT_PLATFORM_EVIDENCE.md#10-shared-workerpool-g6)).
 - **Autoscaling.** The worker count scales 2 → 3 on the Coordinator's Sandbox demand signal ([operations §5](AGENT_PLATFORM_OPERATIONS.md#5-keda-for-the-shared-workerpool)).
 - **Project patch.** The patch [`substrate-0.0.9-sandbox-egress-proxy.patch`](../../../infra/kubernetes/kagent-pilot/patches/substrate-0.0.9-sandbox-egress-proxy.patch) adds the in-worker egress proxy (§13). It also makes failed or cancelled activations tear their sandbox down (namespace manifest comment, [L31–L34](../../../infra/kubernetes/agent-sandbox/namespace.yaml#L31-L34)).
 
@@ -224,7 +224,7 @@ Specialists never connect to an MCP server directly. Both call the **MCP Gateway
   - removal of client-supplied `authorization` and identity headers;
   - an `mcpAuthorization` rule set.
 - **Deployed authorization mode.** The deployed mode is `mcpGateway.authorizationMode: ambient-backend-token` ([L76–L81](../../../infra/helm/llm-agent-platform/templates/policy-gateways.yaml#L76-L81)). In this mode the gateway rule is `true` and authorization happens in two other places:
-  - **Who may connect:** Istio ztunnel AuthorizationPolicies admit only the exact caller SPIFFE identities. For the Sandbox workers this is `ewallet-sandbox/sa/default` on port 8080 ([evidence §9](AGENT_PLATFORM_EVIDENCE.md#9-security-and-negative-tests)).
+  - **Who may connect:** Istio ztunnel AuthorizationPolicies admit only the exact caller SPIFFE identities. For the Sandbox workers this is `ewallet-sandbox/sa/default` on port 8080 ([evidence §8](AGENT_PLATFORM_EVIDENCE.md#8-security-and-negative-tests)).
   - **Which tools:** the MCP server's credential subject and tool grants decide which tools each caller may use.
   - **Other mode:** in the alternative `mesh-identity` mode, the rules check `source.identity` and `mcp.tool.name` per Specialist. With no caller configured they deny every tool.
 - **Shared client:** the MCP client used by both Specialists ([`official_session`](../../../ai_platform/llm_agent/byo_mcp.py#L70), [`SheddingAwareSession`](../../../ai_platform/llm_agent/byo_mcp.py#L98)) propagates W3C trace context. It repeats only a request the gateway shed with HTTP 429.
@@ -241,14 +241,15 @@ Specialists never connect to an MCP server directly. Both call the **MCP Gateway
 
 [`create_drift_app`](../../../ai_platform/llm_agent/tools/service.py#L562) serves `drift_detection` from checksum-pinned baseline and window artifacts when `EWALLET_DRIFT_SOURCE=artifact` ([`drift_sources.py`](../../../ai_platform/llm_agent/tools/drift_sources.py)). Otherwise it fails closed.
 
-- **Network policy:** NetworkPolicies in `ewallet-mcp` open only `feature-rag-mcp` → Feast Redis and → KServe `fraud-detector` egress. They are visible in the live object list ([evidence §9](AGENT_PLATFORM_EVIDENCE.md#9-security-and-negative-tests)).
-- **Tracing:** the Tempo trace of a fraud request shows the actual call chain ([evidence §13](AGENT_PLATFORM_EVIDENCE.md#13-tempo-distributed-tracing)): `mcp.tool fraud_scoring` → `fraud_inference.request` → `feast-online.get_features` → `kserve.infer`.
+- **Network policy:** NetworkPolicies in `ewallet-mcp` open only `feature-rag-mcp` → Feast Redis and → KServe `fraud-detector` egress. They are visible in the live object list ([evidence §8](AGENT_PLATFORM_EVIDENCE.md#8-security-and-negative-tests)).
+- **Tracing:** the Tempo trace of a fraud request shows the actual call chain ([evidence §12](AGENT_PLATFORM_EVIDENCE.md#12-tempo-distributed-tracing)): `mcp.tool fraud_scoring` → `fraud_inference.request` → `feast-online.get_features` → `kserve.infer`.
 
 ## 12. ModelConfig and the LLM integration
 
 The only LLM call in the business path is the Coordinator's **natural-language intake**. It turns a free-text question into a typed request, choosing a tool such as `fraud-evidence` and extracting its arguments. The live release enables it (`naturalLanguageIntake.enabled: true`).
 
 - **Typed requests skip the LLM.** Typed requests (`CALL_AGENT=` / `REQUEST_JSON=`), such as those of the load benchmarks, never reach the LLM.
+- **The Specialists do not call the LLM.** The Drift Specialist has no LLM path at all. The Feature-RAG module can build a planner, but only when `EWALLET_NL_INTAKE_ENABLED=true` ([`planner_from_env`](../../../ai_platform/llm_agent/nl_intake.py#L363-L375)); the SandboxAgent sets it to `false` and receives no LLM credential (fleet manifest [L8](../../../infra/kubernetes/agent-sandbox/fleet.yaml.tmpl#L8), [L47](../../../infra/kubernetes/agent-sandbox/fleet.yaml.tmpl#L47)). Both Specialists execute the typed requests the Coordinator sends.
 - **Where the LLM config comes from.** The LLM settings come from the single global kagent **`ModelConfig` `ewallet-global-llm`**:
   - provider OpenAI-compatible;
   - model `ewallet-fraud-llm`;
@@ -257,10 +258,11 @@ The only LLM call in the business path is the Coordinator's **natural-language i
   - [`resolve_from_env`](../../../ai_platform/llm_agent/model_config.py#L230)
   - [`fetch_model_config`](../../../ai_platform/llm_agent/model_config.py#L170)
   - [`parse_model_config`](../../../ai_platform/llm_agent/model_config.py#L109)
-- **Fail closed.** A missing, inconsistent or non-agentgateway ModelConfig stops the agent ([`validate_base_url`](../../../ai_platform/llm_agent/model_config.py#L85)). The API key stays a Secret reference that the kubelet resolves.
+- **Deployed setting.** The release enables this resolver (`modelConfig.byoResolver.enabled: true` from [`agi/agents.yaml`](../../../infra/helm/llm-agent-platform/agi/agents.yaml#L16-L20); the chart default is `false`). The Coordinator Deployment read back during the replay carries `EWALLET_LLM_CONFIG_SOURCE=modelconfig` and the projected token volume `kube-api-modelconfig` ([`templates/agents.yaml` L201–L209](../../../infra/helm/llm-agent-platform/templates/agents.yaml#L201-L209), [L303–L326](../../../infra/helm/llm-agent-platform/templates/agents.yaml#L303-L326)). The read-only Role is bound only to the `fraud-coordinator` ServiceAccount ([`templates/modelconfig-rbac.yaml`](../../../infra/helm/llm-agent-platform/templates/modelconfig-rbac.yaml)).
+- **Fail closed.** A missing, inconsistent or non-agentgateway ModelConfig stops the agent ([`validate_base_url`](../../../ai_platform/llm_agent/model_config.py#L85)). The planner is built when the executor is constructed ([`byo_coordinator.py` L204–L207](../../../ai_platform/llm_agent/byo_coordinator.py#L204-L207)), so a resolution failure stops the Coordinator at start-up. The API key stays a Secret reference that the kubelet resolves.
 - **PII screening.** Prompts are screened for PII before the call. The results are counted in `llm_prompts_screened_total` and `llm_prompt_pii_detections_total` ([`agent_metrics.py` L61–L66](../../../ai_platform/llm_agent/agent_metrics.py#L61-L66), [`prompt_safety.py`](../../../ai_platform/llm_agent/prompt_safety.py)).
 
-The kagent chat screenshot shows this path end to end ([evidence §5](AGENT_PLATFORM_EVIDENCE.md#5-kagent-chat)): "LLM chọn công cụ `fraud-evidence` (695+264 token)", followed by the grounded Feature-RAG evidence.
+The kagent chat screenshot shows this path end to end ([evidence §4](AGENT_PLATFORM_EVIDENCE.md#4-kagent-chat)): "LLM chọn công cụ `fraud-evidence` (695+264 token)", followed by the grounded Feature-RAG evidence. The LLM serving side (vLLM, agentgateway, the ModelConfig fields and the resolver's validation rules) is documented in [LLM_PLATFORM.md §5](../llm/LLM_PLATFORM.md#5-global-modelconfig-and-byo-resolver).
 
 ## 13. Security and sandbox isolation
 
@@ -276,7 +278,7 @@ The kagent chat screenshot shows this path end to end ([evidence §5](AGENT_PLAT
 | MCP credentials and grants | Per-subject service tokens; per-tool grants; ungranted tools hidden | [`security.py`](../../../ai_platform/llm_agent/tools/security.py) |
 | Telemetry redaction | OTel Collector deletes auth headers and prompt and completion attributes, hashes user IDs and masks card, email and phone patterns before export | [`templates/otel-collector.yaml` L105–L124](../../../infra/helm/llm-agent-platform/templates/otel-collector.yaml#L105-L124) |
 
-The live policies and negative tests are in [evidence §9](AGENT_PLATFORM_EVIDENCE.md#9-security-and-negative-tests).
+The live policies and negative tests are in [evidence §8](AGENT_PLATFORM_EVIDENCE.md#8-security-and-negative-tests).
 
 ## 14. Source-code map
 

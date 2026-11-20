@@ -35,7 +35,7 @@ This page covers how the Agent Platform is deployed on GKE and how it is run: au
 | Warm worker fleet | Agent Substrate `ate.dev` v0.0.9 with the project egress patch ([architecture §8](AGENT_PLATFORM_ARCHITECTURE.md#8-agent-substrate-and-the-shared-workerpool)) |
 | Autoscaler | KEDA ScaledObjects that own HPAs |
 
-The live workload list in the GKE console shows these Deployments, with a Status column of OK and the pod counts below ([evidence §3](AGENT_PLATFORM_EVIDENCE.md#3-gke-workloads-and-platform-status)):
+The live workload list in the GKE console shows these Deployments, with a Status column of OK and the pod counts below ([evidence §2](AGENT_PLATFORM_EVIDENCE.md#2-gke-workloads-and-platform-status)):
 
 - **Agents:** `fraud-coordinator` 2/2 and `business-agents-deployment` (the WorkerPool workers) 2/2.
 - **MCP servers:** `drift-mcp` 2/2 and `feature-rag-mcp` 2/2.
@@ -50,7 +50,7 @@ The live workload list in the GKE console shows these Deployments, with a Status
 | `llm-agent` (`default`) | **60** (2026-11-19 09:00:45Z) | [`infra/helm/llm-agent-platform`](../../../infra/helm/llm-agent-platform/) | Coordinator Agent, A2A/MCP/LLM gateways, ModelConfig, Coordinator KEDA, network policies, observability stack, vLLM, idempotency Redis, into `ewallet-agents` |
 | `llm-agent-mcp` (`ewallet-mcp`) | **19** (2026-11-17 01:29:12Z) | the same chart, MCP profile | `feature-rag-mcp` and `drift-mcp` (2 replicas each, PDBs) |
 
-The revisions come from `helm history`, printed by the replay status check ([evidence §3](AGENT_PLATFORM_EVIDENCE.md#3-gke-workloads-and-platform-status)).
+The revisions come from `helm history`, printed by the replay status check ([evidence §2](AGENT_PLATFORM_EVIDENCE.md#2-gke-workloads-and-platform-status)).
 
 The release is built from the chart [`values.yaml`](../../../infra/helm/llm-agent-platform/values.yaml), [`values-gke-cpu.yaml`](../../../infra/helm/llm-agent-platform/values-gke-cpu.yaml) and these profile overlays:
 
@@ -167,7 +167,7 @@ KEDA ScaledObject ──owns──> HPA ──/scale──> Deployment fraud-coo
   - `fraud-coordinator` (target `0/2 (avg)` at rest);
   - `business-agents-workerpool` (target `0/1 (avg)` at rest).
 
-  This is visible in the G5 baseline screenshot ([evidence §10](AGENT_PLATFORM_EVIDENCE.md#10-keda-autoscaling-g5)).
+  This is visible in the G5 baseline screenshot ([evidence §9](AGENT_PLATFORM_EVIDENCE.md#9-keda-autoscaling-g5)).
 
 ## 7. Actor lifecycle: Running, Suspended, Resume
 
@@ -180,7 +180,7 @@ The lifecycle of one Specialist session is set by kagent 0.10.3 SandboxAgents on
 3. The actor runs on a free worker of `business-agents` (state **Running**). It executes the Specialist module and calls the MCP Gateway.
 4. After the response, the actor is **Suspended**: its state is checkpointed to the snapshot location `gs://ate-snapshots/ewallet-sandbox/<campaign>/<agent>/` ([fleet L70–L71](../../../infra/kubernetes/agent-sandbox/fleet.yaml.tmpl#L70-L71)), which frees the worker for another actor.
 
-The G6 replay observed this lifecycle on the live pool ([evidence §11](AGENT_PLATFORM_EVIDENCE.md#11-shared-workerpool-g6)):
+The G6 replay observed this lifecycle on the live pool ([evidence §10](AGENT_PLATFORM_EVIDENCE.md#10-shared-workerpool-g6)):
 
 - 5 actors were seen both Running and Suspended.
 - Both new and resumed sessions were measured.
@@ -190,7 +190,7 @@ The G6 replay observed this lifecycle on the live pool ([evidence §11](AGENT_PL
 
 When KEDA raises `WorkerPool.spec.replicas` from 2 to 3, Substrate creates one more worker pod in `business-agents-deployment`. As soon as it is Ready, the next actor activations can be placed on it. Nothing restarts and no agent is redeployed: the SandboxAgents point at the pool, not at specific pods.
 
-In G5 ([evidence §10](AGENT_PLATFORM_EVIDENCE.md#10-keda-autoscaling-g5)):
+In G5 ([evidence §9](AGENT_PLATFORM_EVIDENCE.md#9-keda-autoscaling-g5)):
 
 - **Startup:** the added worker `business-agents-deployment-7c4b97b9f4-np6fz` went from created to Ready in 3 s. It held its first `feature-rag-specialist` actor at 19:24:11Z.
 - **Placement:** by the end of the run it had been assigned 47 of the run's actors, and 3 were seen Running on it.
@@ -231,7 +231,7 @@ What these settings do:
 
 The live values were read back before the final sleep: both MCP Deployments and the Coordinator had `{'maxSurge': 1, 'maxUnavailable': 0}`, 2/2 ready, and PDBs `minAvailable 1` with `ALLOWED DISRUPTIONS 1`. See [`final-sleep-mcp-coordinator-strategy-pdb.txt`](../../evidence/edai2/agents/replay-20261118T161231Z/artifacts/final-sleep-mcp-coordinator-strategy-pdb.txt).
 
-This replay verified the **configuration** only. It did not roll the MCP Deployments under load. The evidence page separates configuration from the one failover experiment recorded earlier ([evidence §15](AGENT_PLATFORM_EVIDENCE.md#15-mcp-availability-and-rollingupdate)).
+This replay verified the **configuration** only. It did not roll the MCP Deployments under load. The evidence page separates configuration from the one failover experiment recorded earlier ([evidence §14](AGENT_PLATFORM_EVIDENCE.md#14-mcp-availability-and-rollingupdate)).
 
 ## 11. Gateway security policies
 
@@ -367,5 +367,5 @@ These limitations were observed during the campaign, or follow directly from the
 6. **HTTP 405 on the MCP route.**
    - Observed: Tempo shows one error span, `GET /feature-rag/mcp` → HTTP 405, inside traces whose tool calls succeed.
    - Code fact: the MCP server registers only `POST /mcp`.
-   - Status: recorded as a finding ([evidence §13](AGENT_PLATFORM_EVIDENCE.md#13-tempo-distributed-tracing)); the cause was not investigated further.
+   - Status: recorded as a finding ([evidence §12](AGENT_PLATFORM_EVIDENCE.md#12-tempo-distributed-tracing)); the cause was not investigated further.
 7. **The failure panel is not zero.** During the G6 session run, the Grafana panel "Agent/tool failures (spanmetrics)" showed a non-zero rate even though every one of the 24 session turns succeeded. Which spans it counts was not analysed in this campaign.
