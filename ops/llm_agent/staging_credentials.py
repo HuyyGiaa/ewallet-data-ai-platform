@@ -14,6 +14,7 @@ discovery token beside the staging MCP Gateway). The names and the auth-table fo
     python -m ops.llm_agent.staging_credentials plan                       # offline: names, keys, consumers
     python -m ops.llm_agent.staging_credentials create --context CTX [--approve]
     python -m ops.llm_agent.staging_credentials revoke --context CTX [--approve]
+    ... create|revoke --profile managed-prompt ...   # the two LLM keys of values-staging-managed-prompt.yaml
 
 ``create`` refuses when any of the Secrets already exists (no overwrite, no partial merge); ``revoke`` deletes
 exactly these names in the two staging namespaces.
@@ -81,12 +82,35 @@ SECRETS: tuple[SecretSpec, ...] = tuple(_mcp_specs()) + (
                "RAG Feast Online target, DB 4"),
 )
 # Rendered (the ModelConfig CR names it) but read only by natural-language intake, which Level A keeps off.
+# Both are created only for the Managed Prompt profile (values-staging-managed-prompt.yaml): the staging
+# agentgateway and the staging vLLM. Fresh values; the production agentgateway/vLLM keys are never read.
 LLM_ONLY = (SecretSpec(AGENTS, "agentgateway-client-key-staging", ("api-key",), "ModelConfig/ewallet-staging-llm",
-                       "LLM Gateway client key: managed-prompt / NL runtime test only"),)
+                       "LLM Gateway client key: managed-prompt / NL runtime test only"),
+            SecretSpec(AGENTS, "vllm-api-key-staging", ("api-key",), "Deployment/vllm-primary, Deployment/agentgateway",
+                       "staging vLLM API key: managed-prompt runtime test only"))
+PROFILES = {"level-a": SECRETS, "managed-prompt": LLM_ONLY}
 
 
 def _token() -> str:
     return secrets.token_urlsafe(TOKEN_BYTES)
+
+
+def _documents(specs: Sequence[SecretSpec], values: Mapping[str, Mapping[str, str]]) -> list[dict]:
+    documents = []
+    for spec in specs:
+        data = values[spec.name]
+        if tuple(sorted(data)) != tuple(sorted(spec.keys)):
+            raise RuntimeError(f"{spec.name} keys {sorted(data)} != {sorted(spec.keys)}")
+        documents.append({"apiVersion": "v1", "kind": "Secret", "type": "Opaque", "immutable": True,
+                          "metadata": {"name": spec.name, "namespace": spec.namespace, "labels": LABELS},
+                          "stringData": dict(data)})
+    return documents
+
+
+def llm_manifests(token: Callable[[], str] = _token) -> list[dict]:
+    """The Managed Prompt profile's two LLM keys, fresh and distinct (in memory only)."""
+
+    return _documents(LLM_ONLY, {spec.name: {"api-key": token()} for spec in LLM_ONLY})
 
 
 def manifests(token: Callable[[], str] = _token) -> list[dict]:
@@ -109,15 +133,7 @@ def manifests(token: Callable[[], str] = _token) -> list[dict]:
     values["feast-staging-redis-auth"] = {"password": feast}
     values["feast-online-redis-staging-fraud"] = {"connection_string": f"{FEAST_REDIS_HOST},password={feast},db=1"}
     values["feast-online-redis-staging-rag"] = {"connection_string": f"{FEAST_REDIS_HOST},password={feast},db=4"}
-    documents = []
-    for spec in SECRETS:
-        data = values[spec.name]
-        if tuple(sorted(data)) != tuple(sorted(spec.keys)):
-            raise RuntimeError(f"{spec.name} keys {sorted(data)} != {sorted(spec.keys)}")
-        documents.append({"apiVersion": "v1", "kind": "Secret", "type": "Opaque", "immutable": True,
-                          "metadata": {"name": spec.name, "namespace": spec.namespace, "labels": LABELS},
-                          "stringData": data})
-    return documents
+    return _documents(SECRETS, values)
 
 
 def plan() -> list[dict]:
@@ -134,11 +150,11 @@ def _kubectl(context: str, args: Sequence[str], payload: str | None = None) -> s
     return result
 
 
-def existing(context: str) -> list[str]:
+def existing(context: str, specs: Sequence[SecretSpec] = SECRETS) -> list[str]:
     found = []
-    for namespace in (AGENTS, SANDBOX):
+    for namespace in sorted({s.namespace for s in specs}):
         names = _kubectl(context, ["-n", namespace, "get", "secret", "-o", "name"]).stdout.split()
-        wanted = {s.name for s in SECRETS if s.namespace == namespace}
+        wanted = {s.name for s in specs if s.namespace == namespace}
         found += [f"{namespace}/{name.split('/', 1)[1]}" for name in names if name.split("/", 1)[1] in wanted]
     return sorted(found)
 
@@ -151,16 +167,17 @@ def main(argv: list[str] | None = None) -> int:
         command = commands.add_parser(name)
         command.add_argument("--context", required=True)
         command.add_argument("--approve", action="store_true")
+        command.add_argument("--profile", choices=sorted(PROFILES), default="level-a")
     args = parser.parse_args(argv)
     if args.command == "plan":
         print(json.dumps(plan(), indent=1))
         return 0
     try:
-        present = existing(args.context)
+        present = existing(args.context, PROFILES[args.profile])
         if args.command == "create":
             if present:
                 raise RuntimeError(f"refusing to overwrite or merge: already present {present}")
-            documents = manifests()
+            documents = manifests() if args.profile == "level-a" else llm_manifests()
             print(json.dumps([f"{d['metadata']['namespace']}/{d['metadata']['name']}" for d in documents]))
             if args.approve:
                 payload = json.dumps({"apiVersion": "v1", "kind": "List", "items": documents})

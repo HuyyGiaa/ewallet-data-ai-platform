@@ -574,14 +574,17 @@
         "scripts/llm_agent/registry_local_smoke.sh",
         "tests/llm_agent/test_registry_catalog.py",
         "tests/llm_agent/test_prompt_registry.py",
-        "tests/llm_agent/test_registry_security_probe.py"
+        "tests/llm_agent/test_registry_security_probe.py",
+        "infra/helm/llm-agent-platform/values-staging-managed-prompt.yaml",
+        "scripts/ci/managed_prompt_verify.py",
+        "tests/llm_agent/test_managed_prompt_profile.py"
       ],
       "dependencies": [],
       "python_projects": [
         "infra/docker/llm-agent-tooling"
       ],
       "commands": [
-        "uv run --locked --project infra/docker/llm-agent-tooling python -m unittest tests.llm_agent.test_registry_catalog tests.llm_agent.test_prompt_registry tests.llm_agent.test_registry_security_probe tests.llm_agent.test_agents_chart"
+        "uv run --locked --project infra/docker/llm-agent-tooling python -m unittest tests.llm_agent.test_registry_catalog tests.llm_agent.test_prompt_registry tests.llm_agent.test_registry_security_probe tests.llm_agent.test_agents_chart tests.llm_agent.test_managed_prompt_profile"
       ],
       "build_artifact": null
     },

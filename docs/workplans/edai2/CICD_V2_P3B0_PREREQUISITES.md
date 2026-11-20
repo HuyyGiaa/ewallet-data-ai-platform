@@ -374,6 +374,41 @@ Lệnh này đưa release về revision đã ghi lúc upgrade, sau đó dừng c
    - Thu hồi credential: `staging_credentials revoke --approve`.
    - Watch scope (rollback PKG-KS) và namespace staging chỉ gỡ khi owner muốn.
 
+### G.7 Managed Prompt runtime (row 34; operator chạy, mỗi bước ghi cần owner duyệt)
+
+Profile riêng, tách khỏi Level A: `values-staging.yaml` + [`values-staging-managed-prompt.yaml`](../../../infra/helm/llm-agent-platform/values-staging-managed-prompt.yaml). Chạy **sau** G.6 (Level A đã cleanup, `helm list -n ewallet-agents-staging` rỗng) và sau job `edai2-cd-prompt-management` ở release SHA (job này publish `fraud-coordinator-intake/v1` lên Prompt Registry). Không dùng lại vLLM production: agentgateway production xác thực bằng `vllm-api-key` production, và muốn tới nó phải sửa NetworkPolicy/AuthorizationPolicy production. Staging dùng agentgateway và vLLM CPU riêng (cùng image model theo digest, model nằm trong image nên không cần egress). Thêm khoảng 2,1 vCPU / 6,2 GiB (vLLM 2 CPU / 6 GiB, agentgateway 100m); `vllm-fallback` có 0 replica.
+
+```bash
+A=ewallet-agents-staging; W=<campaign dir>/managed-prompt; mkdir -p $W
+# 1. Two fresh staging LLM keys (agentgateway client key, vLLM API key); refuses if either exists
+python -m ops.llm_agent.staging_credentials create --profile managed-prompt --context $CTX --approve
+# 2. Registry -> validated ConfigMap (GET only on the Registry; SHA checked against prompts/manifest.json)
+kubectl --context $CTX -n ewallet-prompts port-forward svc/prompt-registry-agentregistry 12121:12121 &
+python3 ops/llm_agent/prompt_registry.py configmap --agent fraud-coordinator-intake --version v1 \
+  --name fraud-coordinator-intake-prompt-managed --namespace $A > $W/prompt-configmap.yaml
+kubectl --context $CTX create -f $W/prompt-configmap.yaml
+# 3. Install the profile. The eight --set-string values are the ones agent_staging.helm_install_args uses in G.6:
+#    the g3-byo-coordinator and mcp-tools digests of the release SHA, and the staging drift ConfigMaps' values.
+HELM_DRIVER=configmap helm --kube-context $CTX install llm-agent-staging infra/helm/llm-agent-platform -n $A \
+  -f infra/helm/llm-agent-platform/values-staging.yaml -f infra/helm/llm-agent-platform/values-staging-managed-prompt.yaml \
+  <the eight --set-string values> --wait --timeout 20m
+# 4. One natural-language request through the staging A2A Gateway (same request as agent_replay.sh nl-fraud)
+kubectl --context $CTX -n $A port-forward svc/a2a-gateway 18183:8083 &
+#    POST message/send to http://127.0.0.1:18183/api/a2a/ewallet-agents-staging/fraud-coordinator/ -> $W/answer.json
+# 5. Read-only captures and the verdict (MANAGED_PROMPT_RUNTIME_VERIFIED, exit 0)
+kubectl --context $CTX -n $A get cm fraud-coordinator-intake-prompt-managed -o json > $W/configmap.json
+kubectl --context $CTX -n $A logs deploy/fraud-coordinator --all-containers > $W/coordinator.log
+python3 scripts/ci/managed_prompt_verify.py --configmap $W/configmap.json --coordinator-log $W/coordinator.log \
+  --answer $W/answer.json --out $W/managed-prompt-verdict.json
+# 6. Cleanup (always, also after a failure)
+HELM_DRIVER=configmap helm --kube-context $CTX uninstall llm-agent-staging -n $A --wait
+kubectl --context $CTX -n $A delete cm fraud-coordinator-intake-prompt-managed --ignore-not-found
+python -m ops.llm_agent.staging_credentials revoke --profile managed-prompt --context $CTX --approve
+HELM_DRIVER=configmap helm --kube-context $CTX list -n $A        # empty
+```
+
+Verdict cần đủ 4 kiểm tra: ConfigMap đúng prompt đã pin (version, SHA-256 tính lại trên `system.md`, source `registry`, namespace staging); Coordinator log `nl_prompt.resolved` đúng prompt và không có prompt khác; có `POST /v1/chat/completions` tới **agentgateway staging** với HTTP 200 (URL production làm FAIL); câu trả lời có lựa chọn tool của LLM với số token > 0 (`nl-intake/v1`). Nếu Level A fleet không còn, câu trả lời có thể là `partial`, verdict vẫn đúng vì chỉ đánh giá chuỗi prompt → LLM.
+
 ## H. Hotfix sau review của owner
 
 ### H.1 Kiểm tra endpoint của seed Redis

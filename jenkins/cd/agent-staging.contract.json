@@ -52,7 +52,8 @@
       }
     ],
     "llm_only_secrets": [
-      "agentgateway-client-key-staging"
+      "agentgateway-client-key-staging",
+      "vllm-api-key-staging"
     ]
   },
   "drift_artifacts": {
