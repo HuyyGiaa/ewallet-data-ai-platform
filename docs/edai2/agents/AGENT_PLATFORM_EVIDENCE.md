@@ -6,67 +6,57 @@ This page reports what the owner-run evidence replay `replay-20261118T161231Z` o
 - **Saved results:** the verdict files written by the replay commands are copied into [`docs/evidence/edai2/agents/replay-20261118T161231Z/`](../../evidence/edai2/agents/replay-20261118T161231Z/). Provenance and SHA-256 are in its [README](../../evidence/edai2/agents/replay-20261118T161231Z/README.md).
 - **Clock:** terminal timestamps are UTC (`Z`). Grafana axes and the `watch` header use the laptop clock, ICT = UTC+7.
 
-**Section structure.** Every section follows the same order: *requirement → implementation → evidence → observed result → conclusion*. The implementation details are in [AGENT_PLATFORM_ARCHITECTURE.md](AGENT_PLATFORM_ARCHITECTURE.md) and [AGENT_PLATFORM_OPERATIONS.md](AGENT_PLATFORM_OPERATIONS.md).
+Each section starts from the mechanism being exercised, points to the code that implements it, and then reports what the replay observed and what that observation does and does not establish. The full design is in [AGENT_PLATFORM_ARCHITECTURE.md](AGENT_PLATFORM_ARCHITECTURE.md), and the deployment and runtime configuration are in [AGENT_PLATFORM_OPERATIONS.md](AGENT_PLATFORM_OPERATIONS.md).
 
-**Scope.** This page covers only what this campaign verified. CI/CD and A/B testing of agents are outside this campaign and are not assessed here.
+**Scope.** This page covers only what this campaign observed on the Agent Platform. CI/CD and A/B testing of agents are outside this campaign. The LLM serving platform has its own report and evidence in [LLM_PLATFORM.md](../llm/LLM_PLATFORM.md); none of the measurements below describe LLM serving performance.
 
 ## Contents
 
 1. [Results summary](#1-results-summary)
-2. [Rubric coverage](#2-rubric-coverage)
-3. [GKE workloads and platform status](#3-gke-workloads-and-platform-status)
-4. [Agent Registry](#4-agent-registry)
-5. [kagent chat](#5-kagent-chat)
-6. [Fraud workflow](#6-fraud-workflow)
-7. [Drift workflow](#7-drift-workflow)
-8. [Combined workflow](#8-combined-workflow)
-9. [Security and negative tests](#9-security-and-negative-tests)
-10. [KEDA autoscaling (G5)](#10-keda-autoscaling-g5)
-11. [Shared WorkerPool (G6)](#11-shared-workerpool-g6)
-12. [Grafana agent metrics](#12-grafana-agent-metrics)
-13. [Tempo distributed tracing](#13-tempo-distributed-tracing)
-14. [Loki logs](#14-loki-logs)
-15. [MCP availability and RollingUpdate](#15-mcp-availability-and-rollingupdate)
-16. [Observed limitations](#16-observed-limitations)
+2. [GKE workloads and platform status](#2-gke-workloads-and-platform-status)
+3. [Agent Registry](#3-agent-registry)
+4. [kagent chat](#4-kagent-chat)
+5. [Fraud workflow](#5-fraud-workflow)
+6. [Drift workflow](#6-drift-workflow)
+7. [Combined workflow](#7-combined-workflow)
+8. [Security and negative tests](#8-security-and-negative-tests)
+9. [KEDA autoscaling (G5)](#9-keda-autoscaling-g5)
+10. [Shared WorkerPool (G6)](#10-shared-workerpool-g6)
+11. [Grafana agent metrics](#11-grafana-agent-metrics)
+12. [Tempo distributed tracing](#12-tempo-distributed-tracing)
+13. [Loki logs](#13-loki-logs)
+14. [MCP availability and RollingUpdate](#14-mcp-availability-and-rollingupdate)
+15. [Observed limitations](#15-observed-limitations)
 
 ## 1. Results summary
 
-| Area | Observed result | Verdict |
+The replay found the deployed platform in the shape the architecture describes. Helm releases 60 and 19 were `deployed`. The BYO `fraud-coordinator` was the only kagent `Agent` and ran with 2 replicas. Both Specialists existed only as SandboxAgents on the shared WorkerPool `business-agents` (2 workers), and none of the six retired Deployments or ScaledObjects remained. The Agent Registry held exactly the deployed catalog: 3 Agents, 2 MCP servers and 3 Prompts, all 8 entries matching on a strict read-back.
+
+The three business workflows (fraud, drift and combined) each completed through the full chain Coordinator → A2A Gateway → SandboxAgent → MCP Gateway → MCP server. The MCP servers recorded the Sandbox credential subject as the caller. A natural-language question asked in the kagent UI returned the same fraud probability as the typed run, so the LLM selected the tool but did not produce the business values. Three security probes were each denied as expected, and each had a control request that succeeded.
+
+Under a 100-task load (G5), the Coordinator and the WorkerPool scaled independently from 2 to 3 replicas and back to 2. The added worker executed Sandbox actors, so the scale-out added execution capacity rather than an idle pod. In the session test (G6), two warm workers served 24 turns of both Specialists, and each worker hosted actors of both agents.
+
+The MCP servers ran 2 ready replicas each, with a roll strategy that never removes a ready replica first and a PDB that keeps one. This replay read that configuration but did not exercise a rollout or a failover. Observability data was present in Grafana, Tempo and Loki, with two open observations: an HTTP 405 span inside each traced Feature-RAG MCP session (§12), and a non-zero failure panel during a fully successful run (§11).
+
+| Measurement | Observed value | Section |
 |---|---|---|
-| Platform status (G4) | Helm 60/19; Coordinator 2/2; gateways 1/1; only the BYO Coordinator is a kagent Agent; both SandboxAgents Ready/Accepted; WorkerPool 2/2; MCP 2/2 each with RollingUpdate `maxUnavailable=0` and PDB; both ScaledObjects Ready and not paused; retired Deployments absent | **PASS** |
-| Agent Registry (G4) | 3 Agents, 2 MCP servers, 3 Prompts; strict readback: all 8 catalog entries match | **PASS** |
-| kagent chat (G4) | Natural-language fraud question answered with Feast features, KServe probability and 3 RAG citations | **Observed** |
-| Fraud, drift and combined E2E (G4) | 3/3 `COMPLETE` through Coordinator → A2A Gateway → SandboxAgent → MCP Gateway → MCP; MCP `actor_id` equals the Sandbox credential subject | **PASS** |
-| Security negatives (G3) | 3/3 expected denials, each with a passing control | **PASS** |
-| **G5** KEDA autoscaling | 100/100 typed tasks at concurrency 8. Coordinator **2 → 3 → 2**, WorkerPool **2 → 3 → 2**. The added worker executed Sandbox actors. p50 43.5 s, p95 148.4 s, 0.131 task/s | **PASS** |
-| **G6** shared WorkerPool | 24/24 session turns. New and resumed sessions of both Specialists on 2 shared workers. 5 actors seen Running and Suspended. First response ≈ 14 s median | **PASS** |
-| MCP availability | `drift-mcp` and `feature-rag-mcp` 2/2, RollingUpdate `maxUnavailable=0`, `maxSurge=1`, PDB `minAvailable=1` | **Configuration verified**; no rollout or failover test in this replay |
-| Observability | Grafana agent panels populated during G6; Tempo trace of a Sandbox turn with MCP → Feast/KServe spans; Loki gateway logs with `trace.id` | **Observed**; one HTTP 405 finding (§13) |
+| G5 tasks completed (typed, concurrency 8) | 100/100 | [§9](#9-keda-autoscaling-g5) |
+| G5 Coordinator replicas | 2 → 3 → 2 | [§9](#9-keda-autoscaling-g5) |
+| G5 WorkerPool replicas | 2 → 3 → 2; the added worker held 47 actors (3 seen Running) | [§9](#9-keda-autoscaling-g5) |
+| G5 time from load start to scale-out | 55.3 s | [§9](#9-keda-autoscaling-g5) |
+| G5 task latency through the Coordinator | p50 43.5 s, p95 148.4 s | [§9](#9-keda-autoscaling-g5) |
+| G5 throughput | 0.131 task/s | [§9](#9-keda-autoscaling-g5) |
+| G6 session turns | 24/24 ok on 2 workers | [§10](#10-shared-workerpool-g6) |
+| G6 first response, median (new and resumed sessions) | 13.7–14.5 s | [§10](#10-shared-workerpool-g6) |
+| G6 actors seen both Running and Suspended | 5 | [§10](#10-shared-workerpool-g6) |
+| Registry catalog | 3 Agents, 2 MCP servers, 3 Prompts; 8/8 entries match | [§3](#3-agent-registry) |
+| E2E workflow elapsed time (fraud / drift / combined) | 17.181 s / 16.61 s / 17.045 s | [§5](#5-fraud-workflow)–[§7](#7-combined-workflow) |
+| Security probes | 3/3 denied, 3/3 controls accepted | [§8](#8-security-and-negative-tests) |
+| MCP replicas and roll strategy | 2/2 per server; `maxUnavailable=0`, `maxSurge=1`; PDB `minAvailable=1` | [§14](#14-mcp-availability-and-rollingupdate) |
 
-## 2. Rubric coverage
+## 2. GKE workloads and platform status
 
-The table lists only the EDAI-2 rubric rows that this Agent campaign tested. Row numbers follow [RUBRIC_EVIDENCE_INDEX.md](../RUBRIC_EVIDENCE_INDEX.md).
-
-| Row | Requirement (short) | What this campaign shows | Section |
-|---|---|---|---|
-| 8 / 21 / 26 | Agent registry deployed; publish the agents and the Coordinator | Registry UI lists the 3 Agents, 2 MCP servers and 3 Prompts; strict readback matches the deployed catalog | [§4](#4-agent-registry) |
-| 16 | FastAPI + Pydantic + health checks | MCP servers are FastAPI apps with Pydantic tool inputs; agents expose `/health` and `/ready`. The replay exercised them through the E2E calls and pod readiness. No separate 422 or health probe screenshot was taken in this replay | [Architecture §3, §10](AGENT_PLATFORM_ARCHITECTURE.md#10-mcp-gateway-and-mcp-tools) |
-| 17 | Async concurrent processing | Combined workflow delegates to both Specialists concurrently (two A2A POSTs 1.5 s apart, one task) | [§8](#8-combined-workflow) |
-| 18 | MCP tool on K8s with Helm, RollingUpdate, auto fallback | Helm release `llm-agent-mcp`, 2 replicas per server, RollingUpdate `0/1`, PDB; client failover in code. **Failover not re-run in this replay** | [§15](#15-mcp-availability-and-rollingupdate) |
-| 19 | Agent using the MCP tool, multi-replica, auto-scale | The Specialists run on the KEDA-scaled shared WorkerPool. G5 scaled it 2 → 3 → 2 and the added worker ran Specialist actors. The capacity that scales is the worker pool, not per-Specialist Deployments | [§10](#10-keda-autoscaling-g5) |
-| 20 | Agent in a Sandbox | gVisor ActorTemplates; worker SA without token or RBAC (`can-i get secrets` = no); per-agent egress allow-list | [§9](#9-security-and-negative-tests) |
-| 22 | Second agent: Online Feature Store + KServe inference + RAG | Feature-RAG Specialist returned Feast features, KServe `fraud_probability` and RAG citations (chat and E2E); the trace shows `feast-online.get_features` and `kserve.infer` | [§5](#5-kagent-chat), [§6](#6-fraud-workflow), [§13](#13-tempo-distributed-tracing) |
-| 23 | MCP Gateway (agentgateway) + security/policy | All MCP traffic via `mcp-gateway` routes; ztunnel AuthorizationPolicies and backend credential grants; negatives | [§9](#9-security-and-negative-tests) |
-| 24 | A2A Gateway (agentgateway) + security/policy | All delegations via `a2a-gateway` per-agent routes; undeclared route → 404 | [§6–§9](#9-security-and-negative-tests) |
-| 25 | Coordinator multi-replica + auto-scale + kagent chat | Coordinator 2 replicas, KEDA 2 → 3 → 2 under load; kagent UI chat | [§5](#5-kagent-chat), [§10](#10-keda-autoscaling-g5) |
-| 27 | Warm pool / Substrate (many agents, few workers) | G6: 24 session turns of 2 Specialists on 2 workers; G5: 100 tasks on 2–3 workers | [§11](#11-shared-workerpool-g6) |
-| 51 | Agent telemetry (calls per agent and tool, failures) | Grafana spanmetrics panels per agent and failures; per-tool spans in Tempo | [§12](#12-grafana-agent-metrics) |
-
-## 3. GKE workloads and platform status
-
-- **Requirement:** all Agent Platform workloads run on GKE in the expected shape.
-- **Implementation:** [operations §1–§3](AGENT_PLATFORM_OPERATIONS.md#1-deployment-layout-on-gke).
-- **Check:** `agent_replay.sh status` (read-only).
+The platform spans three namespaces: `ewallet-agents` holds the Coordinator, the three gateways, the observability stack and the LLM runtime; `ewallet-sandbox` holds the SandboxAgents and the WorkerPool; `ewallet-mcp` holds the MCP servers ([operations §1–§3](AGENT_PLATFORM_OPERATIONS.md#1-deployment-layout-on-gke)). The read-only command `agent_replay.sh status` checks that this layout is what is running.
 
 [![GKE workloads](../../evidence/edai2/agents/replay-20261118T161231Z/screenshots/AGENT_A01_GKE_WORKLOADS.png)](../../evidence/edai2/agents/replay-20261118T161231Z/screenshots/AGENT_A01_GKE_WORKLOADS.png)
 
@@ -102,15 +92,13 @@ The table lists only the EDAI-2 rubric rows that this Agent campaign tested. Row
 
 The saved verdict is [`g4-platform-status-verdict.json`](../../evidence/edai2/agents/replay-20261118T161231Z/artifacts/g4-platform-status-verdict.json).
 
-**Conclusion:** the deployed topology matches the architecture. The Specialists exist only as SandboxAgents, and the Coordinator is the only kagent Agent.
+The important point in this read-back is the runtime type of each agent. Only the Coordinator is a kagent `Agent` with a Deployment. The two Specialists have no Deployment of their own: they exist as `SandboxAgent` resources whose actors run on the shared WorkerPool, which is the topology described in [architecture §7](AGENT_PLATFORM_ARCHITECTURE.md#7-kagent-and-sandboxagent).
 
-## 4. Agent Registry
+## 3. Agent Registry
 
-- **Requirement:** an Agent Registry is deployed, and the agents, MCP servers and prompts are published to it for governance (rows 8, 21, 26).
-- **Implementation:**
-  - the catalog is built from the chart values and prompts by [`registry_catalog.build_catalog`](../../../ops/llm_agent/registry_catalog.py#L126);
-  - it is published with [`publish`](../../../ops/llm_agent/registry_catalog.py#L233) and checked with [`readback`](../../../ops/llm_agent/registry_catalog.py#L279) (GET only);
-  - the registry runs in namespace `ewallet-prompts`.
+<a id="4-agent-registry"></a>
+
+The Agent Registry (namespace `ewallet-prompts`) is the governance catalog of the agents, MCP servers and system prompts. The catalog is not written by hand: [`registry_catalog.build_catalog`](../../../ops/llm_agent/registry_catalog.py#L126) derives it from the chart values and the prompt files, [`publish`](../../../ops/llm_agent/registry_catalog.py#L233) writes it, and [`readback`](../../../ops/llm_agent/registry_catalog.py#L279) compares the registry with the expected catalog using GET requests only. The replay ran only the read-back.
 
 [![Registry agents](../../evidence/edai2/agents/replay-20261118T161231Z/screenshots/AGENT_A04_REGISTRY_AGENTS.png)](../../evidence/edai2/agents/replay-20261118T161231Z/screenshots/AGENT_A04_REGISTRY_AGENTS.png)
 
@@ -143,14 +131,13 @@ The saved verdict is [`g4-platform-status-verdict.json`](../../evidence/edai2/ag
 - Every entry is `matches`.
 - `verdict: PASS` ([`g4-registry-readback-verdict.json`](../../evidence/edai2/agents/replay-20261118T161231Z/artifacts/g4-registry-readback-verdict.json)).
 
-**Conclusion:** the registry holds exactly the deployed catalog. Nothing was published during the replay; the readback only compared.
+Because the catalog is generated from the same values that render the release, a match means the registry describes the deployed agents, including their runtime (BYO Agent versus SandboxAgent) and their tool grants. Nothing was published during the replay.
 
-## 5. kagent chat
+## 4. kagent chat
 
-- **Requirement:** use the kagent UI to chat with the Coordinator (row 25).
-- **Implementation:**
-  - natural-language intake through the global ModelConfig ([architecture §12](AGENT_PLATFORM_ARCHITECTURE.md#12-modelconfig-and-the-llm-integration));
-  - delegation to the Feature-RAG Specialist.
+<a id="5-kagent-chat"></a>
+
+An analyst talks to the platform through the kagent UI, which sends the message to the Coordinator over A2A. A free-text question goes through the Coordinator's natural-language intake ([`_intake`](../../../ai_platform/llm_agent/byo_coordinator.py#L260)): one LLM call, configured from the global ModelConfig, turns the question into a typed request ([architecture §12](AGENT_PLATFORM_ARCHITECTURE.md#12-modelconfig-and-the-llm-integration)). From there the request follows the same deterministic path as a typed request, delegating to the Feature-RAG Specialist.
 
 [![kagent chat](../../evidence/edai2/agents/replay-20261118T161231Z/screenshots/AGENT_B01_KAGENT_CHAT_FRAUD.png)](../../evidence/edai2/agents/replay-20261118T161231Z/screenshots/AGENT_B01_KAGENT_CHAT_FRAUD.png)
 
@@ -168,14 +155,11 @@ The saved verdict is [`g4-platform-status-verdict.json`](../../evidence/edai2/ag
 - three RAG citations, `policy-payment-anomaly:0000`, `policy-account-takeover:0000` and `policy-account-takeover:0001`, each with its retrieval score and `repo://data/llm_agent/rag/fraud-policy-v1/…` source;
 - the footer: status `ok`, request ID `nl-dab5cb9a…`, "LLM chọn công cụ `fraud-evidence` (695+264 token)", contract `nl-intake/v1`.
 
-**Conclusion:** the UI chat reaches the Coordinator. The LLM was used only to select the tool and extract its arguments (695 prompt and 264 completion tokens). The probability is identical to the typed E2E result in §6, which shows that the business values come from the tools.
+The footer shows the only work the LLM did: it chose the `fraud-evidence` tool and extracted its arguments, using 695 prompt and 264 completion tokens. The fraud probability is identical to the typed E2E run in §5, which did not use the LLM. The business values therefore come from Feast, KServe and the RAG index through the MCP tools, not from generated text.
 
-## 6. Fraud workflow
+## 5. Fraud workflow
 
-- **Requirement:** the Coordinator delegates a fraud investigation through the A2A Gateway to the Feature-RAG Specialist. The Specialist uses Feast, KServe and RAG through the MCP Gateway (rows 22, 24).
-- **Implementation:**
-  - [`_handle_fraud`](../../../ai_platform/llm_agent/programmatic_coordinator.py#L615);
-  - [`FeatureRagMCPClient`](../../../ai_platform/llm_agent/byo_feature_rag_specialist.py#L215).
+For a fraud investigation, the Coordinator's [`_handle_fraud`](../../../ai_platform/llm_agent/programmatic_coordinator.py#L615) builds a typed request and sends it through the A2A Gateway to the Feature-RAG SandboxAgent, on the exact route `/api/a2a-sandboxes/ewallet-sandbox/feature-rag-specialist/`. Inside the actor, [`FeatureRagMCPClient`](../../../ai_platform/llm_agent/byo_feature_rag_specialist.py#L215) opens an MCP session through the MCP Gateway and calls the three approved tools. `agent_replay.sh e2e fraud` sends one typed request and then checks the logs of every hop.
 
 [![Fraud hops](../../evidence/edai2/agents/replay-20261118T161231Z/screenshots/AGENT_B02_FRAUD_HOPS.png)](../../evidence/edai2/agents/replay-20261118T161231Z/screenshots/AGENT_B02_FRAUD_HOPS.png)
 
@@ -189,14 +173,11 @@ The saved verdict is [`g4-platform-status-verdict.json`](../../evidence/edai2/ag
 
 The saved verdict is [`g4-e2e-fraud-verdict.json`](../../evidence/edai2/agents/replay-20261118T161231Z/artifacts/g4-e2e-fraud-verdict.json).
 
-**Conclusion:** the fraud path uses only the declared gateway routes. The MCP server identifies the caller by the Sandbox credential subject.
+Every hop used a declared gateway route, and the MCP server identified the caller as `sandbox-feature-rag`, the subject of the Sandbox credential. The tool calls were therefore authorised for the SandboxAgent itself, not for a shared or legacy identity.
 
-## 7. Drift workflow
+## 6. Drift workflow
 
-- **Requirement:** the Coordinator delegates drift analysis to the Drift Specialist.
-- **Implementation:**
-  - [`_handle_workflow`](../../../ai_platform/llm_agent/programmatic_coordinator.py#L728);
-  - [`DriftMCPClient`](../../../ai_platform/llm_agent/byo_drift_specialist.py#L146).
+A drift request takes the same route shape to the Drift Specialist. The Coordinator's workflow handler [`_handle_workflow`](../../../ai_platform/llm_agent/programmatic_coordinator.py#L728) delegates to `drift-specialist`, whose [`DriftMCPClient`](../../../ai_platform/llm_agent/byo_drift_specialist.py#L146) calls the single tool `drift_detection` through `/drift/mcp`. The Drift Specialist is deterministic and has no LLM path.
 
 [![Drift hops](../../evidence/edai2/agents/replay-20261118T161231Z/screenshots/AGENT_B03_DRIFT_HOPS.png)](../../evidence/edai2/agents/replay-20261118T161231Z/screenshots/AGENT_B03_DRIFT_HOPS.png)
 
@@ -209,12 +190,11 @@ The saved verdict is [`g4-e2e-fraud-verdict.json`](../../evidence/edai2/agents/r
 
 The saved verdict is [`g4-e2e-drift-verdict.json`](../../evidence/edai2/agents/replay-20261118T161231Z/artifacts/g4-e2e-drift-verdict.json).
 
-**Conclusion:** the drift workflow works end to end, and the PSI comes from `drift-mcp`.
+The PSI in the result is the value returned by `drift-mcp`, and the MCP log attributes the call to the Drift Sandbox credential.
 
-## 8. Combined workflow
+## 7. Combined workflow
 
-- **Requirement:** one request uses both Specialists.
-- **Implementation:** [`_handle_workflow`](../../../ai_platform/llm_agent/programmatic_coordinator.py#L728) runs its members in a thread pool.
+A combined request needs evidence from both Specialists. [`_handle_workflow`](../../../ai_platform/llm_agent/programmatic_coordinator.py#L728) submits the members to a thread pool, so the two delegations run concurrently inside one Coordinator task, and the results are merged into one answer.
 
 [![Combined workflow](../../evidence/edai2/agents/replay-20261118T161231Z/screenshots/AGENT_B04_COMBINED_WORKFLOW.png)](../../evidence/edai2/agents/replay-20261118T161231Z/screenshots/AGENT_B04_COMBINED_WORKFLOW.png)
 
@@ -226,12 +206,13 @@ The saved verdict is [`g4-e2e-drift-verdict.json`](../../evidence/edai2/agents/r
 
 The saved verdict is [`g4-e2e-combined-verdict.json`](../../evidence/edai2/agents/replay-20261118T161231Z/artifacts/g4-e2e-combined-verdict.json).
 
-**Conclusion:** the Coordinator combines both evidence sets into one result with the same values as the single-Specialist runs.
+The two delegations started 1.5 s apart and the whole task took 17.0 s, about as long as either single-Specialist run, which is consistent with the members running concurrently. The merged result carries the same PSI and fraud probability as the single-Specialist runs.
 
-## 9. Security and negative tests
+## 8. Security and negative tests
 
-- **Requirement:** agents run in a sandbox (row 20), and the MCP and A2A gateways enforce security policy (rows 23, 24).
-- **Implementation:** [architecture §13](AGENT_PLATFORM_ARCHITECTURE.md#13-security-and-sandbox-isolation) and [operations §11](AGENT_PLATFORM_OPERATIONS.md#11-gateway-security-policies).
+<a id="9-security-and-negative-tests"></a>
+
+Isolation is layered ([architecture §13](AGENT_PLATFORM_ARCHITECTURE.md#13-security-and-sandbox-isolation), [operations §11](AGENT_PLATFORM_OPERATIONS.md#11-gateway-security-policies)). Sandbox actors run under gVisor on workers whose identity has no Kubernetes credential. Traffic between namespaces is denied by default at both Istio and Kubernetes level, and each declared flow admits one principal on one port. On top of that, every MCP call carries a per-subject service token, and the MCP server grants tools per subject. The replay inspected each layer and then sent three requests that should be refused.
 
 [![Sandbox gVisor](../../evidence/edai2/agents/replay-20261118T161231Z/screenshots/AGENT_C01_SANDBOX_GVISOR_RBAC.png)](../../evidence/edai2/agents/replay-20261118T161231Z/screenshots/AGENT_C01_SANDBOX_GVISOR_RBAC.png)
 
@@ -275,25 +256,17 @@ The saved verdict is [`g4-e2e-combined-verdict.json`](../../evidence/edai2/agent
 
 The saved verdict is [`g3-security-negatives-verdict.json`](../../evidence/edai2/agents/replay-20261118T161231Z/artifacts/g3-security-negatives-verdict.json).
 
-**Conclusion:**
+Each probe targets a different layer. A credential issued for one MCP server is rejected by another, so the Feature-RAG Sandbox token cannot be used on the drift route. A credential that may list tools cannot call one it was not granted. The A2A Gateway forwards only declared routes, so the Coordinator cannot be steered to an arbitrary agent. Because each probe has a control that succeeds on the same path, the denials come from policy rather than from a broken route.
 
-- Isolation holds: gVisor actors, no Kubernetes credential on the worker identity, and exact principals on the gateway paths.
-- The negatives show that a credential is bound to its server, that tools are granted per subject and that the A2A Gateway forwards only declared routes.
-- Not tested in this replay: an actor trying to reach a domain outside `allowedDomains` (egress block).
+This replay did not test egress blocking: no actor tried to reach a domain outside `allowedDomains`.
 
-## 10. KEDA autoscaling (G5)
+## 9. KEDA autoscaling (G5)
 
-- **Requirement:** the Coordinator and the agent runtime scale automatically under load (rows 19, 25).
-- **Implementation:**
-  - Coordinator ScaledObject on `ewallet_agent_inflight_tasks`, threshold 2 per replica;
-  - WorkerPool ScaledObject on `ewallet_sandbox_delegations_inflight`, threshold 1 per worker;
-  - both with min 2, max 3 ([operations §4–§6](AGENT_PLATFORM_OPERATIONS.md#4-keda-for-the-fraud-coordinator)).
-- **Method:** the owner ran `REPLAY_AUTOSCALE_APPROVED=yes agent_replay.sh autoscale` once:
-  - 100 typed business tasks (load fixture `agent-load-request`), concurrency 8, at most 900 s, sent to the Coordinator;
-  - the load ran from 19:23:08Z until 19:36:19Z, with exit code 0;
-  - the script then waited for both autoscalers to return to 2.
+<a id="10-keda-autoscaling-g5"></a>
 
-Because the requests are typed, the LLM is not in this path.
+Two autoscalers act on different layers ([operations §4–§6](AGENT_PLATFORM_OPERATIONS.md#4-keda-for-the-fraud-coordinator)). The Coordinator's ScaledObject follows `ewallet_agent_inflight_tasks` with a target of 2 tasks per replica. The WorkerPool's ScaledObject follows `ewallet_sandbox_delegations_inflight` with a target of 1 delegation per worker, because each worker runs one actor at a time. Both are bounded to 2–3 replicas. CPU is not used as a signal: the Coordinator mostly waits on A2A calls, so its CPU barely moves under load.
+
+The owner ran `REPLAY_AUTOSCALE_APPROVED=yes agent_replay.sh autoscale` once. It sent 100 typed business tasks (load fixture `agent-load-request`) to the Coordinator at concurrency 8, with a 900 s limit. The load ran from 19:23:08Z to 19:36:19Z and exited with code 0; the script then waited for both autoscalers to return to 2. The requests were typed, so the LLM was not on this path, and the latencies below do not measure LLM serving.
 
 [![KEDA baseline](../../evidence/edai2/agents/replay-20261118T161231Z/screenshots/AGENT_D01_KEDA_BASELINE.png)](../../evidence/edai2/agents/replay-20261118T161231Z/screenshots/AGENT_D01_KEDA_BASELINE.png)
 
@@ -360,64 +333,58 @@ Because the requests are typed, the LLM is not in this path.
 | 19:40:47Z | `fraud-coordinator` | New size 2, metric below target |
 | 19:41:18Z | `business-agents-workerpool` | New size 2, metric below target |
 
-The saved verdict is [`g5-autoscale-verdict.json`](../../evidence/edai2/agents/replay-20261118T161231Z/artifacts/g5-autoscale-verdict.json), and the per-sample replica timeline is [`g5-autoscale-replica-timeline.txt`](../../evidence/edai2/agents/replay-20261118T161231Z/artifacts/g5-autoscale-replica-timeline.txt).
+The saved verdict (PASS) is [`g5-autoscale-verdict.json`](../../evidence/edai2/agents/replay-20261118T161231Z/artifacts/g5-autoscale-verdict.json), and the per-sample replica timeline is [`g5-autoscale-replica-timeline.txt`](../../evidence/edai2/agents/replay-20261118T161231Z/artifacts/g5-autoscale-replica-timeline.txt). The measurements of the run:
 
-| Check | Result |
+| Metric | Observed value |
 |---|---|
 | Replica timeline samples | 141 |
-| Coordinator `ewallet-agents/fraud-coordinator` | **2 → 3 → 2** (series 2×7, 3×124, 2×10) |
-| WorkerPool `ewallet-sandbox/business-agents` | **2 → 3 → 2** (series 2×7, 3×128, 2×6) |
+| Coordinator `ewallet-agents/fraud-coordinator` replicas | **2 → 3 → 2** (series 2×7, 3×124, 2×10) |
+| WorkerPool `ewallet-sandbox/business-agents` replicas | **2 → 3 → 2** (series 2×7, 3×128, 2×6) |
+| Time from load start to scale-out | 55.3 s ([`g5-load-summary.json`](../../evidence/edai2/agents/replay-20261118T161231Z/artifacts/g5-load-summary.json)) |
 | Added worker startup (pod created → Ready) | `…-np6fz` 3 s |
-| Actor placement (109 Substrate samples) | `…-5szts` 27 actors (2 seen Running); `…-hr9hk` 26 (4 Running); **`…-np6fz` (added) 47 (3 Running)** |
-| Added worker executed Sandbox actors | **PASS** (3 Running) |
+| Actors placed per worker (109 Substrate samples) | `…-5szts` 27 (2 seen Running); `…-hr9hk` 26 (4 Running); **`…-np6fz` (added) 47 (3 Running)** |
 | Load harness exit code | 0 |
-| Workload results | **100/100 completed**, availability 100.0 %, states `{'completed': 100}` |
+| Tasks completed | **100/100**, availability 100.0 %, states `{'completed': 100}` |
 | Task latency, end to end through the Coordinator | p50 **43.5 s**, p95 **148.4 s**, mean 59.3 s |
 | Throughput | **0.131 task/s** |
 | Peak usage (18 pods sampled) | Coordinators 20m/77Mi, **223m**/85Mi, 21m/78Mi; workers 253m/20Mi, 242m/20Mi, 286m/9Mi |
-| Verdict | **PASS** |
 
-**Conclusion.** Both autoscalers reacted to the in-flight signals: the harness measured scale-out 55.3 s after the load started ([`g5-load-summary.json`](../../evidence/edai2/agents/replay-20261118T161231Z/artifacts/g5-load-summary.json)). They held 3 replicas while the load lasted and returned to 2 after it ended. The added worker received and executed Sandbox actors, and all 100 tasks completed.
+**Interpretation.** During the 100-task workload the Coordinator and the shared WorkerPool scaled independently from two to three replicas, each driven by its own in-flight signal, and both returned to two after the demand subsided. The scale-out came 55.3 s after the load started, and the added worker was Ready 3 s after its pod was created. That worker then received 47 actor placements and was seen running Sandbox actors, so the scale-out increased execution capacity rather than creating an idle pod. All 100 tasks completed.
 
-**Interpretation of the latency.** It reflects the capacity cap: 8 concurrent tasks share at most 3 workers that each run one actor at a time. This run does not show a latency improvement over a fixed pool, because no fixed-pool control run was made in this replay.
+The latency reflects the capacity cap: 8 concurrent tasks share at most 3 workers, each of which runs one actor at a time, so tasks queue. The Coordinator's CPU stayed low (peak 223m on one pod), which supports scaling it on in-flight tasks rather than CPU. This run does not show a latency improvement over a fixed pool, because no fixed-pool control run was made in this replay.
 
-## 11. Shared WorkerPool (G6)
+## 10. Shared WorkerPool (G6)
 
-- **Requirement:** a warm pool lets many agent sessions run on few workers (row 27, Agent Fleet).
-- **Implementation:** both SandboxAgents reference WorkerPool `business-agents`. Actors are suspended after each turn and resumed by session ([operations §7](AGENT_PLATFORM_OPERATIONS.md#7-actor-lifecycle-running-suspended-resume)).
-- **Method:** `REPLAY_SESSIONS_APPROVED=yes agent_replay.sh workers` ran sequential sessions of both SandboxAgents from 20:21:34Z to 20:27:49Z. Each session had a new turn and then a resumed turn. Golden snapshot actors were excluded from the counts.
+<a id="11-shared-workerpool-g6"></a>
+
+Both SandboxAgents reference the same WorkerPool, `business-agents`. kagent creates one actor per A2A session; Substrate places it on a warm worker, suspends it to a snapshot after each response and resumes it when the session continues ([operations §7](AGENT_PLATFORM_OPERATIONS.md#7-actor-lifecycle-running-suspended-resume)). Many sessions of different agents can therefore take turns on a small number of workers.
+
+`REPLAY_SESSIONS_APPROVED=yes agent_replay.sh workers` ran sequential sessions of both SandboxAgents from 20:21:34Z to 20:27:49Z. Each session had a new turn followed by a resumed turn. Golden snapshot actors were excluded from the counts.
 
 [![Fleet sessions lifecycle](../../evidence/edai2/agents/replay-20261118T161231Z/screenshots/AGENT_E01_E02_FLEET_SESSIONS_LIFECYCLE.png)](../../evidence/edai2/agents/replay-20261118T161231Z/screenshots/AGENT_E01_E02_FLEET_SESSIONS_LIFECYCLE.png)
 
-**Figure 29 — G6 output and verdict.** The run used WorkerPool 2/2 throughout (`coord=2 pool=2` at 20:27:47Z). The saved verdict is [`g6-workers-verdict.json`](../../evidence/edai2/agents/replay-20261118T161231Z/artifacts/g6-workers-verdict.json).
+**Figure 29 — G6 output and verdict.** The run used WorkerPool 2/2 throughout (`coord=2 pool=2` at 20:27:47Z). The saved verdict (PASS) is [`g6-workers-verdict.json`](../../evidence/edai2/agents/replay-20261118T161231Z/artifacts/g6-workers-verdict.json).
 
-| Check | Result |
+| Metric | Observed value |
 |---|---|
 | Sandbox session turns executed | **24/24 ok** |
 | First response, new session, `drift-specialist` | n=4, median 14.2 s, p95 14.3 s |
 | First response, resumed session, `drift-specialist` | n=4, median 13.7 s, p95 14.7 s |
 | First response, new session, `feature-rag-specialist` | n=8, median 14.5 s, p95 17.7 s |
 | First response, resumed session, `feature-rag-specialist` | n=8, median 14.2 s, p95 14.4 s |
-| Both new and resumed sessions measured | PASS |
+| Worker pods that hosted actors | 2 |
 | Actor placement | `…-5szts`: drift 2, feature-rag 6; `…-np6fz`: drift 3, feature-rag 6 |
-| Actors placed on WorkerPool pods | PASS (2 worker pods) |
-| An actor seen both Running and Suspended | **PASS (5 actors)** |
+| Actors seen both Running and Suspended | **5** |
 | Peak running session actors / worker pods | 1 / 2 (a worker runs one actor at a time; idle actors are suspended to snapshots) |
-| One worker hosted actors of both Specialists | **PASS** (both workers) |
-| Verdict | **PASS** |
+| Workers that hosted actors of both Specialists | **2 of 2** |
 
 The first-response times are measured end to end through kagent. They include actor activation or resume plus the turn, so they are not activation time alone.
 
-**Conclusion:**
+**Interpretation.** Two warm workers served 24 session turns of two different agents, and each worker hosted actors of both Specialists, so the agents shared the pool rather than each needing dedicated pods. Five actors were observed moving between Running and Suspended as their sessions resumed. New and resumed sessions had similar first-response medians (13.7–14.5 s); this replay did not break down where that time is spent.
 
-- Two warm workers served 24 session turns of two different agents, and each worker hosted actors of both Specialists.
-- Actors moved between Running and Suspended as sessions were resumed.
-- Resumed and new sessions had similar first-response medians (13.7–14.5 s). This replay did not break down where that time is spent.
+## 11. Grafana agent metrics
 
-## 12. Grafana agent metrics
-
-- **Requirement:** telemetry for calls per agent and per tool, and failures (row 51).
-- **Implementation:** the OTel spanmetrics connector and the "E-Wallet LLM + Agent Platform" dashboard ([operations §12](AGENT_PLATFORM_OPERATIONS.md#12-prometheus-grafana-tempo-and-loki)).
+The agents, gateways and MCP servers export OTLP spans to the collector, whose spanmetrics connector turns them into call, error and latency counts per `gen_ai.agent.name` and `gen_ai.tool.name`. The "E-Wallet LLM + Agent Platform" dashboard plots those counts ([operations §12](AGENT_PLATFORM_OPERATIONS.md#12-prometheus-grafana-tempo-and-loki)).
 
 [![Agent observability](../../evidence/edai2/agents/replay-20261118T161231Z/screenshots/AGENT_F01_AGENT_OBSERVABILITY.png)](../../evidence/edai2/agents/replay-20261118T161231Z/screenshots/AGENT_F01_AGENT_OBSERVABILITY.png)
 
@@ -428,19 +395,13 @@ The first-response times are measured end to end through kagent. They include ac
 - **CPU and memory by pod:** populated.
 - **Top panels:** the two panels at the top, whose titles are cut off in the capture, show "No data" for this window.
 
-**Conclusion:**
+The per-agent call panel follows the G6 sessions: the Feature-RAG series starts first and the Drift series follows, matching the order of the run. The failure panel, however, is **non-zero during a run in which all 24 turns succeeded** (§10). This campaign did not determine which spans it counts, so it is recorded as an open observation, not as a workflow failure. Per-tool call counts are shown here by the Tempo spans (§12), not by a dashboard panel capture.
 
-- Agent calls are counted per agent from traces.
-- The failure panel is **non-zero during a run in which all 24 turns succeeded** (§11). This campaign did not determine which spans it counts, so it is recorded as an open observation, not as a workflow failure.
-- Per-tool call counts are shown here by the Tempo spans (§13), not by a dashboard panel capture.
+## 12. Tempo distributed tracing
 
-## 13. Tempo distributed tracing
+<a id="13-tempo-distributed-tracing"></a>
 
-- **Requirement:** a distributed trace of an agent request across components.
-- **Implementation:**
-  - W3C trace propagation in the agents and the MCP client;
-  - gateway tracing;
-  - OTLP export from the Sandbox actors to the collector ([fleet L56–L60](../../../infra/kubernetes/agent-sandbox/fleet.yaml.tmpl#L56-L60)).
+The agents and the MCP client propagate W3C trace context, the gateways emit their own spans, and the Sandbox actors export OTLP to the collector in `ewallet-agents` ([fleet L56–L60](../../../infra/kubernetes/agent-sandbox/fleet.yaml.tmpl#L56-L60)). A single trace can therefore follow one turn from the kagent controller into the actor and down to the data services.
 
 [![Tempo trace overview](../../evidence/edai2/agents/replay-20261118T161231Z/screenshots/AGENT_F02_TEMPO_TRACE_OVERVIEW.png)](../../evidence/edai2/agents/replay-20261118T161231Z/screenshots/AGENT_F02_TEMPO_TRACE_OVERVIEW.png)
 
@@ -481,15 +442,11 @@ The first-response times are measured end to end through kagent. They include ac
 - *Not established:* this campaign did not test which client component sends the `GET` or whether the client depends on its answer.
 - *Impact:* the 405 is not counted as a workflow failure, because G5 (100/100) and G6 (24/24) completed every task through this same path.
 
-**Conclusion:**
+**Interpretation.** One trace covers the kagent controller, the Sandbox Specialist, the MCP Gateway and the MCP server, down to Feast and KServe, and it confirms that every tool call crossed the MCP Gateway. The KServe inference itself took 40 ms. Most of the 13.36 s root span lies outside the Specialist's own `execute` span (352 ms). This is consistent with the G6 first-response figures (§10), but this campaign did not break that time down further.
 
-- One trace covers the kagent controller, the Sandbox Specialist, the MCP Gateway and the MCP server, down to Feast and KServe.
-- Most of the 13.36 s root span lies outside the Specialist's own `execute` span (352 ms). This is consistent with the G6 first-response figures (§11), but this campaign did not break that time down further.
+## 13. Loki logs
 
-## 14. Loki logs
-
-- **Requirement:** logs of the agent path are collected and searchable.
-- **Implementation:** Alloy `loki.source.kubernetes` → Loki; the gateways log JSON ([operations §12](AGENT_PLATFORM_OPERATIONS.md#12-prometheus-grafana-tempo-and-loki)).
+Grafana Alloy tails pod logs through `loki.source.kubernetes` and pushes them to Loki. The gateways write JSON access logs that include the trace ID ([operations §12](AGENT_PLATFORM_OPERATIONS.md#12-prometheus-grafana-tempo-and-loki)).
 
 [![Loki MCP gateway logs](../../evidence/edai2/agents/replay-20261118T161231Z/screenshots/AGENT_F03_LOKI_MCP_GATEWAY_LOGS.png)](../../evidence/edai2/agents/replay-20261118T161231Z/screenshots/AGENT_F03_LOKI_MCP_GATEWAY_LOGS.png)
 
@@ -502,15 +459,13 @@ The first-response times are measured end to end through kagent. They include ac
 
 Each entry carries `trace.id`, `span.id` and `mcp.session.id`, captured at 2026-11-19T20:57:16Z.
 
-**Conclusion:** gateway logs are in Loki with the trace ID, so a request can be followed from logs to traces. The Grafana Tempo datasource is configured with trace-to-logs links ([`observability-stack.yaml` L184](../../../infra/helm/llm-agent-platform/templates/observability-stack.yaml#L184)).
+Because each gateway log line carries the trace ID, an operator can move from a log line to its trace. The Grafana Tempo datasource is configured with trace-to-logs links for the opposite direction ([`observability-stack.yaml` L184](../../../infra/helm/llm-agent-platform/templates/observability-stack.yaml#L184)).
 
-## 15. MCP availability and RollingUpdate
+## 14. MCP availability and RollingUpdate
 
-- **Requirement:** the MCP tools are deployed on Kubernetes with Helm, RollingUpdate and automatic fallback (row 18).
-- **Implementation:**
-  - [`agi/mcp-reliability.yaml`](../../../infra/helm/llm-agent-platform/agi/mcp-reliability.yaml): 2 replicas, topology spread, PDB;
-  - [`mcp-services.yaml` L74](../../../infra/helm/llm-agent-platform/templates/mcp-services.yaml#L74): `maxUnavailable: 0`, `maxSurge: 1`;
-  - client failover [`with_failover`](../../../ai_platform/llm_agent/mcp_failover.py#L177).
+<a id="15-mcp-availability-and-rollingupdate"></a>
+
+The MCP servers are deployed by the Helm release `llm-agent-mcp`. [`agi/mcp-reliability.yaml`](../../../infra/helm/llm-agent-platform/agi/mcp-reliability.yaml) gives each server 2 replicas spread across nodes and a PDB. The Deployment template sets [`maxUnavailable: 0`, `maxSurge: 1`](../../../infra/helm/llm-agent-platform/templates/mcp-services.yaml#L74), so a rollout starts the new pod before removing an old one. On the client side, the Specialists retry transient transport failures on a new session through [`with_failover`](../../../ai_platform/llm_agent/mcp_failover.py#L177), and the new session can land on the other replica.
 
 [![MCP replicas and PDB](../../evidence/edai2/agents/replay-20261118T161231Z/screenshots/AGENT_G01_MCP_REPLICAS_PDB.png)](../../evidence/edai2/agents/replay-20261118T161231Z/screenshots/AGENT_G01_MCP_REPLICAS_PDB.png)
 
@@ -525,23 +480,22 @@ Each entry carries `trace.id`, `span.id` and `mcp.session.id`, captured at 2026-
 
 The same values were read again right before the final sleep: [`final-sleep-mcp-coordinator-strategy-pdb.txt`](../../evidence/edai2/agents/replay-20261118T161231Z/artifacts/final-sleep-mcp-coordinator-strategy-pdb.txt).
 
-**What this replay shows, and what it does not:**
+**What this replay shows, and what it does not.** Both MCP servers run 2 ready replicas. Their roll strategy cannot take a replica down before its replacement is Ready, and a voluntary disruption must leave at least one replica. No MCP rollout, pod deletion or failover was performed during this replay, so the screenshots show configuration and state, not behaviour under failure.
 
-- **Shown:** both MCP servers run 2 ready replicas. Their roll strategy cannot take a replica down before its replacement is Ready, and a voluntary disruption must leave at least one replica.
-- **Not shown:** no MCP rollout, pod deletion or failover was performed during this replay. The screenshots show configuration and state, not behaviour under failure.
-- **Earlier failover run:** on 2026-11-15 an isolated failover experiment (`AGR-02`, namespace `ewallet-mcp-exp`, forced pod deletion at 10 calls/s) recorded:
-  - optimized arm (2 replicas, 3 client attempts): 1188/1188 calls, with 1 client retry;
-  - baseline arm (1 replica, 1 attempt): 1129/1189 calls, 12.0 s recovery.
+An earlier, isolated failover experiment (`AGR-02`, 2026-11-15, namespace `ewallet-mcp-exp`, forced pod deletion at 10 calls/s) recorded:
 
-  See [`AGR-02-RESULT.txt`](../../evidence/edai2/agents/agi-20261115T145608Z/agr/AGR-02/AGR-02-RESULT.txt). The MCP client code changed afterwards (commits `0b8f945d`, `a5406c5b` and `132b6bfc` on 2026-11-16, which handle gateway rate limiting). That run is therefore historical evidence for the failover design, not a test of the build deployed during this replay.
+- optimized arm (2 replicas, 3 client attempts): 1188/1188 calls, with 1 client retry;
+- baseline arm (1 replica, 1 attempt): 1129/1189 calls, 12.0 s recovery.
 
-## 16. Observed limitations
+See [`AGR-02-RESULT.txt`](../../evidence/edai2/agents/agi-20261115T145608Z/agr/AGR-02/AGR-02-RESULT.txt). The MCP client code changed afterwards (commits `0b8f945d`, `a5406c5b` and `132b6bfc` on 2026-11-16, which handle gateway rate limiting). That run is therefore historical evidence for the failover design, not a test of the build deployed during this replay.
 
-1. **Capacity cap.** One actor per worker and at most 3 workers bound throughput: 0.131 task/s with p95 148.4 s at concurrency 8 (§10).
+## 15. Observed limitations
+
+1. **Capacity cap.** One actor per worker and at most 3 workers bound throughput: 0.131 task/s with p95 148.4 s at concurrency 8 (§9).
 2. **The gateways run one replica each.** `a2a-gateway`, `mcp-gateway` and `agentgateway` are 1/1, and their failover was not tested.
-3. **No MCP rollout or failover test in this replay.** Only the configuration was verified (§15).
-4. **No egress-block negative.** An actor reaching a domain outside `allowedDomains` was not tested (§9).
-5. **HTTP 405 on `GET /feature-rag/mcp`.** Recorded as a finding with no diagnosis (§13).
-6. **The failure panel is non-zero.** "Agent/tool failures (spanmetrics)" showed a non-zero rate during a fully successful run; the counted spans were not analysed (§12).
+3. **No MCP rollout or failover test in this replay.** Only the configuration was verified (§14).
+4. **No egress-block negative.** An actor reaching a domain outside `allowedDomains` was not tested (§8).
+5. **HTTP 405 on `GET /feature-rag/mcp`.** Recorded as a finding with no diagnosis (§12).
+6. **The failure panel is non-zero.** "Agent/tool failures (spanmetrics)" showed a non-zero rate during a fully successful run; the counted spans were not analysed (§11).
 7. **Observability data is ephemeral.** Prometheus, Loki and Tempo use `emptyDir` storage, so data does not survive restarts or sleep. The screenshots and saved replay results are the durable record ([operations §15](AGENT_PLATFORM_OPERATIONS.md#15-observed-operational-limitations)).
 8. **Single run.** G5 and G6 were each run once. The latencies are observed values from one run, not stable estimates.
