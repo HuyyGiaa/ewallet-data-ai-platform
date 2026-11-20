@@ -5,8 +5,12 @@ FROM jenkins/jenkins:2.588-jdk21@sha256:4c03015d601fe7a761220979d2dd7bf465091e2d
 LABEL org.opencontainers.image.source="ewallet-data-ai-platform" \
       org.opencontainers.image.title="EDAI-2 bounded Jenkins controller"
 
+# The root filesystem is read-only at runtime (readOnlyRootFilesystem), so every interpreter a catalog
+# project's requires-python needs is installed here at build time and uv never downloads one at runtime
+# (it would write into /opt/uv-python): 3.10 (most projects), 3.11 (rag-ingestion), 3.12 (agents, vLLM).
 ENV UV_PYTHON_INSTALL_DIR=/opt/uv-python \
-    UV_CACHE_DIR=/var/jenkins_home/.cache/uv
+    UV_CACHE_DIR=/var/jenkins_home/.cache/uv \
+    UV_PYTHON_DOWNLOADS=manual
 
 USER root
 COPY --from=uv /uv /uvx /usr/local/bin/
@@ -38,7 +42,7 @@ RUN apt-get update \
  && helm version --short | grep -qx "v${HELM_VERSION}+g[0-9a-f]*" \
  && apt-get purge --yes --auto-remove curl gnupg \
  && rm -rf /var/lib/apt/lists/* \
- && uv python install 3.10.19 3.12.12 \
+ && uv python install 3.10.19 3.11.17 3.12.12 \
  && uv pip install \
       --python /opt/uv-python/cpython-3.10.19-linux-x86_64-gnu/bin/python \
       --break-system-packages \

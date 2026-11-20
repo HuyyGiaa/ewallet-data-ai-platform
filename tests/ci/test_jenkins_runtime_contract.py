@@ -97,6 +97,26 @@ class JenkinsRuntimeContractTests(unittest.TestCase):
         self.assertIn("gettext-base", dockerfile)
         self.assertIn("signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg", dockerfile)
 
+    def test_controller_preinstalls_every_python_the_catalog_projects_need(self) -> None:
+        # The controller root filesystem is read-only: a missing interpreter makes uv download one
+        # into /opt/uv-python and fail with "Read-only file system" (Build #4, rag-ingestion 3.11).
+        from packaging.specifiers import SpecifierSet
+        import tomllib
+
+        dockerfile = (ROOT / "infra/docker/jenkins-controller/Dockerfile").read_text()
+        self.assertIn("UV_PYTHON_DOWNLOADS=manual", dockerfile)
+        installed = re.search(r"uv python install ((?:[0-9.]+ ?)+)", dockerfile).group(1).split()
+        for project in sorted({p for c in load_catalog(CATALOG_PATH).components.values()
+                               for p in c.python_projects}):
+            with self.subTest(project):
+                spec = tomllib.loads((ROOT / project / "pyproject.toml").read_text())["project"]["requires-python"]
+                self.assertTrue([v for v in installed if v in SpecifierSet(spec)], (spec, installed))
+                pinned = ROOT / project / ".python-version"
+                if pinned.is_file():
+                    wanted = pinned.read_text().strip()
+                    self.assertTrue([v for v in installed if v == wanted or v.startswith(wanted + ".")],
+                                    (wanted, installed))
+
     def test_controller_image_installs_the_pinned_helm_that_agent_staging_runs(self) -> None:
         # agent_staging.py shells out to `helm` on the controller (Jenkinsfile.llm-agent `node {}`,
         # numExecutors 1, no agents). Without the binary the release fails with FileNotFoundError.
