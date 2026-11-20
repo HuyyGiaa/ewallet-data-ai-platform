@@ -1,0 +1,10 @@
+# EXTRACT (redacted IPv4): modelConfig block of `helm get values llm-agent` at revision 60; see README.md
+modelConfig:
+  byoResolver:
+    apiServer:
+      cidrs:
+      - <REDACTED-IPV4>
+      - <REDACTED-IPV4>
+    enabled: true
+  enabled: true
+  timeoutSeconds: 200

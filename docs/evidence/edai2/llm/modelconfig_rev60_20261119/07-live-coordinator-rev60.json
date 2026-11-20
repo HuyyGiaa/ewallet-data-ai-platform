@@ -1,0 +1,265 @@
+{
+  "note": "EXTRACT of kubectl read-backs under llm-agent revision 60; see README.md",
+  "snapshots": [
+    {
+      "stage": "g4-platform-status-20261119",
+      "helm_release_llm_agent": [
+        {
+          "revision": 60,
+          "updated": "2026-11-19T16:00:45.414430127+07:00",
+          "status": "deployed",
+          "chart": "llm-agent-platform-0.1.0",
+          "app_version": "llm-agent-v1",
+          "description": "Upgrade complete"
+        }
+      ],
+      "deployment": {
+        "name": "fraud-coordinator",
+        "namespace": "ewallet-agents",
+        "owner": [
+          "Agent/fraud-coordinator"
+        ],
+        "generation": 544,
+        "deployment.kubernetes.io/revision": "300",
+        "serviceAccountName": "fraud-coordinator",
+        "automountServiceAccountToken": null,
+        "env_llm_selection": [
+          {
+            "name": "EWALLET_NL_INTAKE_ENABLED",
+            "value": "true"
+          },
+          {
+            "name": "EWALLET_LLM_CONFIG_SOURCE",
+            "value": "modelconfig"
+          },
+          {
+            "name": "EWALLET_LLM_MODELCONFIG_NAME",
+            "value": "ewallet-global-llm"
+          },
+          {
+            "name": "EWALLET_LLM_API_KEY_SECRET_REF",
+            "value": "agentgateway-client-key/api-key"
+          },
+          {
+            "name": "EWALLET_KUBE_API_TOKEN_DIR",
+            "value": "/var/run/secrets/ewallet/kube-api"
+          },
+          {
+            "name": "EWALLET_LLM_TIMEOUT_SECONDS",
+            "value": "190"
+          },
+          {
+            "name": "EWALLET_LLM_API_KEY",
+            "valueFrom": {
+              "secretKeyRef": {
+                "name": "agentgateway-client-key",
+                "key": "api-key"
+              }
+            }
+          }
+        ],
+        "env_absent": {
+          "EWALLET_LLM_BASE_URL": true,
+          "EWALLET_LLM_MODEL": true
+        },
+        "volume_kube_api_modelconfig": {
+          "name": "kube-api-modelconfig",
+          "projected": {
+            "defaultMode": 292,
+            "sources": [
+              {
+                "serviceAccountToken": {
+                  "expirationSeconds": 3600,
+                  "path": "token"
+                }
+              },
+              {
+                "configMap": {
+                  "items": [
+                    {
+                      "key": "ca.crt",
+                      "path": "ca.crt"
+                    }
+                  ],
+                  "name": "kube-root-ca.crt"
+                }
+              },
+              {
+                "downwardAPI": {
+                  "items": [
+                    {
+                      "fieldRef": {
+                        "apiVersion": "v1",
+                        "fieldPath": "metadata.namespace"
+                      },
+                      "path": "namespace"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "volumeMount_kube_api_modelconfig": {
+          "mountPath": "/var/run/secrets/ewallet/kube-api",
+          "name": "kube-api-modelconfig",
+          "readOnly": true
+        },
+        "status": {
+          "replicas": 2,
+          "readyReplicas": 2,
+          "updatedReplicas": 2,
+          "observedGeneration": 544
+        }
+      },
+      "pods": [
+        {
+          "name": "fraud-coordinator-85f4449954-69wfm",
+          "startTime": "2026-11-19T07:05:54Z",
+          "readySince": "2026-11-19T07:09:26Z",
+          "restartCount": [
+            0
+          ]
+        },
+        {
+          "name": "fraud-coordinator-85f4449954-hcndr",
+          "startTime": "2026-11-19T07:05:54Z",
+          "readySince": "2026-11-19T07:09:35Z",
+          "restartCount": [
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "stage": "g5-preflight-20261120",
+      "helm_release_llm_agent": [
+        {
+          "revision": 60,
+          "updated": "2026-11-19T16:00:45.414430127+07:00",
+          "status": "deployed",
+          "chart": "llm-agent-platform-0.1.0",
+          "app_version": "llm-agent-v1",
+          "description": "Upgrade complete"
+        }
+      ],
+      "deployment": {
+        "name": "fraud-coordinator",
+        "namespace": "ewallet-agents",
+        "owner": [
+          "Agent/fraud-coordinator"
+        ],
+        "generation": 546,
+        "deployment.kubernetes.io/revision": "300",
+        "serviceAccountName": "fraud-coordinator",
+        "automountServiceAccountToken": null,
+        "env_llm_selection": [
+          {
+            "name": "EWALLET_NL_INTAKE_ENABLED",
+            "value": "true"
+          },
+          {
+            "name": "EWALLET_LLM_CONFIG_SOURCE",
+            "value": "modelconfig"
+          },
+          {
+            "name": "EWALLET_LLM_MODELCONFIG_NAME",
+            "value": "ewallet-global-llm"
+          },
+          {
+            "name": "EWALLET_LLM_API_KEY_SECRET_REF",
+            "value": "agentgateway-client-key/api-key"
+          },
+          {
+            "name": "EWALLET_KUBE_API_TOKEN_DIR",
+            "value": "/var/run/secrets/ewallet/kube-api"
+          },
+          {
+            "name": "EWALLET_LLM_TIMEOUT_SECONDS",
+            "value": "190"
+          },
+          {
+            "name": "EWALLET_LLM_API_KEY",
+            "valueFrom": {
+              "secretKeyRef": {
+                "name": "agentgateway-client-key",
+                "key": "api-key"
+              }
+            }
+          }
+        ],
+        "env_absent": {
+          "EWALLET_LLM_BASE_URL": true,
+          "EWALLET_LLM_MODEL": true
+        },
+        "volume_kube_api_modelconfig": {
+          "name": "kube-api-modelconfig",
+          "projected": {
+            "defaultMode": 292,
+            "sources": [
+              {
+                "serviceAccountToken": {
+                  "expirationSeconds": 3600,
+                  "path": "token"
+                }
+              },
+              {
+                "configMap": {
+                  "items": [
+                    {
+                      "key": "ca.crt",
+                      "path": "ca.crt"
+                    }
+                  ],
+                  "name": "kube-root-ca.crt"
+                }
+              },
+              {
+                "downwardAPI": {
+                  "items": [
+                    {
+                      "fieldRef": {
+                        "apiVersion": "v1",
+                        "fieldPath": "metadata.namespace"
+                      },
+                      "path": "namespace"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "volumeMount_kube_api_modelconfig": {
+          "mountPath": "/var/run/secrets/ewallet/kube-api",
+          "name": "kube-api-modelconfig",
+          "readOnly": true
+        },
+        "status": {
+          "replicas": 2,
+          "readyReplicas": 2,
+          "updatedReplicas": 2,
+          "observedGeneration": 546
+        }
+      },
+      "pods": [
+        {
+          "name": "fraud-coordinator-85f4449954-8d88n",
+          "startTime": "2026-11-19T17:10:14Z",
+          "readySince": "2026-11-19T17:13:27Z",
+          "restartCount": [
+            2
+          ]
+        },
+        {
+          "name": "fraud-coordinator-85f4449954-zzctv",
+          "startTime": "2026-11-19T17:10:13Z",
+          "readySince": "2026-11-19T17:13:13Z",
+          "restartCount": [
+            2
+          ]
+        }
+      ]
+    }
+  ]
+}
