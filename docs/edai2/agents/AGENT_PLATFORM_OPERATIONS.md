@@ -363,7 +363,7 @@ These limitations were observed during the campaign, or follow directly from the
 2. **The gateways run one replica each.** `a2a-gateway`, `mcp-gateway` and `agentgateway` are 1/1 in the live release, and their failover was not tested.
 3. **Observability storage is ephemeral.** Prometheus, Loki and Tempo write to an `emptyDir` scratch volume ([`observability-stack.yaml` L284–L286](../../../infra/helm/llm-agent-platform/templates/observability-stack.yaml#L284-L286)), so metrics, logs and traces do not survive a pod restart or a sleep/wake cycle. Screenshots and the saved replay files are the durable record.
 4. **Cold start after wake.** About 25 minutes, with self-healing DNS-race restarts. `vllm-primary` warms slowly on CPU; only natural-language intake depends on it, typed requests do not.
-5. **ModelConfig changes need a restart.** BYO agents read the ModelConfig at start-up only; a change needs `kubectl rollout restart` ([`model_config.py` docstring](../../../ai_platform/llm_agent/model_config.py#L1-L20)).
+5. **ModelConfig changes require a Coordinator restart.** The BYO Fraud Coordinator resolves `ewallet-global-llm` at start-up only ([`model_config.py` docstring](../../../ai_platform/llm_agent/model_config.py#L1-L20)), so a change to the ModelConfig takes effect after `kubectl -n ewallet-agents rollout restart deploy/fraud-coordinator`. The two Sandbox Specialists do not use the LLM and do not resolve this ModelConfig.
 6. **HTTP 405 on the MCP route.**
    - Observed: Tempo shows one error span, `GET /feature-rag/mcp` → HTTP 405, inside traces whose tool calls succeed.
    - Code fact: the MCP server registers only `POST /mcp`.
