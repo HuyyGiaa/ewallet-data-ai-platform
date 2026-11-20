@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import asyncio
 import contextlib
 import importlib.util
@@ -24,10 +25,15 @@ TGT = seed.TARGET_HOST + ":6379,password=p,db={db}"
 
 
 class FakeRedis:
-    """DUMP/RESTORE over a dict: the payload is opaque bytes, as in Redis."""
+    """DUMP/RESTORE over a dict of strings (bytes) and hashes (dict); the payload is opaque bytes, as in Redis.
 
-    def __init__(self, data=None):
+    Like a real server, a hash restored here is iterated in another order than on the server that DUMPed it
+    (hashtable encoding follows the per-server hash seed), so its DUMP payload differs while its content does not.
+    """
+
+    def __init__(self, data=None, ttl=None):
         self.data = dict(data or {})
+        self.ttl = dict(ttl or {})
         self.restored = []
         self.run_id = str(id(self))
 
@@ -35,19 +41,34 @@ class FakeRedis:
         return {"run_id": self.run_id}
 
     def dump(self, key):
-        return self.data.get(key)
+        if key not in self.data:
+            return None
+        value = self.data[key]
+        return repr(("hash", list(value.items())) if isinstance(value, dict) else ("string", value)).encode()
 
     def restore(self, key, ttl, payload, replace=False):
         if key in self.data and not replace:
             raise RuntimeError("BUSYKEY")
-        self.data[key] = payload
+        kind, value = ast.literal_eval(payload.decode())
+        self.data[key] = dict(reversed(value)) if kind == "hash" else value
         self.restored.append(key)
+
+    def type(self, key):
+        value = self.data.get(key)
+        return b"none" if value is None else b"hash" if isinstance(value, dict) else b"string"
+
+    def pttl(self, key):
+        return -2 if key not in self.data else self.ttl.get(key, -1)
+
+    def hgetall(self, key):
+        return dict(self.data.get(key) or {})
 
     def scan_iter(self, count=100):
         return iter(list(self.data))
 
     def get(self, key):
-        return self.data.get(key)
+        value = self.data.get(key)
+        return value if isinstance(value, bytes) else None
 
     def dbsize(self):
         return len(self.data)
@@ -59,8 +80,98 @@ def rag_source(keys=3):
     return FakeRedis(data)
 
 
+def rag_hash_source():
+    """The real RAG shape: hashes with long binary values (hashtable encoding) plus the owner marker."""
+
+    fields = {f"field-{i}".encode(): bytes([i]) * 1543 for i in range(9)}
+    data = {f"rag:{i}".encode(): dict(fields) for i in range(4)}
+    data[seed.OWNER_KEY] = seed.RAG_PROJECT.encode()
+    return FakeRedis(data)
+
+
+class CanonicalDigestTests(unittest.TestCase):
+    """G.5.6: compare logical content, never the server-dependent DUMP payload."""
+
+    def test_same_hash_in_another_iteration_order_has_the_same_digest(self):
+        forward = FakeRedis({b"k": {b"a": b"1", b"b": b"\x00\xff", b"c": b"3"}})
+        backward = FakeRedis({b"k": {b"c": b"3", b"b": b"\x00\xff", b"a": b"1"}})
+        self.assertNotEqual(forward.dump(b"k"), backward.dump(b"k"))   # what the old DUMP digest compared
+        self.assertEqual(seed.digest(forward, [b"k"]), seed.digest(backward, [b"k"]))
+
+    def test_rag_hashes_copy_and_verify_although_their_dump_payload_changes(self):
+        source, target = rag_hash_source(), FakeRedis()
+        report = seed.copy("rag", source, target, approve=True)
+        self.assertEqual(report["source_digest"], report["target_digest"])
+        self.assertEqual(report["digest"], seed.DIGEST_SCHEME)
+        self.assertNotEqual(source.dump(b"rag:0"), target.dump(b"rag:0"))
+        self.assertEqual(seed.verify("rag", source, target)["verdict"], "PASS")
+
+    def test_a_changed_missing_or_extra_hash_field_fails(self):
+        changes = {
+            "changed value": lambda h: h.__setitem__(b"field-0", b"x" * 1543),
+            "missing field": lambda h: h.pop(b"field-1"),
+            "extra field": lambda h: h.__setitem__(b"field-9", b"y"),
+        }
+        for name, change in changes.items():
+            with self.subTest(name):
+                source, target = rag_hash_source(), FakeRedis()
+                seed.copy("rag", source, target, approve=True)
+                change(target.data[b"rag:2"])
+                result = seed.verify("rag", source, target)
+                self.assertEqual((result["verdict"], result["extra_target_keys"]), ("FAIL", 0))
+
+    def test_a_changed_string_fails(self):
+        source, target = rag_hash_source(), FakeRedis()
+        seed.copy("rag", source, target, approve=True)
+        target.data[seed.OWNER_KEY] = seed.RAG_PROJECT.encode() + b" "
+        self.assertEqual(seed.verify("rag", source, target)["verdict"], "FAIL")
+
+    def test_a_missing_expiring_or_foreign_type_key_is_refused(self):
+        for name, client in {"missing": FakeRedis(),
+                             "expiring": FakeRedis({b"k": b"v"}, ttl={b"k": 60000}),
+                             "list type": mock.Mock(type=mock.Mock(return_value=b"list"), pttl=mock.Mock(return_value=-1))}.items():
+            with self.subTest(name), self.assertRaises(seed.SeedError):
+                seed.digest(client, [b"k"])
+        source, target = rag_hash_source(), FakeRedis()
+        source.ttl[b"rag:1"] = 5000   # an expiring source row is refused before any write
+        with self.assertRaises(seed.SeedError):
+            seed.copy("rag", source, target, approve=True)
+        self.assertEqual(target.restored, [])
+        source, target = rag_hash_source(), FakeRedis()
+        seed.copy("rag", source, target, approve=True)
+        del target.data[b"rag:3"]   # a key lost on the target fails verification, never counts as empty
+        with self.assertRaises(seed.SeedError):
+            seed.verify("rag", source, target)
+
+    def test_the_encoding_separates_key_type_count_field_and_value(self):
+        def d(data, keys=(b"k",)):
+            return seed.digest(FakeRedis(data), list(keys))
+
+        self.assertNotEqual(d({b"k": {b"a": b"bc"}}), d({b"k": {b"ab": b"c"}}))     # field/value boundary
+        self.assertNotEqual(d({b"k": b"ab"}), d({b"k": {b"a": b"b"}}))             # type
+        self.assertNotEqual(d({b"k": {b"a": b"1"}}), d({b"k": {b"a": b"1", b"b": b""}}))   # field count
+        self.assertNotEqual(d({b"k": b"v"}), d({b"j": b"v"}, keys=(b"j",)))        # key
+        self.assertNotEqual(d({b"k": b"\x00"}), d({b"k": b"\x00\x00"}))            # binary length
+
+    def test_fraud_and_rag_keep_their_own_databases_and_hosts(self):
+        self.assertEqual((seed.SOURCE_DB, seed.TARGET_DB), ({"fraud": 0, "rag": 3}, {"fraud": 1, "rag": 4}))
+        seed.check_endpoints("fraud", parse_connection(SRC.format(db=0)), parse_connection(TGT.format(db=1)))
+        seed.check_endpoints("rag", parse_connection(SRC.format(db=3)), parse_connection(TGT.format(db=4)))
+        with self.assertRaises(seed.SeedError):   # a fraud run cannot address the RAG databases, and back
+            seed.check_endpoints("fraud", parse_connection(SRC.format(db=3)), parse_connection(TGT.format(db=4)))
+        with self.assertRaises(seed.SeedError):
+            seed.check_endpoints("rag", parse_connection(SRC.format(db=0)), parse_connection(TGT.format(db=1)))
+
+    def test_restore_stays_create_only(self):
+        source, target = rag_hash_source(), FakeRedis()
+        with mock.patch.object(target, "restore", wraps=target.restore) as restore:
+            seed.copy("rag", source, target, approve=True)
+        self.assertTrue(restore.call_args_list)
+        self.assertTrue(all(call.kwargs.get("replace") is False for call in restore.call_args_list))
+
+
 class FeatureSeedTests(unittest.TestCase):
-    def test_rag_copy_is_byte_identical_and_create_only(self):
+    def test_rag_copy_matches_the_source_and_is_create_only(self):
         source, target = rag_source(), FakeRedis()
         planned = seed.copy("rag", source, target, approve=False)
         self.assertEqual((planned["written"], target.data), (False, {}))   # no write without approval

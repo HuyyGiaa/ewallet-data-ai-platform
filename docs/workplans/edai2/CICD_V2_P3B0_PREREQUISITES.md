@@ -49,8 +49,9 @@ Vì vậy `ops/llm_agent/staging_feature_seed.py` làm như sau:
   - khi chạy từ máy trạm (`--context CTX`), script tự mở port-forward tới đúng 2 Service cố định và chỉ kết nối qua port đó (xem H.1); không chấp nhận port-forward do operator tự mở;
   - source và target phải là hai Redis server khác nhau (`INFO` run_id), và DB target phải rỗng;
   - `RESTORE` không dùng `REPLACE`;
-  - sau khi ghi, digest SHA-256 của source phải bằng của target.
-- **Production chỉ bị đọc:** chỉ dùng lệnh `DUMP`, `SCAN`, `GET`.
+  - sau khi ghi, digest SHA-256 của source phải bằng của target. Digest tính trên **nội dung logic** (`canonical-v1`: TYPE, PTTL phải là -1, giá trị string hoặc mọi cặp field/value của hash sắp theo field, mỗi phần có tiền tố độ dài), không tính trên payload `DUMP`.
+    Lý do (G.5.6): hash có giá trị dài hơn `hash-max-listpack-value` (các row embedding RAG) dùng encoding `hashtable`, và `DUMP` ghi field theo thứ tự duyệt dict, phụ thuộc hash seed riêng của từng server. Cùng một hash, sau `RESTORE`, cho payload khác dù nội dung y hệt. Vì vậy digest trên `DUMP` báo sai "khác" cho RAG, còn fraud (listpack) thì không. `DUMP`/`RESTORE` vẫn là cách chuyển dữ liệu.
+- **Production chỉ bị đọc:** chỉ dùng lệnh `DUMP`, `SCAN`, `GET`, `TYPE`, `PTTL`, `HGETALL`.
 - **Không lộ connection string:** lấy từ biến môi trường, không bao giờ in ra hay ghi xuống đĩa.
 - **Không động đến model và known answers:** không retrain model, không đổi known answers, không copy cả database production.
 
@@ -351,8 +352,8 @@ Lệnh này đưa release về revision đã ghi lúc upgrade, sau đó dừng c
 5. Apply `feast-redis.yaml` và `fraud-predictor.yaml`, rồi chờ hai Deployment Ready.
 6. Seed dữ liệu. Bước này **đọc Redis production**, nên cần owner review và duyệt riêng việc copy các row này sang staging:
    - Connection string phải dùng tên DNS của Service (không dùng `127.0.0.1`) và có `,db=N`.
-   - Nên dùng credential chỉ đọc cho source nếu có. Hiện Feature Store Redis chỉ có `requirepass` (không có ACL), nên quyền chỉ đọc chỉ được đảm bảo ở mức code: tool chỉ gọi `DUMP`/`SCAN`/`GET`/`INFO` trên source.
-   - Lấy password production từ Secret `feast-online-redis` (đọc giá trị Secret production chỉ khi owner duyệt), đặt `EWALLET_SEED_SOURCE` và `EWALLET_SEED_TARGET`. **Không** tự mở port-forward; truyền `--context` để script tự mở:
+   - Nên dùng credential chỉ đọc cho source nếu có. Hiện Feature Store Redis chỉ có `requirepass` (không có ACL), nên quyền chỉ đọc chỉ được đảm bảo ở mức code: tool chỉ gọi `DUMP`/`SCAN`/`GET`/`TYPE`/`PTTL`/`HGETALL`/`INFO` trên source.
+   - Lấy password production từ Secret `feature-store/redis`, key `password` (Secret mà StatefulSet `feature-store/redis` dùng cho `--requirepass`; đọc giá trị Secret production chỉ khi owner duyệt), đặt `EWALLET_SEED_SOURCE` và `EWALLET_SEED_TARGET`. **Không** tự mở port-forward; truyền `--context` để script tự mở:
      ```bash
      export EWALLET_SEED_SOURCE="redis.feature-store.svc.cluster.local:6379,password=…,db=0"
      export EWALLET_SEED_TARGET="feast-staging-redis.ewallet-agents-staging.svc.cluster.local:6379,password=…,db=1"

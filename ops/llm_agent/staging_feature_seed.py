@@ -9,9 +9,15 @@ produced by the production feature-rag-mcp reading:
   a handful of keys).
 
 Re-materializing from an offline snapshot would not reproduce those exact online rows (window and run
-timestamps differ), so this tool copies the rows byte for byte, without decoding them:
+timestamps differ), so this tool copies the rows without decoding them:
 
     source DUMP (read-only)  ->  target RESTORE (create-only, never REPLACE)  ->  digest(source) == digest(target)
+
+The digest is over the logical content, not the DUMP payload: a hash in ``hashtable`` encoding (any value longer
+than hash-max-listpack-value, e.g. the RAG embedding rows) is serialized in dict iteration order, which depends on
+each server's hash seed, so the same hash DUMPs to different bytes on the source and on the target after RESTORE
+(G.5.6 forensics). ``canonical`` reads TYPE, PTTL and the value (string bytes, or every hash field/value sorted by
+field) and frames each part with its length, so binary data is compared exactly and order does not matter.
 
 Bounds, all fail-closed before any write:
 
@@ -68,6 +74,7 @@ SERVICES = {"source": ("feature-store", "redis"), "target": ("ewallet-agents-sta
 SOURCE_DB = {"fraud": 0, "rag": 3}
 TARGET_DB = {"fraud": 1, "rag": 4}
 MAX_RAG_KEYS = 64
+DIGEST_SCHEME = "canonical-v1"   # TYPE + PTTL -1 + sorted, length-framed value (not the DUMP payload)
 OWNER_KEY = b"__ewallet_feature_store_campaign_owner_v1__"
 
 
@@ -117,14 +124,45 @@ def check_distinct(source: Any, target: Any) -> None:
         raise SeedError("source and target are the same Redis server; refusing to write")
 
 
-def digest(pairs: Iterable[tuple[bytes, bytes | None]]) -> str:
-    """SHA-256 over sorted (key, DUMP payload); a missing key counts as an error, not as empty."""
+def _frame(value: bytes) -> bytes:
+    return len(value).to_bytes(8, "big") + value
+
+
+def _key_id(key: bytes) -> str:
+    return hashlib.sha256(key).hexdigest()[:16]
+
+
+def canonical(client: Any, key: bytes) -> bytes:
+    """Order-independent, unambiguous encoding of one key's logical content: type, item count, items.
+
+    Only persistent strings and hashes are accepted (the fixture rows): a missing key, an expiring key or any other
+    type is an error, never compared loosely.
+    """
+
+    kind = client.type(key)
+    kind = kind.decode() if isinstance(kind, bytes) else str(kind)
+    if kind == "none":
+        raise SeedError(f"key {_key_id(key)} is missing")
+    ttl = client.pttl(key)
+    if ttl != -1:
+        raise SeedError(f"key {_key_id(key)} has PTTL {ttl}; only persistent keys (PTTL -1) are copied")
+    if kind == "string":
+        items = [client.get(key)]
+    elif kind == "hash":
+        items = [part for field, value in sorted(client.hgetall(key).items()) for part in (field, value)]
+    else:
+        raise SeedError(f"key {_key_id(key)} has unsupported type {kind}")
+    if any(item is None for item in items):
+        raise SeedError(f"key {_key_id(key)} changed while it was read")
+    return _frame(kind.encode()) + len(items).to_bytes(8, "big") + b"".join(_frame(item) for item in items)
+
+
+def digest(client: Any, keys: Iterable[bytes]) -> str:
+    """SHA-256 over the sorted keys, each framed with its canonical content."""
 
     hasher = hashlib.sha256()
-    for key, payload in sorted(pairs):
-        if payload is None:
-            raise SeedError(f"key {hashlib.sha256(key).hexdigest()[:16]} is missing")
-        hasher.update(len(key).to_bytes(4, "big") + key + len(payload).to_bytes(8, "big") + payload)
+    for key in sorted(keys):
+        hasher.update(_frame(key) + _frame(canonical(client, key)))
     return hasher.hexdigest()
 
 
@@ -144,16 +182,19 @@ def keys_for(kind: str, source: Any) -> list[bytes]:
 
 def copy(kind: str, source: Any, target: Any, *, approve: bool) -> dict[str, Any]:
     keys = keys_for(kind, source)
+    source_digest = digest(source, keys)                # read-only on the source; fails on a missing/expiring key
     dumps = [(key, source.dump(key)) for key in keys]   # read-only on the source
-    source_digest = digest(dumps)
+    if any(payload is None for _, payload in dumps):
+        raise SeedError("a source key disappeared before DUMP")
     if target.dbsize() != 0:
         raise SeedError(f"the staging {kind} database is not empty; refusing to mix data (clean it up first)")
-    report = {"kind": kind, "keys": len(keys), "source_digest": source_digest, "written": False}
+    report = {"kind": kind, "keys": len(keys), "digest": DIGEST_SCHEME, "source_digest": source_digest,
+              "written": False}
     if not approve:
         return report
     for key, payload in dumps:
         target.restore(key, 0, payload, replace=False)   # create-only: an existing key is an error
-    target_digest = digest((key, target.dump(key)) for key in keys)
+    target_digest = digest(target, keys)
     if target_digest != source_digest:
         raise SeedError("the staging copy differs from the source after RESTORE")
     return {**report, "written": True, "target_digest": target_digest}
@@ -161,10 +202,11 @@ def copy(kind: str, source: Any, target: Any, *, approve: bool) -> dict[str, Any
 
 def verify(kind: str, source: Any, target: Any) -> dict[str, Any]:
     keys = keys_for(kind, source)
-    source_digest = digest((key, source.dump(key)) for key in keys)
-    target_digest = digest((key, target.dump(key)) for key in keys)
+    source_digest = digest(source, keys)
+    target_digest = digest(target, keys)
     extra = target.dbsize() - len(keys)
-    return {"kind": kind, "keys": len(keys), "source_digest": source_digest, "target_digest": target_digest,
+    return {"kind": kind, "keys": len(keys), "digest": DIGEST_SCHEME, "source_digest": source_digest,
+            "target_digest": target_digest,
             "extra_target_keys": extra, "verdict": "PASS" if source_digest == target_digest and extra == 0 else "FAIL"}
 
 
