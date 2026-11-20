@@ -241,6 +241,39 @@ Việc Substrate có tự xóa snapshot khi SandboxAgent bị xóa hay không v�
 
 Thứ tự 5 giai đoạn bám theo điều kiện thật của script: `sandbox_watch.sh kagent-staging preflight` dừng với `namespace … does not exist (create it first)` nếu 2 namespace staging chưa có. Vì vậy namespace phải được tạo (giai đoạn 2) trước khi chạy preflight/diff/dry-run của PKG-KS (giai đoạn 3).
 
+### G.0 Chuẩn bị Jenkins (trước giai đoạn 6, mỗi bước publish/apply cần owner duyệt)
+
+Jenkins không đọc GitHub. Job check out `/opt/ewallet-source/repository.bundle` (image `jenkins-source-snapshot`), nên push `release/agent-staging` lên GitHub không thay đổi gì với Jenkins ([`source_snapshot.py`](../../../scripts/ci/source_snapshot.py)). Jenkins live (V2-P3B preflight 2026-11-20) vẫn chạy snapshot `d84ea4e9`, CasC chưa có job `edai2-cd-agent-staging`, và image controller cũ không có `helm` mà `agent_staging.py` cần. Vì vậy phải publish 2 image mới và redeploy controller.
+
+Hai image trước đây được build trên workstation bằng `docker buildx … --push`, tag là full SHA (repository `ewallet-platform` bật immutable tags):
+
+```bash
+AR=asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform
+SHA=<release SHA>; BASE=98b71e30e51914f25ad17974debffadbdaca2487; W=<campaign dir>
+# 1. Controller image (helm 3.22.0, checksum-verified in the Dockerfile)
+docker buildx build --platform linux/amd64 -f infra/docker/jenkins-controller/Dockerfile -t $AR/jenkins-controller:$SHA --push .
+# 2. Source snapshot: bundle offline, verify, then the image
+python3 scripts/ci/source_snapshot.py build --sha $SHA --base $BASE --out $W/snapshot
+python3 scripts/ci/source_snapshot.py verify --dir $W/snapshot --sha $SHA      # verdict PASS
+docker buildx build --platform linux/amd64 -f infra/docker/jenkins-source-snapshot/Dockerfile -t $AR/jenkins-source-snapshot:$SHA --push $W/snapshot
+# 3. Digests (the manifest pins digests, never tags)
+for i in jenkins-controller jenkins-source-snapshot; do gcloud artifacts docker images describe $AR/$i:$SHA --format='value(image_summary.digest)'; done
+# 4. Render; the PVC is left out (a PVC only grows; the live jenkins-home is 32Gi)
+python3 scripts/ci/render_jenkins_runtime.py --controller-image $AR/jenkins-controller@<digest> \
+  --source-image $AR/jenkins-source-snapshot@<digest> --source-sha $SHA --base-sha $BASE --ml-sha $SHA \
+  --agent-sha $SHA --docs-sha $SHA --jenkins-gsa ewallet-jenkins@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com \
+  --output $W/jenkins-rendered.yaml
+python3 -c "import sys,yaml; print('---\n'.join(yaml.safe_dump(d, sort_keys=False) for d in yaml.safe_load_all(open(sys.argv[1])) if d and d['kind'] != 'PersistentVolumeClaim'))" \
+  $W/jenkins-rendered.yaml > $W/jenkins-apply.yaml
+grep -c "edai2-cd-agent-staging" $W/jenkins-apply.yaml                         # 1
+# 5. After the wake: diff must change only ConfigMap jenkins-casc (one new job) and Deployment jenkins (SHAs, 2 images)
+kubectl --context $CTX diff -f $W/jenkins-apply.yaml
+kubectl --context $CTX apply --dry-run=server -f $W/jenkins-apply.yaml
+kubectl --context $CTX apply -f $W/jenkins-apply.yaml && kubectl --context $CTX -n ewallet-ci rollout status deploy/jenkins --timeout=15m
+```
+
+Sau khi controller Ready: kiểm tra job `edai2-cd-agent-staging` có trong Jenkins; nếu job mới chưa hiện thì `Reload Configuration from Disk` (POST `/reload`), như Batch 2B-1. Kiểm tra `kubectl -n ewallet-ci exec deploy/jenkins -- helm version --short` = `v3.22.0+g144ca65`. Controller dùng `Recreate`, nên không được có build nào đang chạy khi apply.
+
 ### G.1 Giai đoạn 1 — Kiểm tra cluster chỉ đọc (sau khi owner duyệt wake)
 
 Không có thao tác ghi nào.
@@ -331,7 +364,7 @@ Lệnh này đưa release về revision đã ghi lúc upgrade, sau đó dừng c
 
 ### G.6 Jenkins E2E
 
-1. Owner push `release/agent-staging` tại SHA.
+1. Jenkins đã chạy snapshot của SHA này (G.0): ref `release/agent-staging` nằm trong bundle. Push nhánh lên GitHub chỉ để truy vết, Jenkins không đọc nó.
 2. Chạy job `edai2-cd-agent-staging` với các tham số `EXPECTED_GIT_SHA`, `RELEASE_BRANCH=release/agent-staging`, `DEPLOY_APPROVED=true`, rồi bấm Approve.
 3. Preflight sẽ dừng với `MISSING_PREREQUISITE` nếu thiếu bất kỳ Secret, ConfigMap hay dependency nào trong 10 Secret, 4 ConfigMap và 2 dependency đã pin.
 4. Cleanup:
