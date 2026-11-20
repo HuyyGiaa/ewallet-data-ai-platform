@@ -498,7 +498,7 @@ class EnvironmentContractTest(unittest.TestCase):
     def test_uv_project_pins_pyflink_matching_connector_and_python(self) -> None:
         project = (BENCH / "pyproject.toml").read_text()
         self.assertIn('"apache-flink==1.19.1"', project)
-        self.assertIn('"setuptools==80.9.0"', project)
+        self.assertIn('"setuptools==80.10.2"', project)
         self.assertIn('requires-python = ">=3.10,<3.12"', project)
         lock = (BENCH / "uv.lock").read_text()
         self.assertIn('name = "apache-flink"\nversion = "1.19.1"', lock)

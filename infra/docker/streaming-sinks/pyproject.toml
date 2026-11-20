@@ -5,7 +5,7 @@ description = "Block A history writer, Feast online writer and consistency valid
 requires-python = ">=3.10,<3.11"
 dependencies = [
   "confluent-kafka==2.6.1",
-  "feast[redis]==0.66.0",
+  "feast[redis]==0.67.0",
   "gcsfs==2026.10.1",
   "pandas==2.3.3",
   "pyarrow==25.0.1",

@@ -137,7 +137,7 @@ class RagIngestStageTests(unittest.TestCase):
         out = self.run_all()
         documents, chunks, embeddings = out["discover"], out["chunk"], out["embed"]
         self.assertEqual((documents["document_count"], documents["checksum_mismatches"]), (2, 0))
-        self.assertEqual(documents["runtime"]["packages"]["feast"], "0.66.0")
+        self.assertEqual(documents["runtime"]["packages"]["feast"], "0.67.0")
         self.assertTrue(chunks["deterministic"])
         self.assertEqual(chunks["chunk_count"], 4)
         self.assertEqual([c["chunk_id"] for c in chunks["chunks"]],

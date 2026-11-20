@@ -3,7 +3,7 @@
 # uv.lock beside this file (--locked never re-resolves; uv checks every hash).
 # The embedding model is fetched at build time at the manifest's immutable
 # revision and read offline at runtime, so the pod needs no Internet egress.
-FROM python:3.10.19-slim-trixie@sha256:ed9e9e63d6b7c71c8f80eae61ab889d3912ca097a8206dca52874457be507cf1 AS deps
+FROM python:3.11.18-slim-trixie@sha256:07d4824036af339fa1b6ef769cc99d9c10a141769538b52b3b597c84f7a7b535 AS deps
 
 COPY --from=ghcr.io/astral-sh/uv:0.13.5@sha256:32a7bb39b496babbd997b0a39a4d66c126bdaf5661b302bf6f06abda8deca6ff /uv /usr/local/bin/uv
 ENV UV_PROJECT_ENVIRONMENT=/opt/venv \
@@ -13,7 +13,7 @@ WORKDIR /opt/rag-project
 COPY infra/docker/rag-ingestion/pyproject.toml infra/docker/rag-ingestion/uv.lock ./
 # acryl-datahub declares pip, but nothing at runtime runs pip; its vendored msgpack/urllib3/pkg_resources
 # were Trivy findings of rag-pipeline #10 (Batch 2B-1). The venv keeps every locked runtime package but pip.
-RUN uv sync --locked --no-dev --no-install-project --no-cache --python /usr/local/bin/python3.10 \
+RUN uv sync --locked --no-dev --no-install-project --no-cache --python /usr/local/bin/python3.11 \
  && uv pip uninstall --python /opt/venv/bin/python pip
 
 FROM deps AS rag-model
@@ -24,7 +24,7 @@ RUN /opt/venv/bin/python -c "import sys; from huggingface_hub import hf_hub_down
  for f in ('modules.json', '1_Pooling/config.json', 'tokenizer.json', 'onnx/model.onnx')]" \
     "$RAG_MODEL_ID" "$RAG_MODEL_REVISION"
 
-FROM python:3.10.19-slim-trixie@sha256:ed9e9e63d6b7c71c8f80eae61ab889d3912ca097a8206dca52874457be507cf1 AS runtime
+FROM python:3.11.18-slim-trixie@sha256:07d4824036af339fa1b6ef769cc99d9c10a141769538b52b3b597c84f7a7b535 AS runtime
 
 ARG EWALLET_RELEASE_SHA=unknown
 ENV PATH=/opt/venv/bin:$PATH \
@@ -41,8 +41,8 @@ WORKDIR /workspace
 RUN apt-get update \
  && apt-get -y --no-install-recommends upgrade \
  && rm -rf /var/lib/apt/lists/* \
- && /usr/local/bin/python3.10 -m pip uninstall --yes --no-input pip setuptools wheel \
- && rm -f /usr/local/bin/pip /usr/local/bin/pip3 /usr/local/bin/pip3.10 /usr/local/bin/wheel \
+ && /usr/local/bin/python3.11 -m pip uninstall --yes --no-input pip setuptools wheel \
+ && rm -f /usr/local/bin/pip /usr/local/bin/pip3 /usr/local/bin/pip3.11 /usr/local/bin/wheel \
  && groupadd --system --gid 10001 app \
  && useradd --system --uid 10001 --gid app --no-create-home app
 COPY --from=deps /opt/venv /opt/venv

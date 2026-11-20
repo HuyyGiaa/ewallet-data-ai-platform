@@ -60,11 +60,18 @@ PROTECTED = {
     # MCP runtime: CVE-2026-18948 (GHSA-gg2p-37pv-v7fq, unsafe dill UDF deserialization) is
     # fixed in 0.67.0. It reads the registry that the 0.66.0 feature repo publishes.
     ("infra/docker/llm-agent-tooling", "feast"): "0.67.0",
+    # Release images (rows 33/36), same fix; cross-version online/registry reads with 0.66.0 checked.
+    ("infra/docker/rag-ingestion", "feast"): "0.67.0",
+    ("infra/docker/streaming-sinks", "feast"): "0.67.0",
+    # CVE-2026-112940 is fixed in filelock 4.2.1, which needs Python >= 3.11: the RAG venv is 3.11.
+    ("infra/docker/rag-ingestion", "filelock"): "4.2.12",
     ("ai_platform/ml/pipelines", "kfp"): "2.17.3",
     ("infra/docker/llm-agent-tooling", "mcp"): "2.3.0",
     ("ai_platform/ml/dvc-operator", "dvc"): "3.63.0",
     # PyFlink must match the pinned Flink 1.19.1 JobManager/TaskManager image.
     ("infra/docker/flink-benchmark", "apache-flink"): "1.19.1",
+    # Trivy remediation (vendored wheel/jaraco.context); 82 drops the pkg_resources PyFlink 1.19 imports.
+    ("infra/docker/flink-benchmark", "setuptools"): "80.10.2",
     # vllm-cpu-model remediation inputs (Trivy fixes); changing them needs a rescan.
     ("infra/docker/vllm-cpu-model", "certifi"): "2026.10.18",
     ("infra/docker/vllm-cpu-model", "setuptools"): "82.0.1",
