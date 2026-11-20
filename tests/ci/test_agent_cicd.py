@@ -398,6 +398,54 @@ def test_known_answers_pass_for_both_specialists_with_the_real_fixtures() -> Non
     assert {header for _, header, _ in seen} == {"service:ewallet-cicd-candidate"}
 
 
+def kagent_sandbox_post(sent: list):  # type: ignore[no-untyped-def]
+    """kagent's SandboxAgent route: message/send needs a contextId (Build #1 of edai2-cd-agent-staging failed
+    without it); the task is then polled by id with tasks/get, which carries no context."""
+
+    def post(url, body, headers, timeout):  # type: ignore[no-untyped-def]
+        sent.append(copy.deepcopy(body))
+        agent = re.search(r"/api/a2a-sandboxes/[a-z-]+/([a-z-]+?)(?:-cicd)?/$", url).group(1)
+        if body["method"] == "message/send":
+            if not body["params"]["message"].get("contextId"):
+                return {"jsonrpc": "2.0", "id": body["id"], "error": {
+                    "code": -32603, "message": "message contextId (session id) is required for substrate sandbox agents"}}
+            return {"jsonrpc": "2.0", "id": body["id"], "result": {"kind": "task", "id": f"task-{agent}",
+                                                                   "status": {"state": "working"}}}
+        assert body["method"] == "tasks/get" and body["params"] == {"id": f"task-{agent}"}
+        return specialist_reply(agent, sent[0]["params"]["message"]["messageId"])
+    return post
+
+
+@pytest.mark.parametrize("agent", ["feature-rag-specialist", "drift-specialist"])
+def test_each_specialist_request_opens_its_own_sandbox_session(agent) -> None:
+    sent: list = []
+    request_id = f"staging-20261120t220000-000000-{agent}"
+    result = specialist_e2e.verify(contract=CONTRACT, agent=agent, target=agent, endpoint="http://127.0.0.1:18393/",
+                                   environment="gke-cpu:ewallet-sandbox-staging", git_sha=SHA, image=NEW,
+                                   request_id=request_id, post=kagent_sandbox_post(sent),
+                                   clock=iter(range(0, 10000, 3)).__next__, sleep=lambda s: None)
+    assert result.verdict == "PASS", result.reasons   # the known answers are unchanged
+    message = sent[0]["params"]["message"]
+    assert message["contextId"] == message["messageId"] == sent[0]["id"] == request_id
+    fixture = (specialist_e2e.ROOT / CONTRACT["agents"][agent]["fixture"]).read_text(encoding="utf-8")
+    assert "contextId" not in fixture   # the typed fixture itself is not edited
+    expected = json.loads(fixture.replace("__TASK_ID__", request_id))["params"]["message"]
+    assert {k: v for k, v in message.items() if k != "contextId"} == expected   # same typed request, same request_id
+    assert [b["method"] for b in sent] == ["message/send", "tasks/get"]
+
+
+def test_sessions_are_never_shared_between_checks_or_executions() -> None:
+    contexts = []
+    for request_id in ("staging-a-feature-rag-specialist", "staging-a-drift-specialist", "staging-b-feature-rag-specialist"):
+        agent = request_id.split("-", 2)[2]
+        sent: list = []
+        specialist_e2e.verify(contract=CONTRACT, agent=agent, target=agent, endpoint="http://127.0.0.1:18393/",
+                              environment="gke-cpu:ewallet-sandbox-staging", git_sha=SHA, image=NEW, request_id=request_id,
+                              post=kagent_sandbox_post(sent), clock=iter(range(0, 10000, 3)).__next__, sleep=lambda s: None)
+        contexts.append(sent[0]["params"]["message"]["contextId"])
+    assert len(set(contexts)) == 3
+
+
 @pytest.mark.parametrize(("reply", "verdict"), [
     (lambda rid: specialist_reply("feature-rag-specialist", rid, fraud_score={"fraud_probability": 0.5}), "KNOWN_ANSWER_MISMATCH"),
     # A stale answer from an earlier execution (its request id) never counts.

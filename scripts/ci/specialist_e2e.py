@@ -102,10 +102,20 @@ def http_post(url: str, message: Mapping[str, Any], headers: Mapping[str, str], 
 
 
 def payload(fixture: Path, request_id: str) -> dict[str, Any]:
+    """The fixture's ``message/send`` for one request, with its own session.
+
+    kagent routes a SandboxAgent message to a session actor by ``contextId`` and refuses a message without it
+    ("contextId (session id) is required for substrate sandbox agents"). The context is the request id, as the
+    Coordinator does for its Specialist calls (programmatic_coordinator.call_for): one fresh session per request,
+    never shared between checks or executions. ``tasks/get`` polls by task id and needs no context.
+    """
+
     text = fixture.read_text(encoding="utf-8")
     if "__TASK_ID__" not in text:
         raise ValueError(f"fixture {fixture} has no __TASK_ID__ placeholder")
-    return json.loads(text.replace("__TASK_ID__", request_id))
+    body = json.loads(text.replace("__TASK_ID__", request_id))
+    body["params"]["message"]["contextId"] = request_id
+    return body
 
 
 def run_task(post: Post, url: str, body: Mapping[str, Any], headers: Mapping[str, str], *, timeout: float,
