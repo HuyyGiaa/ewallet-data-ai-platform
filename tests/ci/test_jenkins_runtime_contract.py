@@ -105,6 +105,9 @@ class JenkinsRuntimeContractTests(unittest.TestCase):
 
         dockerfile = (ROOT / "infra/docker/jenkins-controller/Dockerfile").read_text()
         self.assertIn("UV_PYTHON_DOWNLOADS=manual", dockerfile)
+        # CI never uses the interpreters' pip; the 3.11 one (vendored libs in its SBOM) is removed.
+        self.assertRegex(dockerfile, r"uv pip uninstall \\\s+--python /opt/uv-python/cpython-3\.11\.17-[^\s]+/bin/python"
+                                     r" \\\s+--break-system-packages \\\s+pip \\")
         installed = re.search(r"uv python install ((?:[0-9.]+ ?)+)", dockerfile).group(1).split()
         for project in sorted({p for c in load_catalog(CATALOG_PATH).components.values()
                                for p in c.python_projects}):

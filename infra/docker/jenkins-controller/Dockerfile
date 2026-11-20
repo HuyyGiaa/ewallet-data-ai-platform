@@ -8,6 +8,8 @@ LABEL org.opencontainers.image.source="ewallet-data-ai-platform" \
 # The root filesystem is read-only at runtime (readOnlyRootFilesystem), so every interpreter a catalog
 # project's requires-python needs is installed here at build time and uv never downloads one at runtime
 # (it would write into /opt/uv-python): 3.10 (most projects), 3.11 (rag-ingestion), 3.12 (agents, vLLM).
+# CI installs with uv only; the 3.11 interpreter's bundled pip (vendored msgpack/urllib3/setuptools, listed in
+# its pip/_vendor/bom.cdx.json) is removed so it adds no unused packages to the image scan.
 ENV UV_PYTHON_INSTALL_DIR=/opt/uv-python \
     UV_CACHE_DIR=/var/jenkins_home/.cache/uv \
     UV_PYTHON_DOWNLOADS=manual
@@ -43,6 +45,10 @@ RUN apt-get update \
  && apt-get purge --yes --auto-remove curl gnupg \
  && rm -rf /var/lib/apt/lists/* \
  && uv python install 3.10.19 3.11.17 3.12.12 \
+ && uv pip uninstall \
+      --python /opt/uv-python/cpython-3.11.17-linux-x86_64-gnu/bin/python \
+      --break-system-packages \
+      pip \
  && uv pip install \
       --python /opt/uv-python/cpython-3.10.19-linux-x86_64-gnu/bin/python \
       --break-system-packages \
