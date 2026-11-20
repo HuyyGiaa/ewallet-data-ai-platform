@@ -7,6 +7,13 @@ ARG SOURCE_SHA
 LABEL org.opencontainers.image.revision="${SOURCE_SHA}"
 
 COPY --from=ghcr.io/astral-sh/uv:0.13.5@sha256:32a7bb39b496babbd997b0a39a4d66c126bdaf5661b302bf6f06abda8deca6ff /uv /usr/local/bin/uv
+# Debian security updates (apt, OpenSSL) as the RAG image does, and the base image's unused
+# pip/setuptools/wheel removed (wheel and jaraco.context findings): the sinks run from /opt/venv.
+RUN apt-get update \
+ && apt-get -y --no-install-recommends upgrade \
+ && rm -rf /var/lib/apt/lists/* \
+ && /usr/local/bin/python3.10 -m pip uninstall --yes --no-input pip setuptools wheel \
+ && rm -f /usr/local/bin/pip /usr/local/bin/pip3 /usr/local/bin/pip3.10 /usr/local/bin/wheel
 
 ENV UV_PROJECT_ENVIRONMENT=/opt/venv \
     UV_PYTHON_DOWNLOADS=never \

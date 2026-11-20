@@ -11,7 +11,10 @@ ENV UV_PROJECT_ENVIRONMENT=/opt/venv \
     UV_LINK_MODE=copy
 WORKDIR /opt/rag-project
 COPY infra/docker/rag-ingestion/pyproject.toml infra/docker/rag-ingestion/uv.lock ./
-RUN uv sync --locked --no-dev --no-install-project --no-cache --python /usr/local/bin/python3.10
+# acryl-datahub declares pip, but nothing at runtime runs pip; its vendored msgpack/urllib3/pkg_resources
+# were Trivy findings of rag-pipeline #10 (Batch 2B-1). The venv keeps every locked runtime package but pip.
+RUN uv sync --locked --no-dev --no-install-project --no-cache --python /usr/local/bin/python3.10 \
+ && uv pip uninstall --python /opt/venv/bin/python pip
 
 FROM deps AS rag-model
 ARG RAG_MODEL_ID=sentence-transformers/all-MiniLM-L6-v2
@@ -33,9 +36,13 @@ ENV PATH=/opt/venv/bin:$PATH \
 LABEL org.opencontainers.image.revision=${EWALLET_RELEASE_SHA} \
       org.opencontainers.image.title="E-Wallet RAG ingestion runtime"
 WORKDIR /workspace
+# The base image's own pip/setuptools/wheel (system site-packages) are unused: the task runs /opt/venv.
+# They carried the wheel and jaraco.context findings of rag-pipeline #10.
 RUN apt-get update \
  && apt-get -y --no-install-recommends upgrade \
  && rm -rf /var/lib/apt/lists/* \
+ && /usr/local/bin/python3.10 -m pip uninstall --yes --no-input pip setuptools wheel \
+ && rm -f /usr/local/bin/pip /usr/local/bin/pip3 /usr/local/bin/pip3.10 /usr/local/bin/wheel \
  && groupadd --system --gid 10001 app \
  && useradd --system --uid 10001 --gid app --no-create-home app
 COPY --from=deps /opt/venv /opt/venv
