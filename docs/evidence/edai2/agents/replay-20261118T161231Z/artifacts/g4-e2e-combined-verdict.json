@@ -1,0 +1,18 @@
+{
+  "verdict": "COMPLETE",
+  "reasons": [],
+  "case": "combined",
+  "elapsed_seconds": 17.045,
+  "state": "completed",
+  "contract_version": "g3-orchestration/v2",
+  "status": "complete",
+  "workflow": "combined",
+  "unavailable": [],
+  "request_id": "replay-combined-20261119T105907Z-93391-42643049",
+  "specialists": {
+    "drift-specialist": "ok",
+    "feature-rag-specialist": "ok"
+  },
+  "psi": 0.0004795543627041439,
+  "fraud_probability": 0.0639895560144887
+}

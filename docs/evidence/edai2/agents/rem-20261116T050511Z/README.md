@@ -7,7 +7,7 @@ This directory mirrors the remediation summaries. The raw evidence (139 files) s
 - `MIRROR_SHA256SUMS.txt` covers the files here.
 
 Every mirrored 64-hex string was checked to be a named hash (schema, workload, render), never a credential.
-Results: [AGENT_PLATFORM_COMPLETION.md §6](../../../../edai2/agents/AGENT_PLATFORM_COMPLETION.md#6-final-remediation-rem-20261116t050511z).
+Results were reported on a page removed in the 2026-11-20 Agent docs consolidation; the current Agent Platform evidence is [AGENT_PLATFORM_EVIDENCE.md](../../../../edai2/agents/AGENT_PLATFORM_EVIDENCE.md).
 
 | Path | Content |
 |---|---|

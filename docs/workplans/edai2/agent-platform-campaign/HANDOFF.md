@@ -13,7 +13,7 @@ or deleted.
 | Four "pre-existing failing" test files | **ENVIRONMENT**, not defects. They were run in `ai_platform/inference` (Python 3.10, no jsonschema). All 81 tests pass in `infra/docker/llm-agent-tooling` on Python 3.12 (the vLLM recipe test imports a 3.12 build script). `jsonschema==4.26.0` is now an explicit `test` dependency at the already-locked version |
 | Feature-RAG orphans (prepared) | `lf-agents` + `agi/agents-retire-feature-rag-mcp.yaml`: 9 objects (SA, probe, OTLP, Feast/KServe flows incl. `allow-ewallet-agents-*` in `feature-store`/`fraud-serving`), network-flows ConfigMap changed, 150 KEEP; `cross-namespace.yaml` now skips flows of any retired workload (15 profiles byte-identical) |
 | Auth tables (prepared) | `ewallet-agents/mcp-auth-drift-mcp-fin-20261117{,-b}`: proposed DELETE after live recomputation (unused copies; every credential also in the active `ewallet-mcp` table); scoped Helm references + `NAMESPACE_OBSOLETE_SETS` in the matrix |
-| Expected revisions at next wake | `llm-agent` 59 (manifest sha256 `01b90e1d…`), `llm-agent-mcp` 19; after `lf-agents`: `llm-agent` 60 |
+| Expected revisions at next wake | `llm-agent` 59 (stored manifest `helm get manifest` sha256 `784b349c…`; its reviewed `helm template` render is `01b90e1d…`, the earlier value given here; corrected 2026-11-18), `llm-agent-mcp` 19; after `lf-agents`: `llm-agent` 60 |
 | Next wake | same manifest as below (`lc-20261117T002220Z/final-sleep/recovery-manifest`, 5 nodes) |
 
 **Still requires the owner:** approval of the §13.4 GKE campaign (`LF-AGENTS`, `AUTH-TABLES`, guarded sleep), and
@@ -433,7 +433,7 @@ PKG-W.
 
 ## Final remediation `rem-20261116T050511Z` (2026-11-16): current state
 
-Results: [AGENT_PLATFORM_COMPLETION.md §6](../../../edai2/agents/AGENT_PLATFORM_COMPLETION.md#6-final-remediation-rem-20261116t050511z).
+Results: [AGENT_PLATFORM_EVIDENCE.md](../../../edai2/agents/AGENT_PLATFORM_EVIDENCE.md) (the earlier completion page was removed in the 2026-11-20 consolidation).
 
 - **Deployed:**
   - `llm-agent` rev 52, with 3 BYO images from `21994c03`.
@@ -450,8 +450,8 @@ Results: [AGENT_PLATFORM_COMPLETION.md §6](../../../edai2/agents/AGENT_PLATFORM
 
 ## Final integration `agi-20261115T145608Z` (2026-11-15/16): read this first
 
-Results: [AGENT_PLATFORM_COMPLETION.md](../../../edai2/agents/AGENT_PLATFORM_COMPLETION.md). Owner replay:
-[OWNER_AGENT_PLATFORM_EVIDENCE_REPLAY.md](../../../edai2/agents/OWNER_AGENT_PLATFORM_EVIDENCE_REPLAY.md), helper
+Results: [AGENT_PLATFORM_EVIDENCE.md](../../../edai2/agents/AGENT_PLATFORM_EVIDENCE.md). Owner replay:
+[AGENT_PLATFORM_OPERATIONS.md](../../../edai2/agents/AGENT_PLATFORM_OPERATIONS.md), helper
 `scripts/llm_agent/agent_replay.sh`. Raw evidence: `~/ewallet-evidence/agents/integration/agi-20261115T145608Z/` with
 `SHA256SUMS.txt`, mirrored in `docs/evidence/edai2/agents/agi-20261115T145608Z/`.
 

@@ -8,7 +8,7 @@ and Git history remain available. The complete old-to-new path map is in the
 
 | File | Kind | Current report |
 |---|---|---|
-| [llm/g3_rubric_gate_a.md](../../archive/legacy-docs/docs/edai2/llm/g3_rubric_gate_a.md) | Planning and approval gate (rubric map) | [LLM Platform](llm/LLM_PLATFORM.md), [Agents](agents/AGENTS_REGISTRY_GATEWAYS.md) |
+| [llm/g3_rubric_gate_a.md](../../archive/legacy-docs/docs/edai2/llm/g3_rubric_gate_a.md) | Planning and approval gate (rubric map) | [LLM Platform](llm/LLM_PLATFORM.md), [Agent Platform architecture](agents/AGENT_PLATFORM_ARCHITECTURE.md) |
 | [mlops/MLOPS_FEATURE_STORE.md](../../archive/legacy-docs/docs/edai2/mlops/MLOPS_FEATURE_STORE.md) | Earlier MLOps campaign report with status vocabulary | [ML Pipeline and Serving](mlops/ML_PIPELINE_SERVING.md) |
 | [cicd_rubric_evidence_20261103.md](../../archive/legacy-docs/docs/edai2/cicd_rubric_evidence_20261103.md) | Earlier CI/CD rubric evidence | [CI/CD](cicd/CICD.md) |
 | [cicd_campaign_closure_handoff_20261103.md](../../archive/legacy-docs/docs/edai2/cicd_campaign_closure_handoff_20261103.md) | Campaign handoff | [CI/CD](cicd/CICD.md) |

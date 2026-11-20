@@ -8,7 +8,7 @@ The evidence for rubric rows 16–27 comes from three groups:
 - **AGS-01–07**, the sandbox and the Substrate pool. Section 4.
 
 The design is in the
-[completion audit](../../edai2/agents/AGENT_PLATFORM_COMPLETION_AUDIT.md). The
+[Agent Platform evidence](../../edai2/agents/AGENT_PLATFORM_EVIDENCE.md). The
 campaign state is in
 [`docs/workplans/edai2/agent-platform-campaign/`](../../workplans/edai2/agent-platform-campaign/):
 `checkpoints.json`, `HANDOFF.md`, and `images.json` (the image digests).
@@ -635,11 +635,21 @@ references in the stored values. The active `ewallet-mcp` servers are not change
 
 Prepared offline in `lf-offline-20261117`, with no cluster access. Nothing here has run on GKE. Every step needs
 the owner's approval. The plan, the exact matrices and the evidence of the historical basis are in
-[AGENT_PLATFORM_COMPLETION.md §13](../../edai2/agents/AGENT_PLATFORM_COMPLETION.md#13-offline-audit-and-final-cleanup-proposal-lf-offline-20261117).
+the former completion page (removed in the 2026-11-20 Agent docs consolidation; current evidence: [AGENT_PLATFORM_EVIDENCE.md](../../edai2/agents/AGENT_PLATFORM_EVIDENCE.md)).
 
-1. **Preflight** (read-only). Expect `llm-agent` rev 59 and `llm-agent-mcp` rev 19, and a live
-   `helm get manifest llm-agent` whose sha256 is `01b90e1d…`, the reviewed render. Then run the credential check
-   and the auth-table plan with the reviewed list:
+1. **Preflight** (read-only). Expect `llm-agent` rev 59 and `llm-agent-mcp` rev 19. Three different checks, not to be
+   mixed up:
+   - the reviewed `helm template` render of rev 59 (`lc-agents` gate, `agi/stage1/llm-agent-lc-agents-render-sha256.txt`)
+     has sha256 `01b90e1d…`;
+   - the stored manifest, `helm get manifest llm-agent`, is that render plus the one trailing newline Helm appends:
+     sha256 `784b349c…`;
+   - equivalence is decided structurally: `agi_campaign.sh preflight` P0.5 re-renders the live values and compares the
+     objects (`helm_object_diff.py`, 0 added / 0 removed / 0 changed).
+
+   *Correction (replay-20261118T161231Z, 2026-11-18):* this step used to expect `01b90e1d…` from `helm get manifest`.
+   That compared a render hash with a stored-manifest hash; the live release was unchanged (evidence:
+   `replay-20261118T161231Z/lf-preflight/sha-rca/`). Then run the credential check and the auth-table plan with the
+   reviewed list:
    ```bash
    AGI_ENV=… scripts/llm_agent/mcp_credential_check.sh <out> pre
    CTX=… LC_CAMPAIGN=<campaign> EXPECT_DELETE="ewallet-agents/mcp-auth-drift-mcp-fin-20261117 ewallet-agents/mcp-auth-drift-mcp-fin-20261117-b" \

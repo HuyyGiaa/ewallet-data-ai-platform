@@ -1,0 +1,13 @@
+{
+  "verdict": "COMPLETE",
+  "reasons": [],
+  "case": "fraud",
+  "elapsed_seconds": 17.181,
+  "state": "completed",
+  "contract_version": "g3-orchestration/v1",
+  "status": "ok",
+  "workflow": null,
+  "unavailable": [],
+  "request_id": "replay-fraud-20261119T105531Z-91257-14ae1c09",
+  "fraud_probability": 0.0639895560144887
+}

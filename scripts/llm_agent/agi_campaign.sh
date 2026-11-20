@@ -165,9 +165,16 @@ sys.exit(0 if (s.get("drift-specialist") or {}).get("runtime") == "sandbox" else
 }
 drift_is_declarative() {   # before P2 the drift-specialist is Declarative; P4 and image rolls run after P2 made it BYO
   local want=Declarative
-  [[ "${PACKAGE}" == p4-agents || "${PACKAGE}" == img-* || "${PACKAGE}" == t1-agents || "${PACKAGE}" == tr-agents || "${PACKAGE}" == sp-cleanup || "${PACKAGE}" == cr-* || "${PACKAGE}" == lc-* ]] && want=BYO
+  [[ "${PACKAGE}" == p4-agents || "${PACKAGE}" == img-* || "${PACKAGE}" == t1-agents || "${PACKAGE}" == tr-agents || "${PACKAGE}" == sp-cleanup || "${PACKAGE}" == cr-* || "${PACKAGE}" == lc-* || "${PACKAGE}" == lf-* ]] && want=BYO
+  # lf-* exists only on the Sandbox-only release (sp-cleanup and lc applied): selecting it on any other release fails.
+  if [[ "${PACKAGE}" == lf-* ]] && ! specialists_retired; then
+    return 1
+  fi
   if [[ "${want}" == BYO ]] && specialists_retired; then   # after sp-cleanup the Agent CR is gone on purpose
-    ! kc -n ewallet-agents get agents.kagent.dev drift-specialist -o name > /dev/null 2>&1
+    ! kc -n ewallet-agents get agents.kagent.dev drift-specialist -o name > /dev/null 2>&1 || return 1
+    # The Sandbox-only runtime itself: the BYO Coordinator and both Specialist SandboxAgents are live.
+    [[ "$(kc -n ewallet-agents get agents.kagent.dev fraud-coordinator -o jsonpath='{.spec.type}')" == BYO ]] || return 1
+    kc -n ewallet-sandbox get sandboxagents.kagent.dev feature-rag-specialist drift-specialist -o name > /dev/null
     return
   fi
   [[ "$(kc -n ewallet-agents get agents.kagent.dev drift-specialist -o jsonpath='{.spec.type}')" == "${want}" ]]

@@ -388,7 +388,7 @@ All technical reports live under [`docs/`](docs). Each one explains a component'
 | LLM serving, gateway, ModelConfig, benchmarks | [LLM Inference Platform](docs/edai2/llm/LLM_PLATFORM.md), [LLM Benchmark Results](docs/edai2/llm/BENCHMARK_RESULTS.md) |
 | Feature store | [Feature Store](docs/edai2/mlops/FEATURE_STORE.md), [runbook](docs/runbooks/edai2/FEATURE_STORE_RUNBOOK.md) |
 | Training, registry, serving | [ML Pipeline and Serving](docs/edai2/mlops/ML_PIPELINE_SERVING.md) |
-| Agents, MCP tools, registry, gateways | [Agents and Gateways](docs/edai2/agents/AGENTS_REGISTRY_GATEWAYS.md) |
+| Agents, MCP tools, registry, gateways | [Agent Platform architecture](docs/edai2/agents/AGENT_PLATFORM_ARCHITECTURE.md), [operations](docs/edai2/agents/AGENT_PLATFORM_OPERATIONS.md), [evidence](docs/edai2/agents/AGENT_PLATFORM_EVIDENCE.md) |
 | RAG | [RAG Knowledge Pipeline](docs/edai2/rag/RAG_PIPELINE.md) |
 | Testing | [Testing and Continuous Verification](docs/edai2/testing/TESTING.md) |
 | CI/CD | [CI/CD with Jenkins](docs/edai2/cicd/CICD.md) |

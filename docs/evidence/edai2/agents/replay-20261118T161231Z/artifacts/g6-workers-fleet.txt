@@ -1,0 +1,6 @@
+NAME                                             READY   ACCEPTED
+sandboxagent.kagent.dev/drift-specialist         True    True
+sandboxagent.kagent.dev/feature-rag-specialist   True    True
+
+NAME                                 DESIRED   REPLICAS   AGE
+workerpool.ate.dev/business-agents   2         2          4d3h

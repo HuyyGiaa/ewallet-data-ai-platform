@@ -20,8 +20,8 @@ The overall architecture, with numbered data and investigation flows, is in the 
 | LLM benchmarks EXP-V1 / EXP-V2 and gateway policy evidence | [LLM Benchmark Results](llm/BENCHMARK_RESULTS.md) |
 | Feast Offline/Online, incremental materialization, streaming features, consistency | [Feature Store](mlops/FEATURE_STORE.md) |
 | Feast, Kubeflow Pipelines, MLflow, KServe, Fraud API | [Feature Store, Training Pipeline, Registry and Serving](mlops/ML_PIPELINE_SERVING.md) |
-| Coordinator and specialist agents, MCP tools, Agent Registry, MCP/A2A gateways, scaling, sandbox pilot | [Agents, MCP Tools, Registry and Gateways](agents/AGENTS_REGISTRY_GATEWAYS.md) |
-| Agent Platform final GKE integration: Coordinator → Sandbox Specialists → MCP Gateway → backends, KEDA, MCP failover, shared WorkerPool, tracing (campaign `agi-20261115T145608Z`) | [Agent Platform on GKE: final results](agents/AGENT_PLATFORM_COMPLETION.md) · [Owner evidence replay](agents/OWNER_AGENT_PLATFORM_EVIDENCE_REPLAY.md) |
+| Coordinator and specialist agents, MCP tools, Agent Registry, MCP/A2A gateways, scaling, sandbox pilot | [Agent Platform architecture](agents/AGENT_PLATFORM_ARCHITECTURE.md) |
+| Agent Platform final GKE integration: Coordinator → Sandbox Specialists → MCP Gateway → backends, KEDA, MCP failover, shared WorkerPool, tracing (campaign `agi-20261115T145608Z`) | [Agent Platform operations](agents/AGENT_PLATFORM_OPERATIONS.md) · [Agent Platform evidence (owner replay `replay-20261118T161231Z`)](agents/AGENT_PLATFORM_EVIDENCE.md) |
 | RAG ingestion, retrieval and governance | [RAG Knowledge Pipeline](rag/RAG_PIPELINE.md) |
 | Test strategy and Jenkins test results | [Testing and Continuous Verification](testing/TESTING.md) |
 | Testing rubric rows 28–32 (coverage, partitions, mutation, properties, Locust) | [Row 28](testing/ROW_28_UNIT_TEST_COVERAGE.md), [Row 29](testing/ROW_29_EQUIVALENCE_BOUNDARY.md), [Row 30](testing/ROW_30_MUTATION_TESTING.md), [Row 31](testing/ROW_31_PROPERTY_BASED_IDEMPOTENCY.md), [Row 32](testing/ROW_32_LOCUST_GKE.md) |

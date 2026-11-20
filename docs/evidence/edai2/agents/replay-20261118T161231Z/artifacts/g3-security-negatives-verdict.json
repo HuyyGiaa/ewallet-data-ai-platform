@@ -1,0 +1,20 @@
+{
+  "verdict": "PASS",
+  "rows": [
+    [
+      "PASS",
+      "wrong-server-credential.json: expected unauthenticated",
+      "probe exit 0, verdict PASS, observed unauthenticated, control listed"
+    ],
+    [
+      "PASS",
+      "ungranted-tool.json: expected call-denied",
+      "probe exit 0, verdict PASS, observed hidden_tool, control listed"
+    ],
+    [
+      "PASS",
+      "a2a-unrouted.json: expected no-route",
+      "probe exit 0, verdict PASS, observed 404, control 200"
+    ]
+  ]
+}
