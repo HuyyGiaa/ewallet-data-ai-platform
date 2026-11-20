@@ -97,6 +97,29 @@ class JenkinsRuntimeContractTests(unittest.TestCase):
         self.assertIn("gettext-base", dockerfile)
         self.assertIn("signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg", dockerfile)
 
+    def test_controller_image_installs_the_pinned_helm_that_agent_staging_runs(self) -> None:
+        # agent_staging.py shells out to `helm` on the controller (Jenkinsfile.llm-agent `node {}`,
+        # numExecutors 1, no agents). Without the binary the release fails with FileNotFoundError.
+        dockerfile = (ROOT / "infra/docker/jenkins-controller/Dockerfile").read_text()
+        staging = (ROOT / "scripts/ci/agent_staging.py").read_text()
+        self.assertIn('subprocess.run(["helm", *args', staging)
+        self.assertRegex(dockerfile, r"(?m)^ARG HELM_VERSION=3\.22\.0$")
+        self.assertRegex(dockerfile, r"(?m)^ARG HELM_SHA256_AMD64=[0-9a-f]{64}$")
+        steps = [
+            'test "$(dpkg --print-architecture)" = amd64',
+            '"https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz"',
+            'echo "${HELM_SHA256_AMD64}  /tmp/helm.tar.gz" | sha256sum -c -',
+            "tar -xzf /tmp/helm.tar.gz",
+            "install -m 0755 /tmp/linux-amd64/helm /usr/local/bin/helm",
+            'helm version --short | grep -qx "v${HELM_VERSION}+g[0-9a-f]*"',
+        ]
+        positions = [dockerfile.find(step) for step in steps]
+        self.assertNotIn(-1, positions, "every helm install step is present")
+        self.assertEqual(positions, sorted(positions), "checksum is verified before unpacking and installing")
+        self.assertLess(positions[-1], dockerfile.index("apt-get purge --yes --auto-remove curl gnupg"))
+        self.assertNotIn("get.helm.sh/helm-latest", dockerfile)
+        self.assertNotIn("get-helm-3", dockerfile)
+
     def test_jenkins_manifest_is_clusterip_only_non_privileged_and_bounded(self) -> None:
         manifest = ROOT / "infra/kubernetes/jenkins/jenkins.yaml"
         documents = [item for item in yaml.safe_load_all(manifest.read_text()) if item]

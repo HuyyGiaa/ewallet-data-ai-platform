@@ -15,6 +15,11 @@ COPY --from=uv /uv /uvx /usr/local/bin/
 # signed Kubernetes apt repository at an exact version (within one minor of GKE 1.36/1.37).
 ARG KUBECTL_MINOR=v1.37
 ARG KUBECTL_VERSION=1.37.1-1.1
+# helm runs the Agent staging release (scripts/ci/agent_staging.py: helm template/install/uninstall with
+# HELM_DRIVER=configmap) on this controller. Exact release tarball, verified against its published SHA-256
+# before it is unpacked. The image is amd64-only (the uv Python path below is x86_64).
+ARG HELM_VERSION=3.22.0
+ARG HELM_SHA256_AMD64=1e4ab49e429626cf6c6958d914248b78c9730803c2751b87627e171dc800e7bb
 RUN apt-get update \
  && apt-get install --yes --no-install-recommends ca-certificates curl gnupg git python3 gettext-base \
  && install -d -m 0755 /etc/apt/keyrings \
@@ -24,6 +29,13 @@ RUN apt-get update \
     > /etc/apt/sources.list.d/kubernetes.list \
  && apt-get update \
  && apt-get install --yes --no-install-recommends "kubectl=${KUBECTL_VERSION}" \
+ && test "$(dpkg --print-architecture)" = amd64 \
+ && curl -fsSLo /tmp/helm.tar.gz "https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz" \
+ && echo "${HELM_SHA256_AMD64}  /tmp/helm.tar.gz" | sha256sum -c - \
+ && tar -xzf /tmp/helm.tar.gz -C /tmp linux-amd64/helm \
+ && install -m 0755 /tmp/linux-amd64/helm /usr/local/bin/helm \
+ && rm -rf /tmp/helm.tar.gz /tmp/linux-amd64 \
+ && helm version --short | grep -qx "v${HELM_VERSION}+g[0-9a-f]*" \
  && apt-get purge --yes --auto-remove curl gnupg \
  && rm -rf /var/lib/apt/lists/* \
  && uv python install 3.10.19 3.12.12 \
