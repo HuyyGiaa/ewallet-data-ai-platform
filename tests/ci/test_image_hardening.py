@@ -10,6 +10,7 @@ no finding is excepted.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -38,11 +39,55 @@ def test_runtime_removes_the_base_image_packaging_tools() -> None:
     assert runtime.index("pip uninstall") < runtime.index("USER 10001:10001")
 
 
+APPROVED = {
+    ("CVE-2026-104851", "fsspec", ("rag-ingestion",)),
+    ("CVE-2026-35194", "org.apache.flink:flink-table-planner_2.12", ("flink-block-a",)),
+    ("CVE-2026-35194", "org.apache.flink:flink-table-runtime", ("flink-block-a",)),
+    ("CVE-2023-47248", "pyarrow", ("flink-block-a",)),
+    ("CVE-2025-4565", "protobuf", ("flink-block-a",)),
+    ("CVE-2026-0994", "protobuf", ("flink-block-a",)),
+    ("CVE-2026-59939", "httplib2", ("flink-block-a",)),
+    ("CVE-2026-114605", "dnspython", ("flink-block-a",)),
+    ("CVE-2026-128089", "dnspython", ("flink-block-a",)),
+}
+
+
 def test_the_scan_gate_is_not_relaxed() -> None:
-    exceptions = json.loads((ROOT / "jenkins/security/vulnerability-exceptions.json").read_text(encoding="utf-8"))
-    assert exceptions["exceptions"] == []
+    # Exactly the owner-approved, image-scoped, expiring exceptions (2026-11-20); severities unchanged.
+    from datetime import date
+
+    from scripts.ci.image_scan import load_exceptions
+
+    items = load_exceptions()
+    assert {(i.vulnerability, i.package, i.images) for i in items} == APPROVED and len(items) == len(APPROVED)
+    assert {i.expires for i in items} == {date(2026, 12, 20)}
+    catalog = json.loads((ROOT / "jenkins/catalog/components.json").read_text(encoding="utf-8"))
+    names = {image["name"] for component in catalog["components"].values() for image in component.get("images", [])}
+    assert {image for i in items for image in i.images} <= names
+    assert {"mcp-tools", "g3-byo-coordinator", "streaming-sinks"}.isdisjoint({x for i in items for x in i.images})
     scan = (ROOT / "scripts/ci/image_scan.py").read_text(encoding="utf-8")
-    assert 'SEVERITIES = ("HIGH", "CRITICAL")' in scan or "SEVERITIES = ('HIGH', 'CRITICAL')" in scan
+    assert 'SEVERITIES = ("HIGH", "CRITICAL")' in scan and '"--ignore-unfixed"' in scan
+
+
+def test_the_flink_exception_mitigations_hold_in_source() -> None:
+    import yaml
+
+    policy = yaml.safe_load((ROOT / "infra/kubernetes/streaming-block-a/jobmanager-ingress.networkpolicy.yaml")
+                            .read_text(encoding="utf-8"))
+    assert policy["metadata"]["namespace"] == "ml-platform" and policy["spec"]["policyTypes"] == ["Ingress"]
+    assert policy["spec"]["podSelector"] == {"matchLabels": {"app.kubernetes.io/name": "block-a-flink-jobmanager"}}
+    (rule,) = policy["spec"]["ingress"]
+    assert rule["from"] == [{"podSelector": {"matchLabels": {"app.kubernetes.io/name": "block-a-flink-taskmanager"}}}]
+    assert sorted(p["port"] for p in rule["ports"]) == [6123, 6124]          # REST 8081: no peer at all
+    operator = (ROOT / "scripts/streaming/block_a_cloud.sh").read_text(encoding="utf-8")
+    assert "8081" not in operator.replace("http://localhost:8081/jobs/overview", "")   # REST only from inside the pod
+    job_dir = ROOT / "data_platform/streaming/flink"
+    job = "\n".join(path.read_text(encoding="utf-8") for path in job_dir.glob("*.py"))
+    assert re.search(r"JSON_|IS JSON|\bLIKE\b", job, re.I) is None
+    assert re.search(r"^\s*(import|from) (pyarrow|pandas|httplib2|dns|pymongo|google\.protobuf)", job, re.M) is None
+    assert "pandas_udf" not in job and "to_pandas" not in job
+    rag = (ROOT / "ops/llm_agent/rag_ingest.py").read_text(encoding="utf-8")
+    assert '"::" in source_location' in rag
 
 
 def test_streaming_sinks_take_security_updates_and_drop_the_base_packaging_tools() -> None:

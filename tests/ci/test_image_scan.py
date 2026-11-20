@@ -32,13 +32,36 @@ def test_a_fixable_high_finding_is_vulnerable() -> None:
 
 
 def test_only_an_unexpired_matching_exception_applies() -> None:
-    valid = Exception_("CVE-1", "openssl", date(2026, 12, 31), "reviewed")
-    expired = Exception_("CVE-1", None, date(2026, 11, 1), "old")
-    other_package = Exception_("CVE-1", "zlib", date(2026, 12, 31), "reviewed")
-    assert evaluate(report(HIGH), [valid], TODAY)["status"] == "PASS"
-    result = evaluate(report(HIGH), [expired], TODAY)
+    valid = Exception_("CVE-1", "openssl", date(2026, 12, 31), "reviewed", ("mcp-tools",))
+    expired = Exception_("CVE-1", "openssl", date(2026, 11, 1), "old", ("mcp-tools",))
+    other_package = Exception_("CVE-1", "zlib", date(2026, 12, 31), "reviewed", ("mcp-tools",))
+    assert evaluate(report(HIGH), [valid], TODAY, image="mcp-tools")["status"] == "PASS"
+    result = evaluate(report(HIGH), [expired], TODAY, image="mcp-tools")
     assert result["status"] == "VULNERABLE" and result["expired_exceptions"]
-    assert evaluate(report(HIGH), [other_package], TODAY)["status"] == "VULNERABLE"
+    assert evaluate(report(HIGH), [other_package], TODAY, image="mcp-tools")["status"] == "VULNERABLE"
+
+
+def test_an_exception_never_applies_to_another_image() -> None:
+    scoped = Exception_("CVE-1", "openssl", date(2026, 12, 31), "reviewed", ("rag-ingestion",))
+    assert evaluate(report(HIGH), [scoped], TODAY, image="mcp-tools")["status"] == "VULNERABLE"
+    assert evaluate(report(HIGH), [scoped], TODAY)["status"] == "VULNERABLE"
+    verdict = gate({"rag-ingestion": {"status": "REPORT", "report": report(HIGH)},
+                    "mcp-tools": {"status": "REPORT", "report": report(HIGH)}}, [scoped], TODAY)
+    assert verdict["images"]["rag-ingestion"]["status"] == "PASS"
+    assert verdict["images"]["mcp-tools"]["status"] == "VULNERABLE" and verdict["verdict"] == "VULNERABLE"
+
+
+def test_an_exception_must_name_its_package_and_images(tmp_path) -> None:
+    base = {"id": "CVE-1", "package": "openssl", "images": ["mcp-tools"], "reason": "r", "expires": "2026-12-20"}
+    for broken in ({k: v for k, v in base.items() if k != "package"}, {**base, "images": []},
+                   {k: v for k, v in base.items() if k != "images"}, {**base, "images": "mcp-tools"}):
+        path = tmp_path / "exceptions.json"
+        path.write_text(json.dumps({"exceptions": [broken]}))
+        try:
+            load_exceptions(path)
+            raise AssertionError(f"accepted {broken}")
+        except ValueError:
+            pass
 
 
 def test_scanner_errors_never_pass_and_dominate_the_verdict() -> None:
@@ -78,7 +101,7 @@ def test_only_digests_are_scanned_and_a_failed_scan_build_is_a_scanner_error() -
 
 
 def test_the_committed_exception_list_is_valid() -> None:
-    assert load_exceptions() == []
+    assert all(item.images and item.package for item in load_exceptions())
 
 
 def test_a_release_without_images_is_not_applicable_not_a_pass_or_failure() -> None:

@@ -12,8 +12,9 @@ logs; the policy is then decided here, so the three outcomes stay distinct:
 * ``SCANNER_ERROR``: the scan build failed or produced no readable report. Never a pass.
 
 Reviewed exceptions live in ``jenkins/security/vulnerability-exceptions.json``: each names a
-vulnerability id, optionally a package, a reason and an expiry date; an expired exception no
-longer applies and is reported.
+vulnerability id, the package, the release images it covers, a reason and an expiry date. It applies
+only to a finding of that id and package in one of those images; an expired exception no longer
+applies and is reported.
 """
 
 from __future__ import annotations
@@ -44,19 +45,24 @@ class Exception_:
     package: str | None
     expires: date
     reason: str
+    images: tuple[str, ...] = ()
 
 
 def load_exceptions(path: Path = EXCEPTIONS) -> list[Exception_]:
     data = json.loads(path.read_text(encoding="utf-8"))
     items = []
     for item in data.get("exceptions", []):
-        if not item.get("reason") or not item.get("id"):
-            raise ValueError("every vulnerability exception needs an id and a reason")
-        items.append(Exception_(item["id"], item.get("package"), date.fromisoformat(item["expires"]), item["reason"]))
+        if not item.get("reason") or not item.get("id") or not item.get("package"):
+            raise ValueError("every vulnerability exception needs an id, a package and a reason")
+        images = item.get("images")
+        if not isinstance(images, list) or not images or not all(isinstance(i, str) and i for i in images):
+            raise ValueError(f"exception {item['id']} must name the release images it covers")
+        items.append(Exception_(item["id"], item["package"], date.fromisoformat(item["expires"]), item["reason"],
+                                tuple(images)))
     return items
 
 
-def evaluate(report: dict[str, Any], exceptions: list[Exception_], today: date) -> dict[str, Any]:
+def evaluate(report: dict[str, Any], exceptions: list[Exception_], today: date, image: str = "") -> dict[str, Any]:
     findings, excepted, expired = [], [], []
     for result in report.get("Results") or []:
         for vulnerability in result.get("Vulnerabilities") or []:
@@ -65,7 +71,7 @@ def evaluate(report: dict[str, Any], exceptions: list[Exception_], today: date) 
             key = {"id": vulnerability.get("VulnerabilityID"), "package": vulnerability.get("PkgName"),
                    "severity": vulnerability.get("Severity"), "target": result.get("Target")}
             match = next((item for item in exceptions if item.vulnerability == key["id"]
-                          and item.package in (None, key["package"])), None)
+                          and item.package in (None, key["package"]) and image in item.images), None)
             if match is not None and match.expires >= today:
                 excepted.append(key)
             else:
@@ -123,7 +129,7 @@ def gate(scans: dict[str, dict[str, Any]], exceptions: list[Exception_], today: 
         if scan.get("status") != "REPORT":
             images[name] = {"status": "SCANNER_ERROR", "detail": scan.get("detail")}
         else:
-            images[name] = evaluate(scan["report"], exceptions, today)
+            images[name] = evaluate(scan["report"], exceptions, today, image=name)
         if scan.get("image"):
             images[name]["digest_ref"] = scan["image"]
     statuses = {item["status"] for item in images.values()}

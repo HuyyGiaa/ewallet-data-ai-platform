@@ -625,3 +625,29 @@ class McpWiringTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FsspecReferenceIsolationTests(unittest.TestCase):
+    """CVE-2026-104851 (fsspec ReferenceFileSystem) exception: no RAG input can select that filesystem."""
+
+    HOSTILE = ("reference://refs.json", "gs://bucket/corpus::reference://refs.json",
+               "simplecache::gs://bucket/corpus", "data/llm_agent/rag/x::reference://refs.json",
+               "https://attacker.example/corpus", "memory://corpus")
+
+    @unittest.skipUnless(HAS_RUNTIME, "rag-ingestion runtime required")
+    def test_stage_corpus_refuses_chaining_and_other_protocols_before_fsspec(self):
+        with mock.patch("fsspec.open") as opened, tempfile.TemporaryDirectory() as tmp:
+            for location in self.HOSTILE:
+                with self.subTest(location), self.assertRaises(ValueError):
+                    rag_ingest.stage_corpus(location, Path(tmp) / "source")
+            opened.assert_not_called()
+
+    def test_the_dag_parameter_admits_only_a_repository_path_or_a_gs_prefix(self):
+        import re
+        from data_platform.orchestration.airflow.rag_params import RAG_PARAM_SCHEMAS
+        pattern = re.compile(RAG_PARAM_SCHEMAS["source_location"]["pattern"])
+        for location in self.HOSTILE:
+            with self.subTest(location):
+                self.assertIsNone(pattern.search(location))
+        self.assertIsNotNone(pattern.search("data/llm_agent/rag/fraud-policy-v1"))
+        self.assertIsNotNone(pattern.search("gs://ewallet-bucket/rag/fraud-policy-v1"))

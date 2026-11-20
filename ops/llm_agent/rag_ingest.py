@@ -172,6 +172,10 @@ def stage_corpus(source_location: str, destination: Path) -> Path:
     """Copy manifest + listed documents to the run directory; return the staged manifest."""
     import fsspec
 
+    # Only a repository corpus path or a gs:// prefix reaches fsspec: no URL chaining ("::") and no other
+    # protocol, so fsspec's ReferenceFileSystem (CVE-2026-104851) can never be selected from this input.
+    if "::" in source_location or ("://" in source_location and not source_location.startswith("gs://")):
+        raise ValueError("source_location must be a repository corpus path or a gs:// prefix")
     destination.mkdir(parents=True, exist_ok=True)
     base = source_location.rstrip("/")
     if not base.startswith("gs://"):

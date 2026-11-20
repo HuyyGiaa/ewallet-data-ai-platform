@@ -1,0 +1,25 @@
+# Flink JobManager ingress for the Block A streaming campaign (rubric row 36), ml-platform only.
+# Mitigation for CVE-2026-35194 (Flink SQL code generation, needs query submission): the REST port
+# 8081 (job and SQL submission) admits no network peer. The operator submits only from inside the
+# JobManager pod (`kubectl exec ... flink run`, `localhost:8081`), which a NetworkPolicy does not
+# filter; the kubelet readiness probe comes from the node. TaskManagers keep RPC (6123) and blob (6124).
+# Selects only the Block A JobManager pods; no other ml-platform workload or policy is touched.
+# Applied once by the owner before the streaming release:
+#   kubectl --context $CTX apply -f infra/kubernetes/streaming-block-a/jobmanager-ingress.networkpolicy.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: block-a-flink-jobmanager-ingress
+  namespace: ml-platform
+  labels: {app.kubernetes.io/part-of: ewallet-block-a}
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: block-a-flink-jobmanager}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: {app.kubernetes.io/name: block-a-flink-taskmanager}
+      ports:
+        - {protocol: TCP, port: 6123}
+        - {protocol: TCP, port: 6124}
