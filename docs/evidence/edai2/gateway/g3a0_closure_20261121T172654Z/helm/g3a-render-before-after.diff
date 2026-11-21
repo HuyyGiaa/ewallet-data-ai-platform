@@ -1,0 +1,8 @@
+109a110,116
+>     # In an ambient namespace kubelet probes arrive SNATed from this address, straight to the
+>     # container port (not through HBONE). Without it this policy, the first one on the pod,
+>     # would fail its probes. Only the probe port is opened.
+>     - from:
+>         - ipBlock: {cidr: 169.254.7.127/32}
+>       ports:
+>         - {port: 8080, protocol: TCP}

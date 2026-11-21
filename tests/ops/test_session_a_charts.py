@@ -221,6 +221,39 @@ def test_kagent_gets_no_allow_policy_that_would_deny_its_other_callers():
     assert not [p for p in kinds(render(EDGE, *EDGE_ON), "AuthorizationPolicy").values() if p["metadata"]["namespace"] == "kagent"]
 
 
+GATEWAY_PEER = {"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "ewallet-ingress"}},
+                "podSelector": {"matchLabels": {"istio": "ewallet-edge-gateway"}}}
+
+
+def tcp(*ports):
+    return [{"port": port, "protocol": "TCP"} for port in ports]
+
+
+def test_kagent_ui_policy_admits_the_gateway_and_the_ambient_probe_only():
+    # kagent runs ambient and has no other NetworkPolicy: kubelet probes (GET /health on 8080)
+    # arrive SNATed from 169.254.7.127 and must be admitted, on the probe port and nothing else.
+    policy = kinds(render(EDGE, *EDGE_ON), "NetworkPolicy")["allow-edge-to-kagent-ui"]
+    assert policy["spec"]["policyTypes"] == ["Ingress"]
+    assert policy["spec"]["ingress"] == [
+        {"from": [GATEWAY_PEER], "ports": tcp(8080, 15008)},
+        {"from": [{"ipBlock": {"cidr": "169.254.7.127/32"}}], "ports": tcp(8080)},
+    ]
+
+
+def test_the_other_edge_policies_are_unchanged():
+    policies = kinds(render(EDGE, *EDGE_ON), "NetworkPolicy")
+    assert policies["allow-edge-to-feature-api"]["spec"]["ingress"] == [{"from": [GATEWAY_PEER], "ports": tcp(8080)}]
+    assert policies["allow-edge-to-agent-registry"]["spec"]["ingress"] == [{"from": [GATEWAY_PEER], "ports": tcp(8080)}]
+    assert policies["allow-edge-to-grafana"]["spec"]["ingress"] == [{"from": [GATEWAY_PEER], "ports": tcp(3000, 15008)}]
+    assert len(policies) == 4
+
+
+def test_a_probe_port_opens_nothing_outside_an_ambient_namespace():
+    policy = kinds(render(EDGE, *EDGE_ON, "--set", "routes.feature-api.access.probePort=8080"),
+                   "NetworkPolicy")["allow-edge-to-feature-api"]
+    assert policy["spec"]["ingress"] == [{"from": [GATEWAY_PEER], "ports": tcp(8080)}]
+
+
 def test_gateway_values_keep_the_service_private():
     values = yaml.safe_load((EDGE / "values-gateway.yaml").read_text())
     assert values["service"]["type"] == "ClusterIP"

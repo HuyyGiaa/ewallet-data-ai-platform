@@ -1,0 +1,9 @@
+# G3-A private overlay (proposed). Reserved .test domain, no DNS; ClusterIP only.
+enabled: true
+domain: edge.g3a.test
+securityFiltersVerified: true
+routes:
+  feature-api: {enabled: true}
+  kagent-ui: {enabled: true}
+  agent-registry: {enabled: true}
+  grafana: {enabled: true}

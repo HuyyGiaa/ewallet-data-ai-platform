@@ -75,7 +75,12 @@ spec:
     metadata: {labels: {app: stub}}
     spec:
       containers:
-        - {name: stub, image: python:3.12-alpine, command: [python3, /stub/echo_stub.py], volumeMounts: [{name: stub, mountPath: /stub}]}
+        - name: stub
+          image: python:3.12-alpine
+          command: [python3, /stub/echo_stub.py]
+          volumeMounts: [{name: stub, mountPath: /stub}]
+          # Like kagent-ui: an HTTP probe the edge NetworkPolicy must admit (probePort).
+          readinessProbe: {httpGet: {path: /, port: 8080}, periodSeconds: 5}
       volumes: [{name: stub, configMap: {name: stub}}]
 ---
 apiVersion: v1
@@ -109,7 +114,7 @@ out = {name: {"enabled": True, "backend": {"service": "stub", "namespace": sys.a
 if sys.argv[3] == "full":  # one set of edge policies covers the shared stub
     # null removes the chart's default label: Helm merges maps, it does not replace them.
     out["feature-api"]["access"] = {"namespace": sys.argv[2], "podLabels": {"app": "stub", "app.kubernetes.io/name": None}, "port": 8080,
-                                    "ambient": True, "authorizationPolicy": True}
+                                    "ambient": True, "authorizationPolicy": True, "probePort": 8080}
 print(yaml.safe_dump({"enabled": True, "domain": "edge.local.test", "securityFiltersVerified": sys.argv[3] == "full",
                       "routes": out}))
 PY
@@ -177,6 +182,12 @@ printf '{"name": "ownership preflight (live) finds one Helm-owned ingress worklo
   "$ok" "$(tr '\n' ' ' < "$evidence/preflight-live.txt")" >> "$evidence/status.jsonl"
 
 if [ "$mode" == full ]; then
+  # kind does not run Calico, so this shows only that the probe rule is accepted and keeps the
+  # pod Ready; whether Calico would drop the probe without it is checked on GKE (G3-A1).
+  probe_rule=$(k -n "$STUB" get networkpolicy allow-edge-to-feature-api -o jsonpath='{.spec.ingress[1].from[0].ipBlock.cidr}:{.spec.ingress[1].ports[*].port}')
+  stub_ready=$(k -n "$STUB" get pod -l app=stub -o jsonpath='{.items[0].status.containerStatuses[0].ready}')
+  record "edge policy admits the ambient probe source on the probe port only; stub stays Ready" \
+    "$([ "$probe_rule" == 169.254.7.127/32:8080 ] && [ "$stub_ready" == true ] && echo true || echo false)" "rule=$probe_rule ready=$stub_ready"
   record "network control: a pod reaches the stub before any policy" "$([ "$control" == REACHED ] && echo true || echo false)" "$control"
   for case in "other-namespace:$INTRUDER:app=probe" "gateway-namespace-unlabelled:$NS:app=probe" \
               "gateway-labels-wrong-identity:$NS:istio=ewallet-edge-gateway,app=probe"; do

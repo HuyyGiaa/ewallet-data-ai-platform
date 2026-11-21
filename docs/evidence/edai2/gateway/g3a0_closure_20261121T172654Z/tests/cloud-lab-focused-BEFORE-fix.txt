@@ -1,0 +1,7 @@
+FAILED tests/ops/test_cloud_lab_sleep_validation_first.py::test_missing_guarded_approval_mutates_nothing
+FAILED tests/ops/test_cloud_lab_sleep_validation_first.py::test_unexpected_pdb_blocker_mutates_nothing
+FAILED tests/ops/test_cloud_lab_sleep_validation_first.py::test_invalid_recovery_manifest_mutates_nothing
+FAILED tests/ops/test_cloud_lab_sleep_validation_first.py::test_invalid_pdb_selector_mutates_nothing
+FAILED tests/ops/test_cloud_lab_sleep_validation_first.py::test_a_mid_operation_failure_restores_what_was_changed[--num-nodes=0]
+FAILED tests/ops/test_cloud_lab_sleep_validation_first.py::test_an_incomplete_rollback_is_reported_and_the_original_error_kept
+6 failed, 9 passed in 0.04s

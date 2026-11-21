@@ -1,0 +1,18 @@
+source: https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.7.0/standard-install.yaml
+GitHub release asset digest: sha256:4e2602c4cbe1afbc394d86f4ac6522e1a5263b01133bba1e40a6d1a549e753a1
+downloaded file sha256:      4e2602c4cbe1afbc394d86f4ac6522e1a5263b01133bba1e40a6d1a549e753a1
+G2.1 closure inputs.txt:     4e2602c4cbe1afbc394d86f4ac6522e1a5263b01133bba1e40a6d1a549e753a1
+objects: 12
+  CustomResourceDefinition backendtlspolicies.gateway.networking.k8s.io
+  CustomResourceDefinition gatewayclasses.gateway.networking.k8s.io
+  CustomResourceDefinition gateways.gateway.networking.k8s.io
+  CustomResourceDefinition grpcroutes.gateway.networking.k8s.io
+  CustomResourceDefinition httproutes.gateway.networking.k8s.io
+  CustomResourceDefinition listenersets.gateway.networking.k8s.io
+  CustomResourceDefinition referencegrants.gateway.networking.k8s.io
+  CustomResourceDefinition tcproutes.gateway.networking.k8s.io
+  CustomResourceDefinition tlsroutes.gateway.networking.k8s.io
+  CustomResourceDefinition udproutes.gateway.networking.k8s.io
+  ValidatingAdmissionPolicy safe-upgrades.gateway.networking.k8s.io
+  ValidatingAdmissionPolicyBinding safe-upgrades.gateway.networking.k8s.io
+GKE (read-only, 2026-11-22): gateway.networking.k8s.io CRDs 0; VAP/VAPB safe-upgrades.gateway.networking.k8s.io absent

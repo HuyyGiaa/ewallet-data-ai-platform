@@ -491,7 +491,11 @@ def cmd_plan_sleep(lab: Lab, args: argparse.Namespace) -> int:
 
 
 def cmd_sleep(lab: Lab, args: argparse.Namespace) -> int:
-    """Resize to zero after the gates pass; PDB-guarded scaling is a separate approval."""
+    """Resize to zero after the gates pass; PDB-guarded scaling is a separate approval.
+
+    Every gate runs before the first change, so a refusal leaves no ScaledObject paused and
+    no Deployment scaled. A failure after that undoes the changes made so far.
+    """
     require_approval(args)
     pdbs = json.loads(lab.kubectl("get", "pdb", "-A", "-o", "json"))["items"]
     blockers, active, identity = evaluate_pdbs(pdbs), lab.active_work(), lab.identity_problems()
@@ -500,24 +504,14 @@ def cmd_sleep(lab: Lab, args: argparse.Namespace) -> int:
     if blockers and not args.scale_pdb_guarded:
         raise GateError(f"SLEEP_BLOCKED: PDBs would be bypassed: {blockers}; PDB-guarded preparation needs "
                         f"separate owner approval ({GUARDED_APPROVAL_ENV}) and --scale-pdb-guarded")
+    pause_keda = getattr(args, "pause_keda", False)
     pools = workerpool_scaledobjects(scaled_objects(lab))
-    if pools and not getattr(args, "pause_keda", False):
+    if pools and not pause_keda:
         raise GateError(f"SLEEP_BLOCKED: KEDA ScaledObjects {[k for k, _ in pools]} scale a WorkerPool; pausing them at "
                         f"their floor is a separate owner approval (--pause-keda and {KEDA_APPROVAL_ENV})")
-    if pools and args.execute and os.environ.get(KEDA_APPROVAL_ENV) != f"{CLUSTER}:{args.campaign}":
-        raise GateError(f"--pause-keda needs the owner's {KEDA_APPROVAL_ENV}={CLUSTER}:{args.campaign}")
-    if pools and not CAMPAIGN_ID.fullmatch(args.campaign or ""):
-        raise GateError("--pause-keda needs --campaign")
-    pools_paused: list[str] = []
-    try:
-        for key, floor in pools:
-            set_keda_pause(lab, key, args.campaign, replicas=floor)
-            pools_paused.append(key)
-        if pools:
-            print(json.dumps({"workerpool_keda_pause": dict(pools), "campaign": args.campaign}, indent=2))
-    except subprocess.CalledProcessError:
-        restore_guarded(lab, pools_paused, {})
-        raise
+    targets: dict[str, str] = {}
+    controllers: list[str] = []
+    previous: dict[str, int] = {}
     if blockers:
         approved = require_guarded_approval(args)
         unexpected = sorted(set(blockers) - approved)
@@ -526,31 +520,44 @@ def cmd_sleep(lab: Lab, args: argparse.Namespace) -> int:
         deployments = json.loads(lab.kubectl("get", "deploy", "-A", "-o", "json"))["items"]
         targets = guarded_targets(pdbs, deployments, blockers)
         controllers = keda_controllers(scaled_objects(lab), set(targets.values()))
-        if controllers and not getattr(args, "pause_keda", False):
+        if controllers and not pause_keda:
             raise GateError(f"SLEEP_BLOCKED: KEDA ScaledObjects {controllers} would scale the guarded Deployments back; "
                             f"pausing them is a separate owner approval (--pause-keda and {KEDA_APPROVAL_ENV})")
-        if controllers and args.execute and os.environ.get(KEDA_APPROVAL_ENV) != f"{CLUSTER}:{args.campaign}":
-            raise GateError(f"--pause-keda needs the owner's {KEDA_APPROVAL_ENV}={CLUSTER}:{args.campaign}")
         previous = {f"{d['metadata']['namespace']}/{d['metadata']['name']}": int(d.get("spec", {}).get("replicas", 1))
                     for d in deployments
                     if f"{d['metadata']['namespace']}/{d['metadata']['name']}" in set(targets.values())}
+    if pools or controllers:
+        if not CAMPAIGN_ID.fullmatch(args.campaign or ""):
+            raise GateError("--pause-keda needs --campaign")
+        if args.execute and os.environ.get(KEDA_APPROVAL_ENV) != f"{CLUSTER}:{args.campaign}":
+            raise GateError(f"--pause-keda needs the owner's {KEDA_APPROVAL_ENV}={CLUSTER}:{args.campaign}")
+    if pools:
+        print(json.dumps({"workerpool_keda_pause": dict(pools), "campaign": args.campaign}, indent=2))
+    if blockers:
         print(json.dumps({"guarded_preparation": targets, "keda_pause": controllers, "previous_replicas": previous,
                           "campaign": args.campaign}, indent=2))
-        paused: list[str] = []
-        try:
-            for key in controllers:
-                set_keda_pause(lab, key, args.campaign)
-                paused.append(key)
-            for target in sorted(set(targets.values())):
-                namespace, name = target.split("/", 1)
-                lab.k_mutate("-n", namespace, "scale", "deploy", name, "--replicas=0")
-            if lab.execute:
-                wait_for_pdbs_released(lab, set(blockers), getattr(args, "timeout", 300))
-        except (GateError, subprocess.CalledProcessError):
-            print("guarded preparation did not complete: restoring KEDA and replicas", file=sys.stderr)
-            restore_guarded(lab, paused + pools_paused, previous)
-            raise
-    lab.mutate(resize_command(0))
+    # Every gate passed; from here each change is undone if a later step fails.
+    paused: list[str] = []
+    scaled: dict[str, int] = {}
+    try:
+        for key, floor in pools:
+            set_keda_pause(lab, key, args.campaign, replicas=floor)
+            paused.append(key)
+        for key in controllers:
+            set_keda_pause(lab, key, args.campaign)
+            paused.append(key)
+        for target in sorted(set(targets.values())):
+            scaled[target] = previous[target]
+            namespace, name = target.split("/", 1)
+            lab.k_mutate("-n", namespace, "scale", "deploy", name, "--replicas=0")
+        if blockers and lab.execute:
+            wait_for_pdbs_released(lab, set(blockers), getattr(args, "timeout", 300))
+        lab.mutate(resize_command(0))
+    except (GateError, subprocess.CalledProcessError):
+        if paused or scaled:
+            print("sleep did not complete: restoring KEDA and replicas", file=sys.stderr)
+            restore_guarded(lab, paused, scaled)
+        raise
     return 0
 
 
@@ -609,12 +616,25 @@ def set_keda_pause(lab: Lab, key: str, campaign: str | None, replicas: int = 0) 
 
 
 def restore_guarded(lab: Lab, paused: list[str], previous: dict[str, int]) -> None:
-    """Undo a guarded preparation that did not reach the resize: unpause, then restore the replicas."""
+    """Undo a guarded preparation that did not reach the resize: unpause, then restore the replicas.
+
+    Every step is attempted even when one fails; the ones that failed are reported so the
+    owner can finish the rollback by hand.
+    """
+    failed = []
     for key in paused:
-        set_keda_pause(lab, key, None)
+        try:
+            set_keda_pause(lab, key, None)
+        except subprocess.CalledProcessError:
+            failed.append(f"unpause ScaledObject {key}")
     for target, replicas in sorted(previous.items()):
         namespace, name = target.split("/", 1)
-        lab.k_mutate("-n", namespace, "scale", "deploy", name, f"--replicas={replicas}")
+        try:
+            lab.k_mutate("-n", namespace, "scale", "deploy", name, f"--replicas={replicas}")
+        except subprocess.CalledProcessError:
+            failed.append(f"scale {target} back to {replicas}")
+    if failed:
+        print(f"ROLLBACK INCOMPLETE, finish by hand: {failed}", file=sys.stderr)
 
 
 def unpause_keda(lab: Lab) -> list[str]:

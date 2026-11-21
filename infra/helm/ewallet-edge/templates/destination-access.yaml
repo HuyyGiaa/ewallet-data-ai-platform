@@ -29,6 +29,15 @@ spec:
         # Ambient traffic arrives through the HBONE tunnel port.
         - {port: 15008, protocol: TCP}
         {{- end }}
+    {{- if and $a.ambient $a.probePort }}
+    # In an ambient namespace kubelet probes arrive SNATed from this address, straight to the
+    # container port (not through HBONE). Without it this policy, the first one on the pod,
+    # would fail its probes. Only the probe port is opened.
+    - from:
+        - ipBlock: {cidr: {{ required "ambientProbeSource is required" $.Values.ambientProbeSource }}}
+      ports:
+        - {port: {{ $a.probePort }}, protocol: TCP}
+    {{- end }}
 {{- if $a.authorizationPolicy }}
 ---
 # Only where the namespace already runs ALLOW-only policies. In kagent none exists, and a

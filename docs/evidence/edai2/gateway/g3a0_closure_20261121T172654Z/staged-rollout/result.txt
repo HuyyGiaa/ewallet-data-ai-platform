@@ -1,0 +1,6 @@
+step1 gateway release at 0 replicas: pods=0 svc=ClusterIP
+step2 edge applied with 0 gateway pods: Gateway conditions Accepted=True(Accepted) Programmed=False(AddressNotAssigned) 
+        HTTPRoutes Accepted/ResolvedRefs: agent-registry:True/True feature-api:True/True grafana:True/True https-redirect:True/True kagent-ui:True/True 
+step3 first config of the first gateway pod: 443 chain ['metadata_exchange', 'grpc_stats', 'alpn', 'fault', 'cors', 'stats', 'local_ratelimit', 'basic_auth', 'router']; 80 chain ['metadata_exchange', 'grpc_stats', 'alpn', 'fault', 'cors', 'stats', 'router']
+STAGED_ROLLOUT_FIRST_CONFIG_SECURED
+step4 anonymous request through port-forward with the verified pod: HTTP 401 (expect 401)

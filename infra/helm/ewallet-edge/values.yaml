@@ -38,6 +38,11 @@ basicAuth:
   usersFile: /etc/edge-auth/htpasswd
   realm: E-Wallet
 
+# Source of kubelet probes in ambient namespaces (Istio ambient and NetworkPolicy; seen on
+# GKE in docs/evidence/edai2/cloud_lab/wake_20261107T150640Z). A route opens it only for its
+# access.probePort.
+ambientProbeSource: 169.254.7.127/32
+
 # Applied to every route without its own limit, so no route can run unlimited.
 defaultRateLimit: {maxTokens: 200, tokensPerFill: 200, fillIntervalSeconds: 1}
 
@@ -69,6 +74,9 @@ routes:
       podLabels: {app.kubernetes.io/name: kagent, app.kubernetes.io/component: ui}
       port: 8080
       ambient: true
+      # Readiness and startup probes: GET /health on the http port (8080). kagent has no
+      # other NetworkPolicy, so this one must admit them. Grafana has no probes.
+      probePort: 8080
   agent-registry:
     enabled: false
     hostPrefix: registry
