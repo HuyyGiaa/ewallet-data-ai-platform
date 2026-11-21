@@ -1,0 +1,16 @@
+{
+  "checks": {
+    "git-manifest": "PASS",
+    "registry": "PASS"
+  },
+  "environment": "rehearsal",
+  "problems": [],
+  "production_changed": false,
+  "release_sha": "e6b190ed97b0ce8e2ff79be293063922bdfe355d",
+  "runtime_consumption": {
+    "reason": "the BYO Coordinator sends the system prompt fixed in ai_platform/llm_agent/nl_intake.py and the SandboxAgent Specialists are typed-only; changing that is an application change outside CI/CD (frozen platform, owner decision D4)",
+    "status": "NOT_PROVEN"
+  },
+  "unit": "prompt-registry-gate",
+  "verdict": "PASS"
+}

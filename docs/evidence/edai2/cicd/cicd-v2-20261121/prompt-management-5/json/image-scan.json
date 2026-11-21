@@ -1,0 +1,10 @@
+{
+  "git_sha": "e6b190ed97b0ce8e2ff79be293063922bdfe355d",
+  "images": {},
+  "scanner": "docker.io/aquasec/trivy:0.75.0@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa",
+  "severities": [
+    "HIGH",
+    "CRITICAL"
+  ],
+  "verdict": "NOT_APPLICABLE"
+}

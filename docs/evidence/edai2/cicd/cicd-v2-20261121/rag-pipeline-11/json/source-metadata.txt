@@ -1,0 +1,17 @@
+source_sha=7f841ecdeb66d45fe4a7207fadd84518941be8ba
+base_sha=98b71e30e51914f25ad17974debffadbdaca2487
+release_groups=release/agent-fleet,release/agent-staging,release/coordinator,release/mcp-agents,release/prompt-management,release/rag-pipeline,release/streaming
+ref:refs/heads/base=98b71e30e51914f25ad17974debffadbdaca2487
+ref:refs/heads/proof/agent=7f841ecdeb66d45fe4a7207fadd84518941be8ba
+ref:refs/heads/proof/docs=7f841ecdeb66d45fe4a7207fadd84518941be8ba
+ref:refs/heads/proof/ml=7f841ecdeb66d45fe4a7207fadd84518941be8ba
+ref:refs/heads/provenance/observability-source-validation=a39d924e437bca59ac234451ea7bc092b7263a8f
+ref:refs/heads/release/agent-fleet=7f841ecdeb66d45fe4a7207fadd84518941be8ba
+ref:refs/heads/release/agent-staging=7f841ecdeb66d45fe4a7207fadd84518941be8ba
+ref:refs/heads/release/coordinator=7f841ecdeb66d45fe4a7207fadd84518941be8ba
+ref:refs/heads/release/mcp-agents=7f841ecdeb66d45fe4a7207fadd84518941be8ba
+ref:refs/heads/release/prompt-management=7f841ecdeb66d45fe4a7207fadd84518941be8ba
+ref:refs/heads/release/rag-pipeline=7f841ecdeb66d45fe4a7207fadd84518941be8ba
+ref:refs/heads/release/streaming=7f841ecdeb66d45fe4a7207fadd84518941be8ba
+git_version=git version 2.51.0
+bundle_sha256=c4dfa1f473ca65b4745e02e67c991720414d5298d2401ba1675d9866fd22d1dd

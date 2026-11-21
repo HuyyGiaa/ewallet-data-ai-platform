@@ -1,0 +1,6 @@
+{"event": "phase_published", "phase": "normal", "records": 13}
+{"event": "phase_published", "phase": "out_of_order", "records": 1}
+{"event": "phase_published", "phase": "late_accepted", "records": 1}
+{"event": "phase_published", "phase": "too_late", "records": 1}
+{"event": "phase_published", "phase": "replayed_and_invalid", "records": 2}
+{"event": "phase_published", "phase": "closing", "records": 1}

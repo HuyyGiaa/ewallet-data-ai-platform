@@ -1,0 +1,14 @@
+node-pool: RUNNING	
+WARNING: The following filter keys were not present in any resource : name
+instances in MIG: 0
+k8s nodes: 0
+cluster: RUNNING	2
+PVC count: 16 Bound
+PD disks: 16 disks, 90 GB
+keda paused: ewallet-agents/fraud-coordinator=0 ewallet-sandbox/business-agents-workerpool=2 ml-platform/feature-api= ml-platform/fraud-api= 
+helm: cert-manager=1 ewallet-serving=3 istio-base=13 istio-cni=13 istiod=13 kagent=10 kagent-crds=1 keda=2 kserve=1 kserve-crd=1 llm-agent=60 llm-agent-mcp=19 prompt-registry=1 substrate=9 substrate-crds=1 ztunnel=13 
+compute instances (all): 0
+MIG sizes: gke-ewallet-dev-cpu-pool-58daed59-grp	0	0 
+cluster now: RUNNING	
+static IPs: 
+forwarding rules (LBs): 0

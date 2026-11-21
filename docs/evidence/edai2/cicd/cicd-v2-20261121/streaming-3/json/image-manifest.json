@@ -1,0 +1,28 @@
+{
+  "builder": "gcr.io/cloud-builders/docker@sha256:fbc05705e6f24467e40ae8a4097ab9b8fae1116551f838fa2c55f4367427fc36",
+  "git_sha": "e73e85a3ecac81461d73ab790f367bb82b1f0976",
+  "images": {
+    "flink-block-a": {
+      "build_id": "e051f0fe-dd78-4dfe-96cc-bf80d6f0cd4d",
+      "digest_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/flink-block-a@sha256:ac23bbd4f4ff8b487c573830a390e8906a2ccf3464fc28e55e667af14b787c6c",
+      "dockerfile": "infra/docker/flink-benchmark/Dockerfile",
+      "registry_readback": "VERIFIED",
+      "reused": false,
+      "revision": "e73e85a3ecac81461d73ab790f367bb82b1f0976",
+      "source_object": "gs://ewallet-data-ai-platform-hg26-cicd-builds/source/e73e85a3ecac81461d73ab790f367bb82b1f0976/flink-block-a.tar.gz#1795251316890750",
+      "source_sha256": "b834629ab7d28f50f76700c4dda4acc0eea9880377610b04bb34fc7b2afa06b4",
+      "target": null
+    },
+    "streaming-sinks": {
+      "build_id": "1ea37823-5ea6-484b-90c4-6158933b3b7e",
+      "digest_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/streaming-sinks@sha256:2154c991da45dda969d9ff51409add22001c226fce96058d03430e9af7bf0c32",
+      "dockerfile": "infra/docker/streaming-sinks/Dockerfile",
+      "registry_readback": "VERIFIED",
+      "reused": false,
+      "revision": "e73e85a3ecac81461d73ab790f367bb82b1f0976",
+      "source_object": "gs://ewallet-data-ai-platform-hg26-cicd-builds/source/e73e85a3ecac81461d73ab790f367bb82b1f0976/streaming-sinks.tar.gz#1795251532838146",
+      "source_sha256": "b834629ab7d28f50f76700c4dda4acc0eea9880377610b04bb34fc7b2afa06b4",
+      "target": null
+    }
+  }
+}

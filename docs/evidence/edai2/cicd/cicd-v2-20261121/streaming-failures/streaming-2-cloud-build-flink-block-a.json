@@ -1,0 +1,140 @@
+{
+  "artifacts": {
+    "images": [
+      "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/flink-block-a:da8822c9aa77d125edd611f0bbf3c79a515f1e06"
+    ]
+  },
+  "createTime": "2026-11-21T07:45:23.942077095Z",
+  "finishTime": "2026-11-21T07:49:53.035141Z",
+  "id": "5c998f9d-5154-4652-a653-f498d0b50230",
+  "images": [
+    "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/flink-block-a:da8822c9aa77d125edd611f0bbf3c79a515f1e06"
+  ],
+  "logUrl": "https://console.cloud.google.com/cloud-build/builds;region=asia-southeast1/5c998f9d-5154-4652-a653-f498d0b50230?project=198818809719",
+  "logsBucket": "gs://ewallet-data-ai-platform-hg26-cicd-build-logs",
+  "name": "projects/198818809719/locations/asia-southeast1/builds/5c998f9d-5154-4652-a653-f498d0b50230",
+  "options": {
+    "logging": "GCS_ONLY",
+    "pool": {},
+    "requestedVerifyOption": "VERIFIED",
+    "workerRelease": "legacy"
+  },
+  "projectId": "ewallet-data-ai-platform-hg26",
+  "queueTtl": "3600s",
+  "results": {
+    "buildStepImages": [
+      "sha256:fbc05705e6f24467e40ae8a4097ab9b8fae1116551f838fa2c55f4367427fc36"
+    ],
+    "buildStepOutputs": [
+      ""
+    ],
+    "images": [
+      {
+        "artifactRegistryPackage": "projects/ewallet-data-ai-platform-hg26/locations/asia-southeast1/repositories/ewallet-platform/packages/flink-block-a/versions/sha256:4a6473817c34ddbe71d69c413a8ed65b549bdbfa0568c1fa7fd786f679cff154",
+        "digest": "sha256:4a6473817c34ddbe71d69c413a8ed65b549bdbfa0568c1fa7fd786f679cff154",
+        "name": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/flink-block-a:da8822c9aa77d125edd611f0bbf3c79a515f1e06",
+        "pushTiming": {
+          "endTime": "2026-11-21T07:49:52.365478911Z",
+          "startTime": "2026-11-21T07:49:04.781060909Z"
+        }
+      }
+    ],
+    "resourceUsage": {
+      "averageCpuUtilization": 0.4562547,
+      "averageMemoryUtilization": 0.1049901,
+      "peakCpuUtilization": 1,
+      "peakMemoryUtilization": 0.1444179,
+      "totalCpuDuration": "240.440s"
+    }
+  },
+  "serviceAccount": "projects/ewallet-data-ai-platform-hg26/serviceAccounts/ewallet-cloudbuild@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com",
+  "source": {
+    "storageSource": {
+      "bucket": "ewallet-data-ai-platform-hg26-cicd-builds",
+      "generation": "1795247123810101",
+      "object": "source/da8822c9aa77d125edd611f0bbf3c79a515f1e06/flink-block-a.tar.gz"
+    }
+  },
+  "sourceProvenance": {
+    "fileHashes": {
+      "gs://ewallet-data-ai-platform-hg26-cicd-builds/source/da8822c9aa77d125edd611f0bbf3c79a515f1e06/flink-block-a.tar.gz#1795247123810101": {
+        "fileHash": [
+          {
+            "type": "MD5",
+            "value": "5LyAq+T7Uebqih3LTywQrg=="
+          },
+          {
+            "type": "SHA256",
+            "value": "RLF9/s8EBezs9Y20AD/XikbbLwAedy3KXo56YZ4D+CI="
+          }
+        ]
+      }
+    },
+    "resolvedStorageSource": {
+      "bucket": "ewallet-data-ai-platform-hg26-cicd-builds",
+      "generation": "1795247123810101",
+      "object": "source/da8822c9aa77d125edd611f0bbf3c79a515f1e06/flink-block-a.tar.gz"
+    }
+  },
+  "startTime": "2026-11-21T07:45:25.378168286Z",
+  "status": "SUCCESS",
+  "steps": [
+    {
+      "args": [
+        "build",
+        "-f",
+        "infra/docker/flink-benchmark/Dockerfile",
+        "--build-arg",
+        "EWALLET_RELEASE_SHA=da8822c9aa77d125edd611f0bbf3c79a515f1e06",
+        "--label",
+        "org.opencontainers.image.revision=da8822c9aa77d125edd611f0bbf3c79a515f1e06",
+        "--label",
+        "io.ewallet.build.dockerfile=infra/docker/flink-benchmark/Dockerfile",
+        "--label",
+        "io.ewallet.build.target=",
+        "--label",
+        "io.ewallet.build.builder=gcr.io/cloud-builders/docker@sha256:fbc05705e6f24467e40ae8a4097ab9b8fae1116551f838fa2c55f4367427fc36",
+        "-t",
+        "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/flink-block-a:da8822c9aa77d125edd611f0bbf3c79a515f1e06",
+        "."
+      ],
+      "env": [
+        "DOCKER_BUILDKIT=1"
+      ],
+      "name": "gcr.io/cloud-builders/docker@sha256:fbc05705e6f24467e40ae8a4097ab9b8fae1116551f838fa2c55f4367427fc36",
+      "pullTiming": {
+        "endTime": "2026-11-21T07:46:01.976925532Z",
+        "startTime": "2026-11-21T07:45:37.218847909Z"
+      },
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-11-21T07:49:04.729705971Z",
+        "startTime": "2026-11-21T07:45:37.218847909Z"
+      }
+    }
+  ],
+  "tags": [
+    "ewallet-jenkins",
+    "flink-block-a",
+    "sha-da8822c9aa77"
+  ],
+  "timeout": "2400s",
+  "timing": {
+    "BUILD": {
+      "endTime": "2026-11-21T07:49:04.780869137Z",
+      "startTime": "2026-11-21T07:45:36.584073212Z"
+    },
+    "FETCHSOURCE": {
+      "endTime": "2026-11-21T07:45:36.583818703Z",
+      "startTime": "2026-11-21T07:45:25.764475143Z"
+    },
+    "PUSH": {
+      "endTime": "2026-11-21T07:49:52.368863766Z",
+      "startTime": "2026-11-21T07:49:04.781046943Z"
+    },
+    "STORAGE_SOURCE": {
+      "endTime": "2026-11-21T07:45:36.583818703Z",
+      "startTime": "2026-11-21T07:45:25.764475143Z"
+    }
+  }
+}

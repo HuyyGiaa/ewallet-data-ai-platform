@@ -1,0 +1,239 @@
+{
+  "check_commands": 1,
+  "commands_executed": 20,
+  "executed": [
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "environment",
+      "stage": "uv-lock:infra/docker/g3-byo-coordinator",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "environment",
+      "stage": "uv-sync:infra/docker/g3-byo-coordinator",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "environment",
+      "stage": "uv-lock:infra/docker/llm-agent-tooling",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "environment",
+      "stage": "uv-sync:infra/docker/llm-agent-tooling",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "environment",
+      "stage": "uv-lock:infra/docker/rag-ingestion",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "environment",
+      "stage": "uv-sync:infra/docker/rag-ingestion",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "environment",
+      "stage": "uv-lock:infra/docker/vllm-cpu-model",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "environment",
+      "stage": "uv-sync:infra/docker/vllm-cpu-model",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "test",
+      "stage": "component:llm-serving:1",
+      "test_cases": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0,
+        "tests": 63
+      }
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "test",
+      "stage": "component:llm-serving:2",
+      "test_cases": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0,
+        "tests": 70
+      }
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "test",
+      "stage": "component:observability:1",
+      "test_cases": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0,
+        "tests": 82
+      }
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "check",
+      "stage": "component:rag-pipeline:1",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "test",
+      "stage": "component:rag-pipeline:2",
+      "test_cases": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0,
+        "tests": 11
+      }
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "test",
+      "stage": "component:rag-pipeline:3",
+      "test_cases": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 1,
+        "tests": 52
+      }
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "test",
+      "stage": "component:mcp-agents:1",
+      "test_cases": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 1,
+        "tests": 340
+      }
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "test",
+      "stage": "component:llm-d-routing:1",
+      "test_cases": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0,
+        "tests": 12
+      }
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "test",
+      "stage": "component:agents:1",
+      "test_cases": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0,
+        "tests": 104
+      }
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "test",
+      "stage": "component:agents:2",
+      "test_cases": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 7,
+        "tests": 636
+      }
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "test",
+      "stage": "component:agents:3",
+      "test_cases": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 1,
+        "tests": 106
+      }
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "test",
+      "stage": "component:prompt-management:1",
+      "test_cases": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0,
+        "tests": 82
+      }
+    }
+  ],
+  "git_sha": "e6b190ed97b0ce8e2ff79be293063922bdfe355d",
+  "profile": "llm-agent",
+  "reason": null,
+  "scope_components": [
+    "agents",
+    "ci-platform",
+    "data-governance",
+    "data-platform",
+    "edai1-docker-storage",
+    "feast",
+    "fraud-api",
+    "fraud-serving",
+    "llm-serving",
+    "mcp-agents",
+    "ml-training",
+    "mlflow",
+    "observability",
+    "prompt-management",
+    "rag-pipeline",
+    "streaming"
+  ],
+  "selected_components": [
+    "llm-serving",
+    "observability",
+    "rag-pipeline",
+    "mcp-agents",
+    "llm-d-routing",
+    "agents",
+    "prompt-management"
+  ],
+  "status": "PASS",
+  "test_cases": {
+    "errors": 0,
+    "failures": 0,
+    "skipped": 10,
+    "tests": 1558
+  },
+  "test_commands": 11
+}

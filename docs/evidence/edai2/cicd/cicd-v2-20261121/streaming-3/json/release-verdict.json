@@ -1,0 +1,69 @@
+{
+  "failure": null,
+  "finished_at": "2026-11-21T09:13:59.729129+00:00",
+  "git_sha": "e73e85a3ecac81461d73ab790f367bb82b1f0976",
+  "locks": [
+    "block-a-verification"
+  ],
+  "not_run": [],
+  "production_changed": false,
+  "release_branch": "release/streaming",
+  "stage": "rehearsal",
+  "units": [
+    {
+      "commands": [
+        [
+          "uv",
+          "run",
+          "--locked",
+          "--project",
+          "infra/docker/llm-agent-tooling",
+          "python",
+          "-m",
+          "scripts.ci.bounded_cd",
+          "--contract",
+          "jenkins/cd/streaming.contract.json",
+          "--unit",
+          "streaming-block-a",
+          "--git-sha",
+          "e73e85a3ecac81461d73ab790f367bb82b1f0976",
+          "--evidence-dir",
+          "evidence/ci/jenkins-edai2-cd-streaming-3/release/streaming-block-a/image-smoke",
+          "--image",
+          "flink-block-a=asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/flink-block-a@sha256:ac23bbd4f4ff8b487c573830a390e8906a2ccf3464fc28e55e667af14b787c6c"
+        ],
+        [
+          "uv",
+          "run",
+          "--locked",
+          "--project",
+          "infra/docker/streaming-sinks",
+          "python",
+          "-m",
+          "scripts.ci.streaming_verify",
+          "--unit",
+          "streaming-block-a",
+          "--git-sha",
+          "e73e85a3ecac81461d73ab790f367bb82b1f0976",
+          "--evidence-dir",
+          "evidence/ci/jenkins-edai2-cd-streaming-3/release/streaming-block-a",
+          "--image",
+          "flink-block-a=asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/flink-block-a@sha256:ac23bbd4f4ff8b487c573830a390e8906a2ccf3464fc28e55e667af14b787c6c",
+          "--image",
+          "streaming-sinks=asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/streaming-sinks@sha256:2154c991da45dda969d9ff51409add22001c226fce96058d03430e9af7bf0c32",
+          "--kube-context",
+          "ewallet-cicd-streaming",
+          "--execute"
+        ]
+      ],
+      "exit_codes": [
+        0,
+        0
+      ],
+      "kind": "streaming-verification",
+      "name": "streaming-block-a",
+      "status": "PASS"
+    }
+  ],
+  "verdict": "PASS"
+}

@@ -1,0 +1,21 @@
+{
+  "component": "streaming",
+  "environment": "rehearsal",
+  "failures": [],
+  "image": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/flink-block-a@sha256:ac23bbd4f4ff8b487c573830a390e8906a2ccf3464fc28e55e667af14b787c6c",
+  "namespace": "ewallet-cicd",
+  "previous_images": {},
+  "production_changed": false,
+  "prompt_registry_verified": null,
+  "release_sha": "e73e85a3ecac81461d73ab790f367bb82b1f0976",
+  "smoke": {
+    "duplicates_removed": 1,
+    "event_time_after_source": true,
+    "history_written": 1,
+    "job_plan_operators": 7,
+    "mode": "streaming",
+    "online_updates_positive": true,
+    "release_sha": "e73e85a3ecac81461d73ab790f367bb82b1f0976"
+  },
+  "verdict": "PASS"
+}

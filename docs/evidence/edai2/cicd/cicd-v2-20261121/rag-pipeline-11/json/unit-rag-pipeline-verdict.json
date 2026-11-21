@@ -1,0 +1,43 @@
+{
+  "failures": [],
+  "summary": {
+    "chunk_count": 4,
+    "corpus_revision": "fraud-policy-v1-20261030",
+    "embedding_dimensions": 384,
+    "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+    "embedding_revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+    "feast_target": {
+      "offline_source": "/work/feast/fraud-policy-feast-v1/chunks.parquet",
+      "online_store": "redis",
+      "profile": "canonical",
+      "project": "ewallet_rag_cd",
+      "registry": "/work/feast/registry.db"
+    },
+    "publication_identity": "b85ae796221aa0b9e2adfd7ff19488f612dff18c8d60c3c44f0134b7266bf549",
+    "published_rows": 4,
+    "release_sha": "7f841ecdeb66d45fe4a7207fadd84518941be8ba",
+    "validation": {
+      "citation_errors": 0,
+      "completed_at": "2026-11-20T23:38:10.568839+00:00",
+      "empty_retrieval_rate": 0.0,
+      "feature_index_revision": "fraud-policy-feast-v1",
+      "mean_reciprocal_rank": 1.0,
+      "online_row_count": 4,
+      "online_target": {
+        "mode": "verification",
+        "owner": "MATCH",
+        "project": "ewallet_rag_cd",
+        "redis_database": 2,
+        "target_fingerprint": "sha256:5488f16b66eca25435fabc1508832b801fd6acbd8523ddb9750ff4864ddb74e5"
+      },
+      "readback_status": "MATCH",
+      "recall_at_k": 1.0,
+      "release_sha": "7f841ecdeb66d45fe4a7207fadd84518941be8ba",
+      "retrieval_backend": "feast-online-redis+exact-cosine",
+      "run_id": "cd-7f841ecdeb66",
+      "stage": "validate",
+      "top_k": 2
+    }
+  },
+  "verdict": "PASS"
+}

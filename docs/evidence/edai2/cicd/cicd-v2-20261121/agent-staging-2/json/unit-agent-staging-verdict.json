@@ -1,0 +1,235 @@
+{
+  "cleanup": [
+    {
+      "kind": "SandboxAgent",
+      "name": "drift-specialist",
+      "namespace": "ewallet-sandbox-staging",
+      "state": "DELETE_REQUESTED",
+      "uid": "770e4af3-8bd5-4d35-b754-8d76e08f8072"
+    },
+    {
+      "kind": "SandboxAgent",
+      "name": "feature-rag-specialist",
+      "namespace": "ewallet-sandbox-staging",
+      "state": "DELETE_REQUESTED",
+      "uid": "9ea8b0eb-cfdd-44f3-ad66-9a04b59168fa"
+    },
+    {
+      "kind": "ServiceAccount",
+      "name": "sandbox-drift",
+      "namespace": "ewallet-sandbox-staging",
+      "state": "DELETE_REQUESTED",
+      "uid": "7fe8d613-067e-4151-81ad-0495b05164bb"
+    },
+    {
+      "kind": "ServiceAccount",
+      "name": "sandbox-feature-rag",
+      "namespace": "ewallet-sandbox-staging",
+      "state": "DELETE_REQUESTED",
+      "uid": "16978079-ac52-4f80-a846-9728a6792483"
+    },
+    {
+      "kind": "WorkerPool",
+      "name": "staging-agents",
+      "namespace": "ewallet-sandbox-staging",
+      "state": "DELETE_REQUESTED",
+      "uid": "55a3827b-3e4a-4eda-a6a8-30378b585ab5"
+    },
+    {
+      "kind": "HelmRelease",
+      "name": "llm-agent-staging",
+      "namespace": "ewallet-agents-staging",
+      "state": "UNINSTALLED"
+    }
+  ],
+  "created": [
+    {
+      "kind": "WorkerPool",
+      "name": "staging-agents",
+      "namespace": "ewallet-sandbox-staging",
+      "uid": "55a3827b-3e4a-4eda-a6a8-30378b585ab5"
+    },
+    {
+      "kind": "ServiceAccount",
+      "name": "sandbox-feature-rag",
+      "namespace": "ewallet-sandbox-staging",
+      "uid": "16978079-ac52-4f80-a846-9728a6792483"
+    },
+    {
+      "kind": "ServiceAccount",
+      "name": "sandbox-drift",
+      "namespace": "ewallet-sandbox-staging",
+      "uid": "7fe8d613-067e-4151-81ad-0495b05164bb"
+    },
+    {
+      "kind": "SandboxAgent",
+      "name": "feature-rag-specialist",
+      "namespace": "ewallet-sandbox-staging",
+      "uid": "9ea8b0eb-cfdd-44f3-ad66-9a04b59168fa"
+    },
+    {
+      "kind": "SandboxAgent",
+      "name": "drift-specialist",
+      "namespace": "ewallet-sandbox-staging",
+      "uid": "770e4af3-8bd5-4d35-b754-8d76e08f8072"
+    }
+  ],
+  "e2e": [
+    {
+      "agent": "feature-rag-specialist",
+      "check": "specialist-feature-rag-specialist",
+      "elapsed_seconds": 16.672,
+      "endpoint": "http://127.0.0.1:34553/api/a2a-sandboxes/ewallet-sandbox-staging/feature-rag-specialist/",
+      "environment": "gke-cpu:ewallet-sandbox-staging",
+      "gate": "PASS",
+      "git_sha": "7f841ecdeb66d45fe4a7207fadd84518941be8ba",
+      "image": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:967da5c3e5dd47aa5e6767caeb81debdfa617f0e5e1d4ae7354c4974c9b3b808",
+      "observed": {
+        "contract_version": "g3-orchestration/v1",
+        "fraud_probability": 0.0639895560144887,
+        "prompt_revision": "feature-rag-specialist/byo-v1",
+        "request_id": "staging-20261120t225842-af18d5-feature-rag-specialist",
+        "state": "completed",
+        "status": "ok",
+        "unavailable": []
+      },
+      "reasons": [],
+      "request_id": "staging-20261120t225842-af18d5-feature-rag-specialist",
+      "side_effects": [
+        "one A2A session actor per request on the shared WorkerPool (suspended after the reply)",
+        "read-only MCP tool calls (feature_lookup, fraud_scoring, knowledge_search | drift_detection)",
+        "MCP and kagent audit log lines"
+      ],
+      "state": "completed",
+      "target": "feature-rag-specialist",
+      "verdict": "PASS"
+    },
+    {
+      "agent": "drift-specialist",
+      "check": "specialist-drift-specialist",
+      "elapsed_seconds": 14.426,
+      "endpoint": "http://127.0.0.1:34553/api/a2a-sandboxes/ewallet-sandbox-staging/drift-specialist/",
+      "environment": "gke-cpu:ewallet-sandbox-staging",
+      "gate": "PASS",
+      "git_sha": "7f841ecdeb66d45fe4a7207fadd84518941be8ba",
+      "image": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:967da5c3e5dd47aa5e6767caeb81debdfa617f0e5e1d4ae7354c4974c9b3b808",
+      "observed": {
+        "contract_version": "g3-orchestration/v1",
+        "prompt_revision": "drift-specialist/byo-v1",
+        "psi": 0.0004795543627041439,
+        "request_id": "staging-20261120t225842-af18d5-drift-specialist",
+        "state": "completed",
+        "status": "ok",
+        "unavailable": []
+      },
+      "reasons": [],
+      "request_id": "staging-20261120t225842-af18d5-drift-specialist",
+      "side_effects": [
+        "one A2A session actor per request on the shared WorkerPool (suspended after the reply)",
+        "read-only MCP tool calls (feature_lookup, fraud_scoring, knowledge_search | drift_detection)",
+        "MCP and kagent audit log lines"
+      ],
+      "state": "completed",
+      "target": "drift-specialist",
+      "verdict": "PASS"
+    },
+    {
+      "check": "coordinator-fraud",
+      "reasons": [],
+      "summary": {
+        "case": "fraud",
+        "contract_version": "g3-orchestration/v1",
+        "elapsed_seconds": 14.801,
+        "fraud_probability": 0.0639895560144887,
+        "request_id": "staging-20261120t225842-af18d5-fraud",
+        "state": "completed",
+        "status": "ok",
+        "unavailable": [],
+        "workflow": null
+      },
+      "verdict": "PASS"
+    },
+    {
+      "check": "coordinator-drift",
+      "reasons": [],
+      "summary": {
+        "case": "drift",
+        "contract_version": "g3-orchestration/v2",
+        "elapsed_seconds": 14.52,
+        "psi": 0.0004795543627041439,
+        "request_id": "staging-20261120t225842-af18d5-drift",
+        "specialists": {
+          "drift-specialist": "ok"
+        },
+        "state": "completed",
+        "status": "complete",
+        "unavailable": [],
+        "workflow": "drift"
+      },
+      "verdict": "PASS"
+    },
+    {
+      "check": "coordinator-combined",
+      "reasons": [],
+      "summary": {
+        "case": "combined",
+        "contract_version": "g3-orchestration/v2",
+        "elapsed_seconds": 28.802,
+        "fraud_probability": 0.0639895560144887,
+        "psi": 0.0004795543627041439,
+        "request_id": "staging-20261120t225842-af18d5-combined",
+        "specialists": {
+          "drift-specialist": "ok",
+          "feature-rag-specialist": "ok"
+        },
+        "state": "completed",
+        "status": "complete",
+        "unavailable": [],
+        "workflow": "combined"
+      },
+      "verdict": "PASS"
+    }
+  ],
+  "execution_id": "20261120t225842-af18d5",
+  "failure_code": null,
+  "helm_installed": true,
+  "left_behind": [],
+  "negatives": [
+    {
+      "check": "a2a-unrouted payments-agent.ewallet-agents-staging",
+      "reasons": [],
+      "verdict": "PASS"
+    },
+    {
+      "check": "a2a-unrouted fraud-coordinator.ewallet-agents",
+      "reasons": [],
+      "verdict": "PASS"
+    },
+    {
+      "check": "mcp-anonymous-refused /feature-rag/mcp",
+      "reasons": [],
+      "verdict": "PASS"
+    },
+    {
+      "check": "mcp-anonymous-refused /drift/mcp",
+      "reasons": [],
+      "verdict": "PASS"
+    }
+  ],
+  "problems": [],
+  "status": "PASS",
+  "steps": [
+    "preflight",
+    "helm-template",
+    "helm-install",
+    "fleet-created",
+    "ready",
+    "verified",
+    "cleanup"
+  ],
+  "unit": "agent-staging",
+  "verification": [
+    "AGENT_E2E_VERIFIED",
+    "MANAGED_PROMPT_RUNTIME_NOT_YET_VERIFIED"
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "git_sha": "e73e85a3ecac81461d73ab790f367bb82b1f0976",
+  "images": {
+    "flink-block-a": {
+      "digest_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/flink-block-a@sha256:ac23bbd4f4ff8b487c573830a390e8906a2ccf3464fc28e55e667af14b787c6c",
+      "excepted": [
+        {
+          "id": "CVE-2026-35194",
+          "package": "org.apache.flink:flink-table-planner_2.12",
+          "severity": "HIGH",
+          "target": "Java"
+        },
+        {
+          "id": "CVE-2026-35194",
+          "package": "org.apache.flink:flink-table-runtime",
+          "severity": "HIGH",
+          "target": "Java"
+        },
+        {
+          "id": "CVE-2026-35194",
+          "package": "org.apache.flink:flink-table-runtime",
+          "severity": "HIGH",
+          "target": "Java"
+        },
+        {
+          "id": "CVE-2026-114605",
+          "package": "dnspython",
+          "severity": "HIGH",
+          "target": "Python"
+        },
+        {
+          "id": "CVE-2026-128089",
+          "package": "dnspython",
+          "severity": "HIGH",
+          "target": "Python"
+        },
+        {
+          "id": "CVE-2026-59939",
+          "package": "httplib2",
+          "severity": "HIGH",
+          "target": "Python"
+        },
+        {
+          "id": "CVE-2025-4565",
+          "package": "protobuf",
+          "severity": "HIGH",
+          "target": "Python"
+        },
+        {
+          "id": "CVE-2026-0994",
+          "package": "protobuf",
+          "severity": "HIGH",
+          "target": "Python"
+        },
+        {
+          "id": "CVE-2023-47248",
+          "package": "pyarrow",
+          "severity": "CRITICAL",
+          "target": "Python"
+        }
+      ],
+      "expired_exceptions": [],
+      "findings": [],
+      "status": "PASS"
+    },
+    "streaming-sinks": {
+      "digest_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/streaming-sinks@sha256:2154c991da45dda969d9ff51409add22001c226fce96058d03430e9af7bf0c32",
+      "excepted": [],
+      "expired_exceptions": [],
+      "findings": [],
+      "status": "PASS"
+    }
+  },
+  "scanner": "docker.io/aquasec/trivy:0.75.0@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa",
+  "severities": [
+    "HIGH",
+    "CRITICAL"
+  ],
+  "verdict": "PASS"
+}

@@ -1,0 +1,39 @@
+{
+  "approved_by": "admin",
+  "environment": "gke-cpu",
+  "evidence_dir": "evidence/ci/jenkins-edai2-cd-rag-pipeline-11/release",
+  "git_sha": "7f841ecdeb66d45fe4a7207fadd84518941be8ba",
+  "image_manifest_path": "evidence/ci/jenkins-edai2-cd-rag-pipeline-11/image-manifest.json",
+  "image_manifest_sha256": "e3f10c55d41e21d1724ab8862d8b674c638ca31f5049d0119abf7e730e47e0cf",
+  "kube_context": "in-cluster",
+  "policy_status": "PASS",
+  "production_identity": "",
+  "release_branch": "release/rag-pipeline",
+  "schema_version": 2,
+  "stage": "rehearsal",
+  "triggered_by": "admin",
+  "units": [
+    {
+      "components": [
+        "rag-pipeline"
+      ],
+      "contract": "jenkins/cd/rag-pipeline.contract.json",
+      "depends_on": [],
+      "helm": null,
+      "images": {
+        "rag-ingestion": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/rag-ingestion@sha256:de6446a594e21fbecd2d961d3e3771ef7d692330f2e0cb5fc02cbef1b7c2f200"
+      },
+      "kind": "rag-rehearsal",
+      "lock": "cicd-rag-pipeline",
+      "name": "rag-pipeline",
+      "prerequisites": [],
+      "profile": null,
+      "stage": "rehearsal",
+      "target_namespace": "ewallet-cicd",
+      "verify": [
+        "rag-smoke-contract",
+        "cronjob-digest-readback"
+      ]
+    }
+  ]
+}

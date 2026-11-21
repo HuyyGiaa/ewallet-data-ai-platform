@@ -1,0 +1,90 @@
+{
+  "approved_by": "admin",
+  "environment": "gke-cpu",
+  "evidence_dir": "evidence/ci/jenkins-edai2-cd-coordinator-2/release",
+  "git_sha": "e6b190ed97b0ce8e2ff79be293063922bdfe355d",
+  "image_manifest_path": "evidence/ci/jenkins-edai2-cd-coordinator-2/image-manifest.json",
+  "image_manifest_sha256": "f717423d5d561c0a55a529c28f6c25e89ec9da65825719346ff9d2da51eab95a",
+  "kube_context": "in-cluster",
+  "policy_status": "PASS",
+  "production_identity": "",
+  "release_branch": "release/coordinator",
+  "schema_version": 2,
+  "stage": "rehearsal",
+  "triggered_by": "admin",
+  "units": [
+    {
+      "components": [
+        "mcp-agents"
+      ],
+      "contract": "jenkins/cd/mcp-servers.contract.json",
+      "depends_on": [],
+      "helm": null,
+      "images": {
+        "mcp-tools": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:06e145456367635742797d976ad8671796d2a08014e0959fb2c4a7c6ba090603"
+      },
+      "kind": "bounded-rehearsal",
+      "lock": "cicd-agent-platform",
+      "name": "mcp-servers",
+      "prerequisites": [],
+      "profile": null,
+      "stage": "rehearsal",
+      "target_namespace": "ewallet-cicd",
+      "verify": [
+        "mcp-ready",
+        "mcp-anonymous-refused",
+        "mcp-tools-list"
+      ]
+    },
+    {
+      "components": [
+        "agents"
+      ],
+      "contract": "jenkins/cd/agent-fleet.contract.json",
+      "depends_on": [
+        "mcp-servers"
+      ],
+      "helm": null,
+      "images": {
+        "g3-byo-coordinator": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:d086248c007b04d85fe42edf186240aae162121eb9a4e112a10c4dec57d52e52"
+      },
+      "kind": "bounded-rehearsal",
+      "lock": "cicd-agent-platform",
+      "name": "agent-fleet",
+      "prerequisites": [],
+      "profile": null,
+      "stage": "rehearsal",
+      "target_namespace": "ewallet-cicd",
+      "verify": [
+        "sandbox-actor-contract",
+        "agent-card",
+        "malformed-task-rejected"
+      ]
+    },
+    {
+      "components": [
+        "agents"
+      ],
+      "contract": "jenkins/cd/coordinator.contract.json",
+      "depends_on": [
+        "mcp-servers",
+        "agent-fleet"
+      ],
+      "helm": null,
+      "images": {
+        "g3-byo-coordinator": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:d086248c007b04d85fe42edf186240aae162121eb9a4e112a10c4dec57d52e52"
+      },
+      "kind": "bounded-rehearsal",
+      "lock": "cicd-agent-platform",
+      "name": "coordinator",
+      "prerequisites": [],
+      "profile": null,
+      "stage": "rehearsal",
+      "target_namespace": "ewallet-cicd",
+      "verify": [
+        "agent-card",
+        "malformed-task-rejected"
+      ]
+    }
+  ]
+}

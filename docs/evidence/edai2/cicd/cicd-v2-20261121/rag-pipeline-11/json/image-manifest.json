@@ -1,0 +1,17 @@
+{
+  "builder": "gcr.io/cloud-builders/docker@sha256:fbc05705e6f24467e40ae8a4097ab9b8fae1116551f838fa2c55f4367427fc36",
+  "git_sha": "7f841ecdeb66d45fe4a7207fadd84518941be8ba",
+  "images": {
+    "rag-ingestion": {
+      "build_id": "3925636d-a7f6-47f2-9e8e-715da8a784dc",
+      "digest_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/rag-ingestion@sha256:de6446a594e21fbecd2d961d3e3771ef7d692330f2e0cb5fc02cbef1b7c2f200",
+      "dockerfile": "infra/docker/rag-ingestion/Dockerfile",
+      "registry_readback": "VERIFIED",
+      "reused": false,
+      "revision": "7f841ecdeb66d45fe4a7207fadd84518941be8ba",
+      "source_object": "gs://ewallet-data-ai-platform-hg26-cicd-builds/source/7f841ecdeb66d45fe4a7207fadd84518941be8ba/rag-ingestion.tar.gz#1795217597331271",
+      "source_sha256": "513b3d96f71e5fa9aecc1a74349f57442380d5b12d0214f1f1edfedf3383c76f",
+      "target": null
+    }
+  }
+}

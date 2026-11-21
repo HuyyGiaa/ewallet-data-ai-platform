@@ -1,0 +1,36 @@
+{
+  "failure": null,
+  "finished_at": "2026-11-20T23:38:22.859106+00:00",
+  "git_sha": "7f841ecdeb66d45fe4a7207fadd84518941be8ba",
+  "locks": [
+    "cicd-rag-pipeline"
+  ],
+  "not_run": [],
+  "production_changed": false,
+  "release_branch": "release/rag-pipeline",
+  "stage": "rehearsal",
+  "units": [
+    {
+      "commands": [
+        [
+          "scripts/ci/deploy/rag_pipeline.sh",
+          "--unit",
+          "rag-pipeline",
+          "--git-sha",
+          "7f841ecdeb66d45fe4a7207fadd84518941be8ba",
+          "--evidence-dir",
+          "evidence/ci/jenkins-edai2-cd-rag-pipeline-11/release/rag-pipeline",
+          "--image",
+          "rag-ingestion=asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/rag-ingestion@sha256:de6446a594e21fbecd2d961d3e3771ef7d692330f2e0cb5fc02cbef1b7c2f200"
+        ]
+      ],
+      "exit_codes": [
+        0
+      ],
+      "kind": "rag-rehearsal",
+      "name": "rag-pipeline",
+      "status": "PASS"
+    }
+  ],
+  "verdict": "PASS"
+}

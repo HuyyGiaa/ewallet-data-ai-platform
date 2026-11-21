@@ -1,0 +1,39 @@
+{
+  "approved_by": "admin",
+  "environment": "gke-cpu",
+  "evidence_dir": "evidence/ci/jenkins-edai2-cd-prompt-management-5/release",
+  "git_sha": "e6b190ed97b0ce8e2ff79be293063922bdfe355d",
+  "image_manifest_path": "evidence/ci/jenkins-edai2-cd-prompt-management-5/image-manifest.json",
+  "image_manifest_sha256": "5300fe6a36ed314ccce3aedf33635d31e59dbb07ac76740b3f8de10dbdbdc659",
+  "kube_context": "in-cluster",
+  "policy_status": "PASS",
+  "production_identity": "",
+  "release_branch": "release/prompt-management",
+  "schema_version": 2,
+  "stage": "rehearsal",
+  "triggered_by": "admin",
+  "units": [
+    {
+      "components": [
+        "prompt-management"
+      ],
+      "contract": null,
+      "depends_on": [],
+      "helm": null,
+      "images": {},
+      "kind": "registry-gate",
+      "lock": "prompt-registry",
+      "name": "prompt-registry-gate",
+      "prerequisites": [
+        "prompt-registry-reachable"
+      ],
+      "profile": null,
+      "stage": "rehearsal",
+      "target_namespace": "ewallet-prompts",
+      "verify": [
+        "prompt-registry-matches-git",
+        "chart-prompt-checksums-match-manifest"
+      ]
+    }
+  ]
+}

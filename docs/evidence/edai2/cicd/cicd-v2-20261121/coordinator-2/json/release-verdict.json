@@ -1,0 +1,105 @@
+{
+  "failure": null,
+  "finished_at": "2026-11-20T20:31:06.288922+00:00",
+  "git_sha": "e6b190ed97b0ce8e2ff79be293063922bdfe355d",
+  "locks": [
+    "cicd-agent-platform"
+  ],
+  "not_run": [],
+  "production_changed": false,
+  "release_branch": "release/coordinator",
+  "stage": "rehearsal",
+  "units": [
+    {
+      "commands": [
+        [
+          "uv",
+          "run",
+          "--locked",
+          "--project",
+          "infra/docker/llm-agent-tooling",
+          "python",
+          "-m",
+          "scripts.ci.bounded_cd",
+          "--contract",
+          "jenkins/cd/mcp-servers.contract.json",
+          "--unit",
+          "mcp-servers",
+          "--git-sha",
+          "e6b190ed97b0ce8e2ff79be293063922bdfe355d",
+          "--evidence-dir",
+          "evidence/ci/jenkins-edai2-cd-coordinator-2/release/mcp-servers",
+          "--image",
+          "mcp-tools=asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:06e145456367635742797d976ad8671796d2a08014e0959fb2c4a7c6ba090603"
+        ]
+      ],
+      "exit_codes": [
+        0
+      ],
+      "kind": "bounded-rehearsal",
+      "name": "mcp-servers",
+      "status": "PASS"
+    },
+    {
+      "commands": [
+        [
+          "uv",
+          "run",
+          "--locked",
+          "--project",
+          "infra/docker/llm-agent-tooling",
+          "python",
+          "-m",
+          "scripts.ci.bounded_cd",
+          "--contract",
+          "jenkins/cd/agent-fleet.contract.json",
+          "--unit",
+          "agent-fleet",
+          "--git-sha",
+          "e6b190ed97b0ce8e2ff79be293063922bdfe355d",
+          "--evidence-dir",
+          "evidence/ci/jenkins-edai2-cd-coordinator-2/release/agent-fleet",
+          "--image",
+          "g3-byo-coordinator=asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:d086248c007b04d85fe42edf186240aae162121eb9a4e112a10c4dec57d52e52"
+        ]
+      ],
+      "exit_codes": [
+        0
+      ],
+      "kind": "bounded-rehearsal",
+      "name": "agent-fleet",
+      "status": "PASS"
+    },
+    {
+      "commands": [
+        [
+          "uv",
+          "run",
+          "--locked",
+          "--project",
+          "infra/docker/llm-agent-tooling",
+          "python",
+          "-m",
+          "scripts.ci.bounded_cd",
+          "--contract",
+          "jenkins/cd/coordinator.contract.json",
+          "--unit",
+          "coordinator",
+          "--git-sha",
+          "e6b190ed97b0ce8e2ff79be293063922bdfe355d",
+          "--evidence-dir",
+          "evidence/ci/jenkins-edai2-cd-coordinator-2/release/coordinator",
+          "--image",
+          "g3-byo-coordinator=asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:d086248c007b04d85fe42edf186240aae162121eb9a4e112a10c4dec57d52e52"
+        ]
+      ],
+      "exit_codes": [
+        0
+      ],
+      "kind": "bounded-rehearsal",
+      "name": "coordinator",
+      "status": "PASS"
+    }
+  ],
+  "verdict": "PASS"
+}

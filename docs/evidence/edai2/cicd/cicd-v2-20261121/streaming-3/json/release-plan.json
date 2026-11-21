@@ -1,0 +1,47 @@
+{
+  "approved_by": "admin",
+  "environment": "gke-cpu",
+  "evidence_dir": "evidence/ci/jenkins-edai2-cd-streaming-3/release",
+  "git_sha": "e73e85a3ecac81461d73ab790f367bb82b1f0976",
+  "image_manifest_path": "evidence/ci/jenkins-edai2-cd-streaming-3/image-manifest.json",
+  "image_manifest_sha256": "155cd8b52bf4a71a2f60cc271a7d89e5cffad2609d6e7711fb1db00a707bd560",
+  "kube_context": "in-cluster",
+  "policy_status": "PASS",
+  "production_identity": "",
+  "release_branch": "release/streaming",
+  "schema_version": 2,
+  "stage": "rehearsal",
+  "triggered_by": "admin",
+  "units": [
+    {
+      "components": [
+        "streaming"
+      ],
+      "contract": "jenkins/cd/streaming.contract.json",
+      "depends_on": [],
+      "helm": null,
+      "images": {
+        "flink-block-a": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/flink-block-a@sha256:ac23bbd4f4ff8b487c573830a390e8906a2ccf3464fc28e55e667af14b787c6c",
+        "streaming-sinks": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/streaming-sinks@sha256:2154c991da45dda969d9ff51409add22001c226fce96058d03430e9af7bf0c32"
+      },
+      "kind": "streaming-verification",
+      "lock": "block-a-verification",
+      "name": "streaming-block-a",
+      "prerequisites": [
+        "rehearsal-stream-online-store",
+        "dedicated-gcs-prefixes"
+      ],
+      "profile": "jenkins/cd/streaming-block-a.profile.json",
+      "stage": "rehearsal",
+      "target_namespace": "ml-platform",
+      "verify": [
+        "image-smoke",
+        "flink-job-running",
+        "offline-written",
+        "online-written",
+        "offline-online-parity",
+        "run-identity"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "approved_by": "admin",
+  "environment": "gke-cpu",
+  "evidence_dir": "evidence/ci/jenkins-edai2-cd-agent-staging-2/release",
+  "git_sha": "7f841ecdeb66d45fe4a7207fadd84518941be8ba",
+  "image_manifest_path": "evidence/ci/jenkins-edai2-cd-agent-staging-2/image-manifest.json",
+  "image_manifest_sha256": "d57d6ce9f1cfe42cd235da4a72db80f144a80fc522566ed9fcfabe278bb2e10a",
+  "kube_context": "in-cluster",
+  "policy_status": "PASS",
+  "production_identity": "",
+  "release_branch": "release/agent-staging",
+  "schema_version": 2,
+  "stage": "rehearsal",
+  "triggered_by": "admin",
+  "units": [
+    {
+      "components": [
+        "agents",
+        "mcp-agents"
+      ],
+      "contract": "jenkins/cd/agent-staging.contract.json",
+      "depends_on": [],
+      "helm": null,
+      "images": {
+        "g3-byo-coordinator": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:967da5c3e5dd47aa5e6767caeb81debdfa617f0e5e1d4ae7354c4974c9b3b808",
+        "mcp-tools": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:25ccb75b9f41314c4838f080579a31770a9a3bc66f4c3512fba76a2533f0b0da"
+      },
+      "kind": "agent-staging",
+      "lock": "agent-staging",
+      "name": "agent-staging",
+      "prerequisites": [
+        "kagent-watches-staging-namespaces",
+        "staging-namespaces-present",
+        "staging-secrets-present",
+        "staging-data-seeded",
+        "snapshot-capacity-checked"
+      ],
+      "profile": null,
+      "stage": "rehearsal",
+      "target_namespace": "ewallet-agents-staging",
+      "verify": [
+        "staging-ready",
+        "specialist-e2e-feature-rag",
+        "specialist-e2e-drift",
+        "coordinator-e2e-fraud",
+        "coordinator-e2e-drift",
+        "coordinator-e2e-combined",
+        "security-negatives",
+        "staging-cleanup"
+      ]
+    }
+  ]
+}

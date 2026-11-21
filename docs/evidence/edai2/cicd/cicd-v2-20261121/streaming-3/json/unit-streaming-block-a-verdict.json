@@ -1,0 +1,92 @@
+{
+  "environment": "rehearsal",
+  "evidence_problems": [],
+  "failure": null,
+  "finished_at": "2026-11-21T09:13:59.670344+00:00",
+  "isolation": {
+    "FEAST_OFFLINE_DATA_ROOT": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/streaming-features/campaigns/verify-cicd-e73e85a3ecac-3/runs/verify-cicd-e73e85a3ecac-3/offline",
+    "FEAST_REDIS_SECRET": "feast-online-redis-stream",
+    "HISTORY_ROOT": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/streaming-history/verify-cicd-e73e85a3ecac-3",
+    "OFFLINE_FEATURE_ROOT": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/streaming-features",
+    "ONLINE_REGISTRY_URI": "gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/features/registries/rehearsal-5gb-v1/online/verify-cicd-e73e85a3ecac-3/registry.db",
+    "ONLINE_STORE_ID": "rehearsal-stream"
+  },
+  "namespace": "verify-cicd-e73e85a3ecac-3",
+  "production_changed": false,
+  "release_sha": "e73e85a3ecac81461d73ab790f367bb82b1f0976",
+  "steps": [
+    {
+      "argv": [
+        "scripts/streaming/block_a_cloud.sh",
+        "render",
+        "verify-cicd-e73e85a3ecac-3"
+      ],
+      "exit_code": 0,
+      "name": "render"
+    },
+    {
+      "argv": [
+        "scripts/streaming/block_a_cloud.sh",
+        "preflight",
+        "verify-cicd-e73e85a3ecac-3",
+        "--execute",
+        "--approve-redis-claim"
+      ],
+      "exit_code": 0,
+      "name": "preflight"
+    },
+    {
+      "argv": [
+        "scripts/mlops/feast_online_job.sh",
+        "fs-apply-cicd-e73e85a3ecac-3",
+        "--execute",
+        "--",
+        "apply"
+      ],
+      "exit_code": 0,
+      "name": "registry"
+    },
+    {
+      "argv": [
+        "scripts/streaming/block_a_cloud.sh",
+        "deploy",
+        "verify-cicd-e73e85a3ecac-3",
+        "--execute"
+      ],
+      "exit_code": 0,
+      "name": "deploy"
+    },
+    {
+      "argv": [
+        "scripts/streaming/block_a_cloud.sh",
+        "run",
+        "verify-cicd-e73e85a3ecac-3",
+        "--execute"
+      ],
+      "exit_code": 0,
+      "name": "run"
+    },
+    {
+      "argv": [
+        "scripts/streaming/block_a_cloud.sh",
+        "collect",
+        "verify-cicd-e73e85a3ecac-3",
+        "--execute"
+      ],
+      "exit_code": 0,
+      "name": "collect"
+    },
+    {
+      "argv": [
+        "scripts/streaming/block_a_cloud.sh",
+        "cleanup",
+        "verify-cicd-e73e85a3ecac-3",
+        "--execute"
+      ],
+      "exit_code": 0,
+      "name": "cleanup"
+    }
+  ],
+  "unit": "streaming-block-a",
+  "verdict": "PASS"
+}

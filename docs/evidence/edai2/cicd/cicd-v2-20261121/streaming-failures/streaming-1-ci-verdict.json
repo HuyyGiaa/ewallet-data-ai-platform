@@ -1,0 +1,325 @@
+{
+  "check_commands": 0,
+  "commands_executed": 36,
+  "executed": [
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "environment",
+      "stage": "uv-lock:ai_platform/features/feast",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "environment",
+      "stage": "uv-sync:ai_platform/features/feast",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "environment",
+      "stage": "uv-lock:ai_platform/inference",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "environment",
+      "stage": "uv-sync:ai_platform/inference",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "environment",
+      "stage": "uv-lock:ai_platform/ml",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "environment",
+      "stage": "uv-sync:ai_platform/ml",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "environment",
+      "stage": "uv-lock:ai_platform/ml/dvc-operator",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "environment",
+      "stage": "uv-sync:ai_platform/ml/dvc-operator",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "environment",
+      "stage": "uv-lock:ai_platform/ml/pipelines",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "environment",
+      "stage": "uv-sync:ai_platform/ml/pipelines",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "environment",
+      "stage": "uv-lock:ai_platform/serving",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "environment",
+      "stage": "uv-sync:ai_platform/serving",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "environment",
+      "stage": "uv-lock:data_platform/generation",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "environment",
+      "stage": "uv-sync:data_platform/generation",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "environment",
+      "stage": "uv-lock:data_platform/metadata/datahub",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "environment",
+      "stage": "uv-sync:data_platform/metadata/datahub",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "environment",
+      "stage": "uv-lock:infra/docker/flink-benchmark",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "environment",
+      "stage": "uv-sync:infra/docker/flink-benchmark",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "environment",
+      "stage": "uv-lock:infra/docker/g3-byo-coordinator",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "environment",
+      "stage": "uv-sync:infra/docker/g3-byo-coordinator",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "environment",
+      "stage": "uv-lock:infra/docker/llm-agent-tooling",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "environment",
+      "stage": "uv-sync:infra/docker/llm-agent-tooling",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "environment",
+      "stage": "uv-lock:infra/docker/rag-ingestion",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "environment",
+      "stage": "uv-sync:infra/docker/rag-ingestion",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "environment",
+      "stage": "uv-lock:infra/docker/streaming-sinks",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "environment",
+      "stage": "uv-sync:infra/docker/streaming-sinks",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "environment",
+      "stage": "uv-lock:infra/docker/vllm-cpu-model",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "environment",
+      "stage": "uv-sync:infra/docker/vllm-cpu-model",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "environment",
+      "stage": "uv-lock:infra/kubernetes/mlflow/image",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "environment",
+      "stage": "uv-sync:infra/kubernetes/mlflow/image",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "environment",
+      "stage": "uv-lock:infra/load-test",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "environment",
+      "stage": "uv-sync:infra/load-test",
+      "test_cases": null
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "test",
+      "stage": "component:agents:1",
+      "test_cases": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0,
+        "tests": 104
+      }
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "test",
+      "stage": "component:agents:2",
+      "test_cases": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 7,
+        "tests": 636
+      }
+    },
+    {
+      "classification": "NONE",
+      "exit_code": 0,
+      "kind": "test",
+      "stage": "component:agents:3",
+      "test_cases": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 1,
+        "tests": 106
+      }
+    },
+    {
+      "classification": "SOURCE_REGRESSION",
+      "exit_code": 1,
+      "kind": "test",
+      "stage": "component:ci-platform:1",
+      "test_cases": {
+        "errors": 0,
+        "failures": 1,
+        "skipped": 13,
+        "tests": 1483
+      }
+    }
+  ],
+  "git_sha": "7f841ecdeb66d45fe4a7207fadd84518941be8ba",
+  "profile": null,
+  "reason": "SOURCE_REGRESSION",
+  "scope_components": [
+    "agents",
+    "ci-platform",
+    "data-governance",
+    "data-platform",
+    "edai1-docker-storage",
+    "feast",
+    "fraud-api",
+    "fraud-serving",
+    "llm-serving",
+    "mcp-agents",
+    "ml-training",
+    "mlflow",
+    "observability",
+    "prompt-management",
+    "rag-pipeline",
+    "streaming"
+  ],
+  "selected_components": [
+    "agents",
+    "ci-platform",
+    "data-governance",
+    "data-platform",
+    "edai1-docker-storage",
+    "feast",
+    "fraud-api",
+    "fraud-serving",
+    "llm-serving",
+    "mcp-agents",
+    "ml-training",
+    "mlflow",
+    "observability",
+    "prompt-management",
+    "rag-pipeline",
+    "streaming"
+  ],
+  "status": "FAILED",
+  "test_cases": {
+    "errors": 0,
+    "failures": 1,
+    "skipped": 21,
+    "tests": 2329
+  },
+  "test_commands": 4
+}

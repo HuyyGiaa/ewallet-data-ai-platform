@@ -1,0 +1,23 @@
+{
+  "branch": "release/prompt-management",
+  "checkout_sha": "e6b190ed97b0ce8e2ff79be293063922bdfe355d",
+  "components": [
+    "agents",
+    "llm-serving",
+    "mcp-agents",
+    "observability",
+    "prompt-management",
+    "rag-pipeline"
+  ],
+  "environment": "gke-cpu",
+  "evidence_dir": "evidence/ci/jenkins-edai2-cd-prompt-management-5/release",
+  "git_sha": "e6b190ed97b0ce8e2ff79be293063922bdfe355d",
+  "image_manifest_path": "evidence/ci/jenkins-edai2-cd-prompt-management-5/image-manifest.json",
+  "kube_context": "in-cluster",
+  "owner_approval": "admin",
+  "owner_approved": true,
+  "production_identity": "",
+  "requested": true,
+  "stage": "rehearsal",
+  "triggered_by": "admin"
+}

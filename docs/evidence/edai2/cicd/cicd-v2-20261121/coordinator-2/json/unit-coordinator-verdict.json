@@ -1,0 +1,23 @@
+{
+  "component": "coordinator",
+  "environment": "rehearsal",
+  "failures": [],
+  "image": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:d086248c007b04d85fe42edf186240aae162121eb9a4e112a10c4dec57d52e52",
+  "namespace": "ewallet-cicd",
+  "previous_images": {
+    "coordinator-cd": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:bbbd3cf26ba0c6627fd00bf83a253ade3c1f24679bed1aad155994c485c30bb3"
+  },
+  "production_changed": false,
+  "prompt_registry_verified": null,
+  "release_sha": "e6b190ed97b0ce8e2ff79be293063922bdfe355d",
+  "smoke": {
+    "fraud_coordinator": {
+      "card_name_matches": true,
+      "card_status": 200,
+      "malformed_task_rejected": true
+    },
+    "mode": "agent",
+    "release_sha": "e6b190ed97b0ce8e2ff79be293063922bdfe355d"
+  },
+  "verdict": "PASS"
+}

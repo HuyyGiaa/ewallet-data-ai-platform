@@ -1,0 +1,25 @@
+{
+  "git_sha": "7f841ecdeb66d45fe4a7207fadd84518941be8ba",
+  "images": {
+    "rag-ingestion": {
+      "digest_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/rag-ingestion@sha256:de6446a594e21fbecd2d961d3e3771ef7d692330f2e0cb5fc02cbef1b7c2f200",
+      "excepted": [
+        {
+          "id": "CVE-2026-104851",
+          "package": "fsspec",
+          "severity": "HIGH",
+          "target": "Python"
+        }
+      ],
+      "expired_exceptions": [],
+      "findings": [],
+      "status": "PASS"
+    }
+  },
+  "scanner": "docker.io/aquasec/trivy:0.75.0@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa",
+  "severities": [
+    "HIGH",
+    "CRITICAL"
+  ],
+  "verdict": "PASS"
+}

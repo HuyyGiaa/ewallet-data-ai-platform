@@ -1,0 +1,43 @@
+{
+  "failure": null,
+  "finished_at": "2026-11-20T19:49:37.905687+00:00",
+  "git_sha": "e6b190ed97b0ce8e2ff79be293063922bdfe355d",
+  "locks": [
+    "prompt-registry"
+  ],
+  "not_run": [],
+  "production_changed": false,
+  "release_branch": "release/prompt-management",
+  "stage": "rehearsal",
+  "units": [
+    {
+      "commands": [
+        [
+          "uv",
+          "run",
+          "--locked",
+          "--project",
+          "infra/docker/llm-agent-tooling",
+          "python",
+          "-m",
+          "scripts.ci.registry_gate",
+          "--unit",
+          "prompt-registry-gate",
+          "--git-sha",
+          "e6b190ed97b0ce8e2ff79be293063922bdfe355d",
+          "--evidence-dir",
+          "evidence/ci/jenkins-edai2-cd-prompt-management-5/release/prompt-registry-gate",
+          "--registry",
+          "http://prompt-registry-agentregistry.ewallet-prompts.svc.cluster.local:12121"
+        ]
+      ],
+      "exit_codes": [
+        0
+      ],
+      "kind": "registry-gate",
+      "name": "prompt-registry-gate",
+      "status": "PASS"
+    }
+  ],
+  "verdict": "PASS"
+}

@@ -1,0 +1,28 @@
+{
+  "builder": "gcr.io/cloud-builders/docker@sha256:fbc05705e6f24467e40ae8a4097ab9b8fae1116551f838fa2c55f4367427fc36",
+  "git_sha": "e6b190ed97b0ce8e2ff79be293063922bdfe355d",
+  "images": {
+    "g3-byo-coordinator": {
+      "build_id": "0c72d7a6-52e6-4539-aea5-15659156b6e9",
+      "digest_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:d086248c007b04d85fe42edf186240aae162121eb9a4e112a10c4dec57d52e52",
+      "dockerfile": "infra/docker/g3-byo-coordinator/Dockerfile",
+      "registry_readback": "VERIFIED",
+      "reused": false,
+      "revision": "e6b190ed97b0ce8e2ff79be293063922bdfe355d",
+      "source_object": "gs://ewallet-data-ai-platform-hg26-cicd-builds/source/e6b190ed97b0ce8e2ff79be293063922bdfe355d/g3-byo-coordinator.tar.gz#1795204766880413",
+      "source_sha256": "9ed282d27e5e01024bfca11f521f080cce48974e60bbc48b61d27af4fa951273",
+      "target": null
+    },
+    "mcp-tools": {
+      "build_id": "2c58d956-beaa-4d46-b918-7c1485b8c2be",
+      "digest_ref": "asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:06e145456367635742797d976ad8671796d2a08014e0959fb2c4a7c6ba090603",
+      "dockerfile": "infra/docker/llm-agent-tooling/Dockerfile",
+      "registry_readback": "VERIFIED",
+      "reused": false,
+      "revision": "e6b190ed97b0ce8e2ff79be293063922bdfe355d",
+      "source_object": "gs://ewallet-data-ai-platform-hg26-cicd-builds/source/e6b190ed97b0ce8e2ff79be293063922bdfe355d/mcp-tools.tar.gz#1795204952860580",
+      "source_sha256": "9ed282d27e5e01024bfca11f521f080cce48974e60bbc48b61d27af4fa951273",
+      "target": "mcp-server"
+    }
+  }
+}

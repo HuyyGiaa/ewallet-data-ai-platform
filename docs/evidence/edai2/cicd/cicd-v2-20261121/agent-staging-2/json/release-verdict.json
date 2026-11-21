@@ -1,0 +1,55 @@
+{
+  "failure": null,
+  "finished_at": "2026-11-20T23:02:38.012390+00:00",
+  "git_sha": "7f841ecdeb66d45fe4a7207fadd84518941be8ba",
+  "locks": [
+    "agent-staging"
+  ],
+  "not_run": [],
+  "production_changed": false,
+  "release_branch": "release/agent-staging",
+  "stage": "rehearsal",
+  "units": [
+    {
+      "commands": [
+        [
+          "uv",
+          "run",
+          "--locked",
+          "--project",
+          "infra/docker/llm-agent-tooling",
+          "python",
+          "-m",
+          "scripts.ci.agent_staging",
+          "--unit",
+          "agent-staging",
+          "--git-sha",
+          "7f841ecdeb66d45fe4a7207fadd84518941be8ba",
+          "--evidence-dir",
+          "evidence/ci/jenkins-edai2-cd-agent-staging-2/release/agent-staging",
+          "--image",
+          "g3-byo-coordinator=asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/g3-byo-coordinator@sha256:967da5c3e5dd47aa5e6767caeb81debdfa617f0e5e1d4ae7354c4974c9b3b808",
+          "--image",
+          "mcp-tools=asia-southeast1-docker.pkg.dev/ewallet-data-ai-platform-hg26/ewallet-platform/mcp-tools@sha256:25ccb75b9f41314c4838f080579a31770a9a3bc66f4c3512fba76a2533f0b0da",
+          "--contract",
+          "jenkins/cd/agent-staging.contract.json",
+          "--target-namespace",
+          "ewallet-agents-staging",
+          "--image-manifest",
+          "evidence/ci/jenkins-edai2-cd-agent-staging-2/image-manifest.json",
+          "--environment",
+          "gke-cpu",
+          "--kube-context",
+          "in-cluster"
+        ]
+      ],
+      "exit_codes": [
+        0
+      ],
+      "kind": "agent-staging",
+      "name": "agent-staging",
+      "status": "PASS"
+    }
+  ],
+  "verdict": "PASS"
+}
