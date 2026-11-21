@@ -223,9 +223,11 @@ class ArtifactReuseTests(unittest.TestCase):
 class FakeRegistryHttp:
     """Docker Registry v2 responses; the token is never sent to the blob storage redirect."""
 
-    def __init__(self, status: int = 200, index: bool = False) -> None:
-        self.status, self.index = status, index
+    def __init__(self, status: int = 200, index: bool = False,
+                 location: str = "https://storage.example/blob") -> None:
+        self.status, self.index, self.location = status, index, location
         self.urls: list[str] = []
+        self.blob_urls: list[str] = []
 
     def opener(self, request, timeout):  # type: ignore[no-untyped-def]
         url = request.full_url
@@ -234,7 +236,7 @@ class FakeRegistryHttp:
         if self.status != 200:
             raise HTTPError(url, self.status, "x", {}, io.BytesIO(b""))
         if "/blobs/" in url:
-            raise HTTPError(url, 307, "redirect", {"Location": "https://storage.example/blob"}, io.BytesIO(b""))
+            raise HTTPError(url, 307, "redirect", {"Location": self.location}, io.BytesIO(b""))
         if url.endswith(f"/manifests/{SHA}") and self.index:
             body = {"manifests": [{"digest": "sha256:" + "3" * 64, "platform": {"os": "linux", "architecture": "amd64"}}]}
             return Response(json.dumps(body).encode(), headers={"Docker-Content-Digest": DIGEST})
@@ -243,6 +245,7 @@ class FakeRegistryHttp:
 
     def blob(self, request, timeout):  # type: ignore[no-untyped-def]
         assert request.get_header("Authorization") is None
+        self.blob_urls.append(request.full_url)
         return Response(json.dumps({"config": {"Labels": {LABEL_REVISION: SHA}}}).encode())
 
 
@@ -257,6 +260,16 @@ class RegistryClientTests(unittest.TestCase):
         self.assertEqual(DIGEST, image.digest)
         self.assertEqual({LABEL_REVISION: SHA}, image.labels)
         self.assertTrue(fake.urls[0].startswith("https://asia-southeast1-docker.pkg.dev/v2/proj-1/ewallet-platform/mcp-tools/"))
+
+    def test_relative_blob_redirect_resolves_against_the_registry_host(self) -> None:
+        # Artifact Registry answers a blob GET with "302 Location: /artifacts-downloads/...".
+        fake = FakeRegistryHttp(location="/artifacts-downloads/namespaces/proj-1/downloads/abc")
+        image = self.registry(fake).lookup("mcp-tools", SHA)
+        self.assertEqual({LABEL_REVISION: SHA}, image.labels)
+        self.assertEqual(["https://asia-southeast1-docker.pkg.dev/artifacts-downloads/namespaces/proj-1/downloads/abc"],
+                         fake.blob_urls)
+        with self.assertRaisesRegex(BuildError, "non-https"):
+            self.registry(FakeRegistryHttp(location="http://storage.example/blob")).lookup("mcp-tools", SHA)
 
     def test_absent_tag_is_none_and_a_permission_error_fails_closed(self) -> None:
         self.assertIsNone(self.registry(FakeRegistryHttp(status=404)).lookup("mcp-tools", SHA))

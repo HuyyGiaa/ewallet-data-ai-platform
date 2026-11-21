@@ -32,7 +32,7 @@ import sys
 import time
 from typing import Any, Callable
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote, urlencode
+from urllib.parse import quote, urlencode, urljoin
 from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
 
 from scripts.ci.catalog import ImageSpec  # one image description for the catalog and the build
@@ -234,7 +234,8 @@ class Registry:
     """Read-only Docker Registry v2 client for the release repository (manifest + config labels).
 
     Authenticates with the same OAuth token as the Google APIs (``oauth2accesstoken``). Blob
-    redirects to storage are followed without the registry credential.
+    redirects are followed without the registry credential; a relative ``Location`` (Artifact
+    Registry answers ``/artifacts-downloads/...``) is resolved against the registry URL.
     """
 
     def __init__(self, http: Http, settings: Settings, opener: Callable[..., Any] | None = None,
@@ -253,7 +254,10 @@ class Registry:
                 return response.status, dict(response.headers), response.read()
         except HTTPError as error:
             if error.code in {301, 302, 303, 307, 308} and error.headers.get("Location"):
-                with self.blob_opener(Request(error.headers["Location"]), timeout=60) as response:
+                location = urljoin(url, error.headers["Location"])
+                if not location.startswith("https://"):
+                    raise BuildError(f"registry GET {path} redirected to a non-https location") from error
+                with self.blob_opener(Request(location), timeout=60) as response:
                     return response.status, dict(response.headers), response.read()
             if error.code == 404:
                 return 404, {}, b""
