@@ -126,6 +126,11 @@ def test_edge_refuses_a_real_domain_until_the_security_filters_are_verified():
     assert "EnvoyFilter" not in {item["kind"] for item in render(EDGE, *EDGE_ON)}
 
 
+def test_edge_refuses_a_removed_or_incomplete_route():
+    for route in ("fraud-api", "a2a"):
+        assert render(EDGE, *EDGE_ON, "--set", f"routes.{route}.enabled=true", check=False).returncode != 0, route
+
+
 def test_edge_refuses_a_namespace_other_than_its_own():
     assert render(EDGE, *EDGE_ON, "-n", "ewallet-edge", check=False).returncode != 0
 
@@ -209,3 +214,40 @@ def test_kagent_gets_no_allow_policy_that_would_deny_its_other_callers():
 def test_gateway_values_keep_the_service_private():
     values = yaml.safe_load((EDGE / "values-gateway.yaml").read_text())
     assert values["service"]["type"] == "ClusterIP"
+
+
+def _preflight():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("ownership_preflight", ROOT / "scripts/edge/ownership_preflight.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_ownership_preflight_rejects_the_legacy_gateway_profile():
+    # values-gcp.yaml renders the llm-agent-platform Gateway without spec.addresses.
+    legacy = render(ROOT / "infra/helm/llm-agent-platform", "-f", str(ROOT / "infra/helm/llm-agent-platform/values-gcp.yaml"))
+    problems = _preflight().render_problems(legacy)
+    assert any("ewallet-agents/ewallet-agent-gateway" in problem for problem in problems), problems
+
+
+def test_ownership_preflight_accepts_the_edge_chart_alone():
+    assert _preflight().render_problems(render(EDGE, *EDGE_ON)) == []
+
+
+def test_ownership_preflight_detects_a_provisioned_duplicate_and_a_load_balancer():
+    preflight = _preflight()
+    meta = lambda ns, name, labels=None: {"namespace": ns, "name": name, "labels": labels or {}}
+    edge = {"metadata": meta("ewallet-ingress", "ewallet-edge"), "spec": {"gatewayClassName": "istio",
+            "addresses": [{"type": "Hostname", "value": "ewallet-edge-gateway.ewallet-ingress.svc.cluster.local"}]}}
+    waypoint = {"metadata": meta("ewallet-agents", "waypoint"), "spec": {"gatewayClassName": "istio-waypoint"}}
+    edge_service = {"metadata": meta("ewallet-ingress", "ewallet-edge-gateway", {"app.kubernetes.io/managed-by": "Helm"}),
+                    "spec": {"type": "ClusterIP"}}
+    assert preflight.live_problems([edge, waypoint], [], [edge_service]) == []
+    legacy = {"metadata": meta("ewallet-agents", "ewallet-agent-gateway"), "spec": {"gatewayClassName": "istio"}}
+    provisioned = {"metadata": meta("ewallet-agents", "ewallet-agent-gateway-istio",
+                                    {"gateway.istio.io/managed": "istio.io-gateway-controller"})}
+    balancer = {"metadata": meta("ewallet-agents", "ewallet-agent-gateway-istio"), "spec": {"type": "LoadBalancer"}}
+    problems = preflight.live_problems([edge, legacy], [provisioned], [edge_service, balancer])
+    assert len(problems) == 4, problems  # unexpected Gateway, unbound Gateway, provisioned Deployment, LoadBalancer
+    assert len(preflight.live_problems([edge], [], [edge_service, balancer], frozenset({"ewallet-agents/ewallet-agent-gateway-istio"}))) == 0

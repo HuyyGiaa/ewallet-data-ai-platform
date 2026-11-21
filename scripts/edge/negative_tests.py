@@ -18,6 +18,7 @@ from pathlib import Path
 import subprocess
 import time
 from typing import Sequence
+import uuid
 
 
 @dataclass
@@ -34,7 +35,7 @@ class Edge:
 
     def __init__(self, args: argparse.Namespace) -> None:
         self.address, self.https, self.http, self.domain = args.address, args.https_port, args.http_port, args.domain
-        self.ca = args.ca_file
+        self.ca, self.stub = args.ca_file, args.stub
         self.credentials = Path(args.credentials_file).read_text(encoding="utf-8").strip()
 
     def curl(self, host: str, path: str, *extra: str, scheme: str = "https", port: int | None = None) -> tuple[int, str]:
@@ -66,6 +67,19 @@ POST_JSON = ("-X", "POST", "-H", "content-type: application/json", "-d", "{}")
 LOOKUP = "/v1/features/lookup"
 
 
+def reached_application(edge: Edge, status: int, body: str) -> bool:
+    """A real answer from the backend, not merely "not rejected": the stub's echo, or the
+    Feature API's own validation error for the empty lookup body. A 5xx never counts."""
+    try:
+        payload = json.loads(body)
+    except ValueError:
+        return False
+    if edge.stub:
+        return status == 200 and "headers" in payload
+    error = payload.get("error") if isinstance(payload, dict) else None
+    return status == 422 and isinstance(error, dict) and bool(error.get("correlation_id"))
+
+
 def check(results: list[Result], name: str, passed: bool, observed: object) -> None:
     """Record one outcome."""
     results.append(Result(name, bool(passed), str(observed)[:160]))
@@ -85,8 +99,8 @@ def run_auth(edge: Edge, results: list[Result]) -> None:
     status, _ = edge.curl("features", LOOKUP, "-H", "x-edge-user: admin", "-H", "x-forwarded-user: admin",
                           "-H", "x-user-id: admin", *POST_JSON)
     check(results, "identity headers cannot replace credentials", status == 401, status)
-    status, _ = edge.authed("features", LOOKUP, *POST_JSON)
-    check(results, "valid credentials pass authentication", status not in (0, 401, 403, 404), status)
+    status, body = edge.authed("features", LOOKUP, *POST_JSON)
+    check(results, "valid credentials reach the application", reached_application(edge, status, body), status)
 
 
 def run_routing(edge: Edge, results: list[Result]) -> None:
@@ -143,9 +157,16 @@ def run_stub(edge: Edge, results: list[Result]) -> None:
     process.wait()
     spread = arrivals[-1] - arrivals[0] if len(arrivals) > 1 else 0
     check(results, "SSE arrives event by event, not buffered", len(arrivals) == 4 and spread >= 1.5, arrivals)
-    status, _ = edge.authed("features", "/v1/features/lookup", "-X", "POST", "-H", "x-stub-status: 503", "-d", "{}")
-    _, counts = edge.authed("agents", "/calls")
-    check(results, "the gateway does not retry a failed call", status == 503 and json.loads(counts).get("503", 0) == 1, counts)
+    # One client request must reach the backend exactly once, whatever the backend does.
+    # The Feature API route has a 5 s timeout, so a 7 s backend delay must end in a 504.
+    run = uuid.uuid4().hex[:8]
+    for case, headers, expected in (("ok", (), {200}), ("503", ("-H", "x-stub-status: 503"), {503}),
+                                    ("reset", ("-H", "x-stub-close: 1"), {502, 503}), ("timeout", ("-H", "x-stub-sleep: 7"), {504})):
+        status, _ = edge.authed("features", LOOKUP, "-H", f"x-stub-key: {run}-{case}", *headers, *POST_JSON)
+        _, counts = edge.authed("agents", "/calls")
+        attempts = json.loads(counts).get(f"{run}-{case}", 0)
+        check(results, f"no retry: {case} reaches the backend once", status in expected and attempts == 1,
+              f"status={status} attempts={attempts}")
 
 
 def main(argv: Sequence[str] | None = None) -> int:

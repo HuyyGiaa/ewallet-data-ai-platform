@@ -1,0 +1,36 @@
+== df / before: /dev/nvme0n1p6  295G  267G   13G  96% /
+Creating cluster "g21-gw151" ...
+kubectl cluster-info --context kind-g21-gw151 --kubeconfig <scratch>/case-a-v151/kubeconfig
+== CRDs gwapi-v1.5.1-standard.yaml sha256 751002b3b91a87f7
+v1.5.1 standard
+NAME                     READY   STATUS    RESTARTS   AGE   IP           NODE                      NOMINATED NODE   READINESS GATES
+istiod-9bccf5d55-dnhnk   1/1     Running   0          16s   10.244.0.5   g21-gw151-control-plane   <none>           <none>
+NAME           CONTROLLER                    ACCEPTED   AGE
+istio          istio.io/gateway-controller   True       1s
+istio-remote   istio.io/unmanaged-gateway    True       1s
+== kubectl apply (strict field validation, the default):
+   Error from server (BadRequest): error when creating "STDIN": HTTPRoute in version "v1" cannot be handled as a HTTPRoute: strict decoding error: unknown field "spec.rules[0].retry"
+== kubectl create --validate=false (what a non-strict client sends):
+   httproute.gateway.networking.k8s.io/r created
+   stored rules[0]: {"backendRefs":[{"group":"","kind":"Service","name":"x","port":80,"weight":1}],"matches":[{"path":{"type":"PathPrefix","value":"/"}}],"name":"r"}
+== helm install --dry-run=server (chart CRD guard):
+   exit=1 execution error at (ewallet-edge/templates/gateway.yaml:36:4): the cluster's HTTPRoute CRD has no rules[].retry field (needs Gateway API >= v1.7.0 Standard); the no-retry rule would be dropped
+== local_validate.sh foundation:
+Error from server (BadRequest): error when creating "<scratch>/case-a-v151/validate/rendered.yaml": HTTPRoute in version "v1" cannot be handled as a HTTPRoute: strict decoding error: unknown field "spec.rules[0].retry"
+Error from server (BadRequest): error when creating "<scratch>/case-a-v151/validate/rendered.yaml": HTTPRoute in version "v1" cannot be handled as a HTTPRoute: strict decoding error: unknown field "spec.rules[0].retry"
+Error from server (BadRequest): error when creating "<scratch>/case-a-v151/validate/rendered.yaml": HTTPRoute in version "v1" cannot be handled as a HTTPRoute: strict decoding error: unknown field "spec.rules[0].retry"
+Error from server (BadRequest): error when creating "<scratch>/case-a-v151/validate/rendered.yaml": HTTPRoute in version "v1" cannot be handled as a HTTPRoute: strict decoding error: unknown field "spec.rules[0].retry"
+   local_validate exit=1
+== pruned-retry measurement (guards bypassed with --validate=false; experiment only):
+   stored feature-api retry: ''
+2026/11/21 13:09:35 INFO GOMEMLIMIT is already set, skipping package=github.com/KimMachineGun/automemlimit/memlimit GOMEMLIMIT=536870912
+   envoy feature-api retry_policy: {"retry_on": "connect-failure,refused-stream,unavailable,cancelled,retriable-status-codes", "num_retries": 2, "retry_host_predicate": [{"name": "envoy.retry_host_predicates.previous_hosts", "typed_config": {"@type": "type.googleapis.com/envoy.extensions.retry.host.previous_hosts.v3.PreviousHostsPredicate"}}], "host_selection_retry_max_attempts": "5"}
+FAIL plain HTTP redirects to HTTPS: 0
+29 of 30 checks passed
+   {"name": "no retry: ok reaches the backend once", "passed": true, "observed": "status=200 attempts=1"}
+   {"name": "no retry: 503 reaches the backend once", "passed": true, "observed": "status=503 attempts=1"}
+   {"name": "no retry: reset reaches the backend once", "passed": true, "observed": "status=503 attempts=1"}
+   {"name": "no retry: timeout reaches the backend once", "passed": true, "observed": "status=504 attempts=1"}
+Deleting cluster "g21-gw151" ...
+Deleted nodes: ["g21-gw151-control-plane"]
+== df / after: /dev/nvme0n1p6  295G  267G   13G  96% /

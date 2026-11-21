@@ -1,4 +1,9 @@
-"""Local stand-in backend: reports received headers and streams server-sent events."""
+"""Local stand-in backend: reports received headers and streams server-sent events.
+
+A POST may ask for a status (x-stub-status), a delay (x-stub-sleep, seconds) or a dropped
+connection (x-stub-close). With x-stub-key, every arrival is counted under that key, so a
+test can see how many attempts the gateway made for one client request.
+"""
 
 from __future__ import annotations
 
@@ -45,9 +50,16 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {"headers": {key.lower(): value for key, value in self.headers.items()}})
 
     def do_POST(self) -> None:
-        """Echo headers, or answer the status a test asked for."""
+        """Echo headers, or behave the way a test asked for."""
         length = int(self.headers.get("content-length") or 0)
         self.rfile.read(length)
+        if self.headers.get("x-stub-key"):
+            calls[self.headers["x-stub-key"]] += 1
+        if self.headers.get("x-stub-close"):
+            self.close_connection = True
+            self.connection.close()
+            return
+        time.sleep(float(self.headers.get("x-stub-sleep") or 0))
         status = int(self.headers.get("x-stub-status") or 200)
         if status != 200:
             calls[str(status)] += 1

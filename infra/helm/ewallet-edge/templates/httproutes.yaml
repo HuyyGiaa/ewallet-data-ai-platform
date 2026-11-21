@@ -38,8 +38,9 @@ spec:
       {{- with $route.timeout }}
       timeouts: {request: {{ . }}}
       {{- end }}
-      # Istio retries Gateway API routes twice by default. A gateway must not repeat a
-      # request: agent and prediction calls are not all idempotent.
+      # Without this Istio gives every route 2 retries on connect-failure, refused-stream,
+      # unavailable and cancelled. The edge makes one attempt per request, so the route says
+      # so explicitly. Needs Gateway API >= v1.7.0 Standard (v1.5.x prunes the field).
       retry: {attempts: 0}
       backendRefs:
         - {name: {{ $b.service }}, namespace: {{ $b.namespace }}, port: {{ $b.port }}}

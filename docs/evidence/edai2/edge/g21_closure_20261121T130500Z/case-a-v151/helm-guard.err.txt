@@ -1,0 +1,1 @@
+Error: INSTALLATION FAILED: execution error at (ewallet-edge/templates/gateway.yaml:36:4): the cluster's HTTPRoute CRD has no rules[].retry field (needs Gateway API >= v1.7.0 Standard); the no-retry rule would be dropped

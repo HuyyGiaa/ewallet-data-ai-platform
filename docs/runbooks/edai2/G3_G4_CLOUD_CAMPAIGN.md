@@ -290,6 +290,8 @@ The kagent Agent Sandbox pilot does not count as scaling evidence.
 
 ## Package 6: Istio gateway, phase 1 (internal)
 
+> **Superseded on 2026-11-21 (G2.1).** The edge now uses Gateway API resources in namespace `ewallet-ingress`, with four routes (`features`, `agents`, `registry`, `observe`). The Fraud API and A2A routes were removed. Until G2.2 verifies Basic Auth and rate limits, the chart refuses any real domain. The chart also refuses the namespace and route names below. G3 will publish the new commands. The new package also has to install the Gateway API CRDs, which the cluster does not have (read-only check, 2026-11-21). It must run `scripts/edge/ownership_preflight.py live` before and after the rollout. See [`infra/helm/ewallet-edge/values.yaml`](../../../infra/helm/ewallet-edge/values.yaml) and the [G2.1 evidence](../../evidence/edai2/edge/g21_gateway_api_20261121T121646Z/README.md).
+
 - **Deploy:** P-A5 phase 1, with Service type ClusterIP. Routes: `features`, `fraud`, `a2a`, `agents` (kagent UI), `registry`, `grafana`.
 - **Private:** MCP, agentgateway, KServe, Redis and Vault.
 - **Check through a port-forward to the gateway Service:** `scripts/edge/negative_tests.py`, covering 401 without, with a wrong or a forged credential; 301 on HTTP; 429 on bursts; undeclared paths returning 404. Also check UI chat streaming with a synthetic prompt and the Registry UI.

@@ -66,6 +66,7 @@ print(yaml.safe_dump({"enabled": True, "domain": "edge.local.test", "securityFil
                       "routes": out}))
 PY
 helm template edge "$chart" -n "$NS" -f "$work/local.yaml" > "$evidence/rendered.yaml"
+python3 "$root/scripts/edge/ownership_preflight.py" render "$evidence/rendered.yaml" > "$evidence/preflight-render.txt"
 k apply -f "$evidence/rendered.yaml" >/dev/null
 k -n "$STUB" rollout status deploy/stub --timeout=120s >/dev/null
 k -n "$NS" wait gateway/ewallet-edge --for=condition=Programmed --timeout=120s >/dev/null
@@ -121,6 +122,12 @@ check("T07 one ReferenceGrant per route, each to one Service",
       [g["metadata"]["name"] for g in by("ReferenceGrant")])
 print("".join(json.dumps(o) + "\n" for o in out), end="")
 PY
+
+# One ingress workload, Helm-owned, and no LoadBalancer anywhere in the cluster.
+python3 "$root/scripts/edge/ownership_preflight.py" live --context "$CONTEXT" > "$evidence/preflight-live.txt" || true
+ok=false; grep -qx EDGE_OWNERSHIP_OK "$evidence/preflight-live.txt" && ok=true
+printf '{"name": "ownership preflight (live) finds one Helm-owned ingress workload", "passed": %s, "observed": "%s"}\n' \
+  "$ok" "$(tr '\n' ' ' < "$evidence/preflight-live.txt")" >> "$evidence/status.jsonl"
 
 # What Envoy was actually given: route names (the EnvoyFilter matches them) and retries.
 pod=$(k -n "$NS" get pod -l istio=ewallet-edge-gateway -o name | head -1)

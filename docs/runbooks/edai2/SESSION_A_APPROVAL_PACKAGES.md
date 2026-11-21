@@ -159,6 +159,8 @@ python -m ops.experiments.cli compare --spec configs/experiments/exp-c5-keda.jso
 
 ## P-A5: External gateway
 
+> **Superseded on 2026-11-21 (G2.1).** The edge now uses Gateway API resources in namespace `ewallet-ingress`, with four routes (`features`, `agents`, `registry`, `observe`). The Fraud API and A2A routes were removed. Until G2.2 verifies Basic Auth and rate limits, the chart refuses any real domain. The chart also refuses the namespace and route names below. G3 will publish the new commands. See [`infra/helm/ewallet-edge/values.yaml`](../../../infra/helm/ewallet-edge/values.yaml) and the [G2.1 evidence](../../evidence/edai2/edge/g21_gateway_api_20261121T121646Z/README.md).
+
 | Item | Detail |
 |---|---|
 | Objective | Rows 37 to 43 |
@@ -170,7 +172,9 @@ python -m ops.experiments.cli compare --spec configs/experiments/exp-c5-keda.jso
 
 Stage 1 keeps the Service private and tests through a port-forward. Stage 2, public exposure, is a separate decision.
 
-```bash
+Historical commands for the VirtualService design. **Do not run them.**
+
+```text
 kubectl --context "$KUBE_CONTEXT" create namespace ewallet-edge
 openssl rand -hex 24 | scripts/edge/create_basic_auth.sh edge ewallet-edge "$KUBE_CONTEXT"   # store it in a password manager first
 helm upgrade --install ewallet-edge-gateway istio/gateway --version 1.30.7 --kube-context "$KUBE_CONTEXT" -n ewallet-edge \

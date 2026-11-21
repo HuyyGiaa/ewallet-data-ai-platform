@@ -5,12 +5,36 @@
 {{- if not (regexMatch "^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$" .Values.domain) }}
 {{- fail "domain must be the owner-approved DNS name" }}
 {{- end }}
+{{- range $name, $route := .Values.routes }}
+{{- if $route.enabled }}
+{{- /* An unknown key (e.g. the removed fraud-api or a2a) arrives as {enabled: true} only. */}}
+{{- if not (and $route.hostPrefix $route.match $route.backend) }}
+{{- fail (printf "route %s is not defined: hostPrefix, match and backend are required" $name) }}
+{{- end }}
+{{- if not (and $route.backend.service $route.backend.namespace $route.backend.port) }}
+{{- fail (printf "route %s needs backend.service, backend.namespace and backend.port" $name) }}
+{{- end }}
+{{- end }}
+{{- end }}
 {{- $hosts := include "ewallet-edge.hosts" . | fromJsonArray }}
 {{- if not $hosts }}
 {{- fail "enable at least one route" }}
 {{- end }}
 {{- if and (not .Values.securityFiltersVerified) (not (hasSuffix ".test" .Values.domain)) }}
 {{- fail "routes on a real domain need securityFiltersVerified=true (Basic Auth and rate limits, G2.2)" }}
+{{- end }}
+{{- /* HTTPRoute retry is Standard only from Gateway API v1.7.0. An older CRD prunes it, and
+Istio then retries twice. Checked on install/upgrade; helm template cannot look it up. */}}
+{{- with lookup "apiextensions.k8s.io/v1" "CustomResourceDefinition" "" "httproutes.gateway.networking.k8s.io" }}
+{{- $retry := false }}
+{{- range .spec.versions }}
+{{- if and (eq .name "v1") (hasKey .schema.openAPIV3Schema.properties.spec.properties.rules.items.properties "retry") }}
+{{- $retry = true }}
+{{- end }}
+{{- end }}
+{{- if not $retry }}
+{{- fail "the cluster's HTTPRoute CRD has no rules[].retry field (needs Gateway API >= v1.7.0 Standard); the no-retry rule would be dropped" }}
+{{- end }}
 {{- end }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway

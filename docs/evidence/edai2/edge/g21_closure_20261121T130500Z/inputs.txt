@@ -1,0 +1,4 @@
+64ec76609a6ac885e0405dea79ca509c229fa019d342f0857aa8b6bdc8b8ba92  gwapi-v1.5.1-experimental.yaml
+751002b3b91a87f7ae3bd2517c79a47a8d7ed6702901808a1cf9bd97d284f9b8  gwapi-v1.5.1-standard.yaml
+4e2602c4cbe1afbc394d86f4ac6522e1a5263b01133bba1e40a6d1a549e753a1  gwapi-v1.7.0-standard.yaml
+istio 1.30.7 go.mod: sigs.k8s.io/gateway-api v1.5.1

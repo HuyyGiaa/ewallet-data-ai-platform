@@ -50,7 +50,7 @@ All images must be pinned by digest. Build them with Cloud Build rather than on 
 | `ewallet-vault` | Roles and policies `fraud-api`, `feature-api`; network policy admitting both |
 | `keda` | KEDA 2.21 controller and CRDs (P-A3) |
 | `ewallet-agents` | ScaledObjects replacing three HPAs via `transferHpa` (P-A4); edge allow policy for Grafana |
-| `ewallet-edge` | `istio/gateway` Deployment and ClusterIP Service, Gateway, VirtualServices, EnvoyFilter (P-A5) |
+| `ewallet-edge` | `istio/gateway` Deployment and ClusterIP Service, Gateway, VirtualServices, EnvoyFilter (P-A5). **Superseded 2026-11-21 (G2.1):** now `ewallet-ingress` with Gateway API resources; see P-A5 in [SESSION_A_APPROVAL_PACKAGES.md](SESSION_A_APPROVAL_PACKAGES.md) |
 | GCP | GSAs `ewallet-fraud-api`, `ewallet-feature-api`; conditional `objectViewer` on `features/registries/`; Workload Identity bindings |
 
 The production render of `llm-agent` r41 changes only the Grafana and Prometheus config checksums. Both pods restart at the next upgrade.

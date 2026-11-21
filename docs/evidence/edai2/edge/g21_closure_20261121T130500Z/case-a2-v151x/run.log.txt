@@ -1,0 +1,25 @@
+== df / before: /dev/nvme0n1p6  295G  267G   13G  96% /
+Creating cluster "g21-gw151x" ...
+kubectl cluster-info --context kind-g21-gw151x --kubeconfig <scratch>/case-a2-v151x/kubeconfig
+Have a nice day! 👋
+== CRDs gwapi-v1.5.1-experimental.yaml sha256 64ec76609a6ac885
+v1.5.1 experimental
+NAME                     READY   STATUS    RESTARTS   AGE   IP           NODE                       NOMINATED NODE   READINESS GATES
+istiod-9bccf5d55-zwck8   1/1     Running   0          15s   10.244.0.5   g21-gw151x-control-plane   <none>           <none>
+NAME           CONTROLLER                    ACCEPTED   AGE
+istio          istio.io/gateway-controller   True       2s
+istio-remote   istio.io/unmanaged-gateway    True       2s
+== kubectl apply (strict field validation, the default):
+   httproute.gateway.networking.k8s.io/r created
+== kubectl create --validate=false (what a non-strict client sends):
+   Error from server (AlreadyExists): error when creating "STDIN": httproutes.gateway.networking.k8s.io "r" already exists
+   stored rules[0]: {"backendRefs":[{"group":"","kind":"Service","name":"x","port":80,"weight":1}],"matches":[{"path":{"type":"PathPrefix","value":"/"}}],"name":"r","retry":{"attempts":0}}
+== helm install --dry-run=server (chart CRD guard):
+   exit=0
+== local_validate.sh foundation:
+30 of 30 checks passed
+EDGE_LOCAL_VALIDATION_PASS (foundation)
+   local_validate exit=0
+Deleting cluster "g21-gw151x" ...
+Deleted nodes: ["g21-gw151x-control-plane"]
+== df / after: /dev/nvme0n1p6  295G  267G   13G  96% /

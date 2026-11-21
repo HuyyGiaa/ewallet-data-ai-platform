@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+# G2.1 closure: Istio 1.30.7 + one Gateway API CRD bundle on a throwaway kind cluster.
+# usage: compat_case.sh <case-name> <crd-bundle.yaml> <out-dir>
+# Creates kind cluster g21-<case>, runs the checks, deletes only that cluster.
+set -uo pipefail
+case_name=${1:?} crds=${2:?} out=${3:?}
+repo=<repo>
+cluster=g21-$case_name ctx=kind-g21-$case_name
+node_image=kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5
+mkdir -p "$out"; exec > >(tee "$out/run.log") 2>&1
+# Own kubeconfig: kind must never rewrite ~/.kube/config (a full disk once truncated it).
+export KUBECONFIG="$out/kubeconfig"
+free_gb() { df --output=avail -BG / | tail -1 | tr -dc 0-9; }
+echo "== df / before: $(df -h / | tail -1)"
+[ "$(free_gb)" -ge 5 ] || { echo "less than 5 GB free; not creating a cluster"; exit 3; }
+kind get clusters | grep -qx "$cluster" && { echo "cluster $cluster already exists; refusing"; exit 2; }
+kind create cluster --name "$cluster" --image "$node_image" --kubeconfig "$KUBECONFIG" --wait 120s || exit 1
+trap 'kind delete cluster --name "$cluster" --kubeconfig "$KUBECONFIG"; echo "== df / after: $(df -h / | tail -1)"' EXIT
+# Write guard: the context and node must be this campaign's kind cluster.
+[ "$(kubectl --context "$ctx" get nodes -o name)" == "node/$cluster-control-plane" ] || { echo "context guard failed"; exit 2; }
+k() { kubectl --context "$ctx" "$@"; }
+# Reuse images already pulled on the long-lived local node (read-only export).
+for image in registry.istio.io/release/pilot:1.30.7-distroless registry.istio.io/release/proxyv2:1.30.7-distroless docker.io/library/python:3.12-alpine; do
+  docker exec llm-agent-local-control-plane ctr -n k8s.io images export --platform linux/amd64 - "$image" \
+    | docker exec -i "$cluster-control-plane" ctr -n k8s.io images import --platform linux/amd64 - >/dev/null && echo "loaded $image"
+done
+echo "== CRDs $(basename "$crds") sha256 $(sha256sum "$crds" | cut -c1-16)"
+k apply --server-side -f "$crds" >/dev/null && k wait --for=condition=Established crd --all --timeout=60s >/dev/null
+k get crd httproutes.gateway.networking.k8s.io -o jsonpath='{.metadata.annotations.gateway\.networking\.k8s\.io/bundle-version} {.metadata.annotations.gateway\.networking\.k8s\.io/channel}{"\n"}'
+helm --kube-context "$ctx" install istio-base istio/base --version 1.30.7 -n istio-system --create-namespace --wait >/dev/null
+helm --kube-context "$ctx" install istiod istio/istiod --version 1.30.7 -n istio-system \
+  --set global.hub=registry.istio.io/release --set global.variant=distroless \
+  --set pilot.resources.requests.cpu=100m --set pilot.resources.requests.memory=256Mi --wait --timeout 5m >/dev/null
+k -n istio-system get pods -o wide
+k get gatewayclass
+
+# 1. Schema: does the API server keep, reject or prune rules[].retry?
+k create ns g21-schema >/dev/null
+route='{"apiVersion":"gateway.networking.k8s.io/v1","kind":"HTTPRoute","metadata":{"name":"r","namespace":"g21-schema"},"spec":{"rules":[{"name":"r","retry":{"attempts":0},"backendRefs":[{"name":"x","port":80}]}]}}'
+echo "== kubectl apply (strict field validation, the default):"
+echo "$route" | k apply -f - 2>&1 | sed 's/^/   /'
+echo "== kubectl create --validate=false (what a non-strict client sends):"
+echo "$route" | k create --validate=false -f - 2>&1 | sed 's/^/   /'
+echo "   stored rules[0]: $(k -n g21-schema get httproute r -o jsonpath='{.spec.rules[0]}' 2>&1)"
+k delete ns g21-schema --wait=false >/dev/null
+
+# 2. Helm path: the chart's CRD guard, server-side dry run (lookup works, nothing is created).
+python3 - "$repo/infra/helm/ewallet-edge/values.yaml" > "$out/local.yaml" <<'PY'
+import sys, yaml
+routes = yaml.safe_load(open(sys.argv[1]))["routes"]
+print(yaml.safe_dump({"enabled": True, "domain": "edge.local.test", "routes": {
+    n: {"enabled": True, "backend": {"service": "stub", "namespace": "edge-stub", "port": 8080}, "access": None} for n in routes}}))
+PY
+k create ns ewallet-ingress >/dev/null
+echo "== helm install --dry-run=server (chart CRD guard):"
+helm --kube-context "$ctx" install edge "$repo/infra/helm/ewallet-edge" -n ewallet-ingress -f "$out/local.yaml" --dry-run=server >/dev/null 2>"$out/helm-guard.err"
+echo "   exit=$? $(grep -o 'execution error.*' "$out/helm-guard.err" | head -1)"
+k delete ns ewallet-ingress --wait=true >/dev/null
+
+# 3. Full foundation run (kubectl apply, strict).
+echo "== local_validate.sh foundation:"
+EDGE_LOCAL_CONTEXT="$ctx" bash "$repo/scripts/edge/local_validate.sh" "$out/validate" foundation 2>&1 | grep -v GOMEMLIMIT | tail -12
+echo "   local_validate exit=${PIPESTATUS[0]}"
+for ns in ewallet-ingress edge-stub; do k wait --for=delete "ns/$ns" --timeout=120s >/dev/null 2>&1; done
+
+# 4. Optional: what happens if the guards are bypassed and the field is pruned.
+if [ -n "${MEASURE_PRUNED:-}" ]; then
+  echo "== pruned-retry measurement (guards bypassed with --validate=false; experiment only):"
+  w=$(mktemp -d); NS=ewallet-ingress STUB=edge-stub
+  k create ns $NS >/dev/null; k create ns $STUB >/dev/null
+  openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -days 1 -subj "/CN=edge.local.test" \
+    -addext "subjectAltName=DNS:*.edge.local.test" -keyout $w/tls.key -out $w/tls.crt 2>/dev/null
+  k -n $NS create secret tls edge-tls --cert=$w/tls.crt --key=$w/tls.key >/dev/null
+  openssl rand -hex 24 | tr -d '\n' | "$repo/scripts/edge/create_basic_auth.sh" edge $NS "$ctx" >/dev/null
+  printf 'edge:%s\n' "$(openssl rand -hex 24)" > $w/credentials
+  k -n $STUB create configmap stub --from-file="$repo/scripts/edge/stub/echo_stub.py" >/dev/null
+  k -n $STUB create deployment stub --image=python:3.12-alpine --port=8080 -- python3 /stub/echo_stub.py >/dev/null
+  k -n $STUB patch deployment stub --type=json -p '[{"op":"add","path":"/spec/template/spec/volumes","value":[{"name":"stub","configMap":{"name":"stub"}}]},{"op":"add","path":"/spec/template/spec/containers/0/volumeMounts","value":[{"name":"stub","mountPath":"/stub"}]}]' >/dev/null
+  k -n $STUB expose deployment stub --port=8080 >/dev/null
+  helm --kube-context "$ctx" install ewallet-edge-gateway istio/gateway --version 1.30.7 -n $NS \
+    -f "$repo/infra/helm/ewallet-edge/values-gateway.yaml" --set service.type=NodePort --wait --timeout 5m >/dev/null
+  helm template edge "$repo/infra/helm/ewallet-edge" -n $NS -f "$out/local.yaml" > $w/rendered.yaml
+  k create --validate=false -f $w/rendered.yaml >/dev/null
+  k -n $STUB rollout status deploy/stub --timeout=120s >/dev/null
+  k -n $NS wait gateway/ewallet-edge --for=condition=Programmed --timeout=120s >/dev/null; sleep 8
+  echo "   stored feature-api retry: '$(k -n $NS get httproute feature-api -o jsonpath='{.spec.rules[0].retry}')'"
+  pod=$(k -n $NS get pod -l istio=ewallet-edge-gateway -o name | head -1)
+  k -n $NS exec $pod -- pilot-agent request GET config_dump | python3 -c "
+import json,sys
+for c in json.load(sys.stdin)['configs']:
+  if 'RoutesConfigDump' in c['@type']:
+    for r in c.get('dynamic_route_configs',[]):
+      for vh in r['route_config'].get('virtual_hosts',[]):
+        for x in vh['routes']:
+          if x.get('name')=='feature-api': print('   envoy feature-api retry_policy:', json.dumps(x['route'].get('retry_policy')))"
+  node=$(k get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
+  https=$(k -n $NS get svc ewallet-edge-gateway -o jsonpath='{.spec.ports[?(@.port==443)].nodePort}')
+  python3 "$repo/scripts/edge/negative_tests.py" --address $node --https-port $https --http-port 80 --domain edge.local.test \
+    --ca-file $w/tls.crt --credentials-file $w/credentials --stub --foundation --out "$out/pruned-results.jsonl" | tail -6
+  grep 'no retry' "$out/pruned-results.jsonl" | sed 's/^/   /'
+  rm -rf $w
+fi
