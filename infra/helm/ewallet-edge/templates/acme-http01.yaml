@@ -1,0 +1,92 @@
+{{- if and .Values.enabled .Values.acmeHttp01.enabled }}
+{{- $hosts := include "ewallet-edge.hosts" . | fromJsonArray }}
+---
+# ACME HTTP-01 responder (on only while a certificate is issued). It answers
+# /.well-known/acme-challenge/<token> with a token file that scripts/edge/acme_http01_hook.sh
+# writes, and 404 for anything else. No credentials, no backend, nothing else to serve.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: edge-acme-responder
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "ewallet-edge.labels" . | nindent 4 }}
+data:
+  responder.py: |
+    import http.server, os, re
+    TOKEN = re.compile(r"^/\.well-known/acme-challenge/([A-Za-z0-9_-]{1,128})$")
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            match = TOKEN.match(self.path)
+            path = os.path.join("/challenges", match.group(1)) if match else None
+            if not path or not os.path.isfile(path):
+                self.send_response(404); self.send_header("content-length", "0"); self.end_headers(); return
+            body = open(path, "rb").read()
+            self.send_response(200); self.send_header("content-type", "text/plain")
+            self.send_header("content-length", str(len(body))); self.end_headers(); self.wfile.write(body)
+        def log_message(self, *args):
+            pass
+    http.server.ThreadingHTTPServer(("", 8080), Handler).serve_forever()
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: edge-acme-responder
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "ewallet-edge.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app.kubernetes.io/name: edge-acme-responder}}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: edge-acme-responder}
+    spec:
+      automountServiceAccountToken: false
+      securityContext: {runAsNonRoot: true, runAsUser: 65534, runAsGroup: 65534, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: responder
+          image: {{ required "acmeHttp01.image is required" .Values.acmeHttp01.image }}
+          command: [python3, /app/responder.py]
+          ports: [{name: http, containerPort: 8080}]
+          readinessProbe: {tcpSocket: {port: 8080}, periodSeconds: 5}
+          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+          resources: {requests: {cpu: 10m, memory: 32Mi}, limits: {cpu: 100m, memory: 64Mi}}
+          volumeMounts:
+            - {name: app, mountPath: /app, readOnly: true}
+            - {name: challenges, mountPath: /challenges}
+      volumes:
+        - {name: app, configMap: {name: edge-acme-responder}}
+        - {name: challenges, emptyDir: {sizeLimit: 1Mi}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: edge-acme-responder
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "ewallet-edge.labels" . | nindent 4 }}
+spec:
+  selector: {app.kubernetes.io/name: edge-acme-responder}
+  ports: [{name: http, port: 8080, targetPort: http}]
+---
+# Plain-HTTP listener only. The longer path prefix wins over the https-redirect route's "/",
+# so only /.well-known/acme-challenge/... reaches the responder; every other port-80 path
+# still redirects, and port 443 is unchanged (Basic Auth and rate limit apply there).
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: acme-http01
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "ewallet-edge.labels" . | nindent 4 }}
+spec:
+  parentRefs: [{name: ewallet-edge, sectionName: http}]
+  hostnames: {{ toJson $hosts }}
+  rules:
+    - name: acme-http01
+      matches:
+        - path: {type: PathPrefix, value: /.well-known/acme-challenge/}
+      backendRefs:
+        - {name: edge-acme-responder, port: 8080}
+{{- end }}

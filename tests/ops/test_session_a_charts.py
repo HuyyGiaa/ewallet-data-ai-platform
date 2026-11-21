@@ -319,11 +319,11 @@ def test_source_restriction_denies_the_agents_host_from_any_other_address():
     assert policy["metadata"]["namespace"] == "ewallet-ingress"
     assert policy["spec"]["selector"] == {"matchLabels": {"istio": "ewallet-edge-gateway"}}
     assert policy["spec"]["action"] == "DENY"
-    # The TCP peer address (ipBlocks), never X-Forwarded-For (remoteIpBlocks), and the host
-    # with and without a port.
+    # The TCP peer address (ipBlocks), never X-Forwarded-For (remoteIpBlocks), the host with
+    # and without a port, on the HTTPS listener only (G3-B1: port 80 carries the ACME token).
     assert policy["spec"]["rules"] == [{
         "from": [{"source": {"notIpBlocks": ["203.0.113.7/32", "198.51.100.0/28"]}}],
-        "to": [{"operation": {"hosts": ["agents.edge.example.test", "agents.edge.example.test:*"]}}]}]
+        "to": [{"operation": {"hosts": ["agents.edge.example.test", "agents.edge.example.test:*"], "ports": ["443"]}}]}]
 
 
 @pytest.mark.parametrize("cidrs,message", [
@@ -354,7 +354,7 @@ def test_preflight_refuses_an_approved_edge_balancer_without_source_ranges():
     preflight = _preflight()
     svc = lambda **spec: {"kind": "Service", "apiVersion": "v1",
                           "metadata": {"namespace": "ewallet-ingress", "name": "ewallet-edge-gateway"},
-                          "spec": {"type": "LoadBalancer", **spec}}
+                          "spec": {"type": "LoadBalancer", "ports": [{"port": 80}, {"port": 443}], **spec}}
     approved = frozenset({"ewallet-ingress/ewallet-edge-gateway"})
     assert preflight.render_problems([svc(externalTrafficPolicy="Local", loadBalancerSourceRanges=["203.0.113.7/32"])], approved) == []
     assert preflight.render_problems([svc(externalTrafficPolicy="Local", loadBalancerSourceRanges=["203.0.113.7/32"])])  # not approved
@@ -399,3 +399,94 @@ def test_grafana_root_url_changes_only_grafana():
 def test_grafana_root_url_must_be_an_https_host_root(url):
     done = render(PLATFORM, *OBS, "--set", f"grafanaExternal.rootUrl={url}", check=False)
     assert done.returncode != 0 and "grafanaExternal.rootUrl must be https" in done.stderr
+
+
+# --- G3-B1: HTTP-01 responder, port-scoped restriction, explicit public mode -----------------
+
+ACME = EDGE_VERIFIED + ["--set", "acmeHttp01.enabled=true"]
+
+
+def test_acme_responder_is_off_by_default():
+    items = render(EDGE, *EDGE_VERIFIED)
+    assert "acme-http01" not in kinds(items, "HTTPRoute") and "edge-acme-responder" not in kinds(items, "Deployment")
+
+
+def test_acme_route_serves_only_the_challenge_prefix_on_plain_http():
+    items = render(EDGE, *ACME)
+    route = kinds(items, "HTTPRoute")["acme-http01"]
+    assert route["spec"]["parentRefs"] == [{"name": "ewallet-edge", "sectionName": "http"}]
+    assert sorted(route["spec"]["hostnames"]) == sorted(
+        f"{p}.edge.example.test" for p in ("features", "agents", "registry", "observe"))
+    assert route["spec"]["rules"] == [{"name": "acme-http01",
+                                       "matches": [{"path": {"type": "PathPrefix", "value": "/.well-known/acme-challenge/"}}],
+                                       "backendRefs": [{"name": "edge-acme-responder", "port": 8080}]}]
+    # The redirect route keeps "/" on the same listener: the longer prefix wins for challenges only.
+    redirect = kinds(items, "HTTPRoute")["https-redirect"]
+    assert redirect["spec"]["parentRefs"] == [{"name": "ewallet-edge", "sectionName": "http"}]
+    assert "matches" not in redirect["spec"]["rules"][0]
+
+
+def test_acme_responder_runs_unprivileged_without_credentials():
+    pod = kinds(render(EDGE, *ACME), "Deployment")["edge-acme-responder"]["spec"]["template"]["spec"]
+    container = pod["containers"][0]
+    assert pod["automountServiceAccountToken"] is False and pod["securityContext"]["runAsNonRoot"] is True
+    assert container["securityContext"]["readOnlyRootFilesystem"] is True
+    assert container["image"].startswith("docker.io/library/python@sha256:")
+    assert "env" not in container and "envFrom" not in container
+
+
+def test_acme_responder_answers_only_written_tokens(tmp_path):
+    import importlib, re
+    script = kinds(render(EDGE, *ACME), "ConfigMap")["edge-acme-responder"]["data"]["responder.py"]
+    token = re.compile(re.search(r're\.compile\(r"(.+?)"\)', script).group(1))
+    assert token.match("/.well-known/acme-challenge/tok_ABC-123")
+    for bad in ("/.well-known/acme-challenge/../x", "/.well-known/acme-challenge/a/b", "/.well-known/acme-challenge/",
+                "/.well-known/acme-challenge/x?y=1", "/x"):
+        assert not token.match(bad), bad
+
+
+def test_source_restriction_is_scoped_to_the_https_listener():
+    policy = kinds(render(EDGE, *RESTRICTED, "--set-json", 'sourceRestriction.allowedCidrs=["203.0.113.7/32"]'),
+                   "AuthorizationPolicy")["edge-source-restriction"]
+    assert policy["spec"]["rules"][0]["to"][0]["operation"]["ports"] == ["443"]
+
+
+@pytest.mark.parametrize("cidr", ["10.20.0.31/32", "172.20.0.0/16", "192.168.1.0/24", "100.64.1.1/32", "169.254.7.127/32", "8.0.0.0/8"])
+def test_source_restriction_refuses_private_and_wide_ranges(cidr):
+    done = render(EDGE, *RESTRICTED, "--set-json", f'sourceRestriction.allowedCidrs=["{cidr}"]', check=False)
+    assert done.returncode != 0 and ("private or shared" in done.stderr or "wider than /16" in done.stderr)
+
+
+def test_private_ranges_need_the_explicit_local_test_switch():
+    items = render(EDGE, *RESTRICTED, "--set", "sourceRestriction.allowPrivateCidrs=true",
+                   "--set-json", 'sourceRestriction.allowedCidrs=["10.244.0.1/32"]')
+    assert "edge-source-restriction" in kinds(items, "AuthorizationPolicy")
+
+
+def gateway_render(*overlays):
+    chart = Path(subprocess.run(["helm", "env", "HELM_REPOSITORY_CACHE"], capture_output=True, text=True).stdout.strip())
+    archive = chart / "gateway-1.30.7.tgz"
+    if not archive.exists():
+        pytest.skip("istio/gateway 1.30.7 chart not cached")
+    files = [x for o in ("values-gateway.yaml", *overlays) for x in ("-f", str(EDGE / o))]
+    done = subprocess.run(["helm", "template", "ewallet-edge-gateway", str(archive), "-n", "ewallet-ingress", *files],
+                          capture_output=True, text=True, check=True)
+    return [item for item in yaml.safe_load_all(done.stdout) if item]
+
+
+def test_public_mode_preflight_needs_the_flag_and_the_edge_controls():
+    preflight = _preflight()
+    gateway = gateway_render("values-gateway-public.yaml", "values-gateway-public-open.yaml")
+    secure = render(EDGE, *RESTRICTED, "--set-json", 'sourceRestriction.allowedCidrs=["203.0.113.7/32"]', "--set", "acmeHttp01.enabled=true")
+    lb = {"ewallet-ingress/ewallet-edge-gateway"}
+    assert preflight.render_problems(gateway + secure)  # no explicit public mode
+    assert preflight.render_problems(gateway + secure, frozenset(lb), public=True) == []
+    unrestricted = render(EDGE, *EDGE_VERIFIED)
+    assert any("edge-source-restriction" in p for p in preflight.render_problems(gateway + unrestricted, frozenset(lb), public=True))
+    no_agents = render(EDGE, *EDGE_VERIFIED, "--set", "routes.kagent-ui.enabled=false")
+    assert preflight.render_problems(gateway + no_agents, frozenset(lb), public=True) == []
+    assert any("basic_auth" in p for p in preflight.render_problems(gateway, frozenset(lb), public=True))
+    # Even in public mode the client address must be preserved and only 80/443 exposed.
+    service = next(d for d in gateway if d["kind"] == "Service")
+    service["spec"]["externalTrafficPolicy"] = "Cluster"
+    assert any("externalTrafficPolicy" in p for p in preflight.render_problems(gateway + secure, frozenset(lb), public=True))

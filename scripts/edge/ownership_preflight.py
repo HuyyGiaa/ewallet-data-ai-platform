@@ -51,7 +51,10 @@ def gateway_problems(gateways: Iterable[dict], allowed: frozenset[str] = frozens
     return problems
 
 
-def balancer_problems(service: dict, allowed_lb: frozenset[str]) -> list[str]:
+EDGE_LB = f"{EDGE_NAMESPACE}/{EDGE_SERVICE}"
+
+
+def balancer_problems(service: dict, allowed_lb: frozenset[str], public: bool = False) -> list[str]:
     """A LoadBalancer is a problem unless the owner approved it by name. The approved edge
     Service must also keep the client address (externalTrafficPolicy Local) and filter it at
     the cloud firewall (loadBalancerSourceRanges, never 0.0.0.0/0); other approved ones are
@@ -66,26 +69,64 @@ def balancer_problems(service: dict, allowed_lb: frozenset[str]) -> list[str]:
         return []
     problems = []
     ranges = spec.get("loadBalancerSourceRanges") or []
-    if not ranges or any(r.endswith("/0") for r in ranges):
+    if not public and (not ranges or any(r.endswith("/0") for r in ranges)):
         problems.append(f"approved LoadBalancer {where} has no source-range restriction")
+    if sorted(p.get("port") for p in spec.get("ports", [])) != [80, 443]:
+        problems.append(f"approved LoadBalancer {where} must expose exactly ports 80 and 443")
     if spec.get("externalTrafficPolicy") != "Local":
         problems.append(f"approved LoadBalancer {where} does not preserve the client address (externalTrafficPolicy Local)")
     return problems
 
 
-def render_problems(documents: Iterable[dict], allowed_lb: frozenset[str] = frozenset()) -> list[str]:
-    """Problems in rendered manifests."""
+def public_security_problems(objects: Iterable[dict]) -> list[str]:
+    """What an Internet-open edge LoadBalancer depends on, read from the edge objects (a render
+    or the live cluster): Basic Auth and the rate limit on the HTTPS listener, the agents host
+    behind the DENY source restriction on that listener (or not routed), and the ACME route
+    pointing at the responder only."""
+    objects = [o for o in objects if o]
+    by = lambda kind, name: next((o for o in objects if o["kind"] == kind and o["metadata"]["name"] == name), None)
+    problems = []
+    envoy = by("EnvoyFilter", "edge-security")
+    filters = {p.get("patch", {}).get("value", {}).get("name") for p in (envoy or {}).get("spec", {}).get("configPatches", [])}
+    for needed in ("envoy.filters.http.basic_auth", "envoy.filters.http.local_ratelimit"):
+        if needed not in filters:
+            problems.append(f"public mode needs {needed} in EnvoyFilter edge-security")
+    agents = by("HTTPRoute", "kagent-ui")
+    if agents:
+        policy = by("AuthorizationPolicy", "edge-source-restriction")
+        rules = (policy or {}).get("spec", {}).get("rules", [])
+        ops = [op.get("operation", {}) for r in rules for op in r.get("to", [])]
+        hosts = {h for op in ops for h in op.get("hosts", [])}
+        if not policy or policy["spec"].get("action") != "DENY" or not set(agents["spec"]["hostnames"]) <= hosts \
+                or not all(r.get("from") and r["from"][0]["source"].get("notIpBlocks") for r in rules):
+            problems.append("public mode needs the agents host behind AuthorizationPolicy edge-source-restriction (or the route disabled)")
+    acme = by("HTTPRoute", "acme-http01")
+    if acme:
+        refs = [b["name"] for rule in acme["spec"]["rules"] for b in rule.get("backendRefs", [])]
+        paths = [m["path"]["value"] for rule in acme["spec"]["rules"] for m in rule.get("matches", [])]
+        if refs != ["edge-acme-responder"] or paths != ["/.well-known/acme-challenge/"]:
+            problems.append("HTTPRoute acme-http01 must send only /.well-known/acme-challenge/ to edge-acme-responder")
+    return problems
+
+
+def render_problems(documents: Iterable[dict], allowed_lb: frozenset[str] = frozenset(),
+                    public: bool = False) -> list[str]:
+    """Problems in rendered manifests. ``public`` allows the edge LoadBalancer to accept any
+    source only if the same render proves the controls it then relies on."""
     documents = [doc for doc in documents if doc]
     problems = gateway_problems(d for d in documents if d["apiVersion"].startswith(GATEWAY_API) and d["kind"] == "Gateway")
     for d in documents:
         if d["kind"] == "Service":
             d = {**d, "metadata": {"namespace": EDGE_NAMESPACE, **d["metadata"]}} if d["metadata"]["name"] == EDGE_SERVICE else d
-            problems += balancer_problems(d, allowed_lb)
+            problems += balancer_problems(d, allowed_lb, public)
+    if public:
+        problems += public_security_problems(documents)
     return problems
 
 
 def live_problems(gateways: list[dict], deployments: list[dict], services: list[dict],
-                  allowed_lb: frozenset[str] = frozenset(), allowed_gateways: frozenset[str] = frozenset()) -> list[str]:
+                  allowed_lb: frozenset[str] = frozenset(), allowed_gateways: frozenset[str] = frozenset(),
+                  public_objects: list[dict] | None = None) -> list[str]:
     """Problems in a cluster's current state; allowed_* list owner-approved namespace/name."""
     problems = gateway_problems(gateways, allowed_gateways)
     labels = lambda d: d["metadata"].get("labels", {})
@@ -93,10 +134,38 @@ def live_problems(gateways: list[dict], deployments: list[dict], services: list[
                and f"{d['metadata']['namespace']}/{labels(d).get('gateway.networking.k8s.io/gateway-name')}" not in allowed_gateways]
     problems += [f"Istio-provisioned gateway Deployment {d['metadata']['namespace']}/{d['metadata']['name']}" for d in managed]
     for service in services:
-        problems += balancer_problems(service, allowed_lb)
+        problems += balancer_problems(service, allowed_lb, public_objects is not None)
+    if public_objects is not None:
+        problems += public_security_problems(public_objects)
     edge = [s for s in services if (s["metadata"]["namespace"], s["metadata"]["name"]) == (EDGE_NAMESPACE, EDGE_SERVICE)]
     if edge and edge[0]["metadata"].get("labels", {}).get("app.kubernetes.io/managed-by") != "Helm":
         problems.append(f"Service {EDGE_NAMESPACE}/{EDGE_SERVICE} is not managed by Helm")
+    return problems
+
+
+def envoy_problems(context: str) -> list[str]:
+    """The active config of every edge gateway pod: rate limit, RBAC (the source restriction)
+    and Basic Auth on the HTTPS listener. Read with pilot-agent (exec, read-only)."""
+    pods = [p["metadata"]["name"] for p in kubectl_items(context, "pods", "-l", f"istio={EDGE_SERVICE}")
+            if p["metadata"]["namespace"] == EDGE_NAMESPACE]
+    if not pods:
+        return ["no edge gateway pod to read the active configuration from"]
+    problems = []
+    for pod in pods:
+        done = subprocess.run(["kubectl", "--context", context, "-n", EDGE_NAMESPACE, "exec", pod, "--",
+                               "pilot-agent", "request", "GET", "config_dump"], capture_output=True, text=True, check=False)
+        chain = []
+        for c in json.loads(done.stdout or "{}").get("configs", []):
+            for listener in c.get("dynamic_listeners", []):
+                active = listener.get("active_state", {}).get("listener", {})
+                if active.get("address", {}).get("socket_address", {}).get("port_value") != 443:
+                    continue
+                for fc in active.get("filter_chains", []):
+                    for f in fc.get("filters", []):
+                        chain = [h["name"] for h in f.get("typed_config", {}).get("http_filters", [])] or chain
+        for needed in ("envoy.filters.http.local_ratelimit", "envoy.filters.http.rbac", "envoy.filters.http.basic_auth"):
+            if needed not in chain:
+                problems.append(f"gateway pod {pod}: {needed} is not active on the HTTPS listener")
     return problems
 
 
@@ -123,6 +192,10 @@ def main(argv: list[str] | None = None) -> int:
     live.add_argument("--context", required=True)
     live.add_argument("--allow-loadbalancer", action="append", default=[], metavar="NAMESPACE/NAME",
                       help="an owner-approved LoadBalancer Service (repeatable)")
+    for sub_parser in (render, live):
+        sub_parser.add_argument("--allow-public-loadbalancer", action="store_true",
+                                help=f"owner-approved public mode: {EDGE_LB} may accept any source, if the edge "
+                                     "security controls are proven present (and, live, active in Envoy)")
     live.add_argument("--allow-gateway", action="append", default=[], metavar="NAMESPACE/NAME",
                       help="an owner-approved ingress Gateway and the workload Istio made for it (repeatable)")
     args = parser.parse_args(argv)
@@ -131,11 +204,21 @@ def main(argv: list[str] | None = None) -> int:
         for path in args.manifests:
             text = sys.stdin.read() if str(path) == "-" else path.read_text(encoding="utf-8")
             documents += list(yaml.safe_load_all(text))
-        problems = render_problems(documents, frozenset(args.allow_loadbalancer))
+        allowed = frozenset(args.allow_loadbalancer) | ({EDGE_LB} if args.allow_public_loadbalancer else frozenset())
+        problems = render_problems(documents, allowed, args.allow_public_loadbalancer)
     else:
+        public_objects = None
+        allowed = frozenset(args.allow_loadbalancer)
+        if args.allow_public_loadbalancer:
+            allowed |= {EDGE_LB}
+            public_objects = [o for kind in ("envoyfilters.networking.istio.io", "authorizationpolicies.security.istio.io",
+                                             "httproutes.gateway.networking.k8s.io")
+                              for o in kubectl_items(args.context, kind) if o["metadata"]["namespace"] == EDGE_NAMESPACE]
         problems = live_problems(kubectl_items(args.context, "gateways.gateway.networking.k8s.io"),
                                  kubectl_items(args.context, "deployments"), kubectl_items(args.context, "services"),
-                                 frozenset(args.allow_loadbalancer), frozenset(args.allow_gateway))
+                                 allowed, frozenset(args.allow_gateway), public_objects)
+        if args.allow_public_loadbalancer:
+            problems += envoy_problems(args.context)
     for problem in problems:
         print(f"UNSAFE {problem}")
     if problems:

@@ -43,6 +43,17 @@ sourceRestriction:
   enabled: false
   routes: [kagent-ui]
   allowedCidrs: []
+  # Refuses private/shared ranges and prefixes wider than /16. Only a local test with a
+  # SNAT'd client (kind) sets this.
+  allowPrivateCidrs: false
+
+# Let's Encrypt HTTP-01 (G3-B1). On only while a certificate is issued: one responder pod and
+# one HTTPRoute for /.well-known/acme-challenge/ on the plain-HTTP listener. See
+# scripts/edge/acme_http01_hook.sh and the G3-B plan.
+acmeHttp01:
+  enabled: false
+  # python:3.12-alpine, pinned by digest.
+  image: docker.io/library/python@sha256:e064671ca452259bab50e8e2c7bd896e39e9a343bb06ca25234adf6fe18d0fc7
 
 basicAuth:
   # Mounted into the gateway from a Secret that scripts/edge/create_basic_auth.sh creates.

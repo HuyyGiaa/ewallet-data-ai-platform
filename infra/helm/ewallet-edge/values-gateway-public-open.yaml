@@ -1,0 +1,9 @@
+# Explicit, owner-approved PUBLIC mode (G3-B1): layered after values-gateway.yaml and
+# values-gateway-public.yaml. The load balancer accepts any source address, as Let's Encrypt
+# HTTP-01 needs on port 80 and the demo needs for features/registry/observe. Protection is
+# then Basic Auth and the rate limit on every route, plus the Envoy source restriction on
+# the agents host. ownership_preflight.py accepts 0.0.0.0/0 only with
+# --allow-public-loadbalancer AND proof, in the same render or the live cluster, that those
+# controls are in place (scripts/edge/ownership_preflight.py public_security_problems).
+service:
+  loadBalancerSourceRanges: ["0.0.0.0/0"]

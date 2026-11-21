@@ -22,6 +22,7 @@ for ns in "$NS" "$STUB" "$INTRUDER"; do
 done
 work=$(mktemp -d); mkdir -p "$evidence"
 cleanup() {
+  docker rm -f g3b1-pebble g3b1-challtestsrv >/dev/null 2>&1 || true
   [ -z "${EDGE_KEEP:-}" ] || return 0
   helm --kube-context "$CONTEXT" uninstall ewallet-edge-gateway -n "$NS" >/dev/null 2>&1 || true
   k delete ns "$NS" "$STUB" "$INTRUDER" --ignore-not-found --wait=false >/dev/null 2>&1 || true
@@ -281,7 +282,7 @@ if [ "$mode" == full ]; then
     -X POST -H 'content-type: application/json' -d '{}' "https://features.$DOMAIN:$https/v1/features/lookup" \
     | python3 -c 'import json, sys; print(json.load(sys.stdin)["headers"].get("x-forwarded-for", "").split(",")[-1].strip())')
   restrict() {  # allowed CIDR JSON list
-    helm template edge "$chart" -n "$NS" -f "$work/local.yaml" --set sourceRestriction.enabled=true \
+    helm template edge "$chart" -n "$NS" -f "$work/local.yaml" --set sourceRestriction.enabled=true --set sourceRestriction.allowPrivateCidrs=true \
       --set-json "sourceRestriction.allowedCidrs=$1" -s templates/source-restriction.yaml | k apply -f - >/dev/null; sleep 10
   }
   ka() { record "$1" "$([ "$2" == "$3" ] && echo true || echo false)" "expected $3, observed $2${4:+; $4}"; }
@@ -304,6 +305,72 @@ if [ "$mode" == full ]; then
   ka "KA-06 allowed source: API path still needs credentials" "$(anon_status agents /api/agents)" 401
   k -n "$NS" delete authorizationpolicy edge-source-restriction >/dev/null; sleep 10
   ka "KA-08 restriction off: G3-A1 behaviour (valid credentials reach the backend)" "$(authed_reply agents /)" echo
+  if [ -n "${EDGE_ACME_TEST:-}" ]; then
+    # G3-B1 HTTP-01 through the real gateway: Pebble (Let's Encrypt's test CA) validates over
+    # the kind node's HTTP NodePort; certbot runs the repository hook. LOCAL_KIND, not GKE.
+    plain() { curl -s -m 10 -o "$work/plain" -w '%{http_code}' --resolve "$1.$DOMAIN:$http:$node" "http://$1.$DOMAIN:$http$2" "${@:3}" || true; }
+    helm template edge "$chart" -n "$NS" -f "$work/local.yaml" --set acmeHttp01.enabled=true -s templates/acme-http01.yaml | k apply -f - >/dev/null
+    k -n "$NS" rollout status deploy/edge-acme-responder --timeout=120s >/dev/null; sleep 8
+    ka "ACME-01 challenge path, unknown token: 404 from the responder (not a redirect)" "$(plain features /.well-known/acme-challenge/unknownToken123)" 404
+    ka "ACME-02 other port-80 paths still redirect" "$(plain features /v1/features/lookup -X POST)" 301
+    ka "ACME-02 port-80 root still redirects" "$(plain registry /)" 301
+    ka "ACME-03 a look-alike prefix is not the challenge path" "$(plain features /.well-known/acme-challenge-x)" 301
+    o=$(plain features '/.well-known/acme-challenge/../../v1/features/lookup'); record "ACME-03 dot segments do not escape the challenge path" "$([ "$o" != 200 ] && echo true || echo false)" "observed $o"
+    o=$(plain features '/.well-known/acme-challenge/a%2F..%2F..%2Fetc%2Fpasswd'); record "ACME-03 encoded traversal is refused" "$([ "$o" == 404 ] || [ "$o" == 400 ] && echo true || echo false)" "observed $o"
+    ka "ACME-04 the challenge path on 443 still needs credentials" "$(anon_status features /.well-known/acme-challenge/unknownToken123)" 401
+    o=$(plain unrouted /.well-known/acme-challenge/unknownToken123); record "ACME-05 an unrouted host gets no challenge answer" "$([ "$o" != 200 ] && echo true || echo false)" "observed $o"
+    printf 'synthetic-key-authorization' | k -n "$NS" exec -i deploy/edge-acme-responder -- sh -c 'cat > /challenges/tok_ABC-123'
+    ka "ACME-06 a written token is served on port 80" "$(plain features /.well-known/acme-challenge/tok_ABC-123)" 200 "body=$(cat "$work/plain")"
+    restrict '["192.0.2.0/24"]'
+    ka "ACME-07 agents restriction on: the agents challenge is still reachable on port 80" "$(plain agents /.well-known/acme-challenge/tok_ABC-123)" 200
+    ka "ACME-07 agents restriction on: HTTPS to agents is still refused" "$(authed_reply agents /)" 403
+    k -n "$NS" delete authorizationpolicy edge-source-restriction >/dev/null
+    k -n "$NS" exec deploy/edge-acme-responder -- rm -f /challenges/tok_ABC-123
+    # Pebble and its DNS answer every name with the kind node, and validate on the HTTP NodePort.
+    printf '{"pebble":{"listenAddress":"0.0.0.0:14000","managementListenAddress":"0.0.0.0:15000","certificate":"test/certs/localhost/cert.pem","privateKey":"test/certs/localhost/key.pem","httpPort":%s,"tlsPort":5001,"ocspResponderURL":"","externalAccountBindingRequired":false}}' "$http" > "$work/pebble.json"
+    docker run -d --rm --name g3b1-challtestsrv --network kind ghcr.io/letsencrypt/pebble-challtestsrv:2.7.0 \
+      -defaultIPv4 "$node" -defaultIPv6 "" -http01 "" -https01 "" -tlsalpn01 "" -doh "" >/dev/null
+    dns=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' g3b1-challtestsrv)
+    docker run -d --rm --name g3b1-pebble --network kind -p 127.0.0.1:14000:14000 -p 127.0.0.1:15000:15000 \
+      -e PEBBLE_VA_NOSLEEP=1 -e PEBBLE_WFE_NONCEREJECT=0 -v "$work/pebble.json:/pebble.json:ro" \
+      ghcr.io/letsencrypt/pebble:2.7.0 -config /pebble.json -dnsserver "$dns:8053" -strict=false >/dev/null
+    sleep 3; docker cp g3b1-pebble:/test/certs/pebble.minica.pem "$work/minica.pem" >/dev/null
+    certbot() {  # cert-name domains...
+      local name=$1; shift; local d=(); for x in "$@"; do d+=(-d "$x"); done
+      REQUESTS_CA_BUNDLE="$work/minica.pem" EDGE_ACME_CONTEXT="$CONTEXT" EDGE_ACME_HTTP_PORT="$http" EDGE_ACME_RESOLVE_ADDR="$node" \
+        uvx --from certbot==5.10.0 certbot certonly --non-interactive --agree-tos --register-unsafely-without-email \
+        --server https://localhost:14000/dir --config-dir "$work/le/config" --work-dir "$work/le/work" --logs-dir "$work/le/logs" \
+        --manual --preferred-challenges http --manual-auth-hook "$root/scripts/edge/acme_http01_hook.sh auth" \
+        --manual-cleanup-hook "$root/scripts/edge/acme_http01_hook.sh cleanup" --key-type ecdsa --cert-name "$name" "${d[@]}" >"$work/certbot-$name.log" 2>&1
+    }
+    certbot edge "features.$DOMAIN" "agents.$DOMAIN" "registry.$DOMAIN" "observe.$DOMAIN" && rc=0 || rc=$?
+    live="$work/le/config/live/edge"
+    sans=$(openssl x509 -in "$live/fullchain.pem" -noout -ext subjectAltName 2>/dev/null | tail -1 | tr -d ' ' || true)
+    record "ACME-08 HTTP-01 issuance through the gateway (Pebble) for the four hostnames" \
+      "$([ $rc == 0 ] && [[ "$sans" == *"features.$DOMAIN"* && "$sans" == *"agents.$DOMAIN"* && "$sans" == *"registry.$DOMAIN"* && "$sans" == *"observe.$DOMAIN"* ]] && echo true || echo false)" \
+      "certbot exit=$rc; SAN=$sans; issuer=$(openssl x509 -in "$live/fullchain.pem" -noout -issuer 2>/dev/null || true)"
+    ka "ACME-09 no challenge file is left after issuance" "$(k -n "$NS" exec deploy/edge-acme-responder -- ls -A /challenges | wc -l | tr -d ' ')" 0
+    curl -s --cacert "$work/minica.pem" https://localhost:15000/roots/0 > "$work/pebble-root.pem" || true
+    before=$(k -n "$NS" get secret edge-tls -o jsonpath='{.data.tls\.crt}' | sha256sum | cut -c1-16)
+    k -n "$NS" create secret tls edge-tls --cert="$live/fullchain.pem" --key="$live/privkey.pem" --dry-run=client -o yaml | k apply -f - >/dev/null; sleep 12
+    v=$(echo | openssl s_client -connect "$node:$https" -servername "registry.$DOMAIN" -CAfile "$work/pebble-root.pem" -verify_return_error 2>/dev/null | grep -m1 'Verify return code' || true)
+    record "ACME-10 imported certificate is served and verifies against the issuing CA" "$([[ "$v" == *"0 (ok)"* ]] && echo true || echo false)" "$v"
+    ka "ACME-10 Basic Auth still applies with the new certificate" "$(curl -s -m 10 -o /dev/null -w '%{http_code}' --cacert "$work/pebble-root.pem" --resolve "features.$DOMAIN:$https:$node" -X POST "https://features.$DOMAIN:$https/v1/features/lookup")" 401
+    issued=$(k -n "$NS" get secret edge-tls -o jsonpath='{.data.tls\.crt}' | sha256sum | cut -c1-16)
+    certbot fail "features.$DOMAIN" "notrouted.$DOMAIN" && rc=0 || rc=$?
+    after=$(k -n "$NS" get secret edge-tls -o jsonpath='{.data.tls\.crt}' | sha256sum | cut -c1-16)
+    left=$(k -n "$NS" exec deploy/edge-acme-responder -- ls -A /challenges | wc -l | tr -d ' ')
+    record "ACME-11 a hostname the gateway does not route fails issuance, cleans up, and leaves edge-tls unchanged" \
+      "$([ $rc != 0 ] && [ "$issued" == "$after" ] && [ "$left" == 0 ] && echo true || echo false)" "certbot exit=$rc; edge-tls unchanged=$([ "$issued" == "$after" ] && echo yes || echo no); challenge files left=$left"
+    # Rollback: responder off, port 80 back to redirect only, original certificate back.
+    helm template edge "$chart" -n "$NS" -f "$work/local.yaml" --set acmeHttp01.enabled=true -s templates/acme-http01.yaml | k delete -f - >/dev/null; sleep 8
+    ka "ACME-12 after cleanup the challenge path redirects again" "$(plain features /.well-known/acme-challenge/unknownToken123)" 301
+    ka "ACME-12 after cleanup no responder object remains" "$(k -n "$NS" get deploy,svc,cm,httproute -o name | grep -c acme || true)" 0
+    k -n "$NS" create secret tls edge-tls --cert="$work/tls.crt" --key="$work/tls.key" --dry-run=client -o yaml | k apply -f - >/dev/null; sleep 12
+    ka "ACME-12 original certificate restored" "$(k -n "$NS" get secret edge-tls -o jsonpath='{.data.tls\.crt}' | sha256sum | cut -c1-16)" "$before"
+    cp "$work/certbot-edge.log" "$evidence/certbot-issue.log" 2>/dev/null; cp "$work/certbot-fail.log" "$evidence/certbot-fail.log" 2>/dev/null
+    docker rm -f g3b1-pebble g3b1-challtestsrv >/dev/null 2>&1 || true
+  fi
   # Fail closed: point Basic Auth at a missing users file. A running proxy must keep its
   # last good listener; a restarted one must serve nothing rather than serve unauthenticated.
   k -n "$NS" patch envoyfilter edge-security --type=json \

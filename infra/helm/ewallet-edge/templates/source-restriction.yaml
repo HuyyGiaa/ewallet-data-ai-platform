@@ -10,6 +10,19 @@
 {{- if hasSuffix "/0" . }}
 {{- fail (printf "sourceRestriction.allowedCidrs: %q allows every address" .) }}
 {{- end }}
+{{- /* A private or shared range could match the address of a SNAT'd node or pod, which
+would let any client through; a short prefix is not an owner's or grader's address. */}}
+{{- if not $r.allowPrivateCidrs }}
+{{- $ip := index (splitList "/" .) 0 }}
+{{- $o := splitList "." $ip }}
+{{- $a := atoi (index $o 0) }}{{- $b := atoi (index $o 1) }}
+{{- if or (eq $a 10) (eq $a 127) (and (eq $a 169) (eq $b 254)) (and (eq $a 172) (ge $b 16) (le $b 31)) (and (eq $a 192) (eq $b 168)) (and (eq $a 100) (ge $b 64) (le $b 127)) }}
+{{- fail (printf "sourceRestriction.allowedCidrs: %q is a private or shared range (a SNAT'd address could match it)" .) }}
+{{- end }}
+{{- if lt (atoi (index (splitList "/" .) 1)) 16 }}
+{{- fail (printf "sourceRestriction.allowedCidrs: %q is wider than /16" .) }}
+{{- end }}
+{{- end }}
 {{- end }}
 {{- if not $r.routes }}
 {{- fail "sourceRestriction.routes is empty" }}
@@ -27,8 +40,10 @@
 # Requests for these hosts are refused (403) unless the TCP peer address Envoy sees is in
 # the allowlist. ipBlocks is that peer address, never X-Forwarded-For, so a client cannot
 # claim an allowed address in a header. The ":*" form also matches a Host header that
-# carries a port. Only meaningful when the client address reaches Envoy unchanged: on GKE,
-# a LoadBalancer Service with externalTrafficPolicy Local (values-gateway-public.yaml).
+# carries a port. Only the HTTPS listener: port 80 serves nothing but the redirect and, while
+# a certificate is issued, the ACME token, which Let's Encrypt must reach from anywhere.
+# Only meaningful when the client address reaches Envoy unchanged: on GKE, a LoadBalancer
+# Service with externalTrafficPolicy Local (values-gateway-public.yaml).
 apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
@@ -48,4 +63,5 @@ spec:
       to:
         - operation:
             hosts: {{ toJson $hosts }}
+            ports: [{{ .Values.httpsListenerPort | quote }}]
 {{- end }}
