@@ -1,0 +1,4 @@
+branch feature/edai2-external-gateway-api
+HEAD 94f28422cb5524f8c00b654ad4d1b0c9816ecbed
+remote 94f28422cb5524f8c00b654ad4d1b0c9816ecbed
+dirty 0

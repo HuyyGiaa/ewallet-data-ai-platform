@@ -1,0 +1,3 @@
+{"app.kubernetes.io/managed-by":"Helm","app.kubernetes.io/part-of":"ewallet-llm-agent","app.kubernetes.io/version":"llm-agent-v1"}
+{"minAvailable":1,"selector":{"matchLabels":{"app.kubernetes.io/name":"feature-rag-mcp"}}}
+replicas=0 helm-release=llm-agent-mcp

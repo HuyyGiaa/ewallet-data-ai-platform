@@ -1,0 +1,38 @@
+auth /version: v1.36.4-gke.2377000
+nodes: 0
+current-context: gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev
+## cloud_lab status
+{
+  "cluster": "ewallet-dev",
+  "pool": "cpu-pool",
+  "pool_status": "RUNNING",
+  "pool_autoscaling": {},
+  "pool_vms": []
+}
+## cost-status
+{
+  "nodes": 0,
+  "pvc_gib": 90,
+  "gcs_gib": 3442.3,
+  "estimate_usd_per_hour": {
+    "nodes": 0.0,
+    "node_external_ips": 0.0,
+    "node_boot_disks": 0.0,
+    "pvc_disks": 0.0136,
+    "gcs": 0.0943,
+    "artifact_registry": 0.0019,
+    "total_excluding_cluster_fee": 0.1097,
+    "cluster_fee_before_free_tier": 0.1
+  }
+}
+## manifest integrity
+SHA256SUMS OK
+## plan-wake full
+{
+  "nodes": 4,
+  "cpu_m": 10191,
+  "mem_mi": 25252,
+  "largest_pod_cpu_m": 2000,
+  "node_hourly_usd": 0.6613
+}
+## gateway CRDs now: 0; LB: 0; ns ewallet-ingress: absent
