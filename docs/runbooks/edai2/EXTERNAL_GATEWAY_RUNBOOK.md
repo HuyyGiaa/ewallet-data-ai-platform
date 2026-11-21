@@ -39,7 +39,7 @@ Evidence classes are never mixed: `LOCAL_KIND`, `GKE_PRIVATE` (port-forward) and
 | # | Step | Command | Gate |
 |---|---|---|---|
 | P1 | Sleep feasibility, before any cost | `python3 scripts/edge/platform_checks.py $K sleep-feasibility --manifest $M0 [--also-approve ewallet-mcp/feature-rag-mcp]` | every predicted blocker approved; the extra PDB needs an owner approval for **this** campaign |
-| P2 | DNS before | `python3 scripts/edge/dns_check.py --domain $D --expect-offline` | records the starting shape (values withheld) |
+| P2 | DNS before | `python3 scripts/edge/dns_check.py --domain $D --expect-offline` | records the starting shape (values withheld); exit 2 = `DNS_CHECK_FAILED` (state not provable) |
 | 1 | Wake | `CLOUD_LAB_APPROVED=yes python3 ops/gcp/cloud_lab.py wake-full --manifest $M0 --nodes 5 --execute --confirm-cluster ewallet-dev` | nodes Ready |
 | 2 | Private baseline | `python3 scripts/edge/platform_checks.py $K backends --snapshot-out $EV/baseline.json --out $EV/02-backends.jsonl`; `… gateway`; `… envoy` | all PASS (G3-A1 state) |
 | 3 | Temporary certificate for the new names | `scripts/edge/issue_certificate.sh --environment self-signed --domain $D --context $CTX --kubeconfig $KCF --private-dir $PRIV/tls --import` | 4 SANs; Secret replaced |
@@ -113,3 +113,110 @@ appear: they are entered in the browser dialog or come from `-K`/`--credentials-
 | Staged 0 → 1 rollout | `scripts/edge/staged_rollout_check.sh <dir>` (kind) |
 | Grafana root URL against the pinned image | `scripts/edge/grafana_root_url_check.sh https://observe.edge.example.test/` (Docker) |
 | Unit tests | `python3 -m pytest tests/ops/test_public_preflight.py tests/ops/test_edge_scripts.py tests/ops/test_edge_negative_checks.py tests/ops/test_session_a_charts.py` |
+
+## Unattended (overnight) campaign
+
+`scripts/edge/g3b_campaign.py` runs the procedure above as phases. State lives in
+`$EV/state.json` (no secrets). There is a hard deadline of 3 h from the wake, and cleanup always
+follows: on success, on failure, at the deadline, on SIGTERM/SIGINT, and through the watchdog
+if the main process dies. `--simulate` records the commands instead of running them;
+`tests/ops/test_dns_campaign.py` exercises every failure mode that way.
+
+### What protects what
+
+| Layer | Covers | Does not cover |
+|---|---|---|
+| Cleanup inside `run` (phase failure, deadline, SIGTERM/SIGINT) | test or deployment failures, the deadline, a terminal or Claude stop that sends a signal | `kill -9`, crash, power loss |
+| Watchdog: systemd user timer every 5 min (`scripts/edge/systemd/`, `install_watchdog.sh`) | a dead main process (heartbeat older than 10 min and the pid gone), or a deadline the main process missed | laptop suspended, off or offline. `Persistent=true` runs a missed pass after resume, which is late, not prevented |
+| Cloud-side fallback | the laptop itself failing | **not built** (needs owner approval) |
+
+`systemd-inhibit` (in the service, and recommended for `run`) blocks suspend while cleanup or
+the campaign runs; it cannot prevent power loss or a network drop.
+
+### DNS before the LB (failure policy)
+
+The LB is released only after `dynu_dns.py offline` and `dns_check.py --expect-offline
+--released-ip <LB IP>` return `DNS_OFFLINE_OK`. A `DNS_CHECK_FAILED` (timeout, SERVFAIL,
+REFUSED, malformed reply, missing `aa`) never counts as offline. If DNS cannot be proven safe
+within the bounded retries, the LB is **kept**: its address stays ours, so no record points
+to someone else's address. The nodes still go to guarded sleep, `CLEANUP_STATUS` is
+`CLEANUP_INCOMPLETE`, and `$EV/ALERT.txt` plus a desktop notification ask the owner to fix
+DNS and run `g3b_campaign.py cleanup --state $EV/state.json` again (resumable). A kept LB with
+no nodes costs a few cents an hour.
+
+### Before overnight execution (all must hold; `init` checks them)
+
+```bash
+python3 scripts/edge/g3b_campaign.py init --campaign $CID --campaign-dir $EV --manifest $M0 \
+  --approved-cidrs $PRIV/approved-cidrs.txt --edge-credentials $PRIV/edge-cred --grafana-credentials $PRIV/grafana-cred \
+  --dns-credentials $PRIV/dynu.json --dns-offline-mode <no-ipv4|signoff> [--dns-offline-ip <placeholder>] \
+  --approve-guarded-sleep --approve-keda-pause --also-approve ewallet-mcp/feature-rag-mcp \
+  --approve-production-certificate [--approve-grafana-root-url] --dns-offline-verified \
+  (--accept-local-only-risk | --cloud-fallback-ready)
+```
+
+| Gate | Holds when |
+|---|---|
+| `CLOUD_LAB_RECOVERY_MANIFEST_VALID` | the manifest has its five files and is for `ewallet-dev` |
+| `PDB_APPROVAL_COMPLETE` | `platform_checks.py sleep-feasibility` with the listed `--also-approve` covers every predicted blocker |
+| `KEDA_SLEEP_APPROVAL_READY` / `GUARDED_SLEEP_PLAN_VALID` | the owner's approvals, and the approved record `sleep_20261106T163042Z` exists |
+| `UNATTENDED_CLEANUP_READY` | DNS credentials present and the offline mode verified once (below); watchdog timer active; linger on; laptop risk covered (fallback ready, or risk explicitly accepted) |
+| `CLIENT_ADDRESS_APPROVED` | this laptop's public address is inside the approved CIDRs (it is not recorded) |
+
+Owner configuration:
+1. `$PRIV/dynu.json` (mode 600): `{"hostname": "ewallet-hg.gleeze.com", "username": "<dynu user>", "password_sha256": "<sha256 of the IP update password>"}`. Create a **separate IP update password** in Dynu first.
+2. `scripts/edge/install_watchdog.sh --enable`, `loginctl enable-linger $USER`, and point `~/ewallet-evidence/gateway/active-campaign` at `$EV`.
+3. Keep the laptop on mains power and online. Start the run as `systemd-inhibit --what=sleep:idle python3 scripts/edge/g3b_campaign.py run --state $EV/state.json`.
+
+**One-time Dynu offline verification** (owner-approved DNS mutation; the cluster can stay
+asleep). Dynu documents neither offline mode's DNS answer, so prove it:
+1. `python3 scripts/edge/dynu_dns.py --credentials $PRIV/dynu.json --execute offline --mode no-ipv4`. Expected: `DNS_OFFLINE_OK` (NXDOMAIN or NODATA everywhere). This also stops the names pointing at the home address.
+2. If it is not `DNS_OFFLINE_OK`: `… offline --mode signoff`, then read which address is answered. If it is a Dynu address the owner accepts, record it as `--dns-offline-ip`.
+3. Use the mode that verified as `--dns-offline-mode`, and pass `--dns-offline-verified` to `init`.
+
+### During execution
+
+Phases in order: `wake`, `baseline`, `temporary-certificate`, `edge-restricted`, `L0-live`,
+`open-lb`, `dns-online`, `internet-gates`, `staging-certificate`, `production-certificate`,
+`responder-off`, `grafana`, `public-e2e`, then cleanup.
+- `python3 scripts/edge/g3b_campaign.py status --state $EV/state.json` shows `CURRENT_PHASE`, `phases`, `DEADLINE`, `LB_IP`, `DNS_TARGET_STATE` and the cleanup steps.
+- The first failed phase stops new work.
+- Wake, LB and DNS intents are written before each command, so a crash mid-command is still undone.
+
+### After execution
+
+| Check | Command | Expected |
+|---|---|---|
+| campaign | `g3b_campaign.py status --state $EV/state.json` | `CLEANUP_STATUS: COMPLETE`, `SLEEP_STATUS: VERIFIED`, `LAST_VERIFIED_NODE_COUNT: 0` |
+| DNS | `dns_check.py --domain $D --expect-offline [--offline-ip …]` | `DNS_OFFLINE_OK` |
+| no LB | `ownership_preflight.py live --context $CTX --kubeconfig $KCF` | `EDGE_OWNERSHIP_OK` |
+| sleep | `cloud_lab.py status` and `verify --expect sleep --manifest <state.sleep_manifest>` | 0 VMs, `failures: []` |
+| evidence | `$EV/*.jsonl`, `baseline.json`, `recovery-manifest/` | sanitized copies go to `docs/evidence/edai2/gateway/$CID/` |
+
+### Recovery
+
+| State | Action |
+|---|---|
+| `CLEANUP_INCOMPLETE`, step `dns-offline` | fix DNS (Dynu panel or credentials), then `g3b_campaign.py cleanup --state $EV/state.json`; it releases the kept LB once DNS is proven offline |
+| step `sleep`: `SLEEP_BLOCKED` | a PDB blocker without approval: owner decides on `--also-approve`; never bypass |
+| step `verify-sleep` | `cloud_lab.py status`; read `cleanup_steps` and the cloud_lab output; run cleanup again |
+| watchdog `GAVE_UP` | three watchdog cleanups failed: owner action, see `ALERT.txt` |
+
+### Cloud-side fallback (design only, not built)
+
+Laptop failure is the gap. The smallest fallback that keeps the Cloud Lab guards:
+- **What:** a Cloud Run job running a container with this repository, kubectl, helm and gcloud, which executes `g3b_campaign.py cleanup` against a state copy kept in a GCS object. A Cloud Scheduler trigger fires it once at the deadline plus 1 h, and the job does nothing if `CLEANUP_STATUS` is `COMPLETE`.
+- **IAM:** a dedicated service account with `roles/container.admin` on the project (node-pool resize and guarded scaling), `roles/storage.objectAdmin` on one bucket, and Secret Manager accessor for the Dynu credentials.
+- **Cost:** under $1 per month (Scheduler free tier, seconds of Cloud Run).
+- **Risk:** a cloud identity able to resize the cluster, and a second copy of the DNS credentials.
+- **Rollback:** delete the job, the trigger and the service account.
+
+It is a separate, owner-approved change. Until then, unattended runs depend on the laptop staying on and online, with an estimated exposure of about $1.1/h if the laptop fails.
+
+### PDB approval proposal for the next campaign
+
+`ewallet-mcp/feature-rag-mcp` (PDB `minAvailable: 1`, Deployment of the `llm-agent-mcp` release, 2 replicas after `wake-full`):
+- **Why it blocks:** its PDB blocks the drain to zero. The approved guarded record `sleep_20261106T163042Z` predates it, so it is not covered.
+- **What the exception does:** before the resize, the guarded sleep scales this stateless MCP server from 2 to 0. It holds no data and no PVC; its state lives in the platform's stores. The fresh recovery manifest restores 2 at the next wake, and a failed sleep restores the replicas.
+- **Why it must be re-approved:** earlier approvals were scoped to their campaign ID, so it is not carried over automatically.
+- **How to verify:** `platform_checks.py sleep-feasibility` with and without the exception, then `cloud_lab.py plan-sleep` (`not_covered`) during cleanup.

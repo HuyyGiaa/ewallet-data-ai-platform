@@ -1,0 +1,11 @@
+# Rendered by scripts/edge/install_watchdog.sh (@REPO@, @PATH@ and @STATE@ are filled in).
+# One watchdog pass for the active G3-B campaign: cleans up only when the campaign deadline has
+# passed, or the main process is gone with a stale heartbeat. Idle otherwise.
+[Unit]
+Description=G3-B edge campaign watchdog (deadline and dead-process cleanup)
+
+[Service]
+Type=oneshot
+Environment=PATH=@PATH@
+ExecStart=/usr/bin/systemd-inhibit --what=sleep:idle --who=edge-campaign --why=edge-campaign-cleanup --mode=block /usr/bin/env python3 @REPO@/scripts/edge/g3b_campaign.py watchdog --state @STATE@
+TimeoutStartSec=3h

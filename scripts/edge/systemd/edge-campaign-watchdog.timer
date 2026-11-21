@@ -1,0 +1,13 @@
+# Every 5 minutes while the user manager runs (enable linger to keep it running after logout).
+# Persistent=true: a pass missed during suspend runs right after resume.
+[Unit]
+Description=G3-B edge campaign watchdog timer
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Persistent=true
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

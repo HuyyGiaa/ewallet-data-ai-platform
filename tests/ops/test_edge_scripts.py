@@ -249,27 +249,7 @@ def test_credential_files_must_be_outside_the_repository():
         e2e.private_file(str(ROOT / "README.md"))
 
 
-# --- dns_check ----------------------------------------------------------------------------------
-
-def fake_dig(a, aaaa=""):
-    def run(cmd, capture_output, text):
-        return SimpleNamespace(stdout=aaaa if cmd[-1] == "AAAA" else a)
-    return run
-
-
-def test_dns_online_needs_exactly_the_lb_address_and_no_aaaa():
-    assert all(r["passed"] for r in dns.check("edge.example.test", "203.0.113.10", None, ["ns1"], fake_dig("203.0.113.10\n")))
-    assert not any(r["passed"] for r in dns.check("edge.example.test", "203.0.113.10", None, ["ns1"], fake_dig("198.51.100.1\n")))
-    assert not any(r["passed"] for r in dns.check("edge.example.test", "203.0.113.10", None, ["ns1"], fake_dig("203.0.113.10\n", "2001:db8::1\n")))
-
-
-def test_dns_offline_and_withheld_values():
-    assert all(r["passed"] for r in dns.check("edge.example.test", None, None, ["ns1"], fake_dig("")))
-    home = dns.check("edge.example.test", None, None, ["ns1"], fake_dig("198.51.100.1\n"))
-    assert not any(r["passed"] for r in home) and "198.51.100.1" not in json.dumps(home)
-    assert all(r["passed"] for r in dns.check("edge.example.test", None, "192.0.2.1", ["ns1"], fake_dig("192.0.2.1\n")))
-    names = {r["name"] for r in home}
-    assert "<random>.edge.example.test" in names and "agents.edge.example.test" in names
+# dns_check.py is tested in tests/ops/test_dns_campaign.py (fail-closed version).
 
 
 # --- shell scripts: guards that act before any cluster or network call -----------------------
