@@ -1,0 +1,9 @@
+ infra/helm/ewallet-edge/templates/acme-http01.yaml |  92 +++++++++++++++++++
+ .../ewallet-edge/templates/source-restriction.yaml |  20 +++-
+ .../ewallet-edge/values-gateway-public-open.yaml   |   9 ++
+ infra/helm/ewallet-edge/values.yaml                |  11 +++
+ scripts/edge/acme_http01_hook.sh                   |  34 +++++++
+ scripts/edge/local_validate.sh                     |  69 +++++++++++++-
+ scripts/edge/ownership_preflight.py                | 101 +++++++++++++++++++--
+ tests/ops/test_session_a_charts.py                 |  99 +++++++++++++++++++-
+ 8 files changed, 419 insertions(+), 16 deletions(-)

@@ -1,0 +1,14 @@
+== open LB, no flag
+UNSAFE LoadBalancer Service ewallet-ingress/ewallet-edge-gateway
+EDGE_OWNERSHIP_UNSAFE
+== open LB + flag, secure edge
+EDGE_OWNERSHIP_OK
+== open LB + flag, agents without restriction
+UNSAFE public mode needs the agents host behind AuthorizationPolicy edge-source-restriction (or the route disabled)
+EDGE_OWNERSHIP_UNSAFE
+== open LB + flag, agents route disabled
+EDGE_OWNERSHIP_OK
+== open LB + flag, gateway only
+UNSAFE public mode needs envoy.filters.http.basic_auth in EnvoyFilter edge-security
+UNSAFE public mode needs envoy.filters.http.local_ratelimit in EnvoyFilter edge-security
+EDGE_OWNERSHIP_UNSAFE

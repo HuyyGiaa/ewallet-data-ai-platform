@@ -1,0 +1,61 @@
+{"name": "T01 GatewayClass istio accepted by the Istio controller", "passed": true, "observed": "istio.io/gateway-controller"}
+{"name": "T02 Gateway accepted", "passed": true, "observed": "Resource accepted"}
+{"name": "T03 Gateway programmed, both listeners programmed with resolved refs", "passed": true, "observed": "{'Programmed': 'True', 'listeners': {'https': {'Accepted': 'True', 'Conflicted': 'False', 'Programmed': 'True', 'ResolvedRefs': 'True'}, 'http': {'Accepted': 'True', 'Conflicted': 'False', 'Programmed"}
+{"name": "T04 one gateway Deployment and Service, both from the istio/gateway release", "passed": true, "observed": "{'deployments': ['ewallet-edge-gateway'], 'services': {'ewallet-edge-gateway': 'NodePort'}, 'addresses': [{'type': 'Hostname', 'value': 'ewallet-edge-gateway.ewallet-ingress.svc.cluster.local'}]}"}
+{"name": "T05 no LoadBalancer Service, before or after", "passed": true, "observed": "{'types': {'ewallet-edge-gateway': 'NodePort'}, 'lb_before': '', 'lb_after': ''}"}
+{"name": "T06 every HTTPRoute accepted", "passed": true, "observed": "{'agent-registry': {'Accepted': 'True', 'ResolvedRefs': 'True', 'ResolvedWaypoints': 'True'}, 'feature-api': {'Accepted': 'True', 'ResolvedRefs': 'True', 'ResolvedWaypoints': 'True'}, 'grafana': {'Acc"}
+{"name": "T07 every HTTPRoute backend resolved", "passed": true, "observed": "{'agent-registry': 'True', 'feature-api': 'True', 'grafana': 'True', 'https-redirect': 'True', 'kagent-ui': 'True'}"}
+{"name": "T07 one ReferenceGrant per route, each to one Service", "passed": true, "observed": "['allow-ewallet-edge-agent-registry', 'allow-ewallet-edge-feature-api', 'allow-ewallet-edge-grafana', 'allow-ewallet-edge-kagent-ui']"}
+{"name": "ownership preflight (live) finds one Helm-owned ingress workload", "passed": true, "observed": "EDGE_OWNERSHIP_OK "}
+{"name": "edge policy admits the ambient probe source on the probe port only; stub stays Ready", "passed": true, "observed": "rule=169.254.7.127/32:8080 ready=true"}
+{"name": "network control: a pod reaches the stub before any policy", "passed": true, "observed": "REACHED"}
+{"name": "network: other-namespace pod cannot reach the backend directly", "passed": true, "observed": "BLOCKED TimeoutError"}
+{"name": "network: gateway-namespace-unlabelled pod cannot reach the backend directly", "passed": true, "observed": "BLOCKED TimeoutError"}
+{"name": "network: gateway-labels-wrong-identity pod cannot reach the backend directly", "passed": true, "observed": "BLOCKED ConnectionResetError"}
+{"name": "Envoy routes are named after the HTTPRoute rules", "passed": true, "observed": "['agent-registry', 'feature-api', 'grafana', 'https-redirect', 'kagent-ui']"}
+{"name": "no Envoy route retries a request", "passed": true, "observed": "[None, None, None, None]"}
+{"name": "HTTPS chain runs rate limit, then Basic Auth, then the router", "passed": true, "observed": "['istio.metadata_exchange', 'envoy.filters.http.grpc_stats', 'istio.alpn', 'envoy.filters.http.fault', 'envoy.filters.http.cors', 'istio.stats', 'envoy.filters.http.local_ratelimit', 'envoy.filters.ht"}
+{"name": "each route carries its own token bucket", "passed": true, "observed": "{'agent-registry': 50, 'feature-api': 100, 'grafana': 50, 'kagent-ui': 100}"}
+{"name": "the HTTP redirect listener has no security filter", "passed": true, "observed": "['istio.metadata_exchange', 'envoy.filters.http.grpc_stats', 'istio.alpn', 'envoy.filters.http.fault', 'envoy.filters.http.cors', 'istio.stats', 'envoy.filters.http.router']"}
+{"name": "HTTPS listener refuses TLS 1.1 and accepts TLS 1.2", "passed": true, "observed": "tls1.1: New, (NONE), Cipher is (NONE); tls1.2: New, TLSv1.2, Cipher is ECDHE-ECDSA-CHACHA20-POLY1305"}
+{"name": "after restart: Envoy routes are named after the HTTPRoute rules", "passed": true, "observed": "['agent-registry', 'feature-api', 'grafana', 'https-redirect', 'kagent-ui']"}
+{"name": "after restart: no Envoy route retries a request", "passed": true, "observed": "[None, None, None, None]"}
+{"name": "after restart: HTTPS chain runs rate limit, then Basic Auth, then the router", "passed": true, "observed": "['istio.metadata_exchange', 'envoy.filters.http.grpc_stats', 'istio.alpn', 'envoy.filters.http.fault', 'envoy.filters.http.cors', 'istio.stats', 'envoy.filters.http.local_ratelimit', 'envoy.filters.ht"}
+{"name": "after restart: each route carries its own token bucket", "passed": true, "observed": "{'feature-api': 100, 'agent-registry': 50, 'kagent-ui': 100, 'grafana': 50}"}
+{"name": "after restart: the HTTP redirect listener has no security filter", "passed": true, "observed": "['istio.metadata_exchange', 'envoy.filters.http.grpc_stats', 'istio.alpn', 'envoy.filters.http.fault', 'envoy.filters.http.cors', 'istio.stats', 'envoy.filters.http.router']"}
+{"name": "KA-01 restricted, source outside the allowlist: valid credentials are refused", "passed": true, "observed": "expected 403, observed 403; peer seen by Envoy=10.244.0.1"}
+{"name": "KA-01 restricted, source outside the allowlist: no credentials are refused", "passed": true, "observed": "observed 403"}
+{"name": "KA-04 forged X-Forwarded-For with an allowed address does not bypass", "passed": true, "observed": "expected 403, observed 403"}
+{"name": "KA-06 controller API path through the UI is refused", "passed": true, "observed": "expected 403, observed 403"}
+{"name": "KA-06 Host variant 'agents.edge.local.test' does not bypass", "passed": true, "observed": "observed 403"}
+{"name": "KA-06 Host variant 'AGENTS.EDGE.LOCAL.TEST:30821' does not bypass", "passed": true, "observed": "observed 403"}
+{"name": "KA-06 Host variant 'agents.edge.local.test.:30821' does not bypass", "passed": true, "observed": "observed 404"}
+{"name": "KA-10 restriction on: features still reaches its backend", "passed": true, "observed": "expected echo, observed echo"}
+{"name": "KA-10 restriction on: registry still reaches its backend", "passed": true, "observed": "expected echo, observed echo"}
+{"name": "KA-10 restriction on: observe still reaches its backend", "passed": true, "observed": "expected echo, observed echo"}
+{"name": "KA-02 allowed source with valid credentials reaches the backend", "passed": true, "observed": "expected echo, observed echo; allowlist=10.244.0.1/32"}
+{"name": "KA-03 allowed source without credentials gets 401", "passed": true, "observed": "expected 401, observed 401"}
+{"name": "KA-05 allowed source with a wrong password gets 401", "passed": true, "observed": "expected 401, observed 401"}
+{"name": "KA-06 allowed source: API path still needs credentials", "passed": true, "observed": "expected 401, observed 401"}
+{"name": "KA-08 restriction off: G3-A1 behaviour (valid credentials reach the backend)", "passed": true, "observed": "expected echo, observed echo"}
+{"name": "ACME-01 challenge path, unknown token: 404 from the responder (not a redirect)", "passed": true, "observed": "expected 404, observed 404"}
+{"name": "ACME-02 other port-80 paths still redirect", "passed": true, "observed": "expected 301, observed 301"}
+{"name": "ACME-02 port-80 root still redirects", "passed": true, "observed": "expected 301, observed 301"}
+{"name": "ACME-03 a look-alike prefix is not the challenge path", "passed": true, "observed": "expected 301, observed 301"}
+{"name": "ACME-03 dot segments do not escape the challenge path", "passed": true, "observed": "observed 301"}
+{"name": "ACME-03 encoded traversal is refused", "passed": true, "observed": "observed 404"}
+{"name": "ACME-04 the challenge path on 443 still needs credentials", "passed": true, "observed": "expected 401, observed 401"}
+{"name": "ACME-05 an unrouted host gets no challenge answer", "passed": true, "observed": "observed 404"}
+{"name": "ACME-06 a written token is served on port 80", "passed": true, "observed": "expected 200, observed 200; body=synthetic-key-authorization"}
+{"name": "ACME-07 agents restriction on: the agents challenge is still reachable on port 80", "passed": true, "observed": "expected 200, observed 200"}
+{"name": "ACME-07 agents restriction on: HTTPS to agents is still refused", "passed": true, "observed": "expected 403, observed 403"}
+{"name": "ACME-08 HTTP-01 issuance through the gateway (Pebble) for the four hostnames", "passed": true, "observed": "certbot exit=0; SAN=DNS:features.edge.local.test,DNS:agents.edge.local.test,DNS:registry.edge.local.test,DNS:observe.edge.local.test; issuer=issuer=CN=Pebble Intermediate CA 72c464"}
+{"name": "ACME-09 no challenge file is left after issuance", "passed": true, "observed": "expected 0, observed 0"}
+{"name": "ACME-10 imported certificate is served and verifies against the issuing CA", "passed": true, "observed": "Verify return code: 0 (ok)"}
+{"name": "ACME-10 Basic Auth still applies with the new certificate", "passed": true, "observed": "expected 401, observed 401"}
+{"name": "ACME-11 a hostname the gateway does not route fails issuance, cleans up, and leaves edge-tls unchanged", "passed": true, "observed": "certbot exit=1; edge-tls unchanged=yes; challenge files left=0"}
+{"name": "ACME-12 after cleanup the challenge path redirects again", "passed": true, "observed": "expected 301, observed 301"}
+{"name": "ACME-12 after cleanup no responder object remains", "passed": true, "observed": "expected 0, observed 0"}
+{"name": "ACME-12 original certificate restored", "passed": true, "observed": "expected d7816e986e127362, observed d7816e986e127362"}
+{"name": "broken users file, running proxy: listener update rejected, last good auth kept", "passed": true, "observed": "anonymous=401 authenticated=echo basic_auth on 443=active rejected-listener log lines=2"}
+{"name": "broken users file, restarted proxy: the new pod rejects its listener, serves no HTTPS and never becomes Ready", "passed": true, "observed": "via Service anonymous=401 authenticated=echo; ready pods=ewallet-edge-gateway-98fb5bc7-cjbz4; not-ready pod=ewallet-edge-gateway-54db677ccd-nx2kz rejected-listener log lines=2; its listeners: 0.0.0.0_"}
