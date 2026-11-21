@@ -331,6 +331,8 @@ def test_source_restriction_denies_the_agents_host_from_any_other_address():
     ('["0.0.0.0/0"]', "allows every address"),
     ('["10.0.0.0"]', "not an IPv4 CIDR"),
     ('["::/0"]', "not an IPv4 CIDR"),
+    ('["999.999.999.999/32"]', "not an IPv4 CIDR"),
+    ('["203.0.113.7/33"]', "not an IPv4 CIDR"),
 ])
 def test_source_restriction_fails_closed_on_a_bad_allowlist(cidrs, message):
     done = render(EDGE, *RESTRICTED, "--set-json", f"sourceRestriction.allowedCidrs={cidrs}", check=False)
@@ -474,19 +476,4 @@ def gateway_render(*overlays):
     return [item for item in yaml.safe_load_all(done.stdout) if item]
 
 
-def test_public_mode_preflight_needs_the_flag_and_the_edge_controls():
-    preflight = _preflight()
-    gateway = gateway_render("values-gateway-public.yaml", "values-gateway-public-open.yaml")
-    secure = render(EDGE, *RESTRICTED, "--set-json", 'sourceRestriction.allowedCidrs=["203.0.113.7/32"]', "--set", "acmeHttp01.enabled=true")
-    lb = {"ewallet-ingress/ewallet-edge-gateway"}
-    assert preflight.render_problems(gateway + secure)  # no explicit public mode
-    assert preflight.render_problems(gateway + secure, frozenset(lb), public=True) == []
-    unrestricted = render(EDGE, *EDGE_VERIFIED)
-    assert any("edge-source-restriction" in p for p in preflight.render_problems(gateway + unrestricted, frozenset(lb), public=True))
-    no_agents = render(EDGE, *EDGE_VERIFIED, "--set", "routes.kagent-ui.enabled=false")
-    assert preflight.render_problems(gateway + no_agents, frozenset(lb), public=True) == []
-    assert any("basic_auth" in p for p in preflight.render_problems(gateway, frozenset(lb), public=True))
-    # Even in public mode the client address must be preserved and only 80/443 exposed.
-    service = next(d for d in gateway if d["kind"] == "Service")
-    service["spec"]["externalTrafficPolicy"] = "Cluster"
-    assert any("externalTrafficPolicy" in p for p in preflight.render_problems(gateway + secure, frozenset(lb), public=True))
+# The public-mode preflight is tested in tests/ops/test_public_preflight.py (G3-B1 closure).
