@@ -1,0 +1,4 @@
+feature-api READY
+kagent-ui READY (restarts=5 before edge, cold start)
+agent-registry READY (restarts=4 before edge, cold start); jenkins->registry 200
+grafana READY; prometheus/loki/tempo ready from grafana pod

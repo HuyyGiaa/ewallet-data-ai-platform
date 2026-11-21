@@ -1,0 +1,15 @@
+== 2026-11-21T18:18:07Z gateway pod ewallet-edge-gateway-9b5895487-76zdz ready=true
+Gateway: Accepted=True(Accepted) Programmed=True(Programmed)  addresses=[{"type":"Hostname","value":"ewallet-edge-gateway.ewallet-ingress.svc.cluster.local"}]
+443 chain: ['metadata_exchange', 'grpc_stats', 'alpn', 'fault', 'cors', 'stats', 'local_ratelimit', 'basic_auth', 'router']
+80 chain: ['metadata_exchange', 'grpc_stats', 'alpn', 'fault', 'cors', 'stats', 'router']
+route feature-api: domains=['features.edge.g3a.test'] cluster=outbound|80||feature-api.ml-platform.svc.cluster.local retry_policy=none bucket=100 expected=100 timeout=5s
+route kagent-ui: domains=['agents.edge.g3a.test'] cluster=outbound|8080||kagent-ui.kagent.svc.cluster.local retry_policy=none bucket=100 expected=100 timeout=0s
+route agent-registry: domains=['registry.edge.g3a.test'] cluster=outbound|12121||prompt-registry-agentregistry.ewallet-prompts.svc.cluster.local retry_policy=none bucket=50 expected=50 timeout=0s
+route grafana: domains=['observe.edge.g3a.test'] cluster=outbound|3000||grafana.ewallet-agents.svc.cluster.local retry_policy=none bucket=50 expected=50 timeout=0s
+route https-redirect: domains=['registry.edge.g3a.test'] cluster=None retry_policy=none bucket=None expected=- timeout=None
+tls secrets loaded: ['kubernetes-gateway://ewallet-ingress/edge-tls', 'default', 'ROOTCA']
+== ownership preflight live
+EDGE_OWNERSHIP_OK
+LoadBalancers: none-if-empty
+istio-provisioned deployments: 0
+helm: [('ewallet-edge', '1', 'deployed', 'ewallet-edge-0.2.0'), ('ewallet-edge-gateway', '2', 'deployed', 'gateway-1.30.7')]

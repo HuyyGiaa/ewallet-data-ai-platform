@@ -1,0 +1,17 @@
+== P0 watch from 2026-11-21T18:13:14Z (kagent-ui readiness under the new edge NetworkPolicy)
+18:13:24 kagent-ui-7fc9467f99-c72r7 ready=true restarts=5 endpoints=true
+18:13:41 kagent-ui-7fc9467f99-c72r7 ready=true restarts=5 endpoints=true
+18:13:58 kagent-ui-7fc9467f99-c72r7 ready=true restarts=5 endpoints=true
+18:14:14 kagent-ui-7fc9467f99-c72r7 ready=true restarts=5 endpoints=true
+18:14:31 kagent-ui-7fc9467f99-c72r7 ready=true restarts=5 endpoints=true
+18:14:48 kagent-ui-7fc9467f99-c72r7 ready=true restarts=5 endpoints=true
+18:15:05 kagent-ui-7fc9467f99-c72r7 ready=true restarts=5 endpoints=true
+18:15:22 kagent-ui-7fc9467f99-c72r7 ready=true restarts=5 endpoints=true
+18:15:38 kagent-ui-7fc9467f99-c72r7 ready=true restarts=5 endpoints=true
+18:15:55 kagent-ui-7fc9467f99-c72r7 ready=true restarts=5 endpoints=true
+18:16:12 kagent-ui-7fc9467f99-c72r7 ready=true restarts=5 endpoints=true
+18:16:29 kagent-ui-7fc9467f99-c72r7 ready=true restarts=5 endpoints=true
+== policy on GKE
+{"ingress":[{"from":[{"namespaceSelector":{"matchLabels":{"kubernetes.io/metadata.name":"ewallet-ingress"}},"podSelector":{"matchLabels":{"istio":"ewallet-edge-gateway"}}}],"ports":[{"port":8080,"protocol":"TCP"},{"port":15008,"protocol":"TCP"}]},{"from":[{"ipBlock":{"cidr":"169.254.7.127/32"}}],"ports":[{"port":8080,"protocol":"TCP"}]}],"podSelector":{"matchLabels":{"app.kubernetes.io/component":"ui","app.kubernetes.io/name":"kagent"}},"policyTypes":["Ingress"]}
+== probe events since install
+(end)

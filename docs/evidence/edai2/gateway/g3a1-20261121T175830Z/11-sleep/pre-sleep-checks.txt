@@ -1,0 +1,5 @@
+feature-rag-mcp: spec=2 ready=2
+ewallet-ingress/ewallet-edge-gateway 1
+ewallet-mcp/feature-rag-mcp 2
+ewallet-agents/fraud-coordinator 2
+ewallet-mcp/drift-mcp 2

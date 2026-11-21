@@ -1,0 +1,7 @@
+== 2026-11-21T18:19:24Z baseline: authed single request 200 0.394523s
+== method A (as negative_tests): 120 new TLS connections, 30 threads
+    120 200  in 1.94s = 61.8 req/s
+== method B: HTTP/2, one TLS connection, 120 multiplexed requests
+    58 200  62 429  in 0.61s = 197.7 req/s
+== recovery: 200
+== other route right after burst (features lookup): 422

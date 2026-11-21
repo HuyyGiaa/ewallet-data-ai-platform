@@ -1,0 +1,3 @@
+first config 443 chain: ['metadata_exchange', 'grpc_stats', 'alpn', 'fault', 'cors', 'stats', 'local_ratelimit', 'basic_auth', 'router']
+first config 80 chain: ['metadata_exchange', 'grpc_stats', 'alpn', 'fault', 'cors', 'stats', 'router']
+SECURITY_GATE PASS

@@ -1,0 +1,18 @@
+EXECUTE: gcloud container clusters resize ewallet-dev --project ewallet-data-ai-platform-hg26 --location asia-southeast1-b --node-pool cpu-pool --num-nodes=5 --quiet
+EXECUTE: kubectl --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev label node/gke-ewallet-dev-cpu-pool-58daed59-smzn ewallet.io/g3-llm=true --overwrite
+EXECUTE: kubectl --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev label node/gke-ewallet-dev-cpu-pool-58daed59-q2th ewallet.io/g3-llm=true --overwrite
+EXECUTE: kubectl --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev label node/gke-ewallet-dev-cpu-pool-58daed59-mc9q ewallet.io/g3-llm=true --overwrite
+EXECUTE: kubectl --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev -n ewallet-agents scale deployment fraud-coordinator --replicas=2
+EXECUTE: kubectl --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev -n ewallet-mcp scale deployment drift-mcp --replicas=2
+EXECUTE: kubectl --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev -n ewallet-mcp scale deployment feature-rag-mcp --replicas=2
+EXECUTE: kubectl --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev -n kube-system scale deployment calico-typha --replicas=2
+EXECUTE: kubectl --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev -n kube-system scale deployment konnectivity-agent --replicas=5
+EXECUTE: kubectl --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev -n ewallet-agents annotate scaledobject fraud-coordinator autoscaling.keda.sh/paused-replicas- ewallet.io/cloud-lab-paused-by-
+EXECUTE: kubectl --context gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev -n ewallet-sandbox annotate scaledobject business-agents-workerpool autoscaling.keda.sh/paused-replicas- ewallet.io/cloud-lab-paused-by-
+{
+  "keda_resumed": [
+    "ewallet-agents/fraud-coordinator",
+    "ewallet-sandbox/business-agents-workerpool"
+  ]
+}
+exit=0 end 2026-11-21T18:04:39Z

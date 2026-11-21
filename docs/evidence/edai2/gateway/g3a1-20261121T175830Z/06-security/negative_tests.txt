@@ -1,0 +1,2 @@
+FAIL a burst receives HTTP 429: served=120 429=0 other=[] of 120
+34 of 35 checks passed

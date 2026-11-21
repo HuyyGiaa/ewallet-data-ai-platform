@@ -1,0 +1,23 @@
+== 2026-11-21T18:22:25Z regression vs pre-edge baseline (18:11Z)
+kagent/kagent-ui-7fc9467f99-c72r7 ready=true restarts=5
+kagent/kagent-controller-684d446c96-slkzc ready=true restarts=5
+ewallet-prompts/prompt-registry-agentregistry-8687d9b776-lmn2g ready=true restarts=4
+ewallet-agents/grafana-77bf4f6985-psq8f ready=true restarts=0
+ml-platform/feature-api-6cbcbd7b59-xx8jl ready=true restarts=0
+jenkins -> registry:12121 / : HTTP/1.0 200 OK
+grafana -> prometheus:9090/-/ready : Prometheus Server is Ready.
+grafana -> loki:3100/ready : ready
+grafana -> tempo:3200/ready : ready
+pods by phase:  2 Init:0/1; 158 Running;
+new restarts>3 outside ewallet-ingress:
+  ewallet-prompts/prompt-registry-agentregistry-8687d9b776-lmn2g restarts=4
+  kagent/kagent-controller-684d446c96-slkzc restarts=5
+  kagent/kagent-ui-7fc9467f99-c72r7 restarts=5
+istiod: 1/1; ztunnel ready: 5/5
+keda ScaledObjects ready: fraud-coordinator=True business-agents-workerpool=True feature-api=True fraud-api=True 
+workerpool deployment: 2/2
+valkey: 6/6
+default-deny still present: ewallet-agents NP=networkpolicy.networking.k8s.io/default-deny AP=authorizationpolicy.security.istio.io/default-deny ewallet-prompts NP=networkpolicy.networking.k8s.io/default-deny
+edge policies: 
+grafana AP principal: ["cluster.local/ns/ewallet-ingress/sa/ewallet-edge-gateway"]
+gateway SA: ewallet-edge-gateway

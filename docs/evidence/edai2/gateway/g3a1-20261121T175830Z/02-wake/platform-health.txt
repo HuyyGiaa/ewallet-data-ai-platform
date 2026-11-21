@@ -1,0 +1,60 @@
+== 2026-11-21T18:09:55Z nodes
+gke-ewallet-dev-cpu-pool-58daed59-fsw6 Ready v1.36.4-gke.2377000 10.20.0.32
+gke-ewallet-dev-cpu-pool-58daed59-mc9q Ready v1.36.4-gke.2377000 10.20.0.28
+gke-ewallet-dev-cpu-pool-58daed59-q2th Ready v1.36.4-gke.2377000 10.20.0.33
+gke-ewallet-dev-cpu-pool-58daed59-smzn Ready v1.36.4-gke.2377000 10.20.0.31
+gke-ewallet-dev-cpu-pool-58daed59-v9g3 Ready v1.36.4-gke.2377000 10.20.0.34
+== pods by phase:  2 Init:0/1; 157 Running;
+== restarts>3
+ewallet-prompts/prompt-registry-agentregistry-8687d9b776-lmn2g Running restarts=4
+kagent/kagent-controller-684d446c96-slkzc Running restarts=5
+kagent/kagent-ui-7fc9467f99-c72r7 Running restarts=5
+== system
+istio-cni-node-4ps8n 1/1 Running
+istio-cni-node-9fbcs 1/1 Running
+istio-cni-node-q9bt9 1/1 Running
+istio-cni-node-xq5qc 1/1 Running
+istio-cni-node-zlqxw 1/1 Running
+istiod-5699dbf6d9-6q98d 1/1 Running
+ztunnel-5ktdd 1/1 Running
+ztunnel-fp546 1/1 Running
+ztunnel-l6z7b 1/1 Running
+ztunnel-nxnd7 1/1 Running
+ztunnel-vhdgc 1/1 Running
+keda-admission-webhooks-dc4c8fd67-mtpqx 1/1 Running
+keda-operator-7557f54557-mtqjj 1/1 Running
+keda-operator-metrics-apiserver-867fc7c6d6-n26t4 1/1 Running
+== ScaledObjects
+ewallet-agents    fraud-coordinator            True   False   <none>
+ewallet-sandbox   business-agents-workerpool   True   False   <none>
+ml-platform       feature-api                  True   False   <none>
+ml-platform       fraud-api                    True   False   <none>
+== PDBs
+ewallet-agents   fraud-coordinator                       1     N/A   1     19d
+ewallet-mcp      drift-mcp                               1     N/A   1     19d
+ewallet-mcp      feature-rag-mcp                         1     N/A   1     6d2h
+kube-system      filestore-lock-release-controller-pdb   N/A   1     1     30d
+== guarded deployments
+ewallet-agents/fraud-coordinator spec=2 ready=2
+ewallet-mcp/drift-mcp spec=2 ready=2
+ewallet-mcp/feature-rag-mcp spec=2 ready=2
+== substrate / valkey
+ate-api-server-deployment-b87fcccf4-xftdm 1/1 Running 0
+ate-controller-f5c8f59c4-58r6r 1/1 Running 0
+atelet-fh8hr 1/1 Running 0
+atelet-fhchh 1/1 Running 0
+atelet-mvrvf 1/1 Running 0
+atelet-smk7p 1/1 Running 0
+atelet-wctk6 1/1 Running 0
+atenet-router-85b65959f5-wrn4j 2/2 Running 0
+dns-669f5bf88b-4x96b 2/2 Running 0
+rustfs-5587886f5c-dmv5q 1/1 Running 0
+valkey-cluster-0 2/2 Running 0
+valkey-cluster-1 2/2 Running 0
+valkey-cluster-2 2/2 Running 0
+valkey-cluster-3 2/2 Running 0
+valkey-cluster-4 2/2 Running 0
+valkey-cluster-5 2/2 Running 0
+== istiod gateway-api log lines (errors)
+2026-11-21T18:06:01.591222Z	error	controllers	error handling istio, retrying (retry count: 1): gatewayclasses.gateway.networking.k8s.io "istio-waypoint" already exists	controller=gateway class
+(end)

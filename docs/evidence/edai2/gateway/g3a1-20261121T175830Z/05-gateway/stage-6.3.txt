@@ -1,0 +1,10 @@
+== 2026-11-21T18:16:57Z stage 6.3 (gateway replicas: 0)
+Gateway: Accepted=True(Accepted) Programmed=False(AddressNotAssigned) 
+Listeners: https:Accepted=True Conflicted=False Programmed=True ResolvedRefs=True | http:Accepted=True Conflicted=False Programmed=True ResolvedRefs=True | 
+HTTPRoute agent-registry: Accepted=True(Accepted) ResolvedRefs=True(ResolvedRefs) ResolvedWaypoints=True(ResolvedWaypoints) 
+HTTPRoute feature-api: Accepted=True(Accepted) ResolvedRefs=True(ResolvedRefs) ResolvedWaypoints=True(ResolvedWaypoints) 
+HTTPRoute grafana: Accepted=True(Accepted) ResolvedRefs=True(ResolvedRefs) ResolvedWaypoints=True(ResolvedWaypoints) 
+HTTPRoute https-redirect: Accepted=True(Accepted) ResolvedRefs=True(ResolvedRefs) ResolvedWaypoints=True(ResolvedWaypoints) 
+HTTPRoute kagent-ui: Accepted=True(Accepted) ResolvedRefs=True(ResolvedRefs) ResolvedWaypoints=True(ResolvedWaypoints) 
+ReferenceGrants: ewallet-agents/allow-ewallet-edge-grafana->grafana ewallet-prompts/allow-ewallet-edge-agent-registry->prompt-registry-agentregistry kagent/allow-ewallet-edge-kagent-ui->kagent-ui ml-platform/allow-ewallet-edge-feature-api->feature-api 
+EnvoyFilter: envoyfilter.networking.istio.io/edge-security
