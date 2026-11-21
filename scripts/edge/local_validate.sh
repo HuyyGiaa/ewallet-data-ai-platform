@@ -2,8 +2,10 @@
 # Validate the edge on the real Istio 1.30.7 gateway in kind. Refuses any other context.
 # usage: local_validate.sh <evidence-dir> [foundation|full]
 #   foundation (G2.1): Gateway API status, workload ownership, routing, TLS; no security filters.
-#   full: also Basic Auth and rate limits (securityFiltersVerified=true), once G2.2 verifies them.
-# Real: istiod, the official gateway chart, Envoy, the rendered Gateway API resources, TLS.
+#   full (G2.2): also Basic Auth, rate limits, backend policies (default-deny namespace in
+#   ambient mode, edge NetworkPolicy and AuthorizationPolicy, three intruder probes), a
+#   gateway restart, and a broken users file (must fail closed).
+# Real: istiod, ztunnel, the official gateway chart, Envoy, the rendered chart, TLS.
 # Stand-in: one echo backend for every route. Not GKE evidence.
 set -euo pipefail
 evidence=${1:?evidence directory required} mode=${2:-foundation}
@@ -11,21 +13,41 @@ evidence=${1:?evidence directory required} mode=${2:-foundation}
 CONTEXT=${EDGE_LOCAL_CONTEXT:-kind-llm-agent-local}
 [[ "$CONTEXT" == kind-* ]] || { echo "refusing non-kind context" >&2; exit 2; }
 kubectl --context "$CONTEXT" get node "${CONTEXT#kind-}-control-plane" >/dev/null || { echo "not the kind node of $CONTEXT" >&2; exit 2; }
-NS=ewallet-ingress STUB=edge-stub DOMAIN=edge.local.test
+NS=ewallet-ingress STUB=edge-stub INTRUDER=edge-intruder DOMAIN=edge.local.test
 root=$(cd "$(dirname "$0")/../.." && pwd); chart=$root/infra/helm/ewallet-edge
 k() { kubectl --context "$CONTEXT" "$@"; }
-# Cleanup deletes both namespaces, so never adopt ones this run did not create.
-if k get ns "$NS" >/dev/null 2>&1 || k get ns "$STUB" >/dev/null 2>&1; then
-  echo "namespace $NS or $STUB already exists; refusing to reuse it" >&2; exit 2
-fi
+# Cleanup deletes these namespaces, so never adopt ones this run did not create.
+for ns in "$NS" "$STUB" "$INTRUDER"; do
+  if k get ns "$ns" >/dev/null 2>&1; then echo "namespace $ns already exists; refusing to reuse it" >&2; exit 2; fi
+done
 work=$(mktemp -d); mkdir -p "$evidence"
 cleanup() {
   [ -z "${EDGE_KEEP:-}" ] || return 0
   helm --kube-context "$CONTEXT" uninstall ewallet-edge-gateway -n "$NS" >/dev/null 2>&1 || true
-  k delete ns "$NS" "$STUB" --wait=false >/dev/null 2>&1 || true
+  k delete ns "$NS" "$STUB" "$INTRUDER" --ignore-not-found --wait=false >/dev/null 2>&1 || true
   rm -rf "$work"
 }
 trap cleanup EXIT
+record() {  # name passed(true|false) observed
+  python3 -c 'import json, sys; print(json.dumps({"name": sys.argv[1], "passed": sys.argv[2] == "true", "observed": sys.argv[3][:200]}))' \
+    "$@" >> "$evidence/status.jsonl"
+}
+# A pod that tries the stub directly, bypassing the gateway. Prints REACHED or BLOCKED.
+probe() {  # pod-name namespace labels
+  k -n "$2" run "$1" --image=python:3.12-alpine --restart=Never --labels="$3" --command -- python3 -c "
+import urllib.request
+try:
+    urllib.request.urlopen('http://stub.$STUB.svc.cluster.local:8080/', timeout=4); print('REACHED')
+except Exception as error:
+    print('BLOCKED', type(error).__name__)" >/dev/null
+  k -n "$2" wait "pod/$1" --for=jsonpath='{.status.phase}'=Succeeded --timeout=90s >/dev/null 2>&1 || true
+  k -n "$2" logs "$1" 2>/dev/null | tail -1; k -n "$2" delete pod "$1" --wait=false >/dev/null 2>&1 || true
+}
+authed_status() {  # host path: credentials go through stdin, never the command line
+  curl -sS -m 10 -o /dev/null -w '%{http_code}' -K - --cacert "$work/tls.crt" --resolve "$1.$DOMAIN:$https:$node" \
+    "https://$1.$DOMAIN:$https$2" <<< "user = \"$(cat "$work/credentials")\"" 2>/dev/null || true
+}
+anon_status() { curl -sS -m 10 -o /dev/null -w '%{http_code}' --cacert "$work/tls.crt" --resolve "$1.$DOMAIN:$https:$node" "https://$1.$DOMAIN:$https$2" 2>/dev/null || true; }
 lb_before=$(k get svc -A -o jsonpath='{range .items[?(@.spec.type=="LoadBalancer")]}{.metadata.namespace}/{.metadata.name} {end}')
 k create ns "$NS" >/dev/null; k create ns "$STUB" >/dev/null
 openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -days 1 -subj "/CN=$DOMAIN" \
@@ -54,6 +76,19 @@ spec:
   selector: {app: stub}
   ports: [{name: http, port: 8080}]
 YAML
+k -n "$STUB" rollout status deploy/stub --timeout=120s >/dev/null
+if [ "$mode" == full ]; then
+  # The backend namespace mirrors ewallet-agents: ambient, default-deny, ALLOW-only policies.
+  k create ns "$INTRUDER" >/dev/null
+  control=$(probe control "$INTRUDER" "app=probe")  # recorded once status.jsonl exists
+  k label ns "$STUB" istio.io/dataplane-mode=ambient >/dev/null
+  k -n "$STUB" apply -f - >/dev/null <<YAML
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: default-deny}
+spec: {podSelector: {}, policyTypes: [Ingress]}
+YAML
+fi
 # NodePort on the kind node only: a port-forward drops under bursts and would fake failures.
 helm --kube-context "$CONTEXT" install ewallet-edge-gateway istio/gateway --version 1.30.7 -n "$NS" \
   -f "$chart/values-gateway.yaml" --set service.type=NodePort --wait --timeout 5m >/dev/null
@@ -62,13 +97,16 @@ import sys, yaml
 routes = yaml.safe_load(open(sys.argv[1]))["routes"]
 out = {name: {"enabled": True, "backend": {"service": "stub", "namespace": sys.argv[2], "port": 8080}, "access": None}
        for name in routes}
+if sys.argv[3] == "full":  # one set of edge policies covers the shared stub
+    # null removes the chart's default label: Helm merges maps, it does not replace them.
+    out["feature-api"]["access"] = {"namespace": sys.argv[2], "podLabels": {"app": "stub", "app.kubernetes.io/name": None}, "port": 8080,
+                                    "ambient": True, "authorizationPolicy": True}
 print(yaml.safe_dump({"enabled": True, "domain": "edge.local.test", "securityFiltersVerified": sys.argv[3] == "full",
                       "routes": out}))
 PY
 helm template edge "$chart" -n "$NS" -f "$work/local.yaml" > "$evidence/rendered.yaml"
 python3 "$root/scripts/edge/ownership_preflight.py" render "$evidence/rendered.yaml" > "$evidence/preflight-render.txt"
 k apply -f "$evidence/rendered.yaml" >/dev/null
-k -n "$STUB" rollout status deploy/stub --timeout=120s >/dev/null
 k -n "$NS" wait gateway/ewallet-edge --for=condition=Programmed --timeout=120s >/dev/null
 sleep 8
 
@@ -129,29 +167,63 @@ ok=false; grep -qx EDGE_OWNERSHIP_OK "$evidence/preflight-live.txt" && ok=true
 printf '{"name": "ownership preflight (live) finds one Helm-owned ingress workload", "passed": %s, "observed": "%s"}\n' \
   "$ok" "$(tr '\n' ' ' < "$evidence/preflight-live.txt")" >> "$evidence/status.jsonl"
 
-# What Envoy was actually given: route names (the EnvoyFilter matches them) and retries.
-pod=$(k -n "$NS" get pod -l istio=ewallet-edge-gateway -o name | head -1)
-k -n "$NS" exec "$pod" -- pilot-agent request GET config_dump > "$work/config_dump.json"
-python3 - "$work/config_dump.json" "$mode" >> "$evidence/status.jsonl" <<'PY'
-import json, sys
+if [ "$mode" == full ]; then
+  record "network control: a pod reaches the stub before any policy" "$([ "$control" == REACHED ] && echo true || echo false)" "$control"
+  for case in "other-namespace:$INTRUDER:app=probe" "gateway-namespace-unlabelled:$NS:app=probe" \
+              "gateway-labels-wrong-identity:$NS:istio=ewallet-edge-gateway,app=probe"; do
+    IFS=: read -r name ns labels <<< "$case"
+    seen=$(probe "intruder-$name" "$ns" "$labels")
+    record "network: $name pod cannot reach the backend directly" "$([[ "$seen" == BLOCKED* ]] && echo true || echo false)" "$seen"
+  done
+fi
+
+# What Envoy was actually given: route names, retries, and where the security filters sit.
+envoy_checks() {  # label
+  local pod; pod=$(k -n "$NS" get pod -l istio=ewallet-edge-gateway -o name | head -1)
+  k -n "$NS" exec "$pod" -- pilot-agent request GET config_dump > "$work/config_dump.json"
+  python3 - "$work/config_dump.json" "$mode" "$1" "$work/local.yaml" "$chart/values.yaml" >> "$evidence/status.jsonl" <<'PY'
+import json, sys, yaml
 dump = json.load(open(sys.argv[1]))["configs"]
-routes = {}
+mode, label = sys.argv[2], sys.argv[3]
+limits = {n: r["rateLimit"]["maxTokens"] for n, r in yaml.safe_load(open(sys.argv[5]))["routes"].items()}
+routes, chains = {}, {}
 for c in dump:
     if "RoutesConfigDump" in c["@type"]:
         for r in c.get("dynamic_route_configs", []):
             for vh in r["route_config"].get("virtual_hosts", []):
                 for x in vh["routes"]:
                     routes[x.get("name")] = x
+    if "ListenersConfigDump" in c["@type"]:
+        for l in c.get("dynamic_listeners", []):
+            listener = l.get("active_state", {}).get("listener", {})
+            port = listener.get("address", {}).get("socket_address", {}).get("port_value")
+            for fc in listener.get("filter_chains", []):
+                for f in fc.get("filters", []):
+                    if f["name"] == "envoy.filters.network.http_connection_manager":
+                        chains.setdefault(port, [h["name"] for h in f["typed_config"].get("http_filters", [])])
 out = []
 def check(name, ok, observed):
     out.append({"name": name, "passed": bool(ok), "observed": str(observed)[:200]})
 expected = {"feature-api", "kagent-ui", "agent-registry", "grafana", "https-redirect"}
-check("Envoy routes are named after the HTTPRoute rules", expected <= set(routes), sorted(routes))
+check(f"{label}Envoy routes are named after the HTTPRoute rules", expected <= set(routes), sorted(routes))
 service_routes = [routes[n] for n in expected - {"https-redirect"} if n in routes]
-check("no Envoy route retries a request", service_routes and all("retry_policy" not in r.get("route", {}) for r in service_routes),
+check(f"{label}no Envoy route retries a request", service_routes and all("retry_policy" not in r.get("route", {}) for r in service_routes),
       [r.get("route", {}).get("retry_policy") for r in service_routes])
+https, http = chains.get(443, []), chains.get(80, [])
+rl, ba, router = "envoy.filters.http.local_ratelimit", "envoy.filters.http.basic_auth", "envoy.filters.http.router"
+if mode == "full":
+    check(f"{label}HTTPS chain runs rate limit, then Basic Auth, then the router",
+          rl in https and ba in https and https.index(rl) < https.index(ba) < https.index(router), https)
+    per_route = {n: routes[n].get("typed_per_filter_config", {}).get(rl, {}).get("token_bucket", {}).get("max_tokens")
+                 for n in expected - {"https-redirect"} if n in routes}
+    check(f"{label}each route carries its own token bucket", per_route == {n: limits[n] for n in per_route} and len(per_route) == 4, per_route)
+else:
+    check(f"{label}no security filter is attached before G2.2", rl not in https and ba not in https, https)
+check(f"{label}the HTTP redirect listener has no security filter", http and rl not in http and ba not in http, http)
 print("".join(json.dumps(o) + "\n" for o in out), end="")
 PY
+}
+envoy_checks ""
 
 node=$(k get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
 https=$(k -n "$NS" get svc ewallet-edge-gateway -o jsonpath='{.spec.ports[?(@.port==443)].nodePort}')
@@ -168,9 +240,37 @@ ok=false; [[ "$tls11" == *"(NONE)"* && "$tls12" == *TLSv1.2* ]] && ok=true
 printf '{"name": "HTTPS listener refuses TLS 1.1 and accepts TLS 1.2", "passed": %s, "observed": "tls1.1: %s; tls1.2: %s"}\n' \
   "$ok" "$tls11" "$tls12" >> "$evidence/status.jsonl"
 flags=(--stub); [ "$mode" == full ] || flags+=(--foundation)
-status_failed=$(grep -c '"passed": false' "$evidence/status.jsonl" || true)
-python3 "$root/scripts/edge/negative_tests.py" --address "$node" --https-port "$https" --http-port "$http" --domain "$DOMAIN" \
-  --ca-file "$work/tls.crt" --credentials-file "$work/credentials" "${flags[@]}" --out "$evidence/results.jsonl"
+negative() {  # output file
+  python3 "$root/scripts/edge/negative_tests.py" --address "$node" --https-port "$https" --http-port "$http" --domain "$DOMAIN" \
+    --ca-file "$work/tls.crt" --credentials-file "$work/credentials" "${flags[@]}" --out "$1"
+}
+negative "$evidence/results.jsonl" || failed_http=1
+if [ "$mode" == full ]; then
+  # The configuration must survive a gateway restart.
+  k -n "$NS" rollout restart deploy/ewallet-edge-gateway >/dev/null
+  k -n "$NS" rollout status deploy/ewallet-edge-gateway --timeout=180s >/dev/null; sleep 10
+  envoy_checks "after restart: "
+  negative "$evidence/results-after-restart.jsonl" || failed_http=1
+  # Fail closed: point Basic Auth at a missing users file. A running proxy must keep its
+  # last good listener; a restarted one must serve nothing rather than serve unauthenticated.
+  k -n "$NS" patch envoyfilter edge-security --type=json \
+    -p '[{"op":"replace","path":"/spec/configPatches/1/patch/value/typed_config/users/filename","value":"/etc/edge-auth/missing"}]' >/dev/null
+  sleep 15
+  a1=$(anon_status features /v1/features/lookup) v1=$(authed_status registry /)
+  record "broken users file, running proxy: no unauthenticated access" "$([ "$a1" != 200 ] && echo true || echo false)" "anonymous=$a1 authenticated=$v1"
+  # A new pod gets the broken config from the start: Envoy rejects the listener, the pod never
+  # becomes Ready, and the rolling update keeps the old pod with its last good config.
+  k -n "$NS" rollout restart deploy/ewallet-edge-gateway >/dev/null
+  k -n "$NS" rollout status deploy/ewallet-edge-gateway --timeout=60s >/dev/null 2>&1 || true; sleep 10
+  bad=$(k -n "$NS" get pods -l istio=ewallet-edge-gateway -o jsonpath='{range .items[?(@.status.containerStatuses[0].ready==false)]}{.metadata.name}{end}')
+  listeners=$( [ -n "$bad" ] && k -n "$NS" exec "$bad" -- pilot-agent request GET listeners 2>/dev/null | tr '\n' ' ')
+  a2=$(anon_status features /v1/features/lookup)
+  ok=false; [ -n "$bad" ] && [[ "$listeners" != *0.0.0.0_443* ]] && [ "$a2" != 200 ] && ok=true
+  record "broken users file, restarted proxy: the new pod serves no HTTPS and never becomes Ready" "$ok" \
+    "not-ready pod=${bad:-none}; its listeners: ${listeners:-none}; anonymous via Service=$a2"
+fi
 if grep -rq "$password" "$evidence"; then echo "password reached the evidence directory" >&2; exit 1; fi
+status_failed=$(grep -c '"passed": false' "$evidence/status.jsonl" || true)
 [ "$status_failed" == 0 ] || { echo "$status_failed status checks failed (status.jsonl)" >&2; exit 1; }
+[ -z "${failed_http:-}" ] || { echo "HTTP checks failed (results*.jsonl)" >&2; exit 1; }
 echo "EDGE_LOCAL_VALIDATION_PASS ($mode)"

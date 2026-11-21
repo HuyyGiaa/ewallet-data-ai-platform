@@ -26,10 +26,11 @@ tls:
 # client would be asked for its password over plain HTTP.
 httpsListenerPort: 443
 
-# Migration guard. The Basic Auth and rate-limit EnvoyFilter was written for the Istio
-# Gateway API predecessor and is not yet verified on Gateway API listeners (G2.2). While
-# false, the EnvoyFilter is not rendered and routes render only for a reserved .test domain,
-# so no real hostname can be routed without authentication.
+# Rollout guard. While false, the Basic Auth and rate-limit EnvoyFilter is not rendered and
+# routes render only for a reserved .test domain, so no real hostname is routed without
+# authentication. G2.2 verified the filter on the Gateway API listeners on kind
+# (docs/evidence/edai2/edge/); the owner-approved G3 overlay sets it to true after the same
+# checks pass on GKE. The guard is not authentication: the private ClusterIP Service is.
 securityFiltersVerified: false
 
 basicAuth:
@@ -74,6 +75,9 @@ routes:
     match: [{prefix: /}]
     backend: {service: prompt-registry-agentregistry, namespace: ewallet-prompts, port: 12121}
     rateLimit: {maxTokens: 50, tokensPerFill: 50, fillIntervalSeconds: 1}
+    # Service port 12121 -> pod port 8080 (as in the Jenkins policy). The namespace is
+    # default-deny, not ambient, and has no AuthorizationPolicy, so none is added here.
+    access: {namespace: ewallet-prompts, podLabels: {app.kubernetes.io/name: agentregistry}, port: 8080}
   # Rows 37-39: metrics, logs and traces are all read through Grafana.
   grafana:
     enabled: false

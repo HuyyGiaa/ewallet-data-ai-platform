@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from collections import Counter
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import base64
+import hashlib
 import json
 import time
 
@@ -33,7 +35,17 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         """Serve the call counter, the stream, or an echo."""
-        if self.path == "/calls":
+        if self.path == "/ws" and self.headers.get("upgrade", "").lower() == "websocket":
+            # Accept the WebSocket handshake, then close: enough to show the upgrade passes.
+            key = self.headers.get("sec-websocket-key", "")
+            accept = base64.b64encode(hashlib.sha1((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").encode()).digest()).decode()
+            self.send_response(101)
+            self.send_header("upgrade", "websocket")
+            self.send_header("connection", "Upgrade")
+            self.send_header("sec-websocket-accept", accept)
+            self.end_headers()
+            self.close_connection = True
+        elif self.path == "/calls":
             self._json(200, {key: value for key, value in calls.items()})
         elif self.path == "/stream":
             self.send_response(200)

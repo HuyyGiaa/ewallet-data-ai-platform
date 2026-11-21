@@ -1,0 +1,11 @@
+## helm lint (default)
+1 chart(s) linted, 0 chart(s) failed
+## helm lint (all routes, .test)
+1 chart(s) linted, 0 chart(s) failed
+## default render bytes: 1
+## real domain, unverified:
+execution error at (ewallet-edge/templates/gateway.yaml:24:4): routes on a real domain need securityFiltersVerified=true (Basic Auth and rate limits, G2.2)
+## removed route a2a:
+execution error at (ewallet-edge/templates/gateway.yaml:12:4): route a2a is not defined: hostPrefix, match and backend are required
+## wrong namespace:
+execution error at (ewallet-edge/templates/gateway.yaml:3:4): install into the namespace "ewallet-ingress" set in values.namespace

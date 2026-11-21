@@ -207,6 +207,16 @@ def test_no_credential_material_is_in_the_chart():
             assert "{SHA}" not in path.read_text() or path.name == "NOTES.txt"
 
 
+def test_registry_access_is_a_network_policy_on_the_pod_port_only():
+    items = render(EDGE, *EDGE_ON)
+    policy = kinds(items, "NetworkPolicy")["allow-edge-to-agent-registry"]
+    assert policy["metadata"]["namespace"] == "ewallet-prompts"
+    assert policy["spec"]["podSelector"]["matchLabels"] == {"app.kubernetes.io/name": "agentregistry"}
+    assert policy["spec"]["ingress"][0]["ports"] == [{"port": 8080, "protocol": "TCP"}]
+    # No AuthorizationPolicy there: a first ALLOW would deny the registry's other callers (Jenkins).
+    assert not [p for p in kinds(items, "AuthorizationPolicy").values() if p["metadata"]["namespace"] == "ewallet-prompts"]
+
+
 def test_kagent_gets_no_allow_policy_that_would_deny_its_other_callers():
     assert not [p for p in kinds(render(EDGE, *EDGE_ON), "AuthorizationPolicy").values() if p["metadata"]["namespace"] == "kagent"]
 

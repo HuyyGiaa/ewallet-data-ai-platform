@@ -1,0 +1,27 @@
+{
+  "foundation/results.jsonl": {
+    "checks": 31,
+    "passed": 31,
+    "failed": []
+  },
+  "foundation/status.jsonl": {
+    "checks": 14,
+    "passed": 14,
+    "failed": []
+  },
+  "full/results-after-restart.jsonl": {
+    "checks": 47,
+    "passed": 47,
+    "failed": []
+  },
+  "full/results.jsonl": {
+    "checks": 47,
+    "passed": 47,
+    "failed": []
+  },
+  "full/status.jsonl": {
+    "checks": 26,
+    "passed": 26,
+    "failed": []
+  }
+}

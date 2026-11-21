@@ -94,8 +94,16 @@ def run_auth(edge: Edge, results: list[Result]) -> None:
          f"https://features.{edge.domain}:{edge.https}{LOOKUP}", "-X", "POST", *(["--cacert", edge.ca] if edge.ca else [])],
         capture_output=True, text=True).stdout.lower()
     check(results, "401 tells a browser to ask for a password", "www-authenticate: basic" in headers, headers.split("\n")[0])
+    check(results, "the challenge names the realm", 'basic realm="e-wallet"' in headers, "realm present" if 'realm=' in headers else "no realm")
     status, _ = edge.curl("features", LOOKUP, "-u", "edge:definitely-wrong", *POST_JSON)
     check(results, "wrong password is rejected", status == 401, status)
+    status, _ = edge.curl("features", LOOKUP, "-u", "nobody:definitely-wrong", *POST_JSON)
+    check(results, "unknown user is rejected", status == 401, status)
+    status, _ = edge.curl("features", LOOKUP, "-H", "authorization: Bearer forged", *POST_JSON)
+    check(results, "a bearer token is not a credential", status == 401, status)
+    for host, path in (("unknown", "/"), ("features", "/metrics"), ("agents", "/api/agents")):
+        status, _ = edge.curl(host, path)
+        check(results, f"unauthenticated {host}{path} is rejected before routing", status == 401, status)
     status, _ = edge.curl("features", LOOKUP, "-H", "x-edge-user: admin", "-H", "x-forwarded-user: admin",
                           "-H", "x-user-id: admin", *POST_JSON)
     check(results, "identity headers cannot replace credentials", status == 401, status)
@@ -113,16 +121,32 @@ def run_routing(edge: Edge, results: list[Result]) -> None:
     status, _ = edge.authed("features", LOOKUP)
     check(results, "wrong method on a declared path is not routed", status == 404, status)
     for host in ("a2a", "fraud", "vllm", "mlflow", "jenkins", "vault", "redis", "mcp", "kserve", "prometheus", "unknown"):
-        status, _ = edge.curl(host, "/")
-        check(results, f"host {host} is not served", status == 0 or status == 404, status)
+        # Without credentials the edge may stop it at TLS (0), at Basic Auth (401) or at routing
+        # (404); with valid credentials it must still not route (0 or 404). Never a backend answer.
+        anonymous, _ = edge.curl(host, "/")
+        status, _ = edge.authed(host, "/")
+        check(results, f"host {host} is not served", anonymous in (0, 401, 404) and status in (0, 404),
+              f"anonymous={anonymous} authenticated={status}")
 
 
 def run_rate_limit(edge: Edge, results: list[Result]) -> None:
-    """A burst on one route is limited, and another route keeps working."""
+    """A bounded burst on one route is limited, another route keeps working, and it recovers.
+
+    The registry route allows 50 requests per second (values.yaml); 120 requests in about
+    a second must therefore see some 429s. Local rate limiting counts per gateway pod.
+    """
+    time.sleep(1.5)
+    status, _ = edge.authed("registry", "/")
+    check(results, "normal traffic on the limited route succeeds", status == 200, status)
     with ThreadPoolExecutor(30) as pool:
         codes = list(pool.map(lambda _: edge.authed("registry", "/")[0], range(120)))
     limited = codes.count(429)
-    check(results, "a burst receives HTTP 429", limited > 0, f"429={limited} of {len(codes)}")
+    check(results, "a burst receives HTTP 429", limited > 0 and set(codes) <= {200, 429},
+          f"200={codes.count(200)} 429={limited} other={len(codes) - codes.count(200) - limited} of {len(codes)}")
+    with ThreadPoolExecutor(10) as pool:
+        anonymous = list(pool.map(lambda _: edge.curl("registry", "/")[0], range(30)))
+    check(results, "an unauthenticated burst never reaches the backend", 200 not in anonymous,
+          f"401={anonymous.count(401)} 429={anonymous.count(429)} 200={anonymous.count(200)}")
     status, _ = edge.authed("features", LOOKUP, *POST_JSON)
     check(results, "the limit is per route", status != 429, status)
     time.sleep(2)
@@ -157,14 +181,20 @@ def run_stub(edge: Edge, results: list[Result]) -> None:
     process.wait()
     spread = arrivals[-1] - arrivals[0] if len(arrivals) > 1 else 0
     check(results, "SSE arrives event by event, not buffered", len(arrivals) == 4 and spread >= 1.5, arrivals)
+    status, _ = edge.authed("observe", "/ws", "--http1.1", "-H", "connection: Upgrade", "-H", "upgrade: websocket",
+                            "-H", "sec-websocket-version: 13", "-H", "sec-websocket-key: dGhlIHNhbXBsZSBub25jZQ==", "-m", "5")
+    check(results, "a WebSocket upgrade passes the gateway", status == 101, status)
     # One client request must reach the backend exactly once, whatever the backend does.
     # The Feature API route has a 5 s timeout, so a 7 s backend delay must end in a 504.
     run = uuid.uuid4().hex[:8]
     for case, headers, expected in (("ok", (), {200}), ("503", ("-H", "x-stub-status: 503"), {503}),
                                     ("reset", ("-H", "x-stub-close: 1"), {502, 503}), ("timeout", ("-H", "x-stub-sleep: 7"), {504})):
         status, _ = edge.authed("features", LOOKUP, "-H", f"x-stub-key: {run}-{case}", *headers, *POST_JSON)
-        _, counts = edge.authed("agents", "/calls")
-        attempts = json.loads(counts).get(f"{run}-{case}", 0)
+        counted, counts = edge.authed("agents", "/calls")
+        try:
+            attempts = json.loads(counts).get(f"{run}-{case}", 0)
+        except ValueError:
+            attempts = f"unread (/calls answered {counted})"
         check(results, f"no retry: {case} reaches the backend once", status in expected and attempts == 1,
               f"status={status} attempts={attempts}")
 
