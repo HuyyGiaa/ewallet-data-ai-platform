@@ -249,6 +249,49 @@ def test_port_in_use_stops_the_session(tmp_path) -> None:
     assert not (state / "pool").exists()
 
 
+def no_ss_path(tmp_path: Path) -> str:
+    """A PATH on which `ss` is absent, as on the Jenkins controller (streaming Build #1 timed out here)."""
+
+    shadow = tmp_path / "no-ss"
+    shadow.mkdir(exist_ok=True)
+    (shadow / "ss").write_text("#!/bin/sh\necho 'sh: ss: command not found' >&2\nexit 127\n", encoding="utf-8")
+    (shadow / "ss").chmod(0o755)
+    return f"{SIM / 'bin'}:{shadow}:{os.environ['PATH']}"
+
+
+@pytest.mark.parametrize("port", [13300, 13301, 13302, 13030, 13090])
+def test_every_local_port_in_use_stops_the_session_without_ss(tmp_path, port) -> None:
+    import socket
+
+    with socket.socket() as listener:
+        listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        listener.bind(("127.0.0.1", port))
+        listener.listen()
+        result, _, state = session(tmp_path, PATH=no_ss_path(tmp_path))
+    assert result.returncode != 0 and f"local port {port} is in use" in result.stderr
+    assert not (state / "pool").exists() and not (state / "namespace").exists()   # stopped before any GKE object
+
+
+def test_free_ports_are_accepted_without_ss(tmp_path) -> None:
+    result, _, state = session(tmp_path, PATH=no_ss_path(tmp_path))
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert not (state / "pool").exists() and not (state / "namespace").exists()
+
+
+def test_a_port_check_that_cannot_run_refuses_to_start(tmp_path) -> None:
+    # The probe runs under EXP_PYTHON; a probe that crashes (here: socket creation forbidden) must stop the
+    # driver instead of being read as "port free".
+    shim = tmp_path / "python-no-socket"
+    shim.write_text("#!/bin/sh\nif [ \"$1\" = - ]; then exec " + sys.executable + " -c 'import sys,socket\n"
+                    "socket.socket = lambda *a, **k: (_ for _ in ()).throw(PermissionError(\"denied\"))\n"
+                    "sys.argv = [\"-\"] + sys.argv[1:]\nexec(compile(sys.stdin.read(), \"-\", \"exec\"))' \"$2\"; fi\n"
+                    "exec " + sys.executable + " \"$@\"\n", encoding="utf-8")
+    shim.chmod(0o755)
+    result, _, state = session(tmp_path, EXP_PYTHON=str(shim))
+    assert result.returncode != 0 and "cannot check local port 13300" in result.stderr
+    assert not (state / "pool").exists()
+
+
 @pytest.mark.parametrize("path", sorted((ROOT / "scripts/experiments").glob("*.sh")), ids=lambda p: p.name)
 def test_no_driver_can_touch_production_objects(path) -> None:
     """Static check on every mutating line, so a new command cannot slip past the simulation."""

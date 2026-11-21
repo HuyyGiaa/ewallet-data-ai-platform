@@ -209,9 +209,47 @@ for image in "$VLLM_IMAGE" "$HELPER_IMAGE"; do
   gc artifacts docker images describe "$image" --format='value(image_summary.digest)' >/dev/null \
     || die "cannot confirm $image in Artifact Registry"
 done
+port_listener() {  # <port>: exit 0 free, 1 a listener answers, 2 the check itself failed (fail closed)
+  # Python, not `ss`: the driver already needs Python, and a host without `ss` (the Jenkins controller) made the
+  # old `! ss ... 2>/dev/null | grep -q .` guard pass for a port in use.
+  "$python" - "$1" <<'PY'
+import errno, socket, sys
+try:
+    port = int(sys.argv[1])
+    for family, host in ((socket.AF_INET, "127.0.0.1"), (socket.AF_INET6, "::1")):
+        try:
+            probe = socket.socket(family, socket.SOCK_STREAM)
+        except OSError as error:  # no IPv6 on this host: nothing can listen on ::1
+            if family == socket.AF_INET6 and error.errno == errno.EAFNOSUPPORT:
+                continue
+            raise
+        with probe:
+            probe.settimeout(2)
+            try:
+                probe.connect((host, port))
+            except ConnectionRefusedError:
+                continue
+            except OSError as error:
+                if family == socket.AF_INET6 and error.errno in (errno.EADDRNOTAVAIL, errno.ENETUNREACH):
+                    continue
+                raise
+            sys.exit(1)
+except SystemExit:
+    raise
+except BaseException as error:
+    print(f"port check failed: {type(error).__name__}: {error}", file=sys.stderr)
+    sys.exit(2)
+PY
+}
 for port in "$GW_PORT" "$METRICS_PORT" "$EPP_PORT" "$GRAFANA_PORT" "$PROM_PORT"; do
   # A leftover forward on one of these would send the benchmark to the wrong target.
-  ! ss -ltnH "( sport = :$port )" 2>/dev/null | grep -q . || die "local port $port is in use"
+  port_rc=0
+  port_listener "$port" || port_rc=$?
+  case "$port_rc" in
+    0) ;;
+    1) die "local port $port is in use" ;;
+    *) die "cannot check local port $port (rc=$port_rc); refusing to start" ;;
+  esac
 done
 pool_status=0
 pool_exists || pool_status=$?
