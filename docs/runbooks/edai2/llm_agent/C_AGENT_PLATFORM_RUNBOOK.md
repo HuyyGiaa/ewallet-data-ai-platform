@@ -67,7 +67,7 @@ The namespace quota is 2 CPU and 6 GiB, and jobs run one at a time.
 
 **Rollback:** a failed run restores the previous objects itself. A passed run leaves workloads at zero. To remove the new job, revert its line in `jenkins.yaml`.
 
-**Limit:** this verifies a release candidate. It doesn't update production, because Jenkins has no rights there and isn't meant to. Production goes through the [Helm promotion path](../../../edai2/cicd/PRODUCTION_ROLLOUT_RBAC.md), which is a separate approval.
+**Limit:** this verifies a release candidate. It doesn't update production, because Jenkins has no rights there and isn't meant to. Production goes through the [operator-run production promotion](../../../edai2/cicd/CICD_ARCHITECTURE.md#10-the-production-boundary), which is a separate approval.
 
 ## P2: EXP-V1 thread binding
 

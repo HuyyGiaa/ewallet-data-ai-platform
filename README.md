@@ -391,7 +391,7 @@ All technical reports live under [`docs/`](docs). Each one explains a component'
 | Agents, MCP tools, registry, gateways | [Agent Platform architecture](docs/edai2/agents/AGENT_PLATFORM_ARCHITECTURE.md), [operations](docs/edai2/agents/AGENT_PLATFORM_OPERATIONS.md), [evidence](docs/edai2/agents/AGENT_PLATFORM_EVIDENCE.md) |
 | RAG | [RAG Knowledge Pipeline](docs/edai2/rag/RAG_PIPELINE.md) |
 | Testing | [Testing and Continuous Verification](docs/edai2/testing/TESTING.md) |
-| CI/CD | [CI/CD with Jenkins](docs/edai2/cicd/CICD.md) |
+| CI/CD | [CI/CD architecture](docs/edai2/cicd/CICD_ARCHITECTURE.md), [operations](docs/edai2/cicd/CICD_OPERATIONS.md), [release evidence](docs/edai2/cicd/CICD_RELEASE_EVIDENCE.md) |
 | Observability | [Observability](docs/edai2/observability/OBSERVABILITY.md) |
 | Infrastructure and security | [Platform Infrastructure and Security](docs/edai2/platform/GATEWAY_IAC_SECURITY_AB.md) |
 | Novel ideas | [Grounded Agent Intake and Exact Agent Telemetry](docs/edai2/novel_ideas/NOVEL_IDEAS.md) |

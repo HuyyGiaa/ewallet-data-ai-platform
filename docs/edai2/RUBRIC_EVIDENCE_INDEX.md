@@ -77,10 +77,10 @@ The details are in [GAP_LEDGER.md](GAP_LEDGER.md). Screenshot classification (NA
 | 30 | 2 | Mutation testing (mutmut) | same | PARTIAL | [Row 30](testing/ROW_30_MUTATION_TESTING.md) | mutmut actionable 94.69 % (raw 90.87 %) at `281db72` (testing/30_01–02); actionable 91.44 % on integrated `cceb274` | "Mutate only changed code" is a reviewed fixed module list, not a per-push diff; not a CI stage |
 | 31 | 2 | Property-based idempotency | same | COMPLETE | [Row 31](testing/ROW_31_PROPERTY_BASED_IDEMPOTENCY.md) | Hypothesis: 551 passed at `281db72` with 50 and 300 examples (testing/31_01–03); 566 passed at HEAD | CrossHair (optional in the rubric) not used |
 | 32 | 2 | Locust load test HTML | same | CLOUD_VERIFIED | [Row 32 on GKE](testing/ROW_32_LOCUST_GKE.md) | G5-A: 8 in-cluster runs, 103,977 requests, 0 failures; Locust HTML reports and 2 rendered report screenshots | None |
-| 33 | 2 | CI/CD for RAG pipeline | Pipelines ran + steps + Jenkinsfile | COMPLETE | [CICD §3](cicd/CICD.md#4-continuous-delivery-of-the-rag-ingestion-pipeline) | CD #8 7 stages SUCCESS; cicd/07–09; rollback verified | — |
-| 34 | 2 | CI/CD MCP servers + data Agent | same | PARTIAL | [CICD](cicd/CICD.md) | CI N9 agent-ci #2, negative #2; bounded CD SOURCE_IMPLEMENTED (C-B) | RUNTIME_EVIDENCE_MISSING (CD not executed; P1) |
-| 35 | 2 | CI/CD Coordinator Agent | same | PARTIAL | [CICD](cicd/CICD.md) | CI N9; bounded CD SOURCE_IMPLEMENTED (C-B) | RUNTIME_EVIDENCE_MISSING (CD not executed; P1) |
-| 36 | 2 | CI/CD stream feature jobs | same | PARTIAL | [CICD §4](cicd/CICD.md#6-limitations) | CI catalog; streaming CD gate LOCAL_VALIDATED in Docker (C-B with the C-A watermark fix) | RUNTIME_EVIDENCE_MISSING (P1 from the integrated commit) |
+| 33 | 2 | CI/CD for RAG pipeline | Pipelines ran + steps + Jenkinsfile | COMPLETE | [CI/CD evidence §7](cicd/CICD_RELEASE_EVIDENCE.md#7-rag-pipeline-11-ingestion-image-rehearsal) | `edai2-cd-rag-pipeline` #11 at `7f841ecd`: 9 stages SUCCESS, `rag-ingestion@sha256:de6446a5…` built, scanned and rehearsed (readback MATCH, recall 1.0); owner screenshots CICD_20–23 | Production Airflow DAG not run by the release (rehearsal) |
+| 34 | 2 | CI/CD MCP servers + data Agent | same | COMPLETE | [CI/CD evidence §3–§4, §6](cicd/CICD_RELEASE_EVIDENCE.md#4-mcp-agents-3-build-and-bounded-rehearsals) | `edai2-cd-mcp-agents` #3 and `edai2-cd-prompt-management` #5 at `e6b190ed`; `edai2-cd-agent-staging` #2 at `7f841ecd` (Agent stack E2E in staging); owner screenshots CICD_03–10, 14–19 | Prompt runtime consumption NOT_PROVEN (registry gate only); production promotion not executed |
+| 35 | 2 | CI/CD Coordinator Agent | same | COMPLETE | [CI/CD evidence §5](cicd/CICD_RELEASE_EVIDENCE.md#5-coordinator-2-image-reuse-across-release-groups) | `edai2-cd-coordinator` #2 at `e6b190ed`: verified image reuse, `mcp-servers` → `agent-fleet` → `coordinator` rehearsals PASS; Coordinator workflows PASS in Agent Staging #2; owner screenshots CICD_11–12 | Production promotion not executed |
+| 36 | 2 | CI/CD stream feature jobs | same | COMPLETE | [CI/CD evidence §8](cicd/CICD_RELEASE_EVIDENCE.md#8-streaming-3-block-a-on-gke) | `edai2-cd-streaming` #3 at `e73e85a3`: Flink job RUNNING on GKE, consistency PASS (182 MATCH, 0 mismatch, PIT 23/23); owner screenshots CICD_25–28 | Single 19-event campaign; no failover or throughput test |
 | 37 | 2 | Grafana behind NGINX | NGINX settings | LOCAL_VALIDATED | [Edge gateway](platform/EDGE_GATEWAY.md) | Real Envoy, stub backend; Istio instead of NGINX | RUNTIME_EVIDENCE_MISSING (P-A5) |
 | 38 | 2 | Log UI behind NGINX | same | LOCAL_VALIDATED | [Edge gateway](platform/EDGE_GATEWAY.md) | Real Envoy, stub backend; Istio instead of NGINX | RUNTIME_EVIDENCE_MISSING (P-A5) |
 | 39 | 2 | Trace UI behind NGINX | same | LOCAL_VALIDATED | [Edge gateway](platform/EDGE_GATEWAY.md) | Real Envoy, stub backend; Istio instead of NGINX | RUNTIME_EVIDENCE_MISSING (P-A5) |
@@ -107,11 +107,11 @@ The details are in [GAP_LEDGER.md](GAP_LEDGER.md). Screenshot classification (NA
 
 | Bucket | Rows | Points |
 |---|---|---:|
-| Complete deliverables | 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 17, 21, 23, 24, 26, 33, 46–51 (24 rows) | 41 |
+| Complete deliverables | 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 17, 21, 23, 24, 26, 33–36, 46–51 (27 rows) | 47 |
 | Complete, pending owner selection (novel ideas) | 56, 57 | 4 |
 | Missing only a screenshot or documentation | 29, 44, 55 (3 rows) | 5 |
 | Implemented at source or validated locally; owner-run or cloud evidence pending | 28, 30, 31, 32, 37–43, 52, 53, 54 (14 rows) | 23 |
-| Missing runtime evidence | 19, 25, 27, 34, 35, 36 (6 rows) | 12 |
+| Missing runtime evidence | 19, 25, 27 (3 rows) | 6 |
 | Missing implementation (including partial rows whose remaining gap is implementation) | 14, 16, 18, 20, 22, 45 (6 rows) | 15 |
 | **Total** | 55 rows | **100** |
 
@@ -133,8 +133,8 @@ Branch `integration/g0-20261107` merges B1, C-A, C-B, C-C and Session A on `orig
 | 30 | B1, G2 | PARTIAL | mutmut runs above 80 % on B1 and integrated code | Diff-based selection in CI |
 | 31 | B1 | COMPLETE | Hypothesis properties, CI and thorough profiles | None |
 | 32 | B1, Session A, G5-A | CLOUD_VERIFIED | Real Feature and Fraud APIs on GKE, in-cluster Locust | None |
-| 34, 35 | C-B | SOURCE_IMPLEMENTED | Bounded Jenkins CD | CLOUD_PENDING: P1 |
-| 36 | C-A, C-B | LOCAL_VALIDATED | Streaming CD gate in Docker with the watermark fix | CLOUD_PENDING: P1 |
+| 34, 35 | C-B, CI/CD V2 | EVIDENCE_COMPLETE | MCP Agents #3, Prompt Management #5, Coordinator #2, Agent Staging #2 on GKE (2026-11-20/21); owner screenshots | None |
+| 36 | C-A, C-B, CI/CD V2 | EVIDENCE_COMPLETE | Streaming #3 campaign `verify-cicd-e73e85a3ecac-3` on GKE, consistency PASS (2026-11-21); owner screenshots | None |
 | 37–43 | Session A | LOCAL_VALIDATED | Real Envoy with TLS, Basic Auth and rate limits, stub backends | CLOUD_PENDING: P-A5; row 43 also needs a domain |
 | 52 | C-C | LOCAL_VALIDATED | Coordinator variants with real models | CLOUD_PENDING: P9, after the prompt-masking release review (B1-F6 fixed in source, B1-F7 open) |
 | 53 | C-C | LOCAL_VALIDATED | Qwen3 routing on CPU | CLOUD_PENDING: P10, blocked by GPU quota 0 |

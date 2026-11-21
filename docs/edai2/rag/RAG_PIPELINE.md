@@ -642,7 +642,7 @@ There are two targets:
 
 Jenkins builds the RAG ingestion image and smoke-tests it against an ephemeral
 Redis in the CD namespace (explicit DB 2), before switching the CronJob to the
-new digest ([CI/CD §4](../cicd/CICD.md#4-continuous-delivery-of-the-rag-ingestion-pipeline)).
+new digest ([CI/CD architecture §9.3](../cicd/CICD_ARCHITECTURE.md#93-rag-rehearsal-rag-ingestion)).
 
 ## 11. Verification results
 

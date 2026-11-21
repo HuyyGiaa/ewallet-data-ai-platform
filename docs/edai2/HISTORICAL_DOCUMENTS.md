@@ -10,13 +10,13 @@ and Git history remain available. The complete old-to-new path map is in the
 |---|---|---|
 | [llm/g3_rubric_gate_a.md](../../archive/legacy-docs/docs/edai2/llm/g3_rubric_gate_a.md) | Planning and approval gate (rubric map) | [LLM Platform](llm/LLM_PLATFORM.md), [Agent Platform architecture](agents/AGENT_PLATFORM_ARCHITECTURE.md) |
 | [mlops/MLOPS_FEATURE_STORE.md](../../archive/legacy-docs/docs/edai2/mlops/MLOPS_FEATURE_STORE.md) | Earlier MLOps campaign report with status vocabulary | [ML Pipeline and Serving](mlops/ML_PIPELINE_SERVING.md) |
-| [cicd_rubric_evidence_20261103.md](../../archive/legacy-docs/docs/edai2/cicd_rubric_evidence_20261103.md) | Earlier CI/CD rubric evidence | [CI/CD](cicd/CICD.md) |
-| [cicd_campaign_closure_handoff_20261103.md](../../archive/legacy-docs/docs/edai2/cicd_campaign_closure_handoff_20261103.md) | Campaign handoff | [CI/CD](cicd/CICD.md) |
-| [cicd_infra_change_review_20261103.md](../../archive/legacy-docs/docs/edai2/cicd_infra_change_review_20261103.md) | Change review | [CI/CD](cicd/CICD.md) |
+| [cicd_rubric_evidence_20261103.md](../../archive/legacy-docs/docs/edai2/cicd_rubric_evidence_20261103.md) | Earlier CI/CD rubric evidence | [CI/CD architecture](cicd/CICD_ARCHITECTURE.md) |
+| [cicd_campaign_closure_handoff_20261103.md](../../archive/legacy-docs/docs/edai2/cicd_campaign_closure_handoff_20261103.md) | Campaign handoff | [CI/CD architecture](cicd/CICD_ARCHITECTURE.md) |
+| [cicd_infra_change_review_20261103.md](../../archive/legacy-docs/docs/edai2/cicd_infra_change_review_20261103.md) | Change review | [CI/CD architecture](cicd/CICD_ARCHITECTURE.md) |
 | [cicd_observability_runtime_20261103.md](../../archive/legacy-docs/docs/edai2/cicd_observability_runtime_20261103.md) | Earlier observability readback | [Observability](observability/OBSERVABILITY.md) |
-| [batch_d_mcp_agent_cd_proposal_20261103.md](../../archive/legacy-docs/docs/edai2/batch_d_mcp_agent_cd_proposal_20261103.md) | Deployment proposal (MCP/agent CD) | [CI/CD §6](cicd/CICD.md#6-limitations) |
+| [batch_d_mcp_agent_cd_proposal_20261103.md](../../archive/legacy-docs/docs/edai2/batch_d_mcp_agent_cd_proposal_20261103.md) | Deployment proposal (MCP/agent CD) | [CI/CD architecture §10](cicd/CICD_ARCHITECTURE.md#10-the-production-boundary) |
 | [integration_handoff_inventory_20261103.md](../../archive/legacy-docs/docs/edai2/integration_handoff_inventory_20261103.md) | Integration handoff | — |
-| [prompt_r33_proposal_20261103.md](../../archive/legacy-docs/docs/edai2/prompt_r33_proposal_20261103.md) | Prompt-management proposal | [CI/CD §5](cicd/CICD.md#5-mcp-servers-agents-and-prompts) |
+| [prompt_r33_proposal_20261103.md](../../archive/legacy-docs/docs/edai2/prompt_r33_proposal_20261103.md) | Prompt-management proposal | [CI/CD architecture §9.1](cicd/CICD_ARCHITECTURE.md#91-registry-gate-prompt-management) |
 | [prompt_registry_incident_f9_20261103.md](../../archive/legacy-docs/docs/edai2/prompt_registry_incident_f9_20261103.md) | Incident record | — |
 | [prompt_registry_m2_networkpolicy_review_20261103.md](../../archive/legacy-docs/docs/edai2/prompt_registry_m2_networkpolicy_review_20261103.md) | Security review | [Infrastructure and Security](platform/GATEWAY_IAC_SECURITY_AB.md) |
 | [prompt_registry_security_assessment_20261103.md](../../archive/legacy-docs/docs/edai2/prompt_registry_security_assessment_20261103.md) | Security assessment | [Infrastructure and Security](platform/GATEWAY_IAC_SECURITY_AB.md) |

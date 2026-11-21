@@ -48,7 +48,7 @@ Neither the plan binary nor any credentials are stored. The runbook is [`docs/cl
 | Cluster control plane | Master authorized networks: two `/32` operator addresses |
 | Operator access to UIs (Grafana, kagent, Agent Registry, Jenkins, Kubeflow, MLflow) | `kubectl port-forward` from an authorized network; nothing is exposed through a public load balancer. See the [UI runbook](../../runbooks/edai2/UI_REPLAY.md) |
 | Workload identity to GCP | Workload Identity: pods use Kubernetes service accounts mapped to GCP service accounts, so no key files exist |
-| CI/CD | The Jenkins service account may write only to its target namespace ([CI/CD §4.4](../cicd/CICD.md#44-least-privilege)) |
+| CI/CD | The Jenkins service account may write only to its target namespace ([CI/CD architecture §11](../cicd/CICD_ARCHITECTURE.md#11-identities-isolation-and-least-privilege)) |
 | LLM, MCP and A2A traffic | agentgateway with client keys, per-agent tool authorization and rate limits ([LLM Platform §3.2](../llm/LLM_PLATFORM.md#4-agentgateway), [Agent operations §11](../agents/AGENT_PLATFORM_OPERATIONS.md#11-gateway-security-policies)) |
 
 ## 3. In-cluster network security
