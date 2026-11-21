@@ -1,0 +1,614 @@
+diff --git a/infra/helm/ewallet-edge/templates/source-restriction.yaml b/infra/helm/ewallet-edge/templates/source-restriction.yaml
+new file mode 100644
+index 00000000..9b8a84c9
+--- /dev/null
++++ b/infra/helm/ewallet-edge/templates/source-restriction.yaml
+@@ -0,0 +1,51 @@
++{{- if and .Values.enabled .Values.sourceRestriction.enabled }}
++{{- $r := .Values.sourceRestriction }}
++{{- if not $r.allowedCidrs }}
++{{- fail "sourceRestriction.allowedCidrs is empty: list the owner-approved client CIDRs, or disable the restriction" }}
++{{- end }}
++{{- range $r.allowedCidrs }}
++{{- if not (regexMatch "^([0-9]{1,3}\\.){3}[0-9]{1,3}/([0-9]|[12][0-9]|3[0-2])$" .) }}
++{{- fail (printf "sourceRestriction.allowedCidrs: %q is not an IPv4 CIDR" .) }}
++{{- end }}
++{{- if hasSuffix "/0" . }}
++{{- fail (printf "sourceRestriction.allowedCidrs: %q allows every address" .) }}
++{{- end }}
++{{- end }}
++{{- if not $r.routes }}
++{{- fail "sourceRestriction.routes is empty" }}
++{{- end }}
++{{- $hosts := list }}
++{{- range $r.routes }}
++{{- $route := index $.Values.routes . }}
++{{- if not (and $route $route.enabled) }}
++{{- fail (printf "sourceRestriction.routes: %s is not an enabled route" .) }}
++{{- end }}
++{{- $host := printf "%s.%s" $route.hostPrefix $.Values.domain }}
++{{- $hosts = concat $hosts (list $host (printf "%s:*" $host)) }}
++{{- end }}
++---
++# Requests for these hosts are refused (403) unless the TCP peer address Envoy sees is in
++# the allowlist. ipBlocks is that peer address, never X-Forwarded-For, so a client cannot
++# claim an allowed address in a header. The ":*" form also matches a Host header that
++# carries a port. Only meaningful when the client address reaches Envoy unchanged: on GKE,
++# a LoadBalancer Service with externalTrafficPolicy Local (values-gateway-public.yaml).
++apiVersion: security.istio.io/v1
++kind: AuthorizationPolicy
++metadata:
++  name: edge-source-restriction
++  namespace: {{ .Values.namespace }}
++  labels:
++    {{- include "ewallet-edge.labels" . | nindent 4 }}
++spec:
++  selector:
++    matchLabels:
++      {{- toYaml .Values.gatewaySelector | nindent 6 }}
++  action: DENY
++  rules:
++    - from:
++        - source:
++            notIpBlocks: {{ toJson $r.allowedCidrs }}
++      to:
++        - operation:
++            hosts: {{ toJson $hosts }}
++{{- end }}
+diff --git a/infra/helm/ewallet-edge/values-gateway-public.yaml b/infra/helm/ewallet-edge/values-gateway-public.yaml
+new file mode 100644
+index 00000000..d02c507b
+--- /dev/null
++++ b/infra/helm/ewallet-edge/values-gateway-public.yaml
+@@ -0,0 +1,18 @@
++# G3-B public exposure overlay for the official istio/gateway 1.30.7 chart. Applied ON TOP
++# of values-gateway.yaml to the same release (ewallet-edge-gateway), so the existing
++# Deployment is reused and only its Service changes; no second gateway is created.
++# Not used until the owner approves public exposure (docs/evidence/edai2/gateway/g3b0-*/).
++service:
++  type: LoadBalancer
++  # The client address reaches Envoy unchanged (no SNAT), which the kagent source
++  # restriction (ewallet-edge sourceRestriction) relies on. Traffic goes only to nodes
++  # running a gateway pod; GKE health-checks healthCheckNodePort for that.
++  externalTrafficPolicy: Local
++  # REQUIRED before use: owner-approved client CIDRs. GKE enforces them as a VPC firewall
++  # rule in front of the load balancer. ownership_preflight.py refuses an empty list or
++  # 0.0.0.0/0. Note: an ACME HTTP-01 validator cannot pass this filter (use DNS-01).
++  loadBalancerSourceRanges: []
++  # Only HTTP (redirect) and HTTPS; the 15021 status port stays off the public address.
++  ports:
++    - {name: http2, port: 80, protocol: TCP, targetPort: 80}
++    - {name: https, port: 443, protocol: TCP, targetPort: 443}
+diff --git a/infra/helm/ewallet-edge/values.yaml b/infra/helm/ewallet-edge/values.yaml
+index e37b061b..7eb5fa24 100644
+--- a/infra/helm/ewallet-edge/values.yaml
++++ b/infra/helm/ewallet-edge/values.yaml
+@@ -33,6 +33,17 @@ httpsListenerPort: 443
+ # checks pass on GKE. The guard is not authentication: the private ClusterIP Service is.
+ securityFiltersVerified: false
+ 
++# Source-address restriction for routes whose backend is more than a viewer. The kagent UI
++# proxies its controller API, which has no authentication of its own (auth.mode unsecure),
++# so anyone with the shared Basic Auth credential could manage agents. Off: G3-A1
++# behaviour. On: requests for these routes from any address outside allowedCidrs are
++# refused before Basic Auth; an empty list does not render. Matched on the TCP peer address,
++# so it needs the client address preserved (externalTrafficPolicy: Local on GKE).
++sourceRestriction:
++  enabled: false
++  routes: [kagent-ui]
++  allowedCidrs: []
++
+ basicAuth:
+   # Mounted into the gateway from a Secret that scripts/edge/create_basic_auth.sh creates.
+   usersFile: /etc/edge-auth/htpasswd
+diff --git a/infra/helm/llm-agent-platform/templates/observability-stack.yaml b/infra/helm/llm-agent-platform/templates/observability-stack.yaml
+index ca7dd9f0..d512d229 100644
+--- a/infra/helm/llm-agent-platform/templates/observability-stack.yaml
++++ b/infra/helm/llm-agent-platform/templates/observability-stack.yaml
+@@ -250,6 +250,12 @@ spec:
+             - {name: GF_PATHS_DATA, value: /tmp/grafana-data}
+             - {name: GF_PATHS_LOGS, value: /tmp/grafana-logs}
+             - {name: GF_PATHS_PLUGINS, value: /tmp/grafana-plugins}
++            {{- with (($.Values.grafanaExternal | default dict).rootUrl) }}
++            {{- if not (regexMatch "^https://[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]{1,5})?/$" .) }}
++            {{- fail (printf "grafanaExternal.rootUrl must be https://<host>/ (got %q)" .) }}
++            {{- end }}
++            - {name: GF_SERVER_ROOT_URL, value: {{ . | quote }}}
++            {{- end }}
+           {{- end }}
+           ports:
+             - {name: http, containerPort: {{ index (dict "prometheus" 9090 "loki" 3100 "tempo" 3200 "grafana" 3000) $name }}}
+diff --git a/infra/helm/llm-agent-platform/values.yaml b/infra/helm/llm-agent-platform/values.yaml
+index 0be7bf9c..14acc799 100644
+--- a/infra/helm/llm-agent-platform/values.yaml
++++ b/infra/helm/llm-agent-platform/values.yaml
+@@ -801,6 +801,13 @@ observabilityStack:
+       requests: {cpu: 50m, memory: 128Mi}
+       limits: {cpu: 300m, memory: 384Mi}
+ 
++# Public address of Grafana behind the edge gateway (G3-B), e.g. https://observe.<domain>/.
++# Empty: GF_SERVER_ROOT_URL is not set and Grafana keeps its default (localhost:3000), which
++# only breaks absolute links. Deliberately outside observabilityStack: the shared
++# checksum/observability-config would otherwise restart Prometheus when the URL changes.
++grafanaExternal:
++  rootUrl: ""
++
+ # Rollback-safe credential references. ``legacy`` preserves the existing
+ # unversioned Secret names. A reviewed rollout first changes serverSet to a
+ # transition set while clients remain legacy, then changes clientRelease.
+diff --git a/scripts/edge/local_validate.sh b/scripts/edge/local_validate.sh
+index c3d149db..0cfdcaf2 100755
+--- a/scripts/edge/local_validate.sh
++++ b/scripts/edge/local_validate.sh
+@@ -46,13 +46,13 @@ except Exception as error:
+ }
+ # Prints "echo" when the stub answered 200 with its echo, else the HTTP status (000: no answer).
+ # Credentials come from a curl config file in the private work directory, never the command line.
+-authed_reply() {  # host path
++authed_reply() {  # host path [curl args]
+   local code; code=$(curl -sS -m 10 -o "$work/body" -w '%{http_code}' -K "$work/curl-auth.conf" --cacert "$work/tls.crt" \
+-    --resolve "$1.$DOMAIN:$https:$node" "https://$1.$DOMAIN:$https$2" 2>/dev/null || true)
++    --resolve "$1.$DOMAIN:$https:$node" "https://$1.$DOMAIN:$https$2" "${@:3}" 2>/dev/null || true)
+   if [ "$code" == 200 ] && python3 -c 'import json, sys; sys.exit(not isinstance(json.load(open(sys.argv[1])).get("headers"), dict))' "$work/body" 2>/dev/null
+   then echo echo; else echo "${code:-000}"; fi
+ }
+-anon_status() { curl -sS -m 10 -o /dev/null -w '%{http_code}' --cacert "$work/tls.crt" --resolve "$1.$DOMAIN:$https:$node" "https://$1.$DOMAIN:$https$2" 2>/dev/null || true; }
++anon_status() { curl -sS -m 10 -o /dev/null -w '%{http_code}' --cacert "$work/tls.crt" --resolve "$1.$DOMAIN:$https:$node" "https://$1.$DOMAIN:$https$2" "${@:3}" 2>/dev/null || true; }
+ lb_before=$(k get svc -A -o jsonpath='{range .items[?(@.spec.type=="LoadBalancer")]}{.metadata.namespace}/{.metadata.name} {end}')
+ k create ns "$NS" >/dev/null; k create ns "$STUB" >/dev/null
+ openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -days 1 -subj "/CN=$DOMAIN" \
+@@ -262,9 +262,9 @@ ok=false; [[ "$tls11" == *"(NONE)"* && "$tls12" == *TLSv1.2* ]] && ok=true
+ printf '{"name": "HTTPS listener refuses TLS 1.1 and accepts TLS 1.2", "passed": %s, "observed": "tls1.1: %s; tls1.2: %s"}\n' \
+   "$ok" "$tls11" "$tls12" >> "$evidence/status.jsonl"
+ flags=(--stub); [ "$mode" == full ] || flags+=(--foundation)
+-negative() {  # output file
++negative() {  # output file [extra flags]
+   python3 "$root/scripts/edge/negative_tests.py" --address "$node" --https-port "$https" --http-port "$http" --domain "$DOMAIN" \
+-    --ca-file "$work/tls.crt" --credentials-file "$work/credentials" "${flags[@]}" --out "$1"
++    --ca-file "$work/tls.crt" --credentials-file "$work/credentials" "${flags[@]}" "${@:2}" --out "$1"
+ }
+ negative "$evidence/results.jsonl" || failed_http=1
+ if [ "$mode" == full ]; then
+@@ -272,7 +272,38 @@ if [ "$mode" == full ]; then
+   k -n "$NS" rollout restart deploy/ewallet-edge-gateway >/dev/null
+   k -n "$NS" rollout status deploy/ewallet-edge-gateway --timeout=180s >/dev/null; sleep 10
+   envoy_checks "after restart: "
+-  negative "$evidence/results-after-restart.jsonl" || failed_http=1
++  # The G3-B/G4 method: one multiplexed HTTP/2 connection for the rate-limit burst.
++  negative "$evidence/results-after-restart.jsonl" --rate-limit-mode http2 || failed_http=1
++  # G3-B0 source restriction (kagent): KA-01..10. kind's NodePort SNATs the client, so this
++  # shows the policy logic against the address Envoy actually sees, not GKE source-IP
++  # preservation (that is a G3-B live gate).
++  peer=$(curl -sS -m 10 -K "$work/curl-auth.conf" --cacert "$work/tls.crt" --resolve "features.$DOMAIN:$https:$node" \
++    -X POST -H 'content-type: application/json' -d '{}' "https://features.$DOMAIN:$https/v1/features/lookup" \
++    | python3 -c 'import json, sys; print(json.load(sys.stdin)["headers"].get("x-forwarded-for", "").split(",")[-1].strip())')
++  restrict() {  # allowed CIDR JSON list
++    helm template edge "$chart" -n "$NS" -f "$work/local.yaml" --set sourceRestriction.enabled=true \
++      --set-json "sourceRestriction.allowedCidrs=$1" -s templates/source-restriction.yaml | k apply -f - >/dev/null; sleep 10
++  }
++  ka() { record "$1" "$([ "$2" == "$3" ] && echo true || echo false)" "expected $3, observed $2${4:+; $4}"; }
++  restrict '["192.0.2.0/24"]'
++  ka "KA-01 restricted, source outside the allowlist: valid credentials are refused" "$(authed_reply agents /)" 403 "peer seen by Envoy=$peer"
++  a=$(anon_status agents /); record "KA-01 restricted, source outside the allowlist: no credentials are refused" "$([[ "$a" == 403 || "$a" == 401 ]] && echo true || echo false)" "observed $a"
++  ka "KA-04 forged X-Forwarded-For with an allowed address does not bypass" "$(authed_reply agents / -H 'x-forwarded-for: 192.0.2.10' -H 'x-real-ip: 192.0.2.10' -H 'x-envoy-external-address: 192.0.2.10')" 403
++  ka "KA-06 controller API path through the UI is refused" "$(authed_reply agents /api/agents)" 403
++  for h in "agents.$DOMAIN" "AGENTS.${DOMAIN^^}:$https" "agents.$DOMAIN.:$https"; do
++    o=$(authed_reply agents / -H "Host: $h"); record "KA-06 Host variant '$h' does not bypass" "$([ "$o" != echo ] && echo true || echo false)" "observed $o"
++  done
++  for host in features registry observe; do
++    path=/; extra=(); [ $host == features ] && { path=/v1/features/lookup; extra=(-X POST -H 'content-type: application/json' -d '{}'); }
++    ka "KA-10 restriction on: $host still reaches its backend" "$(authed_reply $host $path "${extra[@]}")" echo
++  done
++  restrict "[\"$peer/32\"]"
++  ka "KA-02 allowed source with valid credentials reaches the backend" "$(authed_reply agents /)" echo "allowlist=$peer/32"
++  ka "KA-03 allowed source without credentials gets 401" "$(anon_status agents /)" 401
++  ka "KA-05 allowed source with a wrong password gets 401" "$(anon_status agents / -u edge:definitely-wrong)" 401
++  ka "KA-06 allowed source: API path still needs credentials" "$(anon_status agents /api/agents)" 401
++  k -n "$NS" delete authorizationpolicy edge-source-restriction >/dev/null; sleep 10
++  ka "KA-08 restriction off: G3-A1 behaviour (valid credentials reach the backend)" "$(authed_reply agents /)" echo
+   # Fail closed: point Basic Auth at a missing users file. A running proxy must keep its
+   # last good listener; a restarted one must serve nothing rather than serve unauthenticated.
+   k -n "$NS" patch envoyfilter edge-security --type=json \
+diff --git a/scripts/edge/negative_tests.py b/scripts/edge/negative_tests.py
+index b1995b33..4ef0dac9 100644
+--- a/scripts/edge/negative_tests.py
++++ b/scripts/edge/negative_tests.py
+@@ -15,7 +15,9 @@ from concurrent.futures import ThreadPoolExecutor
+ from dataclasses import asdict, dataclass
+ import json
+ from pathlib import Path
++import math
+ import subprocess
++import tempfile
+ import time
+ from typing import Sequence
+ from urllib.parse import urlsplit
+@@ -55,6 +57,7 @@ class Edge:
+     def __init__(self, args: argparse.Namespace) -> None:
+         self.address, self.https, self.http, self.domain = args.address, args.https_port, args.http_port, args.domain
+         self.ca, self.stub, self.foundation = args.ca_file, args.stub, args.foundation
++        self.http2 = getattr(args, "rate_limit_mode", "threads") == "http2"
+         self.config = curl_user_config(Path(args.credentials_file).read_text(encoding="utf-8").rstrip("\r\n"))
+ 
+     def request(self, host: str, path: str, *extra: str, scheme: str = "https", authed: bool = False) -> Reply:
+@@ -72,6 +75,38 @@ class Edge:
+         body, _, location = rest.rpartition("\n")
+         return Reply(int(status) if status.isdigit() else 0, body, location)
+ 
++    def burst(self, host: str, path: str, count: int) -> tuple[list[Reply], float]:
++        """``count`` authenticated requests as fast as the client can send them, and how long it
++        took. Threads open one TLS connection each; through kubectl port-forward that tops out
++        near 60 req/s. HTTP/2 multiplexes every request on one connection (about 200 req/s
++        there, G3-A1), which is what reliably exceeds a token bucket."""
++        started = time.perf_counter()
++        if not self.http2:
++            with ThreadPoolExecutor(30) as pool:
++                replies = list(pool.map(lambda _: self.request(host, path, authed=True), range(count)))
++            return replies, time.perf_counter() - started
++        name = f"{host}.{self.domain}"
++        with tempfile.TemporaryDirectory() as bodies:
++            command = ["curl", "-s", "--http2", "-Z", "--parallel-immediate", "--parallel-max", str(count), "-m", "20",
++                       "--resolve", f"{name}:{self.https}:{self.address}", "-K", "-",
++                       *(["--cacert", self.ca] if self.ca else [])]
++            # --write-out is global in curl: one format for every transfer, which names its own
++            # output file, so each line maps back to its request.
++            command += ["-w", "%{filename_effective} %{http_code} %{redirect_url}\n"]
++            for i in range(count):
++                command += ["-o", f"{bodies}/{i}", f"https://{name}:{self.https}{path}"]
++            done = subprocess.run(command, input=self.config, capture_output=True, text=True)
++            seconds = time.perf_counter() - started
++            replies = [Reply(0, "", "")] * count  # a transfer curl never reports is a failure
++            for line in done.stdout.splitlines():
++                filename, status, *location = line.split(" ", 2) + [""]
++                index = Path(filename).name
++                if not index.isdigit() or int(index) >= count:
++                    continue
++                body = Path(filename).read_text(errors="replace") if Path(filename).exists() else ""
++                replies[int(index)] = Reply(int(status) if status.isdigit() else 0, body, location[0].strip())
++        return replies, seconds
++
+     def curl(self, host: str, path: str, *extra: str, scheme: str = "https") -> tuple[int, str]:
+         """Without credentials: status and body."""
+         reply = self.request(host, path, *extra, scheme=scheme)
+@@ -126,7 +161,7 @@ def registry_served(edge: Edge, reply: Reply) -> bool:
+ 
+ def check(results: list[Result], name: str, passed: bool, observed: object) -> None:
+     """Record one outcome."""
+-    results.append(Result(name, bool(passed), str(observed)[:160]))
++    results.append(Result(name, bool(passed), str(observed)[:300]))
+ 
+ 
+ def run_auth(edge: Edge, results: list[Result]) -> None:
+@@ -179,24 +214,55 @@ def run_routing(edge: Edge, results: list[Result]) -> None:
+               f"anonymous={anonymous} authenticated={status}")
+ 
+ 
++# The registry route's bucket (values.yaml routes.agent-registry.rateLimit).
++REGISTRY_BUCKET = {"max_tokens": 50, "tokens_per_fill": 50, "fill_seconds": 1.0}
++BURST = 120
++
++
++def rate_limit_verdict(served: int, limited: int, failed: int, unexpected: list[int], seconds: float,
++                       bucket: dict = REGISTRY_BUCKET) -> tuple[str, str]:
++    """PASS, FAIL or INCONCLUSIVE for one burst, from what was observed only.
++
++    Local rate limiting counts per gateway pod; ``bucket`` is one pod's. ``capacity`` is the
++    most tokens that pod can hand out during the burst (a full bucket plus every refill that
++    can fall inside it), so more requests than that without a 429 proves the limit was not
++    enforced; fewer proves nothing.
++    """
++    total = served + limited + failed + len(unexpected)
++    capacity = bucket["max_tokens"] + bucket["tokens_per_fill"] * math.ceil(seconds / bucket["fill_seconds"])
++    facts = (f"total={total} served={served} 429={limited} connection_failures={failed} unexpected={sorted(unexpected)} "
++             f"seconds={seconds:.2f} rate={total / seconds if seconds else 0:.1f}/s capacity={capacity}")
++    if unexpected:
++        return "FAIL", "unexpected statuses (5xx, 401/403 with valid credentials, or a wrong redirect); " + facts
++    if failed:
++        return "INCONCLUSIVE", "connections failed before an answer (client or port-forward); " + facts
++    if limited and served:
++        return "PASS", facts
++    if limited:
++        return "INCONCLUSIVE", "no request was served, so the bucket may have been empty already; " + facts
++    if total > capacity:
++        return "FAIL", "more requests than the bucket can hold and no 429; " + facts
++    return "INCONCLUSIVE", "the client did not send more requests than the bucket allows; " + facts
++
++
+ def run_rate_limit(edge: Edge, results: list[Result]) -> None:
+     """A bounded burst on one route is limited, another route keeps working, and it recovers.
+ 
+-    The registry route allows 50 requests per second (values.yaml); 120 requests in about
+-    a second must therefore see some 429s. Local rate limiting counts per gateway pod.
++    120 requests on the registry route (50 per second, values.yaml). Local rate limiting
++    counts per gateway pod. The verdict is PASS only with real answers and 429s and nothing
++    else; a client too slow to exceed the bucket is INCONCLUSIVE, never PASS.
+     """
+     time.sleep(1.5)
+     reply = edge.request("registry", "/", authed=True)
+     check(results, "normal traffic on the limited route succeeds", registry_served(edge, reply), reply.status)
+-    with ThreadPoolExecutor(30) as pool:
+-        replies = list(pool.map(lambda _: edge.request("registry", "/", authed=True), range(120)))
++    replies, seconds = edge.burst("registry", "/", BURST)
+     served = sum(registry_served(edge, r) for r in replies)
+     limited = sum(r.status == 429 for r in replies)
+-    # Every reply is either a real backend answer or the limiter's 429; a 5xx or a dropped
+-    # connection is a failure, not a "limited" request.
+-    check(results, "a burst receives HTTP 429", served > 0 and limited > 0 and served + limited == len(replies),
+-          f"served={served} 429={limited} other={sorted({r.status for r in replies if r.status != 429 and not registry_served(edge, r)})}"
+-          f" of {len(replies)}")
++    failed = sum(r.status == 0 for r in replies)
++    unexpected = [r.status for r in replies if r.status not in (0, 429) and not registry_served(edge, r)]
++    verdict, facts = rate_limit_verdict(served, limited, failed, unexpected, seconds)
++    check(results, "a burst receives HTTP 429", verdict == "PASS",
++          f"{verdict} ({'http2' if edge.http2 else 'threads'}) {facts}")
+     with ThreadPoolExecutor(10) as pool:
+         anonymous = list(pool.map(lambda _: edge.curl("registry", "/")[0], range(30)))
+     # The limiter runs before Basic Auth, so an anonymous request ends in 401 or 429, nothing else.
+@@ -266,6 +332,8 @@ def main(argv: Sequence[str] | None = None) -> int:
+     parser.add_argument("--credentials-file", required=True)
+     parser.add_argument("--stub", action="store_true")
+     parser.add_argument("--foundation", action="store_true", help="skip the Basic Auth and rate-limit checks")
++    parser.add_argument("--rate-limit-mode", choices=["threads", "http2"], default="threads",
++                        help="http2: one multiplexed connection (use through kubectl port-forward)")
+     parser.add_argument("--out", type=Path, required=True)
+     args = parser.parse_args(argv)
+     edge = Edge(args)
+diff --git a/scripts/edge/ownership_preflight.py b/scripts/edge/ownership_preflight.py
+index 8b4c3c2e..fcaa2381 100644
+--- a/scripts/edge/ownership_preflight.py
++++ b/scripts/edge/ownership_preflight.py
+@@ -51,12 +51,36 @@ def gateway_problems(gateways: Iterable[dict], allowed: frozenset[str] = frozens
+     return problems
+ 
+ 
+-def render_problems(documents: Iterable[dict]) -> list[str]:
++def balancer_problems(service: dict, allowed_lb: frozenset[str]) -> list[str]:
++    """A LoadBalancer is a problem unless the owner approved it by name. The approved edge
++    Service must also keep the client address (externalTrafficPolicy Local) and filter it at
++    the cloud firewall (loadBalancerSourceRanges, never 0.0.0.0/0); other approved ones are
++    someone else's and are only reported if unapproved."""
++    spec = service.get("spec", {})
++    if spec.get("type") != "LoadBalancer":
++        return []
++    where = f"{service['metadata'].get('namespace', '?')}/{service['metadata']['name']}"
++    if where not in allowed_lb:
++        return [f"LoadBalancer Service {where}"]
++    if where != f"{EDGE_NAMESPACE}/{EDGE_SERVICE}":
++        return []
++    problems = []
++    ranges = spec.get("loadBalancerSourceRanges") or []
++    if not ranges or any(r.endswith("/0") for r in ranges):
++        problems.append(f"approved LoadBalancer {where} has no source-range restriction")
++    if spec.get("externalTrafficPolicy") != "Local":
++        problems.append(f"approved LoadBalancer {where} does not preserve the client address (externalTrafficPolicy Local)")
++    return problems
++
++
++def render_problems(documents: Iterable[dict], allowed_lb: frozenset[str] = frozenset()) -> list[str]:
+     """Problems in rendered manifests."""
+     documents = [doc for doc in documents if doc]
+     problems = gateway_problems(d for d in documents if d["apiVersion"].startswith(GATEWAY_API) and d["kind"] == "Gateway")
+-    problems += [f"Service {d['metadata'].get('namespace', '?')}/{d['metadata']['name']} is a LoadBalancer"
+-                 for d in documents if d["kind"] == "Service" and d.get("spec", {}).get("type") == "LoadBalancer"]
++    for d in documents:
++        if d["kind"] == "Service":
++            d = {**d, "metadata": {"namespace": EDGE_NAMESPACE, **d["metadata"]}} if d["metadata"]["name"] == EDGE_SERVICE else d
++            problems += balancer_problems(d, allowed_lb)
+     return problems
+ 
+ 
+@@ -68,9 +92,8 @@ def live_problems(gateways: list[dict], deployments: list[dict], services: list[
+     managed = [d for d in deployments if labels(d).get("gateway.istio.io/managed") == "istio.io-gateway-controller"
+                and f"{d['metadata']['namespace']}/{labels(d).get('gateway.networking.k8s.io/gateway-name')}" not in allowed_gateways]
+     problems += [f"Istio-provisioned gateway Deployment {d['metadata']['namespace']}/{d['metadata']['name']}" for d in managed]
+-    problems += [f"LoadBalancer Service {s['metadata']['namespace']}/{s['metadata']['name']}"
+-                 for s in services if s["spec"].get("type") == "LoadBalancer"
+-                 and f"{s['metadata']['namespace']}/{s['metadata']['name']}" not in allowed_lb]
++    for service in services:
++        problems += balancer_problems(service, allowed_lb)
+     edge = [s for s in services if (s["metadata"]["namespace"], s["metadata"]["name"]) == (EDGE_NAMESPACE, EDGE_SERVICE)]
+     if edge and edge[0]["metadata"].get("labels", {}).get("app.kubernetes.io/managed-by") != "Helm":
+         problems.append(f"Service {EDGE_NAMESPACE}/{EDGE_SERVICE} is not managed by Helm")
+@@ -94,6 +117,8 @@ def main(argv: list[str] | None = None) -> int:
+     sub = parser.add_subparsers(dest="mode", required=True)
+     render = sub.add_parser("render", help="check helm template output")
+     render.add_argument("manifests", nargs="+", type=Path, help="rendered YAML files ('-' for stdin)")
++    render.add_argument("--allow-loadbalancer", action="append", default=[], metavar="NAMESPACE/NAME",
++                        help="an owner-approved LoadBalancer Service (repeatable)")
+     live = sub.add_parser("live", help="read a cluster (get only)")
+     live.add_argument("--context", required=True)
+     live.add_argument("--allow-loadbalancer", action="append", default=[], metavar="NAMESPACE/NAME",
+@@ -106,7 +131,7 @@ def main(argv: list[str] | None = None) -> int:
+         for path in args.manifests:
+             text = sys.stdin.read() if str(path) == "-" else path.read_text(encoding="utf-8")
+             documents += list(yaml.safe_load_all(text))
+-        problems = render_problems(documents)
++        problems = render_problems(documents, frozenset(args.allow_loadbalancer))
+     else:
+         problems = live_problems(kubectl_items(args.context, "gateways.gateway.networking.k8s.io"),
+                                  kubectl_items(args.context, "deployments"), kubectl_items(args.context, "services"),
+diff --git a/tests/ops/test_edge_negative_checks.py b/tests/ops/test_edge_negative_checks.py
+index 21d6c069..f65e75c1 100644
+--- a/tests/ops/test_edge_negative_checks.py
++++ b/tests/ops/test_edge_negative_checks.py
+@@ -31,6 +31,7 @@ class FakeEdge(nt.Edge):
+ 
+     def __init__(self, respond, stub: bool = True, foundation: bool = False) -> None:
+         self.domain, self.stub, self.foundation, self.respond = DOMAIN, stub, foundation, respond
++        self.http2 = False
+ 
+     def request(self, host, path, *extra, scheme="https", authed=False):
+         return self.respond(host, path, authed, scheme)
+@@ -169,3 +170,66 @@ def test_curl_sends_the_password_unchanged(password):
+ def test_a_credential_curl_cannot_express_is_refused(credentials):
+     with pytest.raises(ValueError):
+         nt.curl_user_config(credentials)
++
++
++# --- Rate-limit verdict (G3-B0): PASS only when enforcement was observed --------------------
++
++@pytest.mark.parametrize("served,limited,failed,unexpected,seconds,verdict", [
++    (58, 62, 0, [], 0.61, "PASS"),                # G3-A1 HTTP/2 shape, counts not hardcoded
++    (30, 90, 0, [], 1.0, "PASS"),
++    (120, 0, 0, [], 1.94, "INCONCLUSIVE"),        # G3-A1 thread run: 62 req/s cannot exceed 150 tokens
++    (120, 0, 0, [], 0.5, "FAIL"),                 # 120 > 50 + 50 tokens and no 429: limit not enforced
++    (100, 10, 10, [], 0.6, "INCONCLUSIVE"),       # dropped connections
++    (100, 19, 0, [500], 0.6, "FAIL"),             # gateway 5xx
++    (100, 19, 0, [401], 0.6, "FAIL"),             # valid credentials refused
++    (0, 120, 0, [], 0.6, "INCONCLUSIVE"),         # nothing served: bucket may have been empty
++])
++def test_rate_limit_verdict(served, limited, failed, unexpected, seconds, verdict):
++    got, facts = nt.rate_limit_verdict(served, limited, failed, unexpected, seconds)
++    assert got == verdict
++    assert f"served={served}" in facts and f"429={limited}" in facts and "rate=" in facts and "capacity=" in facts
++
++
++def test_the_burst_check_reports_the_verdict_and_mode(monkeypatch):
++    monkeypatch.setattr(nt.time, "sleep", lambda _: None)
++    results: list = []
++    nt.run_rate_limit(FakeEdge(rate_limit_scenario()), results)
++    burst = next(r for r in results if r.name == "a burst receives HTTP 429")
++    assert burst.passed and burst.observed.startswith("PASS (threads)")
++
++
++def test_a_recovery_failure_and_another_route_failure_are_reported(monkeypatch):
++    verdicts = run_rate_limit(monkeypatch, recovery=nt.Reply(503, "", ""), other_route=nt.Reply(500, "", ""))
++    assert verdicts["the route recovers after the burst: the backend answers again"] is False
++    assert verdicts["the limit is per route: another route still reaches its backend"] is False
++    assert verdicts["a burst receives HTTP 429"] is True
++
++
++def test_http2_burst_parses_every_transfer(monkeypatch, tmp_path):
++    """One curl run, one line per transfer; a transfer curl never reports counts as a failure."""
++    credentials = tmp_path / "c"
++    credentials.write_text("edge:pw\n")
++    import argparse
++    edge = nt.Edge(argparse.Namespace(address="127.0.0.1", https_port=8443, http_port=8080, domain=DOMAIN, ca_file=None,
++                                      stub=True, foundation=False, rate_limit_mode="http2", credentials_file=str(credentials)))
++    seen = {}
++
++    def fake_run(command, input, capture_output, text):
++        seen["command"], seen["stdin"] = command, input
++        # Like curl: one global --write-out, expanded per transfer, in completion order.
++        assert command.count("-w") == 1 and "%{filename_effective}" in command[command.index("-w") + 1]
++        outs = [command[i + 1] for i, a in enumerate(command) if a == "-o"]
++        lines = []
++        for i, out in reversed(list(enumerate(outs[:-1]))):  # the last transfer never answers
++            status = 429 if i % 2 else 200
++            Path(out).write_text(ECHO.body if status == 200 else "local_rate_limited")
++            lines.append(f"{out} {status} ")
++        return argparse.Namespace(stdout="\n".join(lines) + "\n", returncode=0)
++
++    from pathlib import Path
++    monkeypatch.setattr(nt.subprocess, "run", fake_run)
++    replies, seconds = edge.burst("registry", "/", 6)
++    assert [r.status for r in replies] == [200, 429, 200, 429, 200, 0]
++    assert nt.stub_echo(replies[0].status, replies[0].body) is not None
++    assert "--http2" in seen["command"] and "-K" in seen["command"] and "pw" not in " ".join(seen["command"])
++    assert seen["stdin"] == 'user = "edge:pw"\n'
+diff --git a/tests/ops/test_session_a_charts.py b/tests/ops/test_session_a_charts.py
+index cfc7e884..fc1e3f84 100644
+--- a/tests/ops/test_session_a_charts.py
++++ b/tests/ops/test_session_a_charts.py
+@@ -301,3 +301,101 @@ def test_ownership_preflight_detects_a_provisioned_duplicate_and_a_load_balancer
+     approved = frozenset({"ewallet-agents/ewallet-agent-gateway"})
+     assert preflight.live_problems([edge, legacy], [named], [edge_service], frozenset(), approved) == []
+     assert len(preflight.live_problems([edge, legacy], [named], [edge_service])) == 3
++
++
++# --- G3-B0: kagent source restriction (fail-closed, off by default) --------------------------
++
++RESTRICTED = EDGE_VERIFIED + ["--set", "sourceRestriction.enabled=true"]
++
++
++def test_source_restriction_is_off_by_default():
++    assert not [p for p in kinds(render(EDGE, *EDGE_VERIFIED), "AuthorizationPolicy").values()
++                if p["metadata"]["namespace"] == "ewallet-ingress"]
++
++
++def test_source_restriction_denies_the_agents_host_from_any_other_address():
++    items = render(EDGE, *RESTRICTED, "--set-json", 'sourceRestriction.allowedCidrs=["203.0.113.7/32","198.51.100.0/28"]')
++    policy = kinds(items, "AuthorizationPolicy")["edge-source-restriction"]
++    assert policy["metadata"]["namespace"] == "ewallet-ingress"
++    assert policy["spec"]["selector"] == {"matchLabels": {"istio": "ewallet-edge-gateway"}}
++    assert policy["spec"]["action"] == "DENY"
++    # The TCP peer address (ipBlocks), never X-Forwarded-For (remoteIpBlocks), and the host
++    # with and without a port.
++    assert policy["spec"]["rules"] == [{
++        "from": [{"source": {"notIpBlocks": ["203.0.113.7/32", "198.51.100.0/28"]}}],
++        "to": [{"operation": {"hosts": ["agents.edge.example.test", "agents.edge.example.test:*"]}}]}]
++
++
++@pytest.mark.parametrize("cidrs,message", [
++    ("[]", "allowedCidrs is empty"),
++    ('["0.0.0.0/0"]', "allows every address"),
++    ('["10.0.0.0"]', "not an IPv4 CIDR"),
++    ('["::/0"]', "not an IPv4 CIDR"),
++])
++def test_source_restriction_fails_closed_on_a_bad_allowlist(cidrs, message):
++    done = render(EDGE, *RESTRICTED, "--set-json", f"sourceRestriction.allowedCidrs={cidrs}", check=False)
++    assert done.returncode != 0 and message in done.stderr
++
++
++def test_source_restriction_refuses_a_route_that_is_not_enabled():
++    done = render(EDGE, *RESTRICTED, "--set", "routes.kagent-ui.enabled=false",
++                  "--set-json", 'sourceRestriction.allowedCidrs=["203.0.113.7/32"]', check=False)
++    assert done.returncode != 0 and "not an enabled route" in done.stderr
++
++
++def test_public_gateway_overlay_needs_source_ranges_and_keeps_the_client_address():
++    values = yaml.safe_load((EDGE / "values-gateway-public.yaml").read_text())["service"]
++    assert values["type"] == "LoadBalancer" and values["externalTrafficPolicy"] == "Local"
++    assert values["loadBalancerSourceRanges"] == []  # filled per approval; preflight refuses empty
++    assert [p["port"] for p in values["ports"]] == [80, 443]
++
++
++def test_preflight_refuses_an_approved_edge_balancer_without_source_ranges():
++    preflight = _preflight()
++    svc = lambda **spec: {"kind": "Service", "apiVersion": "v1",
++                          "metadata": {"namespace": "ewallet-ingress", "name": "ewallet-edge-gateway"},
++                          "spec": {"type": "LoadBalancer", **spec}}
++    approved = frozenset({"ewallet-ingress/ewallet-edge-gateway"})
++    assert preflight.render_problems([svc(externalTrafficPolicy="Local", loadBalancerSourceRanges=["203.0.113.7/32"])], approved) == []
++    assert preflight.render_problems([svc(externalTrafficPolicy="Local", loadBalancerSourceRanges=["203.0.113.7/32"])])  # not approved
++    assert preflight.render_problems([svc(externalTrafficPolicy="Local")], approved)
++    assert preflight.render_problems([svc(externalTrafficPolicy="Local", loadBalancerSourceRanges=["0.0.0.0/0"])], approved)
++    assert preflight.render_problems([svc(externalTrafficPolicy="Cluster", loadBalancerSourceRanges=["203.0.113.7/32"])], approved)
++
++
++# --- G3-B0: Grafana external root URL (opt-in, Grafana only) ---------------------------------
++
++PLATFORM = ROOT / "infra/helm/llm-agent-platform"
++DIGEST = "sha256:" + "a" * 64
++OBS = ["--set", f"vllm.image=r.example/p/vllm@{DIGEST}", "--set", f"mcpServices.image=r.example/p/mcp@{DIGEST}",
++       "--set", f"mcpServices.identity.imageDigest={DIGEST}", "--set", "mcpServices.identity.gitSha=" + "c" * 40,
++       "--set", "observabilityStack.enabled=true"]
++
++
++def observability(*extra):
++    return {(i["kind"], i["metadata"]["name"]): i for i in render(PLATFORM, *OBS, *extra)
++            if i["metadata"]["name"] in ("grafana", "prometheus", "loki", "tempo") and i["kind"] == "Deployment"}
++
++
++def env(deployment):
++    return deployment["spec"]["template"]["spec"]["containers"][0].get("env", [])
++
++
++def test_grafana_root_url_is_absent_by_default():
++    assert not [e for e in env(observability()[("Deployment", "grafana")]) if e["name"] == "GF_SERVER_ROOT_URL"]
++
++
++def test_grafana_root_url_changes_only_grafana():
++    before, after = observability(), observability("--set", "grafanaExternal.rootUrl=https://observe.example.test/")
++    assert [e for e in env(after[("Deployment", "grafana")]) if e not in env(before[("Deployment", "grafana")])] == [
++        {"name": "GF_SERVER_ROOT_URL", "value": "https://observe.example.test/"}]
++    for name in ("prometheus", "loki", "tempo"):
++        assert after[("Deployment", name)] == before[("Deployment", name)]
++    annotations = lambda d: d["spec"]["template"]["metadata"].get("annotations")
++    assert annotations(after[("Deployment", "grafana")]) == annotations(before[("Deployment", "grafana")])
++
++
++@pytest.mark.parametrize("url", ["http://observe.example.test/", "https://observe.example.test", "https://observe.example.test/grafana/"])
++def test_grafana_root_url_must_be_an_https_host_root(url):
++    done = render(PLATFORM, *OBS, "--set", f"grafanaExternal.rootUrl={url}", check=False)
++    assert done.returncode != 0 and "grafanaExternal.rootUrl must be https" in done.stderr

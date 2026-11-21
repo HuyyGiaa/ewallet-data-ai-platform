@@ -1,0 +1,4 @@
+changed objects: [('Deployment', 'ewallet-agents', 'grafana')]
+  env added: [{'name': 'GF_SERVER_ROOT_URL', 'value': 'https://observe.edge.g3a.test/'}]
+  annotations equal: True
+observability Deployments compared: ['prometheus', 'loki', 'tempo', 'grafana'] prometheus/loki/tempo identical: True

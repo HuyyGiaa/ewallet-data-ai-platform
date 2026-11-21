@@ -1,0 +1,11 @@
+ .../ewallet-edge/templates/source-restriction.yaml | 51 +++++++++++
+ infra/helm/ewallet-edge/values-gateway-public.yaml | 18 ++++
+ infra/helm/ewallet-edge/values.yaml                | 11 +++
+ .../templates/observability-stack.yaml             |  6 ++
+ infra/helm/llm-agent-platform/values.yaml          |  7 ++
+ scripts/edge/local_validate.sh                     | 43 ++++++++--
+ scripts/edge/negative_tests.py                     | 88 ++++++++++++++++---
+ scripts/edge/ownership_preflight.py                | 39 +++++++--
+ tests/ops/test_edge_negative_checks.py             | 64 ++++++++++++++
+ tests/ops/test_session_a_charts.py                 | 98 ++++++++++++++++++++++
+ 10 files changed, 402 insertions(+), 23 deletions(-)

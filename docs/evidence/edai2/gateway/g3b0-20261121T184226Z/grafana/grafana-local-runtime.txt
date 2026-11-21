@@ -1,0 +1,11 @@
+== 2026-11-21T18:44:48Z local Docker, pinned image (LOCAL_DOCKER, not GKE)
+-- default
+  GET / -> HTTP/1.1 302 Found Location: /login 
+  /login appUrl: "appUrl":"http://localhost:3000/" appSubUrl: "appSubUrl":""
+  static /public/build/runtime.a37cc2f12a959f33871a.js -> 200; asset refs absolute to host: 0
+  GET /logout -> Location: /login
+-- rootUrl=https://observe.edge.g3a.test/
+  GET / -> HTTP/1.1 302 Found Location: /login 
+  /login appUrl: "appUrl":"https://observe.edge.g3a.test/" appSubUrl: "appSubUrl":""
+  static /public/build/runtime.a37cc2f12a959f33871a.js -> 200; asset refs absolute to host: 0
+  GET /logout -> Location: /login
