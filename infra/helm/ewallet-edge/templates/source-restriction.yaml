@@ -1,0 +1,51 @@
+{{- if and .Values.enabled .Values.sourceRestriction.enabled }}
+{{- $r := .Values.sourceRestriction }}
+{{- if not $r.allowedCidrs }}
+{{- fail "sourceRestriction.allowedCidrs is empty: list the owner-approved client CIDRs, or disable the restriction" }}
+{{- end }}
+{{- range $r.allowedCidrs }}
+{{- if not (regexMatch "^([0-9]{1,3}\\.){3}[0-9]{1,3}/([0-9]|[12][0-9]|3[0-2])$" .) }}
+{{- fail (printf "sourceRestriction.allowedCidrs: %q is not an IPv4 CIDR" .) }}
+{{- end }}
+{{- if hasSuffix "/0" . }}
+{{- fail (printf "sourceRestriction.allowedCidrs: %q allows every address" .) }}
+{{- end }}
+{{- end }}
+{{- if not $r.routes }}
+{{- fail "sourceRestriction.routes is empty" }}
+{{- end }}
+{{- $hosts := list }}
+{{- range $r.routes }}
+{{- $route := index $.Values.routes . }}
+{{- if not (and $route $route.enabled) }}
+{{- fail (printf "sourceRestriction.routes: %s is not an enabled route" .) }}
+{{- end }}
+{{- $host := printf "%s.%s" $route.hostPrefix $.Values.domain }}
+{{- $hosts = concat $hosts (list $host (printf "%s:*" $host)) }}
+{{- end }}
+---
+# Requests for these hosts are refused (403) unless the TCP peer address Envoy sees is in
+# the allowlist. ipBlocks is that peer address, never X-Forwarded-For, so a client cannot
+# claim an allowed address in a header. The ":*" form also matches a Host header that
+# carries a port. Only meaningful when the client address reaches Envoy unchanged: on GKE,
+# a LoadBalancer Service with externalTrafficPolicy Local (values-gateway-public.yaml).
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: edge-source-restriction
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "ewallet-edge.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- toYaml .Values.gatewaySelector | nindent 6 }}
+  action: DENY
+  rules:
+    - from:
+        - source:
+            notIpBlocks: {{ toJson $r.allowedCidrs }}
+      to:
+        - operation:
+            hosts: {{ toJson $hosts }}
+{{- end }}

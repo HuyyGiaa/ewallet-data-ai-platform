@@ -1,0 +1,18 @@
+# G3-B public exposure overlay for the official istio/gateway 1.30.7 chart. Applied ON TOP
+# of values-gateway.yaml to the same release (ewallet-edge-gateway), so the existing
+# Deployment is reused and only its Service changes; no second gateway is created.
+# Not used until the owner approves public exposure (docs/evidence/edai2/gateway/g3b0-*/).
+service:
+  type: LoadBalancer
+  # The client address reaches Envoy unchanged (no SNAT), which the kagent source
+  # restriction (ewallet-edge sourceRestriction) relies on. Traffic goes only to nodes
+  # running a gateway pod; GKE health-checks healthCheckNodePort for that.
+  externalTrafficPolicy: Local
+  # REQUIRED before use: owner-approved client CIDRs. GKE enforces them as a VPC firewall
+  # rule in front of the load balancer. ownership_preflight.py refuses an empty list or
+  # 0.0.0.0/0. Note: an ACME HTTP-01 validator cannot pass this filter (use DNS-01).
+  loadBalancerSourceRanges: []
+  # Only HTTP (redirect) and HTTPS; the 15021 status port stays off the public address.
+  ports:
+    - {name: http2, port: 80, protocol: TCP, targetPort: 80}
+    - {name: https, port: 443, protocol: TCP, targetPort: 443}

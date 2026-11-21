@@ -31,6 +31,7 @@ class FakeEdge(nt.Edge):
 
     def __init__(self, respond, stub: bool = True, foundation: bool = False) -> None:
         self.domain, self.stub, self.foundation, self.respond = DOMAIN, stub, foundation, respond
+        self.http2 = False
 
     def request(self, host, path, *extra, scheme="https", authed=False):
         return self.respond(host, path, authed, scheme)
@@ -169,3 +170,66 @@ def test_curl_sends_the_password_unchanged(password):
 def test_a_credential_curl_cannot_express_is_refused(credentials):
     with pytest.raises(ValueError):
         nt.curl_user_config(credentials)
+
+
+# --- Rate-limit verdict (G3-B0): PASS only when enforcement was observed --------------------
+
+@pytest.mark.parametrize("served,limited,failed,unexpected,seconds,verdict", [
+    (58, 62, 0, [], 0.61, "PASS"),                # G3-A1 HTTP/2 shape, counts not hardcoded
+    (30, 90, 0, [], 1.0, "PASS"),
+    (120, 0, 0, [], 1.94, "INCONCLUSIVE"),        # G3-A1 thread run: 62 req/s cannot exceed 150 tokens
+    (120, 0, 0, [], 0.5, "FAIL"),                 # 120 > 50 + 50 tokens and no 429: limit not enforced
+    (100, 10, 10, [], 0.6, "INCONCLUSIVE"),       # dropped connections
+    (100, 19, 0, [500], 0.6, "FAIL"),             # gateway 5xx
+    (100, 19, 0, [401], 0.6, "FAIL"),             # valid credentials refused
+    (0, 120, 0, [], 0.6, "INCONCLUSIVE"),         # nothing served: bucket may have been empty
+])
+def test_rate_limit_verdict(served, limited, failed, unexpected, seconds, verdict):
+    got, facts = nt.rate_limit_verdict(served, limited, failed, unexpected, seconds)
+    assert got == verdict
+    assert f"served={served}" in facts and f"429={limited}" in facts and "rate=" in facts and "capacity=" in facts
+
+
+def test_the_burst_check_reports_the_verdict_and_mode(monkeypatch):
+    monkeypatch.setattr(nt.time, "sleep", lambda _: None)
+    results: list = []
+    nt.run_rate_limit(FakeEdge(rate_limit_scenario()), results)
+    burst = next(r for r in results if r.name == "a burst receives HTTP 429")
+    assert burst.passed and burst.observed.startswith("PASS (threads)")
+
+
+def test_a_recovery_failure_and_another_route_failure_are_reported(monkeypatch):
+    verdicts = run_rate_limit(monkeypatch, recovery=nt.Reply(503, "", ""), other_route=nt.Reply(500, "", ""))
+    assert verdicts["the route recovers after the burst: the backend answers again"] is False
+    assert verdicts["the limit is per route: another route still reaches its backend"] is False
+    assert verdicts["a burst receives HTTP 429"] is True
+
+
+def test_http2_burst_parses_every_transfer(monkeypatch, tmp_path):
+    """One curl run, one line per transfer; a transfer curl never reports counts as a failure."""
+    credentials = tmp_path / "c"
+    credentials.write_text("edge:pw\n")
+    import argparse
+    edge = nt.Edge(argparse.Namespace(address="127.0.0.1", https_port=8443, http_port=8080, domain=DOMAIN, ca_file=None,
+                                      stub=True, foundation=False, rate_limit_mode="http2", credentials_file=str(credentials)))
+    seen = {}
+
+    def fake_run(command, input, capture_output, text):
+        seen["command"], seen["stdin"] = command, input
+        # Like curl: one global --write-out, expanded per transfer, in completion order.
+        assert command.count("-w") == 1 and "%{filename_effective}" in command[command.index("-w") + 1]
+        outs = [command[i + 1] for i, a in enumerate(command) if a == "-o"]
+        lines = []
+        for i, out in reversed(list(enumerate(outs[:-1]))):  # the last transfer never answers
+            status = 429 if i % 2 else 200
+            Path(out).write_text(ECHO.body if status == 200 else "local_rate_limited")
+            lines.append(f"{out} {status} ")
+        return argparse.Namespace(stdout="\n".join(lines) + "\n", returncode=0)
+
+    from pathlib import Path
+    monkeypatch.setattr(nt.subprocess, "run", fake_run)
+    replies, seconds = edge.burst("registry", "/", 6)
+    assert [r.status for r in replies] == [200, 429, 200, 429, 200, 0]
+    assert nt.stub_echo(replies[0].status, replies[0].body) is not None
+    assert "--http2" in seen["command"] and "-K" in seen["command"] and "pw" not in " ".join(seen["command"])
+    assert seen["stdin"] == 'user = "edge:pw"\n'

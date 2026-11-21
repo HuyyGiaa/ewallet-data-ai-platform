@@ -801,6 +801,13 @@ observabilityStack:
       requests: {cpu: 50m, memory: 128Mi}
       limits: {cpu: 300m, memory: 384Mi}
 
+# Public address of Grafana behind the edge gateway (G3-B), e.g. https://observe.<domain>/.
+# Empty: GF_SERVER_ROOT_URL is not set and Grafana keeps its default (localhost:3000), which
+# only breaks absolute links. Deliberately outside observabilityStack: the shared
+# checksum/observability-config would otherwise restart Prometheus when the URL changes.
+grafanaExternal:
+  rootUrl: ""
+
 # Rollback-safe credential references. ``legacy`` preserves the existing
 # unversioned Secret names. A reviewed rollout first changes serverSet to a
 # transition set while clients remain legacy, then changes clientRelease.

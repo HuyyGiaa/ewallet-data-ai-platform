@@ -15,7 +15,9 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass
 import json
 from pathlib import Path
+import math
 import subprocess
+import tempfile
 import time
 from typing import Sequence
 from urllib.parse import urlsplit
@@ -55,6 +57,7 @@ class Edge:
     def __init__(self, args: argparse.Namespace) -> None:
         self.address, self.https, self.http, self.domain = args.address, args.https_port, args.http_port, args.domain
         self.ca, self.stub, self.foundation = args.ca_file, args.stub, args.foundation
+        self.http2 = getattr(args, "rate_limit_mode", "threads") == "http2"
         self.config = curl_user_config(Path(args.credentials_file).read_text(encoding="utf-8").rstrip("\r\n"))
 
     def request(self, host: str, path: str, *extra: str, scheme: str = "https", authed: bool = False) -> Reply:
@@ -71,6 +74,38 @@ class Edge:
         rest, _, status = done.stdout.rpartition("\n")
         body, _, location = rest.rpartition("\n")
         return Reply(int(status) if status.isdigit() else 0, body, location)
+
+    def burst(self, host: str, path: str, count: int) -> tuple[list[Reply], float]:
+        """``count`` authenticated requests as fast as the client can send them, and how long it
+        took. Threads open one TLS connection each; through kubectl port-forward that tops out
+        near 60 req/s. HTTP/2 multiplexes every request on one connection (about 200 req/s
+        there, G3-A1), which is what reliably exceeds a token bucket."""
+        started = time.perf_counter()
+        if not self.http2:
+            with ThreadPoolExecutor(30) as pool:
+                replies = list(pool.map(lambda _: self.request(host, path, authed=True), range(count)))
+            return replies, time.perf_counter() - started
+        name = f"{host}.{self.domain}"
+        with tempfile.TemporaryDirectory() as bodies:
+            command = ["curl", "-s", "--http2", "-Z", "--parallel-immediate", "--parallel-max", str(count), "-m", "20",
+                       "--resolve", f"{name}:{self.https}:{self.address}", "-K", "-",
+                       *(["--cacert", self.ca] if self.ca else [])]
+            # --write-out is global in curl: one format for every transfer, which names its own
+            # output file, so each line maps back to its request.
+            command += ["-w", "%{filename_effective} %{http_code} %{redirect_url}\n"]
+            for i in range(count):
+                command += ["-o", f"{bodies}/{i}", f"https://{name}:{self.https}{path}"]
+            done = subprocess.run(command, input=self.config, capture_output=True, text=True)
+            seconds = time.perf_counter() - started
+            replies = [Reply(0, "", "")] * count  # a transfer curl never reports is a failure
+            for line in done.stdout.splitlines():
+                filename, status, *location = line.split(" ", 2) + [""]
+                index = Path(filename).name
+                if not index.isdigit() or int(index) >= count:
+                    continue
+                body = Path(filename).read_text(errors="replace") if Path(filename).exists() else ""
+                replies[int(index)] = Reply(int(status) if status.isdigit() else 0, body, location[0].strip())
+        return replies, seconds
 
     def curl(self, host: str, path: str, *extra: str, scheme: str = "https") -> tuple[int, str]:
         """Without credentials: status and body."""
@@ -126,7 +161,7 @@ def registry_served(edge: Edge, reply: Reply) -> bool:
 
 def check(results: list[Result], name: str, passed: bool, observed: object) -> None:
     """Record one outcome."""
-    results.append(Result(name, bool(passed), str(observed)[:160]))
+    results.append(Result(name, bool(passed), str(observed)[:300]))
 
 
 def run_auth(edge: Edge, results: list[Result]) -> None:
@@ -179,24 +214,55 @@ def run_routing(edge: Edge, results: list[Result]) -> None:
               f"anonymous={anonymous} authenticated={status}")
 
 
+# The registry route's bucket (values.yaml routes.agent-registry.rateLimit).
+REGISTRY_BUCKET = {"max_tokens": 50, "tokens_per_fill": 50, "fill_seconds": 1.0}
+BURST = 120
+
+
+def rate_limit_verdict(served: int, limited: int, failed: int, unexpected: list[int], seconds: float,
+                       bucket: dict = REGISTRY_BUCKET) -> tuple[str, str]:
+    """PASS, FAIL or INCONCLUSIVE for one burst, from what was observed only.
+
+    Local rate limiting counts per gateway pod; ``bucket`` is one pod's. ``capacity`` is the
+    most tokens that pod can hand out during the burst (a full bucket plus every refill that
+    can fall inside it), so more requests than that without a 429 proves the limit was not
+    enforced; fewer proves nothing.
+    """
+    total = served + limited + failed + len(unexpected)
+    capacity = bucket["max_tokens"] + bucket["tokens_per_fill"] * math.ceil(seconds / bucket["fill_seconds"])
+    facts = (f"total={total} served={served} 429={limited} connection_failures={failed} unexpected={sorted(unexpected)} "
+             f"seconds={seconds:.2f} rate={total / seconds if seconds else 0:.1f}/s capacity={capacity}")
+    if unexpected:
+        return "FAIL", "unexpected statuses (5xx, 401/403 with valid credentials, or a wrong redirect); " + facts
+    if failed:
+        return "INCONCLUSIVE", "connections failed before an answer (client or port-forward); " + facts
+    if limited and served:
+        return "PASS", facts
+    if limited:
+        return "INCONCLUSIVE", "no request was served, so the bucket may have been empty already; " + facts
+    if total > capacity:
+        return "FAIL", "more requests than the bucket can hold and no 429; " + facts
+    return "INCONCLUSIVE", "the client did not send more requests than the bucket allows; " + facts
+
+
 def run_rate_limit(edge: Edge, results: list[Result]) -> None:
     """A bounded burst on one route is limited, another route keeps working, and it recovers.
 
-    The registry route allows 50 requests per second (values.yaml); 120 requests in about
-    a second must therefore see some 429s. Local rate limiting counts per gateway pod.
+    120 requests on the registry route (50 per second, values.yaml). Local rate limiting
+    counts per gateway pod. The verdict is PASS only with real answers and 429s and nothing
+    else; a client too slow to exceed the bucket is INCONCLUSIVE, never PASS.
     """
     time.sleep(1.5)
     reply = edge.request("registry", "/", authed=True)
     check(results, "normal traffic on the limited route succeeds", registry_served(edge, reply), reply.status)
-    with ThreadPoolExecutor(30) as pool:
-        replies = list(pool.map(lambda _: edge.request("registry", "/", authed=True), range(120)))
+    replies, seconds = edge.burst("registry", "/", BURST)
     served = sum(registry_served(edge, r) for r in replies)
     limited = sum(r.status == 429 for r in replies)
-    # Every reply is either a real backend answer or the limiter's 429; a 5xx or a dropped
-    # connection is a failure, not a "limited" request.
-    check(results, "a burst receives HTTP 429", served > 0 and limited > 0 and served + limited == len(replies),
-          f"served={served} 429={limited} other={sorted({r.status for r in replies if r.status != 429 and not registry_served(edge, r)})}"
-          f" of {len(replies)}")
+    failed = sum(r.status == 0 for r in replies)
+    unexpected = [r.status for r in replies if r.status not in (0, 429) and not registry_served(edge, r)]
+    verdict, facts = rate_limit_verdict(served, limited, failed, unexpected, seconds)
+    check(results, "a burst receives HTTP 429", verdict == "PASS",
+          f"{verdict} ({'http2' if edge.http2 else 'threads'}) {facts}")
     with ThreadPoolExecutor(10) as pool:
         anonymous = list(pool.map(lambda _: edge.curl("registry", "/")[0], range(30)))
     # The limiter runs before Basic Auth, so an anonymous request ends in 401 or 429, nothing else.
@@ -266,6 +332,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--credentials-file", required=True)
     parser.add_argument("--stub", action="store_true")
     parser.add_argument("--foundation", action="store_true", help="skip the Basic Auth and rate-limit checks")
+    parser.add_argument("--rate-limit-mode", choices=["threads", "http2"], default="threads",
+                        help="http2: one multiplexed connection (use through kubectl port-forward)")
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args(argv)
     edge = Edge(args)

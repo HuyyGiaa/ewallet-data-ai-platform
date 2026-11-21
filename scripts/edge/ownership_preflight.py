@@ -51,12 +51,36 @@ def gateway_problems(gateways: Iterable[dict], allowed: frozenset[str] = frozens
     return problems
 
 
-def render_problems(documents: Iterable[dict]) -> list[str]:
+def balancer_problems(service: dict, allowed_lb: frozenset[str]) -> list[str]:
+    """A LoadBalancer is a problem unless the owner approved it by name. The approved edge
+    Service must also keep the client address (externalTrafficPolicy Local) and filter it at
+    the cloud firewall (loadBalancerSourceRanges, never 0.0.0.0/0); other approved ones are
+    someone else's and are only reported if unapproved."""
+    spec = service.get("spec", {})
+    if spec.get("type") != "LoadBalancer":
+        return []
+    where = f"{service['metadata'].get('namespace', '?')}/{service['metadata']['name']}"
+    if where not in allowed_lb:
+        return [f"LoadBalancer Service {where}"]
+    if where != f"{EDGE_NAMESPACE}/{EDGE_SERVICE}":
+        return []
+    problems = []
+    ranges = spec.get("loadBalancerSourceRanges") or []
+    if not ranges or any(r.endswith("/0") for r in ranges):
+        problems.append(f"approved LoadBalancer {where} has no source-range restriction")
+    if spec.get("externalTrafficPolicy") != "Local":
+        problems.append(f"approved LoadBalancer {where} does not preserve the client address (externalTrafficPolicy Local)")
+    return problems
+
+
+def render_problems(documents: Iterable[dict], allowed_lb: frozenset[str] = frozenset()) -> list[str]:
     """Problems in rendered manifests."""
     documents = [doc for doc in documents if doc]
     problems = gateway_problems(d for d in documents if d["apiVersion"].startswith(GATEWAY_API) and d["kind"] == "Gateway")
-    problems += [f"Service {d['metadata'].get('namespace', '?')}/{d['metadata']['name']} is a LoadBalancer"
-                 for d in documents if d["kind"] == "Service" and d.get("spec", {}).get("type") == "LoadBalancer"]
+    for d in documents:
+        if d["kind"] == "Service":
+            d = {**d, "metadata": {"namespace": EDGE_NAMESPACE, **d["metadata"]}} if d["metadata"]["name"] == EDGE_SERVICE else d
+            problems += balancer_problems(d, allowed_lb)
     return problems
 
 
@@ -68,9 +92,8 @@ def live_problems(gateways: list[dict], deployments: list[dict], services: list[
     managed = [d for d in deployments if labels(d).get("gateway.istio.io/managed") == "istio.io-gateway-controller"
                and f"{d['metadata']['namespace']}/{labels(d).get('gateway.networking.k8s.io/gateway-name')}" not in allowed_gateways]
     problems += [f"Istio-provisioned gateway Deployment {d['metadata']['namespace']}/{d['metadata']['name']}" for d in managed]
-    problems += [f"LoadBalancer Service {s['metadata']['namespace']}/{s['metadata']['name']}"
-                 for s in services if s["spec"].get("type") == "LoadBalancer"
-                 and f"{s['metadata']['namespace']}/{s['metadata']['name']}" not in allowed_lb]
+    for service in services:
+        problems += balancer_problems(service, allowed_lb)
     edge = [s for s in services if (s["metadata"]["namespace"], s["metadata"]["name"]) == (EDGE_NAMESPACE, EDGE_SERVICE)]
     if edge and edge[0]["metadata"].get("labels", {}).get("app.kubernetes.io/managed-by") != "Helm":
         problems.append(f"Service {EDGE_NAMESPACE}/{EDGE_SERVICE} is not managed by Helm")
@@ -94,6 +117,8 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="mode", required=True)
     render = sub.add_parser("render", help="check helm template output")
     render.add_argument("manifests", nargs="+", type=Path, help="rendered YAML files ('-' for stdin)")
+    render.add_argument("--allow-loadbalancer", action="append", default=[], metavar="NAMESPACE/NAME",
+                        help="an owner-approved LoadBalancer Service (repeatable)")
     live = sub.add_parser("live", help="read a cluster (get only)")
     live.add_argument("--context", required=True)
     live.add_argument("--allow-loadbalancer", action="append", default=[], metavar="NAMESPACE/NAME",
@@ -106,7 +131,7 @@ def main(argv: list[str] | None = None) -> int:
         for path in args.manifests:
             text = sys.stdin.read() if str(path) == "-" else path.read_text(encoding="utf-8")
             documents += list(yaml.safe_load_all(text))
-        problems = render_problems(documents)
+        problems = render_problems(documents, frozenset(args.allow_loadbalancer))
     else:
         problems = live_problems(kubectl_items(args.context, "gateways.gateway.networking.k8s.io"),
                                  kubectl_items(args.context, "deployments"), kubectl_items(args.context, "services"),

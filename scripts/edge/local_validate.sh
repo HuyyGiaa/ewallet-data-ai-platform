@@ -46,13 +46,13 @@ except Exception as error:
 }
 # Prints "echo" when the stub answered 200 with its echo, else the HTTP status (000: no answer).
 # Credentials come from a curl config file in the private work directory, never the command line.
-authed_reply() {  # host path
+authed_reply() {  # host path [curl args]
   local code; code=$(curl -sS -m 10 -o "$work/body" -w '%{http_code}' -K "$work/curl-auth.conf" --cacert "$work/tls.crt" \
-    --resolve "$1.$DOMAIN:$https:$node" "https://$1.$DOMAIN:$https$2" 2>/dev/null || true)
+    --resolve "$1.$DOMAIN:$https:$node" "https://$1.$DOMAIN:$https$2" "${@:3}" 2>/dev/null || true)
   if [ "$code" == 200 ] && python3 -c 'import json, sys; sys.exit(not isinstance(json.load(open(sys.argv[1])).get("headers"), dict))' "$work/body" 2>/dev/null
   then echo echo; else echo "${code:-000}"; fi
 }
-anon_status() { curl -sS -m 10 -o /dev/null -w '%{http_code}' --cacert "$work/tls.crt" --resolve "$1.$DOMAIN:$https:$node" "https://$1.$DOMAIN:$https$2" 2>/dev/null || true; }
+anon_status() { curl -sS -m 10 -o /dev/null -w '%{http_code}' --cacert "$work/tls.crt" --resolve "$1.$DOMAIN:$https:$node" "https://$1.$DOMAIN:$https$2" "${@:3}" 2>/dev/null || true; }
 lb_before=$(k get svc -A -o jsonpath='{range .items[?(@.spec.type=="LoadBalancer")]}{.metadata.namespace}/{.metadata.name} {end}')
 k create ns "$NS" >/dev/null; k create ns "$STUB" >/dev/null
 openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -days 1 -subj "/CN=$DOMAIN" \
@@ -262,9 +262,9 @@ ok=false; [[ "$tls11" == *"(NONE)"* && "$tls12" == *TLSv1.2* ]] && ok=true
 printf '{"name": "HTTPS listener refuses TLS 1.1 and accepts TLS 1.2", "passed": %s, "observed": "tls1.1: %s; tls1.2: %s"}\n' \
   "$ok" "$tls11" "$tls12" >> "$evidence/status.jsonl"
 flags=(--stub); [ "$mode" == full ] || flags+=(--foundation)
-negative() {  # output file
+negative() {  # output file [extra flags]
   python3 "$root/scripts/edge/negative_tests.py" --address "$node" --https-port "$https" --http-port "$http" --domain "$DOMAIN" \
-    --ca-file "$work/tls.crt" --credentials-file "$work/credentials" "${flags[@]}" --out "$1"
+    --ca-file "$work/tls.crt" --credentials-file "$work/credentials" "${flags[@]}" "${@:2}" --out "$1"
 }
 negative "$evidence/results.jsonl" || failed_http=1
 if [ "$mode" == full ]; then
@@ -272,7 +272,38 @@ if [ "$mode" == full ]; then
   k -n "$NS" rollout restart deploy/ewallet-edge-gateway >/dev/null
   k -n "$NS" rollout status deploy/ewallet-edge-gateway --timeout=180s >/dev/null; sleep 10
   envoy_checks "after restart: "
-  negative "$evidence/results-after-restart.jsonl" || failed_http=1
+  # The G3-B/G4 method: one multiplexed HTTP/2 connection for the rate-limit burst.
+  negative "$evidence/results-after-restart.jsonl" --rate-limit-mode http2 || failed_http=1
+  # G3-B0 source restriction (kagent): KA-01..10. kind's NodePort SNATs the client, so this
+  # shows the policy logic against the address Envoy actually sees, not GKE source-IP
+  # preservation (that is a G3-B live gate).
+  peer=$(curl -sS -m 10 -K "$work/curl-auth.conf" --cacert "$work/tls.crt" --resolve "features.$DOMAIN:$https:$node" \
+    -X POST -H 'content-type: application/json' -d '{}' "https://features.$DOMAIN:$https/v1/features/lookup" \
+    | python3 -c 'import json, sys; print(json.load(sys.stdin)["headers"].get("x-forwarded-for", "").split(",")[-1].strip())')
+  restrict() {  # allowed CIDR JSON list
+    helm template edge "$chart" -n "$NS" -f "$work/local.yaml" --set sourceRestriction.enabled=true \
+      --set-json "sourceRestriction.allowedCidrs=$1" -s templates/source-restriction.yaml | k apply -f - >/dev/null; sleep 10
+  }
+  ka() { record "$1" "$([ "$2" == "$3" ] && echo true || echo false)" "expected $3, observed $2${4:+; $4}"; }
+  restrict '["192.0.2.0/24"]'
+  ka "KA-01 restricted, source outside the allowlist: valid credentials are refused" "$(authed_reply agents /)" 403 "peer seen by Envoy=$peer"
+  a=$(anon_status agents /); record "KA-01 restricted, source outside the allowlist: no credentials are refused" "$([[ "$a" == 403 || "$a" == 401 ]] && echo true || echo false)" "observed $a"
+  ka "KA-04 forged X-Forwarded-For with an allowed address does not bypass" "$(authed_reply agents / -H 'x-forwarded-for: 192.0.2.10' -H 'x-real-ip: 192.0.2.10' -H 'x-envoy-external-address: 192.0.2.10')" 403
+  ka "KA-06 controller API path through the UI is refused" "$(authed_reply agents /api/agents)" 403
+  for h in "agents.$DOMAIN" "AGENTS.${DOMAIN^^}:$https" "agents.$DOMAIN.:$https"; do
+    o=$(authed_reply agents / -H "Host: $h"); record "KA-06 Host variant '$h' does not bypass" "$([ "$o" != echo ] && echo true || echo false)" "observed $o"
+  done
+  for host in features registry observe; do
+    path=/; extra=(); [ $host == features ] && { path=/v1/features/lookup; extra=(-X POST -H 'content-type: application/json' -d '{}'); }
+    ka "KA-10 restriction on: $host still reaches its backend" "$(authed_reply $host $path "${extra[@]}")" echo
+  done
+  restrict "[\"$peer/32\"]"
+  ka "KA-02 allowed source with valid credentials reaches the backend" "$(authed_reply agents /)" echo "allowlist=$peer/32"
+  ka "KA-03 allowed source without credentials gets 401" "$(anon_status agents /)" 401
+  ka "KA-05 allowed source with a wrong password gets 401" "$(anon_status agents / -u edge:definitely-wrong)" 401
+  ka "KA-06 allowed source: API path still needs credentials" "$(anon_status agents /api/agents)" 401
+  k -n "$NS" delete authorizationpolicy edge-source-restriction >/dev/null; sleep 10
+  ka "KA-08 restriction off: G3-A1 behaviour (valid credentials reach the backend)" "$(authed_reply agents /)" echo
   # Fail closed: point Basic Auth at a missing users file. A running proxy must keep its
   # last good listener; a restarted one must serve nothing rather than serve unauthenticated.
   k -n "$NS" patch envoyfilter edge-security --type=json \

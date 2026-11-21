@@ -301,3 +301,101 @@ def test_ownership_preflight_detects_a_provisioned_duplicate_and_a_load_balancer
     approved = frozenset({"ewallet-agents/ewallet-agent-gateway"})
     assert preflight.live_problems([edge, legacy], [named], [edge_service], frozenset(), approved) == []
     assert len(preflight.live_problems([edge, legacy], [named], [edge_service])) == 3
+
+
+# --- G3-B0: kagent source restriction (fail-closed, off by default) --------------------------
+
+RESTRICTED = EDGE_VERIFIED + ["--set", "sourceRestriction.enabled=true"]
+
+
+def test_source_restriction_is_off_by_default():
+    assert not [p for p in kinds(render(EDGE, *EDGE_VERIFIED), "AuthorizationPolicy").values()
+                if p["metadata"]["namespace"] == "ewallet-ingress"]
+
+
+def test_source_restriction_denies_the_agents_host_from_any_other_address():
+    items = render(EDGE, *RESTRICTED, "--set-json", 'sourceRestriction.allowedCidrs=["203.0.113.7/32","198.51.100.0/28"]')
+    policy = kinds(items, "AuthorizationPolicy")["edge-source-restriction"]
+    assert policy["metadata"]["namespace"] == "ewallet-ingress"
+    assert policy["spec"]["selector"] == {"matchLabels": {"istio": "ewallet-edge-gateway"}}
+    assert policy["spec"]["action"] == "DENY"
+    # The TCP peer address (ipBlocks), never X-Forwarded-For (remoteIpBlocks), and the host
+    # with and without a port.
+    assert policy["spec"]["rules"] == [{
+        "from": [{"source": {"notIpBlocks": ["203.0.113.7/32", "198.51.100.0/28"]}}],
+        "to": [{"operation": {"hosts": ["agents.edge.example.test", "agents.edge.example.test:*"]}}]}]
+
+
+@pytest.mark.parametrize("cidrs,message", [
+    ("[]", "allowedCidrs is empty"),
+    ('["0.0.0.0/0"]', "allows every address"),
+    ('["10.0.0.0"]', "not an IPv4 CIDR"),
+    ('["::/0"]', "not an IPv4 CIDR"),
+])
+def test_source_restriction_fails_closed_on_a_bad_allowlist(cidrs, message):
+    done = render(EDGE, *RESTRICTED, "--set-json", f"sourceRestriction.allowedCidrs={cidrs}", check=False)
+    assert done.returncode != 0 and message in done.stderr
+
+
+def test_source_restriction_refuses_a_route_that_is_not_enabled():
+    done = render(EDGE, *RESTRICTED, "--set", "routes.kagent-ui.enabled=false",
+                  "--set-json", 'sourceRestriction.allowedCidrs=["203.0.113.7/32"]', check=False)
+    assert done.returncode != 0 and "not an enabled route" in done.stderr
+
+
+def test_public_gateway_overlay_needs_source_ranges_and_keeps_the_client_address():
+    values = yaml.safe_load((EDGE / "values-gateway-public.yaml").read_text())["service"]
+    assert values["type"] == "LoadBalancer" and values["externalTrafficPolicy"] == "Local"
+    assert values["loadBalancerSourceRanges"] == []  # filled per approval; preflight refuses empty
+    assert [p["port"] for p in values["ports"]] == [80, 443]
+
+
+def test_preflight_refuses_an_approved_edge_balancer_without_source_ranges():
+    preflight = _preflight()
+    svc = lambda **spec: {"kind": "Service", "apiVersion": "v1",
+                          "metadata": {"namespace": "ewallet-ingress", "name": "ewallet-edge-gateway"},
+                          "spec": {"type": "LoadBalancer", **spec}}
+    approved = frozenset({"ewallet-ingress/ewallet-edge-gateway"})
+    assert preflight.render_problems([svc(externalTrafficPolicy="Local", loadBalancerSourceRanges=["203.0.113.7/32"])], approved) == []
+    assert preflight.render_problems([svc(externalTrafficPolicy="Local", loadBalancerSourceRanges=["203.0.113.7/32"])])  # not approved
+    assert preflight.render_problems([svc(externalTrafficPolicy="Local")], approved)
+    assert preflight.render_problems([svc(externalTrafficPolicy="Local", loadBalancerSourceRanges=["0.0.0.0/0"])], approved)
+    assert preflight.render_problems([svc(externalTrafficPolicy="Cluster", loadBalancerSourceRanges=["203.0.113.7/32"])], approved)
+
+
+# --- G3-B0: Grafana external root URL (opt-in, Grafana only) ---------------------------------
+
+PLATFORM = ROOT / "infra/helm/llm-agent-platform"
+DIGEST = "sha256:" + "a" * 64
+OBS = ["--set", f"vllm.image=r.example/p/vllm@{DIGEST}", "--set", f"mcpServices.image=r.example/p/mcp@{DIGEST}",
+       "--set", f"mcpServices.identity.imageDigest={DIGEST}", "--set", "mcpServices.identity.gitSha=" + "c" * 40,
+       "--set", "observabilityStack.enabled=true"]
+
+
+def observability(*extra):
+    return {(i["kind"], i["metadata"]["name"]): i for i in render(PLATFORM, *OBS, *extra)
+            if i["metadata"]["name"] in ("grafana", "prometheus", "loki", "tempo") and i["kind"] == "Deployment"}
+
+
+def env(deployment):
+    return deployment["spec"]["template"]["spec"]["containers"][0].get("env", [])
+
+
+def test_grafana_root_url_is_absent_by_default():
+    assert not [e for e in env(observability()[("Deployment", "grafana")]) if e["name"] == "GF_SERVER_ROOT_URL"]
+
+
+def test_grafana_root_url_changes_only_grafana():
+    before, after = observability(), observability("--set", "grafanaExternal.rootUrl=https://observe.example.test/")
+    assert [e for e in env(after[("Deployment", "grafana")]) if e not in env(before[("Deployment", "grafana")])] == [
+        {"name": "GF_SERVER_ROOT_URL", "value": "https://observe.example.test/"}]
+    for name in ("prometheus", "loki", "tempo"):
+        assert after[("Deployment", name)] == before[("Deployment", name)]
+    annotations = lambda d: d["spec"]["template"]["metadata"].get("annotations")
+    assert annotations(after[("Deployment", "grafana")]) == annotations(before[("Deployment", "grafana")])
+
+
+@pytest.mark.parametrize("url", ["http://observe.example.test/", "https://observe.example.test", "https://observe.example.test/grafana/"])
+def test_grafana_root_url_must_be_an_https_host_root(url):
+    done = render(PLATFORM, *OBS, "--set", f"grafanaExternal.rootUrl={url}", check=False)
+    assert done.returncode != 0 and "grafanaExternal.rootUrl must be https" in done.stderr

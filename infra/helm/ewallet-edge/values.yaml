@@ -33,6 +33,17 @@ httpsListenerPort: 443
 # checks pass on GKE. The guard is not authentication: the private ClusterIP Service is.
 securityFiltersVerified: false
 
+# Source-address restriction for routes whose backend is more than a viewer. The kagent UI
+# proxies its controller API, which has no authentication of its own (auth.mode unsecure),
+# so anyone with the shared Basic Auth credential could manage agents. Off: G3-A1
+# behaviour. On: requests for these routes from any address outside allowedCidrs are
+# refused before Basic Auth; an empty list does not render. Matched on the TCP peer address,
+# so it needs the client address preserved (externalTrafficPolicy: Local on GKE).
+sourceRestriction:
+  enabled: false
+  routes: [kagent-ui]
+  allowedCidrs: []
+
 basicAuth:
   # Mounted into the gateway from a Secret that scripts/edge/create_basic_auth.sh creates.
   usersFile: /etc/edge-auth/htpasswd

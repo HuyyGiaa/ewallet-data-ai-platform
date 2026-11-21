@@ -250,6 +250,12 @@ spec:
             - {name: GF_PATHS_DATA, value: /tmp/grafana-data}
             - {name: GF_PATHS_LOGS, value: /tmp/grafana-logs}
             - {name: GF_PATHS_PLUGINS, value: /tmp/grafana-plugins}
+            {{- with (($.Values.grafanaExternal | default dict).rootUrl) }}
+            {{- if not (regexMatch "^https://[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]{1,5})?/$" .) }}
+            {{- fail (printf "grafanaExternal.rootUrl must be https://<host>/ (got %q)" .) }}
+            {{- end }}
+            - {name: GF_SERVER_ROOT_URL, value: {{ . | quote }}}
+            {{- end }}
           {{- end }}
           ports:
             - {name: http, containerPort: {{ index (dict "prometheus" 9090 "loki" 3100 "tempo" 3200 "grafana" 3000) $name }}}
