@@ -1,0 +1,1652 @@
+diff --git a/docs/runbooks/edai2/EXTERNAL_GATEWAY_RUNBOOK.md b/docs/runbooks/edai2/EXTERNAL_GATEWAY_RUNBOOK.md
+index 0a97b7d7..78bc08c6 100644
+--- a/docs/runbooks/edai2/EXTERNAL_GATEWAY_RUNBOOK.md
++++ b/docs/runbooks/edai2/EXTERNAL_GATEWAY_RUNBOOK.md
+@@ -39,7 +39,7 @@ Evidence classes are never mixed: `LOCAL_KIND`, `GKE_PRIVATE` (port-forward) and
+ | # | Step | Command | Gate |
+ |---|---|---|---|
+ | P1 | Sleep feasibility, before any cost | `python3 scripts/edge/platform_checks.py $K sleep-feasibility --manifest $M0 [--also-approve ewallet-mcp/feature-rag-mcp]` | every predicted blocker approved; the extra PDB needs an owner approval for **this** campaign |
+-| P2 | DNS before | `python3 scripts/edge/dns_check.py --domain $D --expect-offline` | records the starting shape (values withheld) |
++| P2 | DNS before | `python3 scripts/edge/dns_check.py --domain $D --expect-offline` | records the starting shape (values withheld); exit 2 = `DNS_CHECK_FAILED` (state not provable) |
+ | 1 | Wake | `CLOUD_LAB_APPROVED=yes python3 ops/gcp/cloud_lab.py wake-full --manifest $M0 --nodes 5 --execute --confirm-cluster ewallet-dev` | nodes Ready |
+ | 2 | Private baseline | `python3 scripts/edge/platform_checks.py $K backends --snapshot-out $EV/baseline.json --out $EV/02-backends.jsonl`; `… gateway`; `… envoy` | all PASS (G3-A1 state) |
+ | 3 | Temporary certificate for the new names | `scripts/edge/issue_certificate.sh --environment self-signed --domain $D --context $CTX --kubeconfig $KCF --private-dir $PRIV/tls --import` | 4 SANs; Secret replaced |
+@@ -113,3 +113,110 @@ appear: they are entered in the browser dialog or come from `-K`/`--credentials-
+ | Staged 0 → 1 rollout | `scripts/edge/staged_rollout_check.sh <dir>` (kind) |
+ | Grafana root URL against the pinned image | `scripts/edge/grafana_root_url_check.sh https://observe.edge.example.test/` (Docker) |
+ | Unit tests | `python3 -m pytest tests/ops/test_public_preflight.py tests/ops/test_edge_scripts.py tests/ops/test_edge_negative_checks.py tests/ops/test_session_a_charts.py` |
++
++## Unattended (overnight) campaign
++
++`scripts/edge/g3b_campaign.py` runs the procedure above as phases. State lives in
++`$EV/state.json` (no secrets). There is a hard deadline of 3 h from the wake, and cleanup always
++follows: on success, on failure, at the deadline, on SIGTERM/SIGINT, and through the watchdog
++if the main process dies. `--simulate` records the commands instead of running them;
++`tests/ops/test_dns_campaign.py` exercises every failure mode that way.
++
++### What protects what
++
++| Layer | Covers | Does not cover |
++|---|---|---|
++| Cleanup inside `run` (phase failure, deadline, SIGTERM/SIGINT) | test or deployment failures, the deadline, a terminal or Claude stop that sends a signal | `kill -9`, crash, power loss |
++| Watchdog: systemd user timer every 5 min (`scripts/edge/systemd/`, `install_watchdog.sh`) | a dead main process (heartbeat older than 10 min and the pid gone), or a deadline the main process missed | laptop suspended, off or offline. `Persistent=true` runs a missed pass after resume, which is late, not prevented |
++| Cloud-side fallback | the laptop itself failing | **not built** (needs owner approval) |
++
++`systemd-inhibit` (in the service, and recommended for `run`) blocks suspend while cleanup or
++the campaign runs; it cannot prevent power loss or a network drop.
++
++### DNS before the LB (failure policy)
++
++The LB is released only after `dynu_dns.py offline` and `dns_check.py --expect-offline
++--released-ip <LB IP>` return `DNS_OFFLINE_OK`. A `DNS_CHECK_FAILED` (timeout, SERVFAIL,
++REFUSED, malformed reply, missing `aa`) never counts as offline. If DNS cannot be proven safe
++within the bounded retries, the LB is **kept**: its address stays ours, so no record points
++to someone else's address. The nodes still go to guarded sleep, `CLEANUP_STATUS` is
++`CLEANUP_INCOMPLETE`, and `$EV/ALERT.txt` plus a desktop notification ask the owner to fix
++DNS and run `g3b_campaign.py cleanup --state $EV/state.json` again (resumable). A kept LB with
++no nodes costs a few cents an hour.
++
++### Before overnight execution (all must hold; `init` checks them)
++
++```bash
++python3 scripts/edge/g3b_campaign.py init --campaign $CID --campaign-dir $EV --manifest $M0 \
++  --approved-cidrs $PRIV/approved-cidrs.txt --edge-credentials $PRIV/edge-cred --grafana-credentials $PRIV/grafana-cred \
++  --dns-credentials $PRIV/dynu.json --dns-offline-mode <no-ipv4|signoff> [--dns-offline-ip <placeholder>] \
++  --approve-guarded-sleep --approve-keda-pause --also-approve ewallet-mcp/feature-rag-mcp \
++  --approve-production-certificate [--approve-grafana-root-url] --dns-offline-verified \
++  (--accept-local-only-risk | --cloud-fallback-ready)
++```
++
++| Gate | Holds when |
++|---|---|
++| `CLOUD_LAB_RECOVERY_MANIFEST_VALID` | the manifest has its five files and is for `ewallet-dev` |
++| `PDB_APPROVAL_COMPLETE` | `platform_checks.py sleep-feasibility` with the listed `--also-approve` covers every predicted blocker |
++| `KEDA_SLEEP_APPROVAL_READY` / `GUARDED_SLEEP_PLAN_VALID` | the owner's approvals, and the approved record `sleep_20261106T163042Z` exists |
++| `UNATTENDED_CLEANUP_READY` | DNS credentials present and the offline mode verified once (below); watchdog timer active; linger on; laptop risk covered (fallback ready, or risk explicitly accepted) |
++| `CLIENT_ADDRESS_APPROVED` | this laptop's public address is inside the approved CIDRs (it is not recorded) |
++
++Owner configuration:
++1. `$PRIV/dynu.json` (mode 600): `{"hostname": "ewallet-hg.gleeze.com", "username": "<dynu user>", "password_sha256": "<sha256 of the IP update password>"}`. Create a **separate IP update password** in Dynu first.
++2. `scripts/edge/install_watchdog.sh --enable`, `loginctl enable-linger $USER`, and point `~/ewallet-evidence/gateway/active-campaign` at `$EV`.
++3. Keep the laptop on mains power and online. Start the run as `systemd-inhibit --what=sleep:idle python3 scripts/edge/g3b_campaign.py run --state $EV/state.json`.
++
++**One-time Dynu offline verification** (owner-approved DNS mutation; the cluster can stay
++asleep). Dynu documents neither offline mode's DNS answer, so prove it:
++1. `python3 scripts/edge/dynu_dns.py --credentials $PRIV/dynu.json --execute offline --mode no-ipv4`. Expected: `DNS_OFFLINE_OK` (NXDOMAIN or NODATA everywhere). This also stops the names pointing at the home address.
++2. If it is not `DNS_OFFLINE_OK`: `… offline --mode signoff`, then read which address is answered. If it is a Dynu address the owner accepts, record it as `--dns-offline-ip`.
++3. Use the mode that verified as `--dns-offline-mode`, and pass `--dns-offline-verified` to `init`.
++
++### During execution
++
++Phases in order: `wake`, `baseline`, `temporary-certificate`, `edge-restricted`, `L0-live`,
++`open-lb`, `dns-online`, `internet-gates`, `staging-certificate`, `production-certificate`,
++`responder-off`, `grafana`, `public-e2e`, then cleanup.
++- `python3 scripts/edge/g3b_campaign.py status --state $EV/state.json` shows `CURRENT_PHASE`, `phases`, `DEADLINE`, `LB_IP`, `DNS_TARGET_STATE` and the cleanup steps.
++- The first failed phase stops new work.
++- Wake, LB and DNS intents are written before each command, so a crash mid-command is still undone.
++
++### After execution
++
++| Check | Command | Expected |
++|---|---|---|
++| campaign | `g3b_campaign.py status --state $EV/state.json` | `CLEANUP_STATUS: COMPLETE`, `SLEEP_STATUS: VERIFIED`, `LAST_VERIFIED_NODE_COUNT: 0` |
++| DNS | `dns_check.py --domain $D --expect-offline [--offline-ip …]` | `DNS_OFFLINE_OK` |
++| no LB | `ownership_preflight.py live --context $CTX --kubeconfig $KCF` | `EDGE_OWNERSHIP_OK` |
++| sleep | `cloud_lab.py status` and `verify --expect sleep --manifest <state.sleep_manifest>` | 0 VMs, `failures: []` |
++| evidence | `$EV/*.jsonl`, `baseline.json`, `recovery-manifest/` | sanitized copies go to `docs/evidence/edai2/gateway/$CID/` |
++
++### Recovery
++
++| State | Action |
++|---|---|
++| `CLEANUP_INCOMPLETE`, step `dns-offline` | fix DNS (Dynu panel or credentials), then `g3b_campaign.py cleanup --state $EV/state.json`; it releases the kept LB once DNS is proven offline |
++| step `sleep`: `SLEEP_BLOCKED` | a PDB blocker without approval: owner decides on `--also-approve`; never bypass |
++| step `verify-sleep` | `cloud_lab.py status`; read `cleanup_steps` and the cloud_lab output; run cleanup again |
++| watchdog `GAVE_UP` | three watchdog cleanups failed: owner action, see `ALERT.txt` |
++
++### Cloud-side fallback (design only, not built)
++
++Laptop failure is the gap. The smallest fallback that keeps the Cloud Lab guards:
++- **What:** a Cloud Run job running a container with this repository, kubectl, helm and gcloud, which executes `g3b_campaign.py cleanup` against a state copy kept in a GCS object. A Cloud Scheduler trigger fires it once at the deadline plus 1 h, and the job does nothing if `CLEANUP_STATUS` is `COMPLETE`.
++- **IAM:** a dedicated service account with `roles/container.admin` on the project (node-pool resize and guarded scaling), `roles/storage.objectAdmin` on one bucket, and Secret Manager accessor for the Dynu credentials.
++- **Cost:** under $1 per month (Scheduler free tier, seconds of Cloud Run).
++- **Risk:** a cloud identity able to resize the cluster, and a second copy of the DNS credentials.
++- **Rollback:** delete the job, the trigger and the service account.
++
++It is a separate, owner-approved change. Until then, unattended runs depend on the laptop staying on and online, with an estimated exposure of about $1.1/h if the laptop fails.
++
++### PDB approval proposal for the next campaign
++
++`ewallet-mcp/feature-rag-mcp` (PDB `minAvailable: 1`, Deployment of the `llm-agent-mcp` release, 2 replicas after `wake-full`):
++- **Why it blocks:** its PDB blocks the drain to zero. The approved guarded record `sleep_20261106T163042Z` predates it, so it is not covered.
++- **What the exception does:** before the resize, the guarded sleep scales this stateless MCP server from 2 to 0. It holds no data and no PVC; its state lives in the platform's stores. The fresh recovery manifest restores 2 at the next wake, and a failed sleep restores the replicas.
++- **Why it must be re-approved:** earlier approvals were scoped to their campaign ID, so it is not carried over automatically.
++- **How to verify:** `platform_checks.py sleep-feasibility` with and without the exception, then `cloud_lab.py plan-sleep` (`not_covered`) during cleanup.
+diff --git a/scripts/edge/dns_check.py b/scripts/edge/dns_check.py
+index baa050d0..578f08e3 100644
+--- a/scripts/edge/dns_check.py
++++ b/scripts/edge/dns_check.py
+@@ -1,91 +1,160 @@
+-"""DNS state of the public edge hostnames, at the authoritative servers and public resolvers.
++"""DNS state of the public edge hostnames, verified at the authoritative servers and public resolvers.
+ 
+-  online:  every host answers exactly --expect-ip (the LB address) and has no AAAA record
+-  offline: no host answers an A or AAAA record (or only an owner-approved --offline-ip)
++  online:  every name answers exactly --expect-ip (the LB address) and has no AAAA record
++  offline: no name answers an A or AAAA record (NXDOMAIN or NOERROR/NODATA), or only an
++           owner-approved --offline-ip; --released-ip names the LB address that must be gone
+ 
+-Checks the four edge names, the bare domain and a random name (the Dynu wildcard alias). A
+-value that is not the expected one is reported as "unexpected (withheld)": it may be a home
+-address and must not reach the evidence. Read-only (dig).
++Fail-closed: a query counts only when dig exits 0, prints a parseable header with status
++NOERROR or NXDOMAIN and, at an authoritative server, the "aa" flag. A timeout, SERVFAIL,
++REFUSED, an unreachable server, a malformed reply or no authoritative servers make the whole
++check DNS_CHECK_FAILED (exit 2): an unanswered question never counts as "no record".
+ 
+-  python3 scripts/edge/dns_check.py --domain ewallet-hg.gleeze.com --expect-ip <LB IP>
+-  python3 scripts/edge/dns_check.py --domain ewallet-hg.gleeze.com --expect-offline
++Checks the four edge names, the bare domain and a random name (the wildcard alias). A value
++that is not the expected one is reported as "unexpected (withheld)": it may be a home address.
++
++  exit 0  DNS_ONLINE_OK / DNS_OFFLINE_OK
++  exit 1  DNS_ONLINE_NOT_YET / DNS_OFFLINE_NOT_YET  (valid answers, wrong state: retry later)
++  exit 2  DNS_CHECK_FAILED                          (the state could not be proven)
+ """
+ 
+ from __future__ import annotations
+ 
+ import argparse
++from dataclasses import dataclass, field
+ import ipaddress
+ import json
++import re
+ import secrets
+ import subprocess
+ from typing import Callable
+ 
+ HOSTS = ("features", "agents", "registry", "observe")
+-
+-
+-def dig(server: str, name: str, rtype: str, run: Callable = subprocess.run) -> list[str]:
+-    done = run(["dig", f"@{server}", "+short", "+time=3", "+tries=2", name, rtype], capture_output=True, text=True)
+-    return [line.strip() for line in done.stdout.splitlines() if line.strip() and not line.startswith(";")]
+-
+-
+-def authoritative(domain: str, run: Callable = subprocess.run) -> list[str]:
+-    """The NS of the closest enclosing zone (the domain itself, else its parents)."""
++VALID_STATUS = ("NOERROR", "NXDOMAIN")
++
++
++@dataclass
++class Answer:
++    """One query: a proven answer (error is None) or why it proves nothing."""
++
++    status: str = ""
++    authoritative: bool = False
++    records: list[str] = field(default_factory=list)
++    error: str | None = None
++
++
++def query(server: str, name: str, rtype: str, authoritative: bool, run: Callable = subprocess.run) -> Answer:
++    done = run(["dig", f"@{server}", name, rtype, "+noall", "+comments", "+answer", "+time=3", "+tries=2"],
++               capture_output=True, text=True)
++    text = done.stdout or ""
++    if done.returncode != 0:
++        reason = "timeout" if done.returncode == 9 else f"dig exit {done.returncode}"
++        return Answer(error=reason)
++    header = re.search(r"->>HEADER<<-.*status: ([A-Z]+)", text)
++    flags = re.search(r";; flags: ([a-z ]+);", text)
++    if not header or not flags:
++        return Answer(error="malformed reply (no header)")
++    answer = Answer(status=header.group(1), authoritative="aa" in flags.group(1).split())
++    if answer.status not in VALID_STATUS:
++        answer.error = answer.status  # SERVFAIL, REFUSED, ...
++        return answer
++    if authoritative and not answer.authoritative:
++        answer.error = "not authoritative (aa flag missing)"
++        return answer
++    for line in text.splitlines():
++        parts = line.split()
++        if line.startswith(";") or len(parts) < 5:
++            continue
++        if parts[3] == rtype:
++            try:
++                answer.records.append(str(ipaddress.ip_address(parts[4])))
++            except ValueError:
++                answer.error = "malformed record"
++                return answer
++    return answer
++
++
++def authoritative_servers(domain: str, resolver: str = "1.1.1.1", run: Callable = subprocess.run) -> tuple[list[str], str | None]:
++    """The NS of the closest enclosing zone, asked of a public resolver with the same rules."""
+     labels = domain.split(".")
+     for i in range(len(labels) - 1):
+-        done = run(["dig", "+short", "NS", ".".join(labels[i:])], capture_output=True, text=True)
+-        servers = [s.strip().rstrip(".") for s in done.stdout.splitlines() if s.strip()]
++        zone = ".".join(labels[i:])
++        done = run(["dig", f"@{resolver}", zone, "NS", "+noall", "+comments", "+answer", "+time=3", "+tries=2"],
++                   capture_output=True, text=True)
++        if done.returncode != 0:
++            return [], f"NS lookup for {zone}: dig exit {done.returncode}"
++        header = re.search(r"->>HEADER<<-.*status: ([A-Z]+)", done.stdout or "")
++        if not header:
++            return [], f"NS lookup for {zone}: malformed reply"
++        if header.group(1) not in VALID_STATUS:
++            return [], f"NS lookup for {zone}: {header.group(1)}"
++        servers = [p.split()[4].rstrip(".") for p in done.stdout.splitlines()
++                   if not p.startswith(";") and len(p.split()) >= 5 and p.split()[3] == "NS"]
+         if servers:
+-            return servers
+-    return []
++            return servers, None
++    return [], "no authoritative servers found"
+ 
+ 
+-def describe(values: list[str], expected: str | None) -> str:
+-    return "none" if not values else ", ".join(v if v == expected else "unexpected (withheld)" for v in values)
++def describe(values: list[str], expected: set[str]) -> str:
++    return "none" if not values else ", ".join(v if v in expected else "unexpected (withheld)" for v in values)
+ 
+ 
+-def check(domain: str, expect_ip: str | None, offline_ip: str | None, servers: list[str], run: Callable = subprocess.run) -> list[dict]:
++def check(domain: str, expect_ip: str | None, offline_ip: str | None, released_ip: str | None,
++          authoritative: list[str], resolvers: list[str], run: Callable = subprocess.run) -> tuple[str, list[dict]]:
+     names = [domain, *(f"{h}.{domain}" for h in HOSTS), f"wildcard-probe-{secrets.token_hex(4)}.{domain}"]
+-    results = []
+-    for server in servers:
++    shown = {v for v in (expect_ip, offline_ip, released_ip) if v}
++    results, failed, ok_all = [], False, True
++    for server, is_auth in [(s, True) for s in authoritative] + [(s, False) for s in resolvers]:
+         for name in names:
+-            a, aaaa = dig(server, name, "A", run), dig(server, name, "AAAA", run)
+-            a = [v for v in a if _is_ip(v)]  # drop CNAME lines; the target address is what counts
+-            if expect_ip:
+-                ok = a == [expect_ip] and not aaaa
+-            else:
+-                ok = (not a or a == [offline_ip]) and not aaaa
++            a = query(server, name, "A", is_auth, run)
++            aaaa = query(server, name, "AAAA", is_auth, run)
+             label = name if not name.startswith("wildcard-probe-") else f"<random>.{domain}"
+-            results.append({"server": server, "name": label, "passed": ok,
+-                            "A": describe(a, expect_ip or offline_ip), "AAAA": describe(aaaa, None)})
+-    return results
+-
+-
+-def _is_ip(value: str) -> bool:
+-    try:
+-        ipaddress.ip_address(value)
+-        return True
+-    except ValueError:
+-        return False
+-
+-
+-def main(argv: list[str] | None = None) -> int:
++            row = {"server": server, "authoritative": is_auth, "name": label}
++            errors = [f"A: {a.error}" for _ in [0] if a.error] + [f"AAAA: {aaaa.error}" for _ in [0] if aaaa.error]
++            if errors:
++                failed = True
++                row.update(passed=False, state="CHECK_FAILED", errors=errors)
++            else:
++                if expect_ip:
++                    ok = a.records == [expect_ip] and not aaaa.records
++                else:
++                    ok = (not a.records or a.records == [offline_ip]) and not aaaa.records \
++                        and (not released_ip or released_ip not in a.records)
++                ok_all &= ok
++                row.update(passed=ok, state="OK" if ok else "NOT_YET", status=a.status,
++                           A=describe(a.records, shown), AAAA=describe(aaaa.records, set()))
++            results.append(row)
++    mode = "ONLINE" if expect_ip else "OFFLINE"
++    if failed or not results:
++        return "DNS_CHECK_FAILED", results
++    return (f"DNS_{mode}_OK" if ok_all else f"DNS_{mode}_NOT_YET"), results
++
++
++def main(argv: list[str] | None = None, run: Callable = subprocess.run) -> int:
+     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+     parser.add_argument("--domain", required=True)
+     mode = parser.add_mutually_exclusive_group(required=True)
+     mode.add_argument("--expect-ip", help="the LB address every name must resolve to")
+     mode.add_argument("--expect-offline", action="store_true", help="no name may resolve (cleanup check)")
+     parser.add_argument("--offline-ip", help="an owner-approved placeholder that counts as offline")
++    parser.add_argument("--released-ip", help="offline mode: the LB address that must no longer be answered")
+     parser.add_argument("--resolver", action="append", default=[], help="public resolver (default 1.1.1.1 and 8.8.8.8)")
++    parser.add_argument("--out", help="also write the JSON lines to this file")
+     args = parser.parse_args(argv)
+-    if args.expect_ip:
+-        ipaddress.ip_address(args.expect_ip)
+-    servers = authoritative(args.domain) + (args.resolver or ["1.1.1.1", "8.8.8.8"])
+-    results = check(args.domain, args.expect_ip, args.offline_ip, servers)
+-    for r in results:
+-        print(json.dumps(r))
+-    ok = bool(results) and all(r["passed"] for r in results)
+-    print("DNS_" + ("ONLINE" if args.expect_ip else "OFFLINE") + ("_OK" if ok else "_NOT_YET"))
+-    return 0 if ok else 1
++    for value in (args.expect_ip, args.offline_ip, args.released_ip):
++        if value:
++            ipaddress.ip_address(value)
++    resolvers = args.resolver or ["1.1.1.1", "8.8.8.8"]
++    servers, error = authoritative_servers(args.domain, resolvers[0], run)
++    if error:
++        verdict, results = "DNS_CHECK_FAILED", [{"server": "-", "name": args.domain, "passed": False, "state": "CHECK_FAILED", "errors": [error]}]
++    else:
++        verdict, results = check(args.domain, args.expect_ip, args.offline_ip, args.released_ip, servers, resolvers, run)
++    lines = [json.dumps(r) for r in results] + [json.dumps({"verdict": verdict})]
++    print("\n".join(lines))
++    if args.out:
++        with open(args.out, "w", encoding="utf-8") as handle:
++            handle.write("\n".join(lines) + "\n")
++    return {"DNS_ONLINE_OK": 0, "DNS_OFFLINE_OK": 0, "DNS_ONLINE_NOT_YET": 1, "DNS_OFFLINE_NOT_YET": 1}.get(verdict, 2)
+ 
+ 
+ if __name__ == "__main__":
+diff --git a/scripts/edge/dynu_dns.py b/scripts/edge/dynu_dns.py
+new file mode 100644
+index 00000000..e97a566d
+--- /dev/null
++++ b/scripts/edge/dynu_dns.py
+@@ -0,0 +1,130 @@
++"""Point the Dynu hostname at the edge LB, or take it offline, then verify with dns_check.py.
++
++Uses only Dynu's documented IP Update Protocol (https://www.dynu.com/DynamicDNS/IP-Update-Protocol):
++HTTPS GET https://api.dynu.com/nic/update, HTTP Basic auth with the account user name and the
++separate IP update password (or its SHA-256, which Dynu accepts in its place).
++
++  online  --ip <LB IP>         hostname=<H>&myip=<LB IP>&myipv6=no
++  offline --mode no-ipv4       hostname=<H>&myip=no&myipv6=no    ("blocks" both families)
++  offline --mode signoff       hostname=<H>&offline=yes          (Dynu's offline page/redirect)
++
++What either offline mode does to the DNS answer is NOT documented by Dynu (no A record? a Dynu
++address?). It is therefore never assumed: every mutation is followed by dns_check.py, and only
++its verdict counts. Which mode is safe must be proven once with an owner-approved test.
++
++Credentials: a JSON file OUTSIDE the repository, mode 600:
++  {"hostname": "ewallet-hg.gleeze.com", "username": "<dynu user>", "password_sha256": "<hex>"}
++They go only to api.dynu.com, in the Authorization header; never in a URL, an argument or a log.
++Only the configured hostname is ever updated. Without --execute nothing is sent.
++"""
++
++from __future__ import annotations
++
++import argparse
++import base64
++import json
++import os
++from pathlib import Path
++import stat
++import subprocess
++import sys
++import time
++from typing import Callable
++import urllib.parse
++import urllib.request
++
++ROOT = Path(__file__).resolve().parents[2]
++ENDPOINT = "https://api.dynu.com/nic/update"
++OK_CODES = ("good", "nochg")
++FATAL_HINTS = {"badauth": "wrong user name or IP update password", "nohost": "hostname not in this account",
++               "notfqdn": "hostname is not a valid FQDN", "abuse": "update blocked for abuse",
++               "911": "Dynu asks clients to suspend updates for 10 minutes", "!donator": "feature not available",
++               "numhost": "too many hostnames", "dnserr": "Dynu DNS error (retry)", "servererror": "Dynu server error (retry)"}
++
++
++def load_credentials(path: str) -> dict:
++    file = Path(path).resolve()
++    if file == ROOT or ROOT in file.parents:
++        raise SystemExit(f"{file} is inside the repository; keep DNS credentials outside it")
++    if stat.S_IMODE(file.stat().st_mode) & 0o077:
++        raise SystemExit(f"{file} must not be readable by others (chmod 600)")
++    data = json.loads(file.read_text(encoding="utf-8"))
++    missing = sorted({"hostname", "username"} - set(data))
++    if not (data.get("password_sha256") or data.get("password")):
++        missing.append("password_sha256")
++    if missing:
++        raise SystemExit(f"DNS credentials file lacks {missing}")
++    return data
++
++
++def params(action: str, hostname: str, ip: str | None = None, mode: str | None = None) -> dict:
++    if action == "online":
++        return {"hostname": hostname, "myip": ip, "myipv6": "no"}
++    if mode == "no-ipv4":
++        return {"hostname": hostname, "myip": "no", "myipv6": "no"}
++    return {"hostname": hostname, "offline": "yes"}
++
++
++def send(credentials: dict, query: dict, endpoint: str = ENDPOINT, opener: Callable = urllib.request.urlopen) -> str:
++    """One update request; returns Dynu's first response word."""
++    if endpoint != ENDPOINT and not endpoint.startswith("http://127.0.0.1:"):
++        raise SystemExit("credentials are sent only to https://api.dynu.com/nic/update")
++    secret = credentials.get("password_sha256") or credentials["password"]
++    token = base64.b64encode(f"{credentials['username']}:{secret}".encode()).decode()
++    request = urllib.request.Request(f"{endpoint}?{urllib.parse.urlencode(query)}", method="GET",
++                                     headers={"Authorization": f"Basic {token}", "User-Agent": "ewallet-edge-dns/1"})
++    with opener(request, timeout=20) as response:
++        return response.read().decode(errors="replace").strip().split()[0] if response else "unknown"
++
++
++def verify(domain: str, expect: list[str], attempts: int, interval: int, run: Callable = subprocess.run,
++           sleep: Callable = time.sleep) -> tuple[str, int]:
++    """dns_check.py until its verdict is OK, bounded; a CHECK_FAILED is retried, never accepted."""
++    verdict = "DNS_CHECK_FAILED"
++    for attempt in range(1, attempts + 1):
++        done = run([sys.executable, str(ROOT / "scripts/edge/dns_check.py"), "--domain", domain, *expect],
++                   capture_output=True, text=True)
++        verdict = json.loads(done.stdout.strip().splitlines()[-1]).get("verdict", "DNS_CHECK_FAILED") if done.stdout.strip() else "DNS_CHECK_FAILED"
++        if done.returncode == 0:
++            return verdict, attempt
++        if attempt < attempts:
++            sleep(interval)
++    return verdict, attempts
++
++
++def main(argv: list[str] | None = None) -> int:
++    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
++    parser.add_argument("--credentials", required=True, help="JSON credentials file outside the repository")
++    parser.add_argument("--execute", action="store_true", help="really send the update (owner-approved)")
++    parser.add_argument("--attempts", type=int, default=15, help="dns_check attempts after the update")
++    parser.add_argument("--interval", type=int, default=60)
++    parser.add_argument("--endpoint", default=ENDPOINT, help=argparse.SUPPRESS)  # loopback test server only
++    sub = parser.add_subparsers(dest="action", required=True)
++    online = sub.add_parser("online")
++    online.add_argument("--ip", required=True)
++    offline = sub.add_parser("offline")
++    offline.add_argument("--mode", choices=["no-ipv4", "signoff"], required=True)
++    offline.add_argument("--offline-ip", help="owner-approved address that counts as offline (signoff)")
++    offline.add_argument("--released-ip", help="the LB address that must no longer be answered")
++    args = parser.parse_args(argv)
++    creds = load_credentials(args.credentials)
++    host = creds["hostname"]
++    query = params(args.action, host, getattr(args, "ip", None), getattr(args, "mode", None))
++    shown = {k: v for k, v in query.items()}
++    if not args.execute:
++        print(json.dumps({"planned": f"GET {args.endpoint}", "query": shown, "sent": False}))
++        return 0
++    code = send(creds, query, args.endpoint)
++    print(json.dumps({"query": shown, "dynu_response": code}))
++    if code not in OK_CODES:
++        print(json.dumps({"verdict": "DNS_UPDATE_FAILED", "reason": FATAL_HINTS.get(code, code)}))
++        return 2
++    expect = ["--expect-ip", args.ip] if args.action == "online" else ["--expect-offline", *(
++        ["--offline-ip", args.offline_ip] if args.offline_ip else []), *(["--released-ip", args.released_ip] if args.released_ip else [])]
++    verdict, attempts = verify(host, expect, args.attempts, args.interval)
++    print(json.dumps({"verdict": verdict, "dns_check_attempts": attempts}))
++    return 0 if verdict.endswith("_OK") else (1 if verdict.endswith("NOT_YET") else 2)
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/scripts/edge/g3b_campaign.py b/scripts/edge/g3b_campaign.py
+new file mode 100644
+index 00000000..f7c8082a
+--- /dev/null
++++ b/scripts/edge/g3b_campaign.py
+@@ -0,0 +1,592 @@
++"""One entrypoint for an unattended G3-B campaign: pre-wake gates, phases, deadline, cleanup, watchdog.
++
++It only sequences the repository's own tools (cloud_lab.py, platform_checks.py,
++ownership_preflight.py, issue_certificate.sh, dynu_dns.py, dns_check.py, negative_tests.py,
++public_e2e.py, release_diff.py, helm). State lives in <campaign dir>/state.json (no secrets),
++written atomically, so any process can resume or clean up.
++
++  init      record the owner's inputs and approvals, evaluate the pre-wake gates
++  run       execute the phases; a failure, the deadline (3 h after wake) or SIGTERM/SIGINT
++            stops new work and runs cleanup
++  cleanup   idempotent, resumable, bounded retries; never bypasses Cloud Lab, PDB or KEDA guards
++  watchdog  for the systemd user timer: cleans up when the deadline passed, or when the
++            heartbeat is stale and the main process is gone
++  status    print the state
++
++Guarantees, honestly: cleanup in ``run`` covers failures and signals; the watchdog covers a
++dead main process (Claude, terminal, crash) while the laptop is on and online; neither helps if
++the laptop suspends, loses power or network. That needs a cloud-side fallback (see runbook).
++
++DNS before the LB: the LB address is released only after dns_check.py proves the names no
++longer point at it. If that cannot be proven, the LB is kept (its address stays ours, so no
++record dangles to someone else's address), the nodes still go to guarded sleep, and the result
++is CLEANUP_INCOMPLETE with the reason.
++"""
++
++from __future__ import annotations
++
++import argparse
++import fcntl
++import ipaddress
++import json
++import os
++from pathlib import Path
++import shutil
++import signal
++import subprocess
++import sys
++import time
++from typing import Callable
++
++ROOT = Path(__file__).resolve().parents[2]
++EDGE = ROOT / "scripts/edge"
++CLUSTER, PROJECT = "ewallet-dev", "ewallet-data-ai-platform-hg26"
++APPROVED_RECORD = ROOT / "docs/evidence/edai2/cloud_lab/sleep_20261106T163042Z"
++PRIVATE_VALUES = ROOT / "docs/evidence/edai2/gateway/g3a0_closure_20261121T172654Z/helm/g3a-private-values.yaml"
++GATEWAY_CHART_SHA = "f8b350a2136ece7a103e479cb67ca9f71e2162ab7bc05100922fe65e681e125f"
++DEADLINE_HOURS = 3
++STALE_SECONDS = 600
++GATES = ("CLOUD_LAB_RECOVERY_MANIFEST_VALID", "PDB_APPROVAL_COMPLETE", "KEDA_SLEEP_APPROVAL_READY",
++         "GUARDED_SLEEP_PLAN_VALID", "UNATTENDED_CLEANUP_READY", "CLIENT_ADDRESS_APPROVED")
++
++
++# --- state --------------------------------------------------------------------------------------
++
++def now() -> float:
++    return time.time()
++
++
++def iso(t: float | None) -> str | None:
++    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(t)) if t else None
++
++
++def load(path: Path) -> dict:
++    try:
++        state = json.loads(path.read_text(encoding="utf-8"))
++    except (OSError, ValueError) as error:
++        raise SystemExit(f"invalid campaign state {path}: {error}")
++    for key in ("CAMPAIGN_ID", "CLUSTER", "PROJECT", "config", "approvals", "gates"):
++        if key not in state:
++            raise SystemExit(f"invalid campaign state {path}: missing {key}")
++    if state["CLUSTER"] != CLUSTER or state["PROJECT"] != PROJECT:
++        raise SystemExit("campaign state is for another cluster")
++    return state
++
++
++def save(path: Path, state: dict) -> None:
++    tmp = path.with_suffix(".tmp")
++    tmp.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8")
++    with open(tmp, "rb") as handle:
++        os.fsync(handle.fileno())
++    tmp.replace(path)
++
++
++class Locked:
++    """An exclusive, non-blocking lock beside the state file (one cleanup at a time)."""
++
++    def __init__(self, path: Path):
++        self.handle = open(path.with_suffix(".lock"), "a+")
++
++    def __enter__(self):
++        try:
++            fcntl.flock(self.handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
++        except BlockingIOError:
++            self.handle.close()
++            return None
++        return self
++
++    def __exit__(self, *exc):
++        fcntl.flock(self.handle, fcntl.LOCK_UN)
++        self.handle.close()
++
++
++# --- command execution --------------------------------------------------------------------------
++
++class Executor:
++    """Runs a command; ``env`` adds variables for that command only. Output is not logged."""
++
++    def run(self, cmd: list[str], env: dict | None = None, timeout: int = 3600) -> tuple[int, str]:
++        try:
++            done = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env={**os.environ, **(env or {})})
++        except subprocess.TimeoutExpired:
++            return 124, ""
++        return done.returncode, done.stdout
++
++
++class Simulator(Executor):
++    """Offline: records commands, answers like the real tools. EDGE_SIM_FAIL=<substring> makes
++    matching commands fail; EDGE_SIM_SLEEP=<seconds> slows every command (kill tests)."""
++
++    def __init__(self, log: Path):
++        self.log = log
++
++    def run(self, cmd, env=None, timeout=3600):
++        text = " ".join(cmd)
++        with open(self.log, "a", encoding="utf-8") as handle:
++            handle.write(json.dumps({"cmd": cmd, "env": sorted((env or {}).keys())}) + "\n")
++        time.sleep(float(os.environ.get("EDGE_SIM_SLEEP", "0")))
++        fail = os.environ.get("EDGE_SIM_FAIL")
++        if fail and fail in text:
++            return 1, ""
++        if "myip.opendns.com" in text:
++            return 0, "203.0.113.7"
++        if "loadBalancer.ingress" in text:
++            return 0, "203.0.113.10"
++        if "get nodes" in text:
++            return 0, ""
++        if "plan-sleep" in text:
++            return 0, json.dumps({"pdb_blockers": ["ewallet-mcp/feature-rag-mcp"], "guarded_preparation": {
++                "not_covered": ["ewallet-mcp/feature-rag-mcp"]}})
++        return 0, ""
++
++
++# --- phases -------------------------------------------------------------------------------------
++
++def k(state: dict, *args: str) -> list[str]:
++    c = state["config"]
++    return ["kubectl", "--kubeconfig", c["kubeconfig"], "--context", c["context"], *args]
++
++
++def helm(state: dict, *args: str) -> list[str]:
++    c = state["config"]
++    return ["helm", "--kubeconfig", c["kubeconfig"], "--kube-context", c["context"], *args]
++
++
++def py(script: str, *args: str) -> list[str]:
++    return [sys.executable, str(EDGE / script), *args]
++
++
++def kargs(state: dict) -> list[str]:
++    return ["--kubeconfig", state["config"]["kubeconfig"], "--context", state["config"]["context"]]
++
++
++def edge_upgrade(state: dict, values: str) -> list[str]:
++    return helm(state, "upgrade", "ewallet-edge", str(ROOT / "infra/helm/ewallet-edge"), "-n", "ewallet-ingress",
++                "-f", str(PRIVATE_VALUES), "-f", values)
++
++
++def gateway_upgrade(state: dict, public: bool) -> list[str]:
++    files = ["values-gateway.yaml"] + (["values-gateway-public.yaml", "values-gateway-public-open.yaml"] if public else [])
++    return helm(state, "upgrade", "ewallet-edge-gateway", state["config"]["gateway_chart"], "-n", "ewallet-ingress",
++                *[x for f in files for x in ("-f", str(ROOT / "infra/helm/ewallet-edge" / f))])
++
++
++def public_preflight(state: dict) -> list[str]:
++    c = state["config"]
++    return py("ownership_preflight.py", "live", "--context", c["context"], "--kubeconfig", c["kubeconfig"],
++              "--allow-public-loadbalancer", "--domain", c["domain"], "--approved-cidrs-file", c["approved_cidrs"])
++
++
++def cert(state: dict, environment: str, *extra: str) -> list[str]:
++    c = state["config"]
++    return ["bash", str(EDGE / "issue_certificate.sh"), "--environment", environment, "--domain", c["domain"],
++            "--context", c["context"], "--kubeconfig", c["kubeconfig"], "--private-dir", str(Path(c["private"]) / "tls"), *extra]
++
++
++def phases(state: dict) -> list[tuple[str, Callable]]:
++    """(name, function(state, ex) -> error or None), in runbook order."""
++    c, p = state["config"], Path(state["config"]["private"])
++    selfsigned = str(p / "tls/self-signed/fullchain.pem")
++    edge_args = ["--domain", c["domain"], "--credentials-file", c["edge_credentials"]]
++
++    def step(*cmds, env=None, retries=1, interval=60):
++        def run(state, ex):
++            for cmd in cmds:
++                cmd = cmd(state) if callable(cmd) else cmd
++                for attempt in range(retries):
++                    rc, _ = ex.run(cmd, env)
++                    if rc == 0:
++                        break
++                    if attempt + 1 < retries:
++                        time.sleep(interval if not isinstance(ex, Simulator) else 0)
++                else:
++                    return f"{Path(cmd[1] if cmd[0] in (sys.executable, 'bash') else cmd[0]).name} exit {rc}"
++            return None
++        return run
++
++    def wake(state, ex):
++        state["DEADLINE"] = iso(now() + DEADLINE_HOURS * 3600)
++        state["deadline_epoch"] = now() + DEADLINE_HOURS * 3600
++        state["wake_attempted"] = True  # persisted BEFORE the wake: a crash mid-wake must still lead to sleep
++        save(Path(state["state_path"]), state)
++        rc, _ = ex.run([sys.executable, str(ROOT / "ops/gcp/cloud_lab.py"), "wake-full", "--manifest", c["manifest"],
++                        "--nodes", "5", "--execute", "--confirm-cluster", CLUSTER], {"CLOUD_LAB_APPROVED": "yes"})
++        state["WAKE_COMPLETED"] = rc == 0
++        return None if rc == 0 else f"wake-full exit {rc}"
++
++    def open_lb(state, ex):
++        state["PUBLIC_LB_CREATED"] = True  # persisted BEFORE the upgrade: cleanup must always look
++        save(Path(state["state_path"]), state)
++        rc, _ = ex.run(gateway_upgrade(state, True))
++        if rc != 0:
++            return f"gateway upgrade exit {rc}"
++        for _ in range(30):
++            rc, out = ex.run(k(state, "-n", "ewallet-ingress", "get", "svc", "ewallet-edge-gateway", "-o",
++                               "jsonpath={.status.loadBalancer.ingress[0].ip}"))
++            if rc == 0 and out.strip():
++                state["LB_IP"] = str(ipaddress.ip_address(out.strip()))
++                save(Path(state["state_path"]), state)
++                return step(public_preflight)(state, ex)
++            time.sleep(0 if isinstance(ex, Simulator) else 20)
++        return "no LB address within 10 minutes"
++
++    def dns_online(state, ex):
++        state["DNS_TARGET_STATE"] = "unknown"  # persisted BEFORE the update: cleanup takes DNS offline
++        save(Path(state["state_path"]), state)
++        rc, _ = ex.run(py("dynu_dns.py", "--credentials", c["dns_credentials"], "--execute", "online", "--ip", state["LB_IP"]))
++        state["DNS_TARGET_STATE"] = "online" if rc == 0 else "unknown"
++        return None if rc == 0 else f"DNS online exit {rc}"
++
++    def grafana(state, ex):
++        if not state["approvals"].get("grafana_root_url"):
++            state["GRAFANA"] = "NOT_APPROVED"
++            return None
++        url, live, vals = f"https://observe.{c['domain']}/", p / "llm-live.yaml", p / "llm-values.yaml"
++        chart = str(ROOT / "infra/helm/llm-agent-platform")
++        cmds = [(helm(state, "get", "manifest", "llm-agent", "-n", "default"), live),
++                (helm(state, "get", "values", "llm-agent", "-n", "default", "-a", "-o", "yaml"), vals)]
++        for cmd, out in cmds:
++            rc, text = ex.run(cmd)
++            if rc != 0:
++                state["GRAFANA"] = "SKIPPED (cannot read the release)"
++                return None
++            out.write_text(text, encoding="utf-8")
++        for name, extra in (("llm-current.yaml", []), ("llm-proposed.yaml", ["--set", f"grafanaExternal.rootUrl={url}"])):
++            rc, text = ex.run(helm(state, "template", "llm-agent", chart, "-n", "default", "-f", str(vals), *extra))
++            (p / name).write_text(text, encoding="utf-8")
++        drift, _ = ex.run(py("release_diff.py", "--before", str(live), "--after", str(p / "llm-current.yaml")))
++        only, _ = ex.run(py("release_diff.py", "--before", str(p / "llm-current.yaml"), "--after", str(p / "llm-proposed.yaml"),
++                            "--allow-grafana-root-url", url))
++        if drift or only:
++            state["GRAFANA"] = "SKIPPED (release_diff not clean: owner review)"
++            return None
++        rc, _ = ex.run(helm(state, "upgrade", "llm-agent", chart, "-n", "default", "-f", str(vals), "--set", f"grafanaExternal.rootUrl={url}"))
++        state["GRAFANA"] = "APPLIED" if rc == 0 else f"UPGRADE_FAILED exit {rc}"
++        return None if rc == 0 else "Grafana upgrade failed"
++
++    ev = Path(c["campaign_dir"])
++    return [
++        ("wake", wake),
++        ("baseline", step(py("platform_checks.py", *kargs(state), "backends", "--snapshot-out", str(ev / "baseline.json"),
++                             "--out", str(ev / "02-backends.jsonl")), retries=25)),
++        ("temporary-certificate", step(cert(state, "self-signed", "--import"))),
++        ("edge-restricted", step(edge_upgrade(state, c["values_acme"]), py("platform_checks.py", *kargs(state), "gateway"),
++                                 py("platform_checks.py", *kargs(state), "envoy", "--restricted"),
++                                 py("platform_checks.py", *kargs(state), "watch"))),
++        ("L0-live", step(public_preflight)),
++        ("open-lb", open_lb),
++        ("dns-online", dns_online),
++        ("internet-gates", step(lambda s: py("negative_tests.py", "--address", s["LB_IP"], "--ca-file", selfsigned,
++                                             "--rate-limit-mode", "http2", "--out", str(ev / "10-negative.jsonl"), *edge_args),
++                                lambda s: py("public_e2e.py", "--address", s["LB_IP"], "--ca-file", selfsigned, "--agents", "allowed",
++                                             "--evidence-class", "PUBLIC_INTERNET", "--out", str(ev / "10-e2e.jsonl"), *edge_args))),
++        ("staging-certificate", step(cert(state, "staging"))),
++        ("production-certificate", step(cert(state, "production", "--confirm-production", "--import"))
++         if state["approvals"].get("production_certificate") else (lambda s, e: "production certificate not approved")),
++        ("responder-off", step(edge_upgrade(state, c["values_final"]))),
++        ("grafana", grafana),
++        ("public-e2e", step(lambda s: py("public_e2e.py", "--address", s["LB_IP"], "--agents", "allowed", "--evidence-class",
++                                         "PUBLIC_INTERNET", "--out", str(ev / "14-e2e.jsonl"), *edge_args, *(
++                                             ["--grafana-credentials-file", c["grafana_credentials"], "--grafana-root-url",
++                                              f"https://observe.{c['domain']}/"] if c.get("grafana_credentials") else [])),
++                            lambda s: py("negative_tests.py", "--address", s["LB_IP"], "--rate-limit-mode", "http2",
++                                         "--out", str(ev / "14-negative.jsonl"), *edge_args),
++                            py("platform_checks.py", *kargs(state), "compare", "--baseline", str(ev / "baseline.json")),
++                            public_preflight)),
++    ]
++
++
++# --- cleanup ------------------------------------------------------------------------------------
++
++def cleanup(state_path: Path, ex: Executor, reason: str) -> dict:
++    """Idempotent: each finished step is skipped on resume. Never bypasses a guard."""
++    state = load(state_path)
++    c, steps = state["config"], state.setdefault("cleanup_steps", {})
++    state.update(CLEANUP_STARTED=state.get("CLEANUP_STARTED") or iso(now()), cleanup_reason=state.get("cleanup_reason") or reason)
++    save(state_path, state)
++    sim = isinstance(ex, Simulator)
++
++    def done(name, ok, detail=""):
++        steps[name] = {"ok": ok, "detail": detail, "at": iso(now())}
++        save(state_path, state)
++        return ok
++
++    def retry(cmd, attempts=3, interval=60, env=None):
++        rc = 1
++        for attempt in range(attempts):
++            rc, out = ex.run(cmd, env)
++            if rc == 0:
++                return 0, out
++            if attempt + 1 < attempts:
++                time.sleep(0 if sim else interval)
++        return rc, ""
++
++    dns_safe = True
++    if state.get("DNS_TARGET_STATE") in ("online", "unknown") and not steps.get("dns-offline", {}).get("ok"):
++        if not c.get("dns_credentials"):
++            dns_safe = done("dns-offline", False, "no DNS automation configured")
++        else:
++            cmd = py("dynu_dns.py", "--credentials", c["dns_credentials"], "--execute", "offline", "--mode", c["dns_offline_mode"],
++                     *(["--offline-ip", c["dns_offline_ip"]] if c.get("dns_offline_ip") else []),
++                     *(["--released-ip", state["LB_IP"]] if state.get("LB_IP") else []))
++            rc, _ = retry(cmd, attempts=2)
++            dns_safe = done("dns-offline", rc == 0, "DNS_OFFLINE_OK verified" if rc == 0 else f"not proven (exit {rc})")
++            if rc == 0:
++                state["DNS_TARGET_STATE"] = "offline"
++    if state.get("PUBLIC_LB_CREATED") and not steps.get("lb-release", {}).get("ok"):
++        if dns_safe:
++            rc, _ = retry(gateway_upgrade(state, False))
++            rc2, _ = retry(py("ownership_preflight.py", "live", "--context", c["context"], "--kubeconfig", c["kubeconfig"]))
++            done("lb-release", rc == 0 and rc2 == 0, "ClusterIP; no LoadBalancer" if rc == rc2 == 0 else f"exit {rc}/{rc2}")
++        else:
++            done("lb-release", False, "LB KEPT: DNS not proven offline, its address stays ours (no dangling record)")
++    if state.get("wake_attempted") and not steps.get("sleep", {}).get("ok"):
++        manifest = c["manifest"]
++        if state.get("baseline_passed") and not steps.get("record-manifest", {}).get("ok"):
++            fresh = str(Path(c["campaign_dir"]) / "recovery-manifest")
++            rc, _ = ex.run([sys.executable, str(ROOT / "ops/gcp/cloud_lab.py"), "record-manifest", "--out", fresh,
++                            "--campaign", state["CAMPAIGN_ID"]])
++            done("record-manifest", rc == 0, fresh if rc == 0 else f"exit {rc}: the starting manifest is used")
++        if steps.get("record-manifest", {}).get("ok"):
++            manifest = steps["record-manifest"]["detail"]
++        state["sleep_manifest"] = manifest
++        rc, out = ex.run([sys.executable, str(ROOT / "ops/gcp/cloud_lab.py"), "plan-sleep", "--manifest", str(APPROVED_RECORD)])
++        try:
++            uncovered = set(json.loads(out).get("guarded_preparation", {}).get("not_covered", [])) if rc == 0 else None
++        except ValueError:
++            uncovered = None
++        allowed = set(state["approvals"].get("also_approve", []))
++        if uncovered is None or not uncovered <= allowed:
++            done("sleep", False, f"SLEEP_BLOCKED: unapproved PDB blockers {sorted((uncovered or {'plan-sleep failed'}) - allowed)}")
++        else:
++            env = {"CLOUD_LAB_APPROVED": "yes", "CLOUD_LAB_GUARDED_SLEEP_APPROVAL": f"{CLUSTER}:{state['CAMPAIGN_ID']}",
++                   "CLOUD_LAB_KEDA_PAUSE_APPROVAL": f"{CLUSTER}:{state['CAMPAIGN_ID']}"}
++            cmd = [sys.executable, str(ROOT / "ops/gcp/cloud_lab.py"), "sleep", "--scale-pdb-guarded", "--pause-keda",
++                   "--manifest", str(APPROVED_RECORD), "--campaign", state["CAMPAIGN_ID"],
++                   *[x for key in sorted(uncovered) for x in ("--also-approve", key)], "--execute", "--confirm-cluster", CLUSTER]
++            rc, _ = retry(cmd, attempts=2, interval=120, env=env)
++            done("sleep", rc == 0, "guarded sleep exit 0" if rc == 0 else f"guarded sleep exit {rc} (see cloud_lab output; no bypass)")
++    if state.get("wake_attempted"):
++        rc, _ = ex.run([sys.executable, str(ROOT / "ops/gcp/cloud_lab.py"), "verify", "--expect", "sleep", "--manifest",
++                        state.get("sleep_manifest", c["manifest"])])
++        rc_n, nodes = ex.run(k(state, "get", "nodes", "--no-headers"))
++        count = len([l for l in nodes.splitlines() if l.strip()]) if rc_n == 0 else None
++        state["LAST_VERIFIED_NODE_COUNT"] = count
++        done("verify-sleep", rc == 0 and count == 0, f"verify exit {rc}; nodes={count}")
++    state["SLEEP_STATUS"] = "VERIFIED" if steps.get("verify-sleep", {}).get("ok") or not state.get("wake_attempted") else "NOT_VERIFIED"
++    failed = [n for n, s in steps.items() if not s["ok"]]
++    state["CLEANUP_STATUS"] = "COMPLETE" if not failed else "CLEANUP_INCOMPLETE"
++    state["cleanup_failed_steps"] = failed
++    state["campaign_active"] = bool(failed)
++    save(state_path, state)
++    if failed:
++        alert = Path(c["campaign_dir"]) / "ALERT.txt"
++        alert.write_text(f"{iso(now())} CLEANUP_INCOMPLETE {failed}: see state.json cleanup_steps; "
++                         f"docs/runbooks/edai2/EXTERNAL_GATEWAY_RUNBOOK.md 'Recovery'.\n", encoding="utf-8")
++        if shutil.which("notify-send") and not sim:
++            subprocess.run(["notify-send", "-u", "critical", "G3-B cleanup incomplete", ", ".join(failed)], check=False)
++    return state
++
++
++# --- run / watchdog / init -----------------------------------------------------------------------
++
++def run(state_path: Path, ex: Executor) -> dict:
++    state = load(state_path)
++    if not all(state["gates"].get(g) == "PASS" for g in GATES) and not isinstance(ex, Simulator):
++        raise SystemExit(f"pre-wake gates not all PASS: {state['gates']}; not waking")
++    stop = {"signal": None}
++    signal.signal(signal.SIGTERM, lambda *_: stop.update(signal="SIGTERM"))
++    signal.signal(signal.SIGINT, lambda *_: stop.update(signal="SIGINT"))
++    state.update(campaign_active=True, main_pid=os.getpid(), START_TIME=state.get("START_TIME") or iso(now()),
++                 heartbeat=now(), state_path=str(state_path), G3B_STATUS="RUNNING")
++    save(state_path, state)
++    reason = "PASS"
++    for name, function in phases(state):
++        if stop["signal"]:
++            reason = f"stopped by {stop['signal']}"
++            break
++        if state.get("deadline_epoch") and now() > state["deadline_epoch"]:
++            reason = "DEADLINE_EXPIRED"
++            break
++        if state.get("phases", {}).get(name) == "PASS":
++            continue
++        state.update(CURRENT_PHASE=name, heartbeat=now())
++        save(state_path, state)
++        error = function(state, ex)
++        state.setdefault("phases", {})[name] = "PASS" if error is None else f"FAIL: {error}"
++        if name == "baseline" and error is None:
++            state["baseline_passed"] = True
++        state["heartbeat"] = now()
++        save(state_path, state)
++        if error:
++            reason = f"FAIL at {name}: {error}"
++            break
++    state["G3B_STATUS"] = "PASS" if reason == "PASS" else reason
++    state["CURRENT_PHASE"] = "cleanup"
++    save(state_path, state)
++    return cleanup(state_path, ex, reason)
++
++
++def pid_alive(pid: int | None) -> bool:
++    if not pid:
++        return False
++    try:
++        os.kill(pid, 0)
++        return True
++    except ProcessLookupError:
++        return False
++    except PermissionError:
++        return True
++
++
++def watchdog(state_path: Path, ex: Executor, max_attempts: int = 3) -> str:
++    state = load(state_path)
++    if not state.get("campaign_active"):
++        return "IDLE"
++    expired = bool(state.get("deadline_epoch")) and now() > state["deadline_epoch"]
++    stale = now() - state.get("heartbeat", 0) > STALE_SECONDS and not pid_alive(state.get("main_pid"))
++    if not (expired or stale):
++        return "OK"
++    if state.get("watchdog_attempts", 0) >= max_attempts:
++        return "GAVE_UP (see ALERT.txt)"
++    with Locked(state_path) as lock:
++        if lock is None:
++            return "CLEANUP_ALREADY_RUNNING"
++        state["watchdog_attempts"] = state.get("watchdog_attempts", 0) + 1
++        save(state_path, state)
++        result = cleanup(state_path, ex, "watchdog: " + ("deadline expired" if expired else "main process gone"))
++        return result["CLEANUP_STATUS"]
++
++
++def outside_repo(path: str | None, label: str, problems: list[str], required: bool = True) -> str | None:
++    if not path:
++        if required:
++            problems.append(f"{label} missing")
++        return None
++    resolved = Path(path).expanduser().resolve()
++    if resolved == ROOT or ROOT in resolved.parents:
++        problems.append(f"{label} is inside the repository")
++    elif not resolved.exists():
++        problems.append(f"{label} does not exist")
++    return str(resolved)
++
++
++def init(args: argparse.Namespace, ex: Executor) -> dict:
++    campaign = Path(args.campaign_dir).expanduser().resolve()
++    private = campaign / "private"
++    private.mkdir(parents=True, exist_ok=True)
++    os.chmod(campaign, 0o700)
++    problems: list[str] = []
++    cfg = {"campaign_dir": str(campaign), "private": str(private), "domain": args.domain, "context": args.context,
++           "kubeconfig": str(Path(args.kubeconfig).expanduser()), "gateway_chart": args.gateway_chart,
++           "manifest": outside_repo(args.manifest, "recovery manifest", problems),
++           "approved_cidrs": outside_repo(args.approved_cidrs, "approved CIDRs file", problems),
++           "edge_credentials": outside_repo(args.edge_credentials, "edge credentials", problems),
++           "grafana_credentials": outside_repo(args.grafana_credentials, "Grafana credentials", problems, required=False),
++           "dns_credentials": outside_repo(args.dns_credentials, "DNS credentials", problems, required=False),
++           "dns_offline_mode": args.dns_offline_mode, "dns_offline_ip": args.dns_offline_ip}
++    cidrs = [l.split("#")[0].strip() for l in Path(cfg["approved_cidrs"]).read_text().splitlines()] if cfg["approved_cidrs"] and Path(cfg["approved_cidrs"]).exists() else []
++    cidrs = [x for x in cidrs if x]
++    for name, acme in (("values_acme", True), ("values_final", False)):
++        path = private / f"g3b-{name}.yaml"
++        path.write_text(json.dumps({"domain": args.domain, "sourceRestriction": {"enabled": True, "routes": ["kagent-ui"],
++                                                                                 "allowedCidrs": cidrs},
++                                    "acmeHttp01": {"enabled": acme}}, indent=2) + "\n", encoding="utf-8")
++        cfg[name] = str(path)
++    approvals = {"guarded_sleep": args.approve_guarded_sleep, "keda_pause": args.approve_keda_pause,
++                 "also_approve": args.also_approve, "production_certificate": args.approve_production_certificate,
++                 "grafana_root_url": args.approve_grafana_root_url, "dns_offline_verified": args.dns_offline_verified,
++                 "local_only_risk_accepted": args.accept_local_only_risk, "cloud_fallback": args.cloud_fallback_ready}
++    gates = {}
++    m = Path(cfg["manifest"] or "/nonexistent")
++    needed = ("MANIFEST.json", "workloads.json", "workload-requests.json", "disks-before.json", "buckets-before.txt")
++    try:
++        manifest_ok = all((m / f).exists() for f in needed) and json.loads((m / "MANIFEST.json").read_text()).get("cluster") == CLUSTER
++    except ValueError:
++        manifest_ok = False
++    gates["CLOUD_LAB_RECOVERY_MANIFEST_VALID"] = "PASS" if manifest_ok else "FAIL"
++    rc, _ = ex.run(py("platform_checks.py", "--kubeconfig", cfg["kubeconfig"], "--context", cfg["context"], "sleep-feasibility",
++                      "--manifest", str(m), *[x for key in args.also_approve for x in ("--also-approve", key)]))
++    gates["PDB_APPROVAL_COMPLETE"] = "PASS" if rc == 0 else "FAIL"
++    gates["KEDA_SLEEP_APPROVAL_READY"] = "PASS" if args.approve_keda_pause else "FAIL"
++    gates["GUARDED_SLEEP_PLAN_VALID"] = "PASS" if args.approve_guarded_sleep and (APPROVED_RECORD / "pdb-after-scale.txt").exists() else "FAIL"
++    rc_t, _ = ex.run(["systemctl", "--user", "is-active", "edge-campaign-watchdog.timer"])
++    rc_l, linger = ex.run(["loginctl", "show-user", os.environ.get("USER", ""), "-p", "Linger", "--value"])
++    unattended = {"dns_automation": bool(cfg["dns_credentials"]) and args.dns_offline_verified,
++                  "watchdog_timer_active": rc_t == 0, "linger": linger.strip() == "yes" or isinstance(ex, Simulator),
++                  "laptop_risk_covered": args.cloud_fallback_ready or args.accept_local_only_risk}
++    gates["UNATTENDED_CLEANUP_READY"] = "PASS" if all(unattended.values()) else "FAIL"
++    rc_ip, ip = ex.run(["dig", "+short", "myip.opendns.com", "@resolver1.opendns.com"])
++    try:
++        mine = ipaddress.ip_address(ip.strip().splitlines()[-1]) if rc_ip == 0 and ip.strip() else None
++        inside = mine is not None and any(mine in ipaddress.ip_network(x) for x in cidrs)
++    except ValueError:
++        inside = False
++    gates["CLIENT_ADDRESS_APPROVED"] = "PASS" if inside else "FAIL"  # the address itself is not recorded
++    if problems:
++        gates = {g: ("FAIL" if g in ("CLOUD_LAB_RECOVERY_MANIFEST_VALID", "UNATTENDED_CLEANUP_READY") else v) for g, v in gates.items()}
++    state = {"CAMPAIGN_ID": args.campaign, "CLUSTER": CLUSTER, "PROJECT": PROJECT, "config": cfg, "approvals": approvals,
++             "gates": gates, "gate_problems": problems, "unattended": unattended, "START_TIME": None, "DEADLINE": None,
++             "CURRENT_PHASE": "initialised", "WAKE_COMPLETED": False, "PUBLIC_LB_CREATED": False, "LB_IP": None,
++             "DNS_TARGET_STATE": "untouched", "ACME_STATUS": None, "G3B_STATUS": "NOT_STARTED", "CLEANUP_STARTED": None,
++             "CLEANUP_STATUS": None, "SLEEP_STATUS": None, "LAST_VERIFIED_NODE_COUNT": None, "campaign_active": False}
++    save(campaign / "state.json", state)
++    return state
++
++
++def main(argv: list[str] | None = None) -> int:
++    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
++    parser.add_argument("--simulate", action="store_true", help="record commands instead of running them (offline tests)")
++    sub = parser.add_subparsers(dest="command", required=True)
++    i = sub.add_parser("init")
++    i.add_argument("--campaign", required=True)
++    i.add_argument("--campaign-dir", required=True)
++    i.add_argument("--domain", default="ewallet-hg.gleeze.com")
++    i.add_argument("--context", default="gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev")
++    i.add_argument("--kubeconfig", default="~/.cache/ewallet-cloud-lab/kubeconfig")
++    i.add_argument("--gateway-chart", default=str(Path("~/.cache/helm/repository/gateway-1.30.7.tgz").expanduser()))
++    i.add_argument("--manifest", required=True)
++    i.add_argument("--approved-cidrs", required=True)
++    i.add_argument("--edge-credentials", required=True)
++    i.add_argument("--grafana-credentials")
++    i.add_argument("--dns-credentials")
++    i.add_argument("--dns-offline-mode", choices=["no-ipv4", "signoff"], default="no-ipv4")
++    i.add_argument("--dns-offline-ip")
++    for flag in ("approve-guarded-sleep", "approve-keda-pause", "approve-production-certificate", "approve-grafana-root-url",
++                 "dns-offline-verified", "accept-local-only-risk", "cloud-fallback-ready"):
++        i.add_argument(f"--{flag}", action="store_true")
++    i.add_argument("--also-approve", action="append", default=[], metavar="NS/NAME")
++    for name in ("run", "cleanup", "watchdog", "status"):
++        sub.add_parser(name).add_argument("--state", required=True)
++    args = parser.parse_args(argv)
++    state_path = Path(getattr(args, "state", "") or (Path(getattr(args, "campaign_dir", ".")).expanduser() / "state.json"))
++    ex: Executor = Simulator(state_path.parent / "simulated-commands.jsonl") if args.simulate else Executor()
++    if args.command == "init":
++        state = init(args, ex)
++        print(json.dumps({"gates": state["gates"], "problems": state["gate_problems"], "unattended": state["unattended"]}, indent=2))
++        return 0 if all(v == "PASS" for v in state["gates"].values()) else 1
++    if args.command == "status":
++        print(json.dumps(load(state_path), indent=2, sort_keys=True))
++        return 0
++    if args.command == "watchdog":
++        print(watchdog(state_path, ex) if state_path.exists() else "IDLE (no active campaign)")
++        return 0
++    if args.command == "cleanup":
++        with Locked(state_path) as lock:
++            if lock is None:
++                print("CLEANUP_ALREADY_RUNNING")
++                return 1
++            state = cleanup(state_path, ex, "manual cleanup")
++        print(state["CLEANUP_STATUS"])
++        return 0 if state["CLEANUP_STATUS"] == "COMPLETE" else 1
++    with Locked(state_path) as lock:
++        if lock is None:
++            print("ANOTHER_PROCESS_HOLDS_THE_CAMPAIGN")
++            return 1
++        state = run(state_path, ex)
++    print(json.dumps({k: state.get(k) for k in ("G3B_STATUS", "CLEANUP_STATUS", "SLEEP_STATUS", "LAST_VERIFIED_NODE_COUNT")}))
++    return 0 if state["G3B_STATUS"] == "PASS" and state["CLEANUP_STATUS"] == "COMPLETE" else 1
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/scripts/edge/install_watchdog.sh b/scripts/edge/install_watchdog.sh
+new file mode 100755
+index 00000000..7b60b8ec
+--- /dev/null
++++ b/scripts/edge/install_watchdog.sh
+@@ -0,0 +1,24 @@
++#!/usr/bin/env bash
++# Render the G3-B watchdog user units for this machine.
++# usage: install_watchdog.sh [--state FILE] [--dest DIR] [--enable]
++#   --state  campaign state the watchdog follows (default ~/ewallet-evidence/gateway/active-campaign/state.json,
++#            a symlink the owner points at the campaign directory)
++#   --dest   where to write the units (default ~/.config/systemd/user); tests use a temporary directory
++#   --enable also run systemctl --user daemon-reload and enable --now the timer (owner step)
++# Without --enable nothing is started. The watchdog itself only acts on an active campaign.
++set -euo pipefail
++repo=$(cd "$(dirname "$0")/../.." && pwd)
++state="$HOME/ewallet-evidence/gateway/active-campaign/state.json" dest="$HOME/.config/systemd/user" enable=""
++while [ $# -gt 0 ]; do
++  case "$1" in --state) state=$2; shift 2 ;; --dest) dest=$2; shift 2 ;; --enable) enable=1; shift ;; *) echo "unknown $1" >&2; exit 2 ;; esac
++done
++mkdir -p "$dest"
++for unit in edge-campaign-watchdog.service edge-campaign-watchdog.timer; do
++  sed -e "s#@REPO@#$repo#g" -e "s#@PATH@#$PATH#g" -e "s#@STATE@#$state#g" "$repo/scripts/edge/systemd/$unit" > "$dest/$unit"
++done
++echo "wrote $dest/edge-campaign-watchdog.{service,timer}"
++if [ -n "$enable" ]; then
++  systemctl --user daemon-reload
++  systemctl --user enable --now edge-campaign-watchdog.timer
++  echo "enabled; also run: loginctl enable-linger $USER (keeps the timer running after logout)"
++fi
+diff --git a/scripts/edge/systemd/edge-campaign-watchdog.service b/scripts/edge/systemd/edge-campaign-watchdog.service
+new file mode 100644
+index 00000000..1f1e9738
+--- /dev/null
++++ b/scripts/edge/systemd/edge-campaign-watchdog.service
+@@ -0,0 +1,11 @@
++# Rendered by scripts/edge/install_watchdog.sh (@REPO@, @PATH@ and @STATE@ are filled in).
++# One watchdog pass for the active G3-B campaign: cleans up only when the campaign deadline has
++# passed, or the main process is gone with a stale heartbeat. Idle otherwise.
++[Unit]
++Description=G3-B edge campaign watchdog (deadline and dead-process cleanup)
++
++[Service]
++Type=oneshot
++Environment=PATH=@PATH@
++ExecStart=/usr/bin/systemd-inhibit --what=sleep:idle --who=edge-campaign --why=edge-campaign-cleanup --mode=block /usr/bin/env python3 @REPO@/scripts/edge/g3b_campaign.py watchdog --state @STATE@
++TimeoutStartSec=3h
+diff --git a/scripts/edge/systemd/edge-campaign-watchdog.timer b/scripts/edge/systemd/edge-campaign-watchdog.timer
+new file mode 100644
+index 00000000..9875d8ae
+--- /dev/null
++++ b/scripts/edge/systemd/edge-campaign-watchdog.timer
+@@ -0,0 +1,13 @@
++# Every 5 minutes while the user manager runs (enable linger to keep it running after logout).
++# Persistent=true: a pass missed during suspend runs right after resume.
++[Unit]
++Description=G3-B edge campaign watchdog timer
++
++[Timer]
++OnBootSec=2min
++OnUnitActiveSec=5min
++Persistent=true
++AccuracySec=30s
++
++[Install]
++WantedBy=timers.target
+diff --git a/tests/ops/test_dns_campaign.py b/tests/ops/test_dns_campaign.py
+new file mode 100644
+index 00000000..3a6d6f51
+--- /dev/null
++++ b/tests/ops/test_dns_campaign.py
+@@ -0,0 +1,469 @@
++"""Fail-closed DNS verification, the Dynu helper and the unattended G3-B campaign (offline).
++
++No cloud, no DNS mutation: dig is faked, Dynu is a loopback HTTP server, and the campaign runs
++with its Simulator (commands recorded, never executed). Addresses are documentation ranges."""
++
++from __future__ import annotations
++
++import base64
++import hashlib
++import importlib.util
++import json
++import os
++from pathlib import Path
++import signal
++import subprocess
++import sys
++import threading
++import time
++from http.server import BaseHTTPRequestHandler, HTTPServer
++from types import SimpleNamespace
++
++import pytest
++
++ROOT = Path(__file__).resolve().parents[2]
++EDGE = ROOT / "scripts/edge"
++sys.path.insert(0, str(EDGE))
++LB, HOME_IP, DOMAIN = "203.0.113.10", "198.51.100.77", "edge.example.test"
++
++
++def load(name):
++    spec = importlib.util.spec_from_file_location(name, EDGE / f"{name}.py")
++    module = importlib.util.module_from_spec(spec)
++    sys.modules[name] = module
++    spec.loader.exec_module(module)
++    return module
++
++
++dns, dynu, camp = load("dns_check"), load("dynu_dns"), load("g3b_campaign")
++
++
++# --- dns_check: fail-closed ---------------------------------------------------------------------
++
++def reply(status="NOERROR", records=(), rtype="A", aa=True, rc=0, raw=None):
++    if raw is not None:
++        return SimpleNamespace(returncode=rc, stdout=raw)
++    flags = "qr aa rd" if aa else "qr rd ra"
++    lines = [f";; ->>HEADER<<- opcode: QUERY, status: {status}, id: 1", f";; flags: {flags}; QUERY: 1, ANSWER: {len(records)}"]
++    lines += [f"name. 120 IN {rtype} {r}" for r in records]
++    return SimpleNamespace(returncode=rc, stdout="\n".join(lines) + "\n")
++
++
++def fake(a=lambda server, name: reply(records=[LB]), aaaa=lambda server, name: reply(rtype="AAAA")):
++    def run(cmd, capture_output, text):
++        server, name, rtype = cmd[1][1:], cmd[2], cmd[3]
++        if rtype == "NS":
++            return reply(records=["ns1.dynu.example.", "ns3.dynu.example."], rtype="NS", aa=False)
++        return a(server, name) if rtype == "A" else aaaa(server, name)
++    return run
++
++
++def verdict(mode, run, **kw):
++    servers, err = dns.authoritative_servers(DOMAIN, "1.1.1.1", run)
++    assert err is None
++    expect = {"expect_ip": LB} if mode == "online" else {"expect_ip": None}
++    return dns.check(DOMAIN, expect["expect_ip"], kw.get("offline_ip"), kw.get("released_ip"), servers, ["1.1.1.1", "8.8.8.8"], run)
++
++
++def test_valid_online():
++    assert verdict("online", fake())[0] == "DNS_ONLINE_OK"
++
++
++@pytest.mark.parametrize("status", ["NXDOMAIN", "NOERROR"])  # NXDOMAIN and NOERROR/NODATA both prove "no record"
++def test_valid_offline(status):
++    run = fake(a=lambda s, n: reply(status=status), aaaa=lambda s, n: reply(status=status, rtype="AAAA"))
++    assert verdict("offline", run, released_ip=LB)[0] == "DNS_OFFLINE_OK"
++
++
++def test_valid_approved_offline_ip():
++    run = fake(a=lambda s, n: reply(records=["192.0.2.1"]))
++    assert verdict("offline", run, offline_ip="192.0.2.1", released_ip=LB)[0] == "DNS_OFFLINE_OK"
++
++
++@pytest.mark.parametrize("mode,a,aaaa", [
++    ("offline", lambda s, n: reply(records=[LB]), lambda s, n: reply(rtype="AAAA")),              # stale A (LB)
++    ("offline", lambda s, n: reply(records=[HOME_IP]), lambda s, n: reply(rtype="AAAA")),         # home address
++    ("online", lambda s, n: reply(records=[LB]), lambda s, n: reply(records=["2001:db8::1"], rtype="AAAA")),  # unexpected AAAA
++    ("online", lambda s, n: reply(records=[LB] if s.startswith("ns") else [HOME_IP]), lambda s, n: reply(rtype="AAAA")),  # partial propagation
++    ("online", lambda s, n: reply(records=[LB] if s == "ns1.dynu.example" else [HOME_IP]), lambda s, n: reply(rtype="AAAA")),  # mixed NS
++])
++def test_wrong_state_is_not_yet_and_withholds_values(mode, a, aaaa):
++    got, rows = verdict(mode, fake(a=a, aaaa=aaaa))
++    assert got.endswith("NOT_YET")
++    assert HOME_IP not in json.dumps(rows) and "2001:db8::1" not in json.dumps(rows)
++
++
++@pytest.mark.parametrize("bad", [
++    reply(rc=9, raw=";; connection timed out; no servers could be reached\n"),     # timeout
++    reply(status="SERVFAIL"),
++    reply(status="REFUSED"),
++    reply(rc=10, raw=""),                                                         # unreachable / network
++    reply(raw="garbage without a header\n"),                                      # malformed
++    reply(raw=""),                                                                # empty output, exit 0
++    reply(records=["not-an-ip"]),                                                 # malformed record
++])
++@pytest.mark.parametrize("mode", ["online", "offline"])
++def test_failures_are_check_failed_never_offline(bad, mode):
++    run = fake(a=lambda s, n: bad if s == "8.8.8.8" else reply(status="NXDOMAIN"),
++               aaaa=lambda s, n: reply(status="NXDOMAIN", rtype="AAAA"))
++    assert verdict(mode, run)[0] == "DNS_CHECK_FAILED"
++
++
++def test_a_non_authoritative_answer_from_an_authoritative_server_fails():
++    run = fake(a=lambda s, n: reply(status="NXDOMAIN", aa=not s.startswith("ns")), aaaa=lambda s, n: reply(status="NXDOMAIN", rtype="AAAA"))
++    assert verdict("offline", run)[0] == "DNS_CHECK_FAILED"
++
++
++@pytest.mark.parametrize("ns_reply", [reply(rc=9, raw=""), reply(status="SERVFAIL"), reply(rtype="NS")])
++def test_authoritative_lookup_failure_fails_the_cli(ns_reply, capsys):
++    def run(cmd, capture_output, text):
++        return ns_reply if cmd[3] == "NS" else reply()
++    assert dns.main(["--domain", DOMAIN, "--expect-offline"], run=run) == 2
++    assert json.loads(capsys.readouterr().out.strip().splitlines()[-1])["verdict"] == "DNS_CHECK_FAILED"
++
++
++def test_cli_exit_codes(capsys):
++    assert dns.main(["--domain", DOMAIN, "--expect-ip", LB], run=fake()) == 0
++    assert dns.main(["--domain", DOMAIN, "--expect-offline"], run=fake()) == 1
++    assert dns.main(["--domain", DOMAIN, "--expect-offline"], run=fake(a=lambda s, n: reply(status="SERVFAIL"))) == 2
++
++
++# --- dynu_dns -----------------------------------------------------------------------------------
++
++class Dynu(BaseHTTPRequestHandler):
++    answer, seen = "good", []
++
++    def do_GET(self):
++        Dynu.seen.append({"path": self.path, "auth": self.headers.get("Authorization")})
++        body = Dynu.answer.encode()
++        self.send_response(200)
++        self.send_header("content-length", str(len(body)))
++        self.end_headers()
++        self.wfile.write(body)
++
++    def log_message(self, *args):
++        pass
++
++
++@pytest.fixture
++def server():
++    httpd = HTTPServer(("127.0.0.1", 0), Dynu)
++    threading.Thread(target=httpd.serve_forever, daemon=True).start()
++    Dynu.seen, Dynu.answer = [], "good"
++    yield f"http://127.0.0.1:{httpd.server_port}/nic/update"
++    httpd.shutdown()
++
++
++@pytest.fixture
++def creds(tmp_path):
++    path = tmp_path / "dynu.json"
++    path.write_text(json.dumps({"hostname": DOMAIN, "username": "owner", "password_sha256": hashlib.sha256(b"synthetic-pw").hexdigest()}))
++    path.chmod(0o600)
++    return path
++
++
++@pytest.mark.parametrize("action,expected", [
++    (["online", "--ip", LB], {"hostname": DOMAIN, "myip": LB, "myipv6": "no"}),
++    (["offline", "--mode", "no-ipv4"], {"hostname": DOMAIN, "myip": "no", "myipv6": "no"}),
++    (["offline", "--mode", "signoff"], {"hostname": DOMAIN, "offline": "yes"}),
++])
++def test_dynu_requests_carry_credentials_only_in_the_header(server, creds, monkeypatch, action, expected):
++    monkeypatch.setattr(dynu, "verify", lambda *a, **k: ("DNS_ONLINE_OK" if action[0] == "online" else "DNS_OFFLINE_OK", 1))
++    assert dynu.main(["--credentials", str(creds), "--endpoint", server, "--execute", *action]) == 0
++    from urllib.parse import parse_qsl, urlsplit
++    request = Dynu.seen[0]
++    assert dict(parse_qsl(urlsplit(request["path"]).query)) == expected
++    user, secret = base64.b64decode(request["auth"].split()[1]).decode().split(":", 1)
++    assert user == "owner" and secret == hashlib.sha256(b"synthetic-pw").hexdigest()
++    assert secret not in request["path"] and "synthetic-pw" not in request["path"]
++
++
++@pytest.mark.parametrize("answer", ["badauth", "nohost", "911", "abuse", "servererror"])
++def test_dynu_error_answers_fail(server, creds, answer, capsys):
++    Dynu.answer = answer
++    assert dynu.main(["--credentials", str(creds), "--endpoint", server, "--execute", "offline", "--mode", "no-ipv4"]) == 2
++    assert "DNS_UPDATE_FAILED" in capsys.readouterr().out
++
++
++def test_dynu_update_without_a_proven_dns_state_fails(server, creds, monkeypatch):
++    monkeypatch.setattr(dynu, "verify", lambda *a, **k: ("DNS_CHECK_FAILED", 15))
++    assert dynu.main(["--credentials", str(creds), "--endpoint", server, "--execute", "offline", "--mode", "signoff"]) == 2
++
++
++def test_dynu_dry_run_sends_nothing(server, creds):
++    assert dynu.main(["--credentials", str(creds), "--endpoint", server, "online", "--ip", LB]) == 0
++    assert Dynu.seen == []
++
++
++def test_dynu_refuses_other_endpoints_and_unsafe_credential_files(creds, tmp_path):
++    with pytest.raises(SystemExit, match="only to https://api.dynu.com"):
++        dynu.send(dynu.load_credentials(str(creds)), {}, "https://evil.example/nic/update")
++    loose = tmp_path / "loose.json"
++    loose.write_text(creds.read_text())
++    loose.chmod(0o644)
++    with pytest.raises(SystemExit, match="chmod 600"):
++        dynu.load_credentials(str(loose))
++    with pytest.raises(SystemExit, match="inside the repository"):
++        dynu.load_credentials(str(ROOT / "README.md"))
++    partial = tmp_path / "partial.json"
++    partial.write_text(json.dumps({"hostname": DOMAIN}))
++    partial.chmod(0o600)
++    with pytest.raises(SystemExit, match="lacks"):
++        dynu.load_credentials(str(partial))
++
++
++# --- g3b_campaign -------------------------------------------------------------------------------
++
++def manifest(tmp_path):
++    m = tmp_path / "manifest"
++    m.mkdir()
++    for name in ("workloads.json", "workload-requests.json", "disks-before.json"):
++        (m / name).write_text("[]")
++    (m / "buckets-before.txt").write_text("")
++    (m / "MANIFEST.json").write_text(json.dumps({"cluster": "ewallet-dev"}))
++    return m
++
++
++def init_args(tmp_path, **kw):
++    def secret(name, text):
++        (tmp_path / name).write_text(text)
++        return str(tmp_path / name)
++    args = dict(campaign="g3b-test", campaign_dir=str(tmp_path / "campaign"), domain=DOMAIN, context="ctx", kubeconfig="kc",
++                gateway_chart="chart.tgz", manifest=str(manifest(tmp_path)), approved_cidrs=secret("cidrs", "203.0.113.7/32\n"),
++                edge_credentials=secret("edge", "edge:x"), grafana_credentials=None, dns_credentials=secret("dns", "{}"),
++                dns_offline_mode="no-ipv4", dns_offline_ip=None, approve_guarded_sleep=True, approve_keda_pause=True,
++                approve_production_certificate=True, approve_grafana_root_url=False, dns_offline_verified=True,
++                accept_local_only_risk=True, cloud_fallback_ready=False, also_approve=["ewallet-mcp/feature-rag-mcp"])
++    args.update(kw)
++    return SimpleNamespace(**args)
++
++
++class Recorder(camp.Simulator):
++    """The Simulator, plus scripted failures and a timeline of the cleanup-relevant commands."""
++
++    def __init__(self, log, fail=(), plan_uncovered=("ewallet-mcp/feature-rag-mcp",)):
++        super().__init__(log)
++        self.fail, self.uncovered, self.cmds = fail, plan_uncovered, []
++
++    def run(self, cmd, env=None, timeout=3600):
++        text = " ".join(cmd)
++        self.cmds.append((text, sorted((env or {}).keys())))
++        if any(f in text for f in self.fail):
++            return 1, ""
++        if "plan-sleep" in text:
++            return 0, json.dumps({"guarded_preparation": {"not_covered": list(self.uncovered)}})
++        return super().run(cmd, env, timeout)
++
++    def index(self, needle):
++        return next(i for i, (c, _) in enumerate(self.cmds) if needle in c)
++
++
++def ready_state(tmp_path, **kw):
++    ex = Recorder(tmp_path / "sim.jsonl")
++    state = camp.init(init_args(tmp_path, **kw), ex)
++    return Path(state["config"]["campaign_dir"]) / "state.json", state
++
++
++def test_init_records_gates_without_secrets(tmp_path):
++    path, state = ready_state(tmp_path)
++    assert state["gates"]["CLOUD_LAB_RECOVERY_MANIFEST_VALID"] == "PASS"
++    assert state["gates"]["KEDA_SLEEP_APPROVAL_READY"] == "PASS" and state["gates"]["GUARDED_SLEEP_PLAN_VALID"] == "PASS"
++    assert state["gates"]["CLIENT_ADDRESS_APPROVED"] == "PASS"
++    assert "edge:x" not in path.read_text() and "203.0.113.7\"" not in json.dumps(state["gates"])
++    assert oct(path.parent.stat().st_mode)[-3:] == "700"
++
++
++@pytest.mark.parametrize("change,gate", [
++    ({"approve_keda_pause": False}, "KEDA_SLEEP_APPROVAL_READY"),
++    ({"approve_guarded_sleep": False}, "GUARDED_SLEEP_PLAN_VALID"),
++    ({"dns_credentials": None}, "UNATTENDED_CLEANUP_READY"),
++    ({"dns_offline_verified": False}, "UNATTENDED_CLEANUP_READY"),
++    ({"accept_local_only_risk": False}, "UNATTENDED_CLEANUP_READY"),
++    ({"edge_credentials": str(ROOT / "README.md")}, "UNATTENDED_CLEANUP_READY"),
++])
++def test_init_fails_a_gate_for_each_missing_precondition(tmp_path, change, gate):
++    _, state = ready_state(tmp_path, **change)
++    assert state["gates"][gate] == "FAIL"
++
++
++def test_a_real_run_refuses_when_a_gate_failed(tmp_path):
++    path, _ = ready_state(tmp_path, approve_keda_pause=False)
++
++    class Explodes(camp.Executor):
++        def run(self, *a, **k):
++            raise AssertionError("no command may run")
++    with pytest.raises(SystemExit, match="not waking"):
++        camp.run(path, Explodes())
++
++
++def test_full_simulated_campaign_cleans_dns_before_the_lb_and_sleeps_with_scoped_approvals(tmp_path):
++    path, _ = ready_state(tmp_path)
++    ex = Recorder(tmp_path / "sim.jsonl")
++    state = camp.run(path, ex)
++    assert state["G3B_STATUS"] == "PASS" and state["CLEANUP_STATUS"] == "COMPLETE" and state["LAST_VERIFIED_NODE_COUNT"] == 0
++    online = next(i for i, (c, _) in enumerate(ex.cmds) if "dynu_dns.py" in c and " online " in c)
++    offline = next(i for i, (c, _) in enumerate(ex.cmds) if "dynu_dns.py" in c and " offline " in c)
++    release = next(i for i, (c, _) in enumerate(ex.cmds) if "upgrade ewallet-edge-gateway" in c and "public-open" not in c)
++    sleep = next(i for i, (c, e) in enumerate(ex.cmds) if "cloud_lab.py sleep" in c)
++    assert online < offline < release < sleep
++    sleep_cmd, sleep_env = ex.cmds[sleep]
++    assert "--also-approve ewallet-mcp/feature-rag-mcp" in sleep_cmd and "--scale-pdb-guarded --pause-keda" in sleep_cmd
++    assert sleep_env == ["CLOUD_LAB_APPROVED", "CLOUD_LAB_GUARDED_SLEEP_APPROVAL", "CLOUD_LAB_KEDA_PAUSE_APPROVAL"]
++    assert "--released-ip 203.0.113.10" in ex.cmds[offline][0]
++
++
++def test_a_failed_phase_stops_new_work_and_still_cleans_up(tmp_path):
++    path, _ = ready_state(tmp_path)
++    ex = Recorder(tmp_path / "sim.jsonl", fail=("--environment staging",))
++    state = camp.run(path, ex)
++    assert state["G3B_STATUS"].startswith("FAIL at staging-certificate")
++    assert not any("--environment production" in c for c, _ in ex.cmds)
++    assert state["CLEANUP_STATUS"] == "COMPLETE" and state["cleanup_steps"]["lb-release"]["ok"]
++
++
++def test_deadline_expiry_stops_and_cleans_up(tmp_path, monkeypatch):
++    path, _ = ready_state(tmp_path)
++    real_now = camp.now
++    monkeypatch.setattr(camp, "DEADLINE_HOURS", -1)  # the deadline is already past right after wake
++    state = camp.run(path, Recorder(tmp_path / "sim.jsonl"))
++    assert state["G3B_STATUS"] == "DEADLINE_EXPIRED" and state["CLEANUP_STATUS"] == "COMPLETE"
++    assert state["phases"] == {"wake": "PASS"}
++
++
++def test_unsafe_dns_keeps_the_lb_sleeps_and_reports_incomplete_then_resumes(tmp_path):
++    path, _ = ready_state(tmp_path)
++    ex = Recorder(tmp_path / "sim.jsonl", fail=(" offline --mode",))
++    state = camp.run(path, ex)
++    assert state["CLEANUP_STATUS"] == "CLEANUP_INCOMPLETE"
++    assert "LB KEPT" in state["cleanup_steps"]["lb-release"]["detail"]
++    assert not any("upgrade ewallet-edge-gateway" in c and "public-open" not in c for c, _ in ex.cmds)
++    assert state["cleanup_steps"]["sleep"]["ok"] and (Path(state["config"]["campaign_dir"]) / "ALERT.txt").exists()
++    resumed = camp.cleanup(path, Recorder(tmp_path / "sim2.jsonl"), "resume")
++    assert resumed["CLEANUP_STATUS"] == "COMPLETE" and resumed["cleanup_steps"]["lb-release"]["ok"]
++
++
++def test_guarded_sleep_blocked_without_the_pdb_approval_and_no_bypass(tmp_path):
++    path, _ = ready_state(tmp_path, also_approve=[])
++    state = json.loads(path.read_text())
++    state["gates"] = {g: "PASS" for g in camp.GATES}  # even if someone forced the gates
++    camp.save(path, state)
++    ex = Recorder(tmp_path / "sim.jsonl")
++    result = camp.run(path, ex)
++    assert "SLEEP_BLOCKED" in result["cleanup_steps"]["sleep"]["detail"] and result["CLEANUP_STATUS"] == "CLEANUP_INCOMPLETE"
++    assert not any("cloud_lab.py sleep" in c for c, _ in ex.cmds)
++    assert not any("container clusters resize" in c for c, _ in ex.cmds)
++
++
++def test_invalid_state_is_refused(tmp_path):
++    bad = tmp_path / "state.json"
++    bad.write_text("{not json")
++    with pytest.raises(SystemExit, match="invalid campaign state"):
++        camp.load(bad)
++    bad.write_text(json.dumps({"CAMPAIGN_ID": "x"}))
++    with pytest.raises(SystemExit, match="missing"):
++        camp.load(bad)
++
++
++def test_watchdog_idle_ok_and_gives_up(tmp_path):
++    path, state = ready_state(tmp_path)
++    assert camp.watchdog(path, Recorder(tmp_path / "w.jsonl")) == "IDLE"
++    state.update(campaign_active=True, heartbeat=camp.now(), main_pid=os.getpid(), deadline_epoch=camp.now() + 3600)
++    camp.save(path, state)
++    assert camp.watchdog(path, Recorder(tmp_path / "w.jsonl")) == "OK"
++    state.update(deadline_epoch=camp.now() - 1, watchdog_attempts=3)
++    camp.save(path, state)
++    assert camp.watchdog(path, Recorder(tmp_path / "w.jsonl")).startswith("GAVE_UP")
++
++
++def cli(*args, env=None):
++    return subprocess.Popen([sys.executable, str(EDGE / "g3b_campaign.py"), "--simulate", *args], stdout=subprocess.PIPE,
++                            stderr=subprocess.PIPE, text=True, env={**os.environ, **(env or {})})
++
++
++def wait_for_phase(path, phase, timeout=30):
++    end = time.time() + timeout
++    while time.time() < end:
++        try:
++            if json.loads(path.read_text()).get("CURRENT_PHASE") == phase:
++                return
++        except ValueError:
++            pass
++        time.sleep(0.1)
++    raise AssertionError(f"phase {phase} not reached")
++
++
++def test_sigterm_runs_cleanup(tmp_path):
++    path, _ = ready_state(tmp_path)
++    proc = cli("run", "--state", str(path), env={"EDGE_SIM_SLEEP": "0.2"})
++    wait_for_phase(path, "edge-restricted")
++    proc.send_signal(signal.SIGTERM)
++    proc.wait(timeout=60)
++    state = json.loads(path.read_text())
++    assert state["G3B_STATUS"] == "stopped by SIGTERM" and state["CLEANUP_STATUS"] == "COMPLETE"
++
++
++def test_sudden_death_is_cleaned_up_by_the_watchdog(tmp_path):
++    """kill -9: no trap or finally runs. The watchdog, a separate process, finds the stale
++    heartbeat and the dead pid, takes the released lock and cleans up."""
++    path, _ = ready_state(tmp_path)
++    proc = cli("run", "--state", str(path), env={"EDGE_SIM_SLEEP": "0.2"})
++    wait_for_phase(path, "dns-online")
++    proc.kill()
++    proc.wait(timeout=10)
++    state = json.loads(path.read_text())
++    assert state["campaign_active"] and state["CLEANUP_STATUS"] is None
++    state["heartbeat"] = time.time() - camp.STALE_SECONDS - 1
++    camp.save(path, state)
++    done = subprocess.run([sys.executable, str(EDGE / "g3b_campaign.py"), "--simulate", "watchdog", "--state", str(path)],
++                          capture_output=True, text=True, timeout=120)
++    assert done.stdout.strip() == "COMPLETE", done.stderr
++    final = json.loads(path.read_text())
++    assert final["LAST_VERIFIED_NODE_COUNT"] == 0 and not final["campaign_active"]
++
++
++def test_watchdog_does_not_interfere_with_a_live_main_process(tmp_path):
++    path, _ = ready_state(tmp_path)
++    proc = cli("run", "--state", str(path), env={"EDGE_SIM_SLEEP": "0.2"})
++    wait_for_phase(path, "edge-restricted")
++    out = subprocess.run([sys.executable, str(EDGE / "g3b_campaign.py"), "--simulate", "watchdog", "--state", str(path)],
++                         capture_output=True, text=True, timeout=60).stdout.strip()
++    proc.send_signal(signal.SIGTERM)
++    proc.wait(timeout=60)
++    assert out == "OK"
++
++
++def test_watchdog_units_render_and_verify(tmp_path):
++    done = subprocess.run(["bash", str(EDGE / "install_watchdog.sh"), "--dest", str(tmp_path), "--state", str(tmp_path / "s.json")],
++                          capture_output=True, text=True)
++    assert done.returncode == 0
++    service = (tmp_path / "edge-campaign-watchdog.service").read_text()
++    assert f"{ROOT}/scripts/edge/g3b_campaign.py watchdog --state {tmp_path}/s.json" in service
++    assert "@REPO@" not in service and "@STATE@" not in service and "@PATH@" not in service
++    assert "systemd-inhibit" in service and "--simulate" not in service
++    verify = subprocess.run(["systemd-analyze", "--user", "verify", str(tmp_path / "edge-campaign-watchdog.timer"),
++                             str(tmp_path / "edge-campaign-watchdog.service")], capture_output=True, text=True)
++    assert verify.returncode == 0, verify.stderr
++
++
++@pytest.mark.parametrize("phase", ["wake", "open-lb", "dns-online"])
++def test_a_kill_inside_a_mutating_phase_is_still_cleaned_up(tmp_path, phase):
++    """The intent (wake, LB, DNS) is persisted before the command is sent, so a kill in the
++    middle of that command still leaves cleanup knowing what to undo."""
++    path, _ = ready_state(tmp_path)
++    proc = cli("run", "--state", str(path), env={"EDGE_SIM_SLEEP": "1.0"})
++    wait_for_phase(path, phase)
++    time.sleep(0.5)  # inside the phase's first command
++    proc.kill()
++    proc.wait(timeout=10)
++    state = json.loads(path.read_text())
++    assert state["wake_attempted"]
++    state["heartbeat"] = time.time() - camp.STALE_SECONDS - 1
++    camp.save(path, state)
++    done = subprocess.run([sys.executable, str(EDGE / "g3b_campaign.py"), "--simulate", "watchdog", "--state", str(path)],
++                          capture_output=True, text=True, timeout=180)
++    final = json.loads(path.read_text())
++    assert done.stdout.strip() == "COMPLETE" and final["cleanup_steps"]["sleep"]["ok"]
++    if phase in ("open-lb", "dns-online"):
++        assert final["cleanup_steps"]["lb-release"]["ok"]
++    if phase == "dns-online":
++        assert final["cleanup_steps"]["dns-offline"]["ok"]
+diff --git a/tests/ops/test_edge_scripts.py b/tests/ops/test_edge_scripts.py
+index ee5b407a..804f2d23 100644
+--- a/tests/ops/test_edge_scripts.py
++++ b/tests/ops/test_edge_scripts.py
+@@ -249,27 +249,7 @@ def test_credential_files_must_be_outside_the_repository():
+         e2e.private_file(str(ROOT / "README.md"))
+ 
+ 
+-# --- dns_check ----------------------------------------------------------------------------------
+-
+-def fake_dig(a, aaaa=""):
+-    def run(cmd, capture_output, text):
+-        return SimpleNamespace(stdout=aaaa if cmd[-1] == "AAAA" else a)
+-    return run
+-
+-
+-def test_dns_online_needs_exactly_the_lb_address_and_no_aaaa():
+-    assert all(r["passed"] for r in dns.check("edge.example.test", "203.0.113.10", None, ["ns1"], fake_dig("203.0.113.10\n")))
+-    assert not any(r["passed"] for r in dns.check("edge.example.test", "203.0.113.10", None, ["ns1"], fake_dig("198.51.100.1\n")))
+-    assert not any(r["passed"] for r in dns.check("edge.example.test", "203.0.113.10", None, ["ns1"], fake_dig("203.0.113.10\n", "2001:db8::1\n")))
+-
+-
+-def test_dns_offline_and_withheld_values():
+-    assert all(r["passed"] for r in dns.check("edge.example.test", None, None, ["ns1"], fake_dig("")))
+-    home = dns.check("edge.example.test", None, None, ["ns1"], fake_dig("198.51.100.1\n"))
+-    assert not any(r["passed"] for r in home) and "198.51.100.1" not in json.dumps(home)
+-    assert all(r["passed"] for r in dns.check("edge.example.test", None, "192.0.2.1", ["ns1"], fake_dig("192.0.2.1\n")))
+-    names = {r["name"] for r in home}
+-    assert "<random>.edge.example.test" in names and "agents.edge.example.test" in names
++# dns_check.py is tested in tests/ops/test_dns_campaign.py (fail-closed version).
+ 
+ 
+ # --- shell scripts: guards that act before any cluster or network call -----------------------
