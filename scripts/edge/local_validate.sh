@@ -335,32 +335,30 @@ if [ "$mode" == full ]; then
       -e PEBBLE_VA_NOSLEEP=1 -e PEBBLE_WFE_NONCEREJECT=0 -v "$work/pebble.json:/pebble.json:ro" \
       ghcr.io/letsencrypt/pebble:2.7.0 -config /pebble.json -dnsserver "$dns:8053" -strict=false >/dev/null
     sleep 3; docker cp g3b1-pebble:/test/certs/pebble.minica.pem "$work/minica.pem" >/dev/null
-    certbot() {  # cert-name domains...
-      local name=$1; shift; local d=(); for x in "$@"; do d+=(-d "$x"); done
-      REQUESTS_CA_BUNDLE="$work/minica.pem" EDGE_ACME_CONTEXT="$CONTEXT" EDGE_ACME_HTTP_PORT="$http" EDGE_ACME_RESOLVE_ADDR="$node" \
-        uvx --from certbot==5.10.0 certbot certonly --non-interactive --agree-tos --register-unsafely-without-email \
-        --server https://localhost:14000/dir --config-dir "$work/le/config" --work-dir "$work/le/work" --logs-dir "$work/le/logs" \
-        --manual --preferred-challenges http --manual-auth-hook "$root/scripts/edge/acme_http01_hook.sh auth" \
-        --manual-cleanup-hook "$root/scripts/edge/acme_http01_hook.sh cleanup" --key-type ecdsa --cert-name "$name" "${d[@]}" >"$work/certbot-$name.log" 2>&1
+    # The G3-B script itself (scripts/edge/issue_certificate.sh), pointed at Pebble.
+    issue() {  # log-name private-dir args...
+      local log=$1 dir=$2; shift 2
+      EDGE_ACME_HTTP_PORT="$http" EDGE_ACME_RESOLVE_ADDR="$node" "$root/scripts/edge/issue_certificate.sh" --context "$CONTEXT" \
+        --private-dir "$dir" --server https://localhost:14000/dir --ca-bundle "$work/minica.pem" "$@" >"$work/certbot-$log.log" 2>&1
     }
-    certbot edge "features.$DOMAIN" "agents.$DOMAIN" "registry.$DOMAIN" "observe.$DOMAIN" && rc=0 || rc=$?
-    live="$work/le/config/live/edge"
+    before=$(k -n "$NS" get secret edge-tls -o jsonpath='{.data.tls\.crt}' | sha256sum | cut -c1-16)
+    issue edge "$work/le" --domain "$DOMAIN" --import && rc=0 || rc=$?
+    live="$work/le/config/live/edge-staging"
     sans=$(openssl x509 -in "$live/fullchain.pem" -noout -ext subjectAltName 2>/dev/null | tail -1 | tr -d ' ' || true)
-    record "ACME-08 HTTP-01 issuance through the gateway (Pebble) for the four hostnames" \
+    record "ACME-08 HTTP-01 issuance through the gateway (Pebble) for the four hostnames (issue_certificate.sh)" \
       "$([ $rc == 0 ] && [[ "$sans" == *"features.$DOMAIN"* && "$sans" == *"agents.$DOMAIN"* && "$sans" == *"registry.$DOMAIN"* && "$sans" == *"observe.$DOMAIN"* ]] && echo true || echo false)" \
-      "certbot exit=$rc; SAN=$sans; issuer=$(openssl x509 -in "$live/fullchain.pem" -noout -issuer 2>/dev/null || true)"
+      "exit=$rc; SAN=$sans; issuer=$(openssl x509 -in "$live/fullchain.pem" -noout -issuer 2>/dev/null || true)"
     ka "ACME-09 no challenge file is left after issuance" "$(k -n "$NS" exec deploy/edge-acme-responder -- ls -A /challenges | wc -l | tr -d ' ')" 0
     curl -s --cacert "$work/minica.pem" https://localhost:15000/roots/0 > "$work/pebble-root.pem" || true
-    before=$(k -n "$NS" get secret edge-tls -o jsonpath='{.data.tls\.crt}' | sha256sum | cut -c1-16)
-    k -n "$NS" create secret tls edge-tls --cert="$live/fullchain.pem" --key="$live/privkey.pem" --dry-run=client -o yaml | k apply -f - >/dev/null; sleep 12
+    sleep 12  # issue_certificate.sh --import replaced edge-tls; Istio reloads it by SDS
     v=$(echo | openssl s_client -connect "$node:$https" -servername "registry.$DOMAIN" -CAfile "$work/pebble-root.pem" -verify_return_error 2>/dev/null | grep -m1 'Verify return code' || true)
     record "ACME-10 imported certificate is served and verifies against the issuing CA" "$([[ "$v" == *"0 (ok)"* ]] && echo true || echo false)" "$v"
     ka "ACME-10 Basic Auth still applies with the new certificate" "$(curl -s -m 10 -o /dev/null -w '%{http_code}' --cacert "$work/pebble-root.pem" --resolve "features.$DOMAIN:$https:$node" -X POST "https://features.$DOMAIN:$https/v1/features/lookup")" 401
     issued=$(k -n "$NS" get secret edge-tls -o jsonpath='{.data.tls\.crt}' | sha256sum | cut -c1-16)
-    certbot fail "features.$DOMAIN" "notrouted.$DOMAIN" && rc=0 || rc=$?
+    issue fail "$work/le-fail" --domain notrouted.example.test --import && rc=0 || rc=$?
     after=$(k -n "$NS" get secret edge-tls -o jsonpath='{.data.tls\.crt}' | sha256sum | cut -c1-16)
     left=$(k -n "$NS" exec deploy/edge-acme-responder -- ls -A /challenges | wc -l | tr -d ' ')
-    record "ACME-11 a hostname the gateway does not route fails issuance, cleans up, and leaves edge-tls unchanged" \
+    record "ACME-11 names the gateway does not route fail issuance, clean up, and leave edge-tls unchanged" \
       "$([ $rc != 0 ] && [ "$issued" == "$after" ] && [ "$left" == 0 ] && echo true || echo false)" "certbot exit=$rc; edge-tls unchanged=$([ "$issued" == "$after" ] && echo yes || echo no); challenge files left=$left"
     # Rollback: responder off, port 80 back to redirect only, original certificate back.
     helm template edge "$chart" -n "$NS" -f "$work/local.yaml" --set acmeHttp01.enabled=true -s templates/acme-http01.yaml | k delete -f - >/dev/null; sleep 8
@@ -368,7 +366,7 @@ if [ "$mode" == full ]; then
     ka "ACME-12 after cleanup no responder object remains" "$(k -n "$NS" get deploy,svc,cm,httproute -o name | grep -c acme || true)" 0
     k -n "$NS" create secret tls edge-tls --cert="$work/tls.crt" --key="$work/tls.key" --dry-run=client -o yaml | k apply -f - >/dev/null; sleep 12
     ka "ACME-12 original certificate restored" "$(k -n "$NS" get secret edge-tls -o jsonpath='{.data.tls\.crt}' | sha256sum | cut -c1-16)" "$before"
-    cp "$work/certbot-edge.log" "$evidence/certbot-issue.log" 2>/dev/null; cp "$work/certbot-fail.log" "$evidence/certbot-fail.log" 2>/dev/null
+    cp "$work/certbot-edge.log" "$evidence/certbot-issue.log" 2>/dev/null || true; cp "$work/certbot-fail.log" "$evidence/certbot-fail.log" 2>/dev/null || true
     docker rm -f g3b1-pebble g3b1-challtestsrv >/dev/null 2>&1 || true
   fi
   # Fail closed: point Basic Auth at a missing users file. A running proxy must keep its
