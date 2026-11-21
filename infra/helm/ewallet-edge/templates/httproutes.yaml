@@ -1,0 +1,62 @@
+{{- if .Values.enabled }}
+{{- range $name, $route := .Values.routes }}
+{{- if $route.enabled }}
+{{- $b := $route.backend }}
+---
+# Only the listed paths exist on this host; anything else answers 404 at the gateway.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Values.namespace }}
+  labels:
+    {{- include "ewallet-edge.labels" $ | nindent 4 }}
+spec:
+  # HTTPS only: the HTTP listener carries nothing but the redirect.
+  parentRefs: [{name: ewallet-edge, sectionName: https}]
+  hostnames: [{{ printf "%s.%s" $route.hostPrefix $.Values.domain | quote }}]
+  rules:
+    # Istio names the Envoy route after the rule, so the EnvoyFilter's per-route limit can
+    # match it by this name.
+    - name: {{ $name }}
+      matches:
+        {{- range $route.match }}
+        - path:
+            {{- if .exact }}
+            {type: Exact, value: {{ .exact }}}
+            {{- else }}
+            {type: PathPrefix, value: {{ .prefix }}}
+            {{- end }}
+          {{- with .method }}
+          method: {{ . }}
+          {{- end }}
+        {{- end }}
+      filters:
+        - type: RequestHeaderModifier
+          requestHeaderModifier:
+            remove: {{ toJson $.Values.strippedHeaders }}
+      {{- with $route.timeout }}
+      timeouts: {request: {{ . }}}
+      {{- end }}
+      # Istio retries Gateway API routes twice by default. A gateway must not repeat a
+      # request: agent and prediction calls are not all idempotent.
+      retry: {attempts: 0}
+      backendRefs:
+        - {name: {{ $b.service }}, namespace: {{ $b.namespace }}, port: {{ $b.port }}}
+{{- if ne $b.namespace $.Values.namespace }}
+---
+# Additive, in the backend's namespace: lets edge routes reference this one Service only.
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-ewallet-edge-{{ $name }}
+  namespace: {{ $b.namespace }}
+  labels:
+    {{- include "ewallet-edge.labels" $ | nindent 4 }}
+spec:
+  from: [{group: gateway.networking.k8s.io, kind: HTTPRoute, namespace: {{ $.Values.namespace }}}]
+  to: [{group: "", kind: Service, name: {{ $b.service }}}]
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

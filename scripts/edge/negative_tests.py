@@ -2,8 +2,10 @@
 
 Every check sends real traffic through curl with the route's own SNI and Host. ``--stub``
 adds the checks that need a backend reporting what it received; the rest run unchanged on
-GKE. The password file holds ``user:password`` and is never printed. A failed check fails
-the run, so a report cannot show a partial pass as success.
+GKE. ``--foundation`` skips the Basic Auth and rate-limit checks, for a gateway whose
+security filters are not rendered yet (G2.1). The password file holds ``user:password`` and
+is never printed. A failed check fails the run, so a report cannot show a partial pass as
+success.
 """
 
 from __future__ import annotations
@@ -62,7 +64,6 @@ class Edge:
 
 POST_JSON = ("-X", "POST", "-H", "content-type: application/json", "-d", "{}")
 LOOKUP = "/v1/features/lookup"
-COORDINATOR = "/api/a2a/ewallet-agents/fraud-coordinator"
 
 
 def check(results: list[Result], name: str, passed: bool, observed: object) -> None:
@@ -97,10 +98,7 @@ def run_routing(edge: Edge, results: list[Result]) -> None:
         check(results, f"undeclared path {path} is not routed", status == 404, status)
     status, _ = edge.authed("features", LOOKUP)
     check(results, "wrong method on a declared path is not routed", status == 404, status)
-    for path in ("/api/agents", "/api/modelconfigs", "/api/sessions", f"{COORDINATOR}-other", "/api/a2a/ewallet-agents/drift-specialist"):
-        status, _ = edge.authed("a2a", path)
-        check(results, f"controller path {path} is not routed", status == 404, status)
-    for host in ("vllm", "mlflow", "jenkins", "vault", "redis", "mcp", "kserve", "prometheus", "unknown"):
+    for host in ("a2a", "fraud", "vllm", "mlflow", "jenkins", "vault", "redis", "mcp", "kserve", "prometheus", "unknown"):
         status, _ = edge.curl(host, "/")
         check(results, f"host {host} is not served", status == 0 or status == 404, status)
 
@@ -108,23 +106,26 @@ def run_routing(edge: Edge, results: list[Result]) -> None:
 def run_rate_limit(edge: Edge, results: list[Result]) -> None:
     """A burst on one route is limited, and another route keeps working."""
     with ThreadPoolExecutor(30) as pool:
-        codes = list(pool.map(lambda _: edge.authed("a2a", COORDINATOR, "-X", "POST", "-d", "{}")[0], range(60)))
+        codes = list(pool.map(lambda _: edge.authed("registry", "/")[0], range(120)))
     limited = codes.count(429)
     check(results, "a burst receives HTTP 429", limited > 0, f"429={limited} of {len(codes)}")
     status, _ = edge.authed("features", LOOKUP, *POST_JSON)
     check(results, "the limit is per route", status != 429, status)
     time.sleep(2)
-    status, _ = edge.authed("a2a", COORDINATOR, "-X", "POST", "-d", "{}")
+    status, _ = edge.authed("registry", "/")
     check(results, "the route recovers after the burst", status != 429, status)
 
 
 def run_stub(edge: Edge, results: list[Result]) -> None:
     """Checks that read what the stub backend received."""
-    status, body = edge.authed("a2a", COORDINATOR, "-X", "POST", "-H", "x-user-id: attacker", "-H", "x-edge-user: root", "-d", "{}")
-    seen = json.loads(body).get("headers", {}) if status == 200 else {}
-    check(results, "the upstream never sees the password", "authorization" not in seen, sorted(seen)[:8])
-    check(results, "a client cannot choose the agent user id", seen.get("x-user-id") == "edge-a2a-client", seen.get("x-user-id"))
-    check(results, "a forged edge user is removed", "x-edge-user" not in seen, seen.get("x-edge-user"))
+    for host, path, extra in (("features", LOOKUP, POST_JSON), ("agents", "/", ()), ("registry", "/", ()), ("observe", "/", ())):
+        status, body = edge.authed(host, path, *extra)
+        check(results, f"declared route on {host} reaches the backend", status == 200 and '"headers"' in body, status)
+    status, body = edge.authed("features", LOOKUP, "-H", "x-user-id: attacker", "-H", "x-edge-user: root", *POST_JSON)
+    seen = json.loads(body).get("headers", {}) if status == 200 else {"unread": status}
+    check(results, "the upstream never sees the password", status == 200 and "authorization" not in seen, sorted(seen)[:8])
+    check(results, "a client-chosen user id is removed", status == 200 and "x-user-id" not in seen, seen.get("x-user-id"))
+    check(results, "a forged edge user is removed", status == 200 and "x-edge-user" not in seen, seen.get("x-edge-user"))
     config = f'user = "{edge.credentials}"\n'
     name = f"agents.{edge.domain}"
     started = time.perf_counter()
@@ -157,6 +158,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--ca-file")
     parser.add_argument("--credentials-file", required=True)
     parser.add_argument("--stub", action="store_true")
+    parser.add_argument("--foundation", action="store_true", help="skip the Basic Auth and rate-limit checks")
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args(argv)
     edge = Edge(args)
@@ -165,11 +167,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     if edge.curl("features", LOOKUP, "-X", "POST")[0] == 0:
         print("FAIL the gateway did not answer; no check was run")
         return 2
-    run_auth(edge, results)
+    if not args.foundation:
+        run_auth(edge, results)
     run_routing(edge, results)
     if args.stub:
         run_stub(edge, results)
-    run_rate_limit(edge, results)
+    if not args.foundation:
+        run_rate_limit(edge, results)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text("".join(json.dumps(asdict(item)) + "\n" for item in results), encoding="utf-8")
     failed = [item for item in results if not item.passed]

@@ -1,4 +1,5 @@
-{{- if .Values.enabled }}
+{{- if and .Values.enabled .Values.securityFiltersVerified }}
+{{- /* Not rendered until G2.2 verifies these patches on the Gateway API listeners. */}}
 {{- $d := .Values.defaultRateLimit }}
 # Order matters: the limiter runs first, so password guessing also spends tokens, then
 # Basic Auth, then routing. Both are Envoy filters in the pinned proxy, so no extra

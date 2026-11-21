@@ -1,4 +1,7 @@
 {{- if .Values.enabled }}
+{{- if ne .Release.Namespace .Values.namespace }}
+{{- fail (printf "install into the namespace %q set in values.namespace" .Values.namespace) }}
+{{- end }}
 {{- if not (regexMatch "^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$" .Values.domain) }}
 {{- fail "domain must be the owner-approved DNS name" }}
 {{- end }}
@@ -6,7 +9,10 @@
 {{- if not $hosts }}
 {{- fail "enable at least one route" }}
 {{- end }}
-apiVersion: networking.istio.io/v1
+{{- if and (not .Values.securityFiltersVerified) (not (hasSuffix ".test" .Values.domain)) }}
+{{- fail "routes on a real domain need securityFiltersVerified=true (Basic Auth and rate limits, G2.2)" }}
+{{- end }}
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: ewallet-edge
@@ -14,20 +20,43 @@ metadata:
   labels:
     {{- include "ewallet-edge.labels" . | nindent 4 }}
 spec:
-  selector:
-    {{- toYaml .Values.gatewaySelector | nindent 4 }}
-  servers:
-    - port: {number: 443, name: https, protocol: HTTPS}
-      hosts: {{ toJson $hosts }}
+  gatewayClassName: {{ .Values.gatewayClassName }}
+  # Manual deployment: bind to the istio/gateway release's Service. Without an address
+  # Istio would create a second Deployment with a LoadBalancer Service.
+  addresses:
+    - type: Hostname
+      value: {{ printf "%s.%s.svc.cluster.local" .Values.gatewayService .Values.namespace }}
+  listeners:
+    - name: https
+      port: {{ .Values.httpsListenerPort }}
+      protocol: HTTPS
+      hostname: {{ printf "*.%s" .Values.domain | quote }}
       tls:
-        mode: SIMPLE
-        credentialName: {{ .Values.tls.secretName }}
-        minProtocolVersion: {{ .Values.tls.minProtocolVersion }}
-    # Plain HTTP only ever answers with a redirect.
-    - port: {number: 80, name: http, protocol: HTTP}
-      hosts: {{ toJson $hosts }}
-      tls:
-        httpsRedirect: true
+        mode: Terminate
+        certificateRefs: [{kind: Secret, name: {{ .Values.tls.secretName }}}]
+      allowedRoutes: {namespaces: {from: Same}}
+    # Plain HTTP only ever answers with a redirect (HTTPRoute https-redirect).
+    - name: http
+      port: 80
+      protocol: HTTP
+      hostname: {{ printf "*.%s" .Values.domain | quote }}
+      allowedRoutes: {namespaces: {from: Same}}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: https-redirect
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "ewallet-edge.labels" . | nindent 4 }}
+spec:
+  parentRefs: [{name: ewallet-edge, sectionName: http}]
+  hostnames: {{ toJson $hosts }}
+  rules:
+    - name: https-redirect
+      filters:
+        - type: RequestRedirect
+          requestRedirect: {scheme: https, statusCode: 301}
 {{- if .Values.tls.certificate.enabled }}
 ---
 apiVersion: cert-manager.io/v1

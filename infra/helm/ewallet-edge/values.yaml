@@ -1,17 +1,21 @@
-# Nothing renders unless enabled. The proxy itself comes from the official istio/gateway
-# chart (values-gateway.yaml). This chart adds only Istio's existing CRDs, so no Gateway
-# API CRDs and no other ingress controller are needed.
+# Nothing renders unless enabled. The proxy Deployment and Service come from the official
+# istio/gateway chart (values-gateway.yaml); this chart adds the Gateway API resources that
+# configure it. Gateway API CRDs must be installed in the cluster.
 enabled: false
 
 # Required once enabled. No default on purpose: hostnames must be owner-approved.
 domain: ""
-namespace: ewallet-edge
+# Must equal the Helm release namespace; the chart refuses to render otherwise.
+namespace: ewallet-ingress
+gatewayClassName: istio
+# The Service of the istio/gateway release. The Gateway binds to it by address, so Istio
+# programs those pods and provisions no Deployment or LoadBalancer of its own.
+gatewayService: ewallet-edge-gateway
 gatewaySelector: {istio: ewallet-edge-gateway}
 gatewayServiceAccount: ewallet-edge-gateway
 
 tls:
   secretName: edge-tls
-  minProtocolVersion: TLSV1_2
   # Issue with cert-manager. Off means the owner supplies the Secret.
   certificate:
     enabled: false
@@ -21,6 +25,12 @@ tls:
 # Security filters attach to this listener only. Port 80 must stay a bare redirect, or a
 # client would be asked for its password over plain HTTP.
 httpsListenerPort: 443
+
+# Migration guard. The Basic Auth and rate-limit EnvoyFilter was written for the Istio
+# Gateway API predecessor and is not yet verified on Gateway API listeners (G2.2). While
+# false, the EnvoyFilter is not rendered and routes render only for a reserved .test domain,
+# so no real hostname can be routed without authentication.
+securityFiltersVerified: false
 
 basicAuth:
   # Mounted into the gateway from a Secret that scripts/edge/create_basic_auth.sh creates.
@@ -34,46 +44,24 @@ defaultRateLimit: {maxTokens: 200, tokensPerFill: 200, fillIntervalSeconds: 1}
 # and Authorization stops here so a password never reaches an application.
 strippedHeaders: [authorization, x-user-id, x-forwarded-user, x-remote-user, x-edge-user]
 
-# Service names, ports and labels below were read from the cluster on 2026-11-07.
+# Only these four backends are public. Fraud API, the Coordinator's A2A endpoint, MCP,
+# model serving and Redis have no route. Match types: exact or prefix (Gateway API
+# PathPrefix, which stops at a path-segment boundary). Service names, ports and labels were
+# read from the cluster on 2026-11-07.
 routes:
   feature-api:
     enabled: false
     hostPrefix: features
     match: [{exact: /v1/features/lookup, method: POST}]
-    destination: {host: feature-api.ml-platform.svc.cluster.local, port: 80}
+    backend: {service: feature-api, namespace: ml-platform, port: 80}
     timeout: 5s
     rateLimit: {maxTokens: 100, tokensPerFill: 100, fillIntervalSeconds: 1}
     access: {namespace: ml-platform, podLabels: {app.kubernetes.io/name: feature-api}, port: 8080}
-  fraud-api:
-    enabled: false
-    hostPrefix: fraud
-    match: [{exact: /v1/fraud/predict, method: POST}]
-    destination: {host: fraud-api.ml-platform.svc.cluster.local, port: 80}
-    timeout: 10s
-    rateLimit: {maxTokens: 50, tokensPerFill: 50, fillIntervalSeconds: 1}
-    access: {namespace: ml-platform, podLabels: {app.kubernetes.io/name: fraud-api}, port: 8080}
-  # One agent only, through the controller's own A2A proxy. Istio prefixes do not stop at a
-  # path boundary, so the bare name must be exact and the prefix must end in a slash, or
-  # fraud-coordinator-other would match. X-User-Id is fixed because the controller trusts it.
-  a2a:
-    enabled: false
-    hostPrefix: a2a
-    match:
-      - {exact: /api/a2a/ewallet-agents/fraud-coordinator}
-      - {prefix: /api/a2a/ewallet-agents/fraud-coordinator/}
-    destination: {host: kagent-controller.kagent.svc.cluster.local, port: 8083}
-    setHeaders: {x-user-id: edge-a2a-client}
-    rateLimit: {maxTokens: 5, tokensPerFill: 5, fillIntervalSeconds: 1}
-    access:
-      namespace: kagent
-      podLabels: {app.kubernetes.io/name: kagent, app.kubernetes.io/component: controller}
-      port: 8083
-      ambient: true
   kagent-ui:
     enabled: false
     hostPrefix: agents
     match: [{prefix: /}]
-    destination: {host: kagent-ui.kagent.svc.cluster.local, port: 8080}
+    backend: {service: kagent-ui, namespace: kagent, port: 8080}
     rateLimit: {maxTokens: 100, tokensPerFill: 100, fillIntervalSeconds: 1}
     access:
       namespace: kagent
@@ -84,14 +72,14 @@ routes:
     enabled: false
     hostPrefix: registry
     match: [{prefix: /}]
-    destination: {host: prompt-registry-agentregistry.ewallet-prompts.svc.cluster.local, port: 12121}
+    backend: {service: prompt-registry-agentregistry, namespace: ewallet-prompts, port: 12121}
     rateLimit: {maxTokens: 50, tokensPerFill: 50, fillIntervalSeconds: 1}
   # Rows 37-39: metrics, logs and traces are all read through Grafana.
   grafana:
     enabled: false
-    hostPrefix: grafana
+    hostPrefix: observe
     match: [{prefix: /}]
-    destination: {host: grafana.ewallet-agents.svc.cluster.local, port: 3000}
+    backend: {service: grafana, namespace: ewallet-agents, port: 3000}
     rateLimit: {maxTokens: 50, tokensPerFill: 50, fillIntervalSeconds: 1}
     access:
       namespace: ewallet-agents

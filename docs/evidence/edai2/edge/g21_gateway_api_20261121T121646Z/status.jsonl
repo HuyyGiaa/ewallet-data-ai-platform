@@ -1,0 +1,11 @@
+{"name": "T01 GatewayClass istio accepted by the Istio controller", "passed": true, "observed": "istio.io/gateway-controller"}
+{"name": "T02 Gateway accepted", "passed": true, "observed": "Resource accepted"}
+{"name": "T03 Gateway programmed, both listeners programmed with resolved refs", "passed": true, "observed": "{'Programmed': 'True', 'listeners': {'https': {'Accepted': 'True', 'Conflicted': 'False', 'Programmed': 'True', 'ResolvedRefs': 'True'}, 'http': {'Accepted': 'True', 'Conflicted': 'False', 'Programmed"}
+{"name": "T04 one gateway Deployment and Service, both from the istio/gateway release", "passed": true, "observed": "{'deployments': ['ewallet-edge-gateway'], 'services': {'ewallet-edge-gateway': 'NodePort'}, 'addresses': [{'type': 'Hostname', 'value': 'ewallet-edge-gateway.ewallet-ingress.svc.cluster.local'}]}"}
+{"name": "T05 no LoadBalancer Service, before or after", "passed": true, "observed": "{'types': {'ewallet-edge-gateway': 'NodePort'}, 'lb_before': '', 'lb_after': ''}"}
+{"name": "T06 every HTTPRoute accepted", "passed": true, "observed": "{'agent-registry': {'Accepted': 'True', 'ResolvedRefs': 'True', 'ResolvedWaypoints': 'True'}, 'feature-api': {'Accepted': 'True', 'ResolvedRefs': 'True', 'ResolvedWaypoints': 'True'}, 'grafana': {'Acc"}
+{"name": "T07 every HTTPRoute backend resolved", "passed": true, "observed": "{'agent-registry': 'True', 'feature-api': 'True', 'grafana': 'True', 'https-redirect': 'True', 'kagent-ui': 'True'}"}
+{"name": "T07 one ReferenceGrant per route, each to one Service", "passed": true, "observed": "['allow-ewallet-edge-agent-registry', 'allow-ewallet-edge-feature-api', 'allow-ewallet-edge-grafana', 'allow-ewallet-edge-kagent-ui']"}
+{"name": "Envoy routes are named after the HTTPRoute rules", "passed": true, "observed": "['agent-registry', 'feature-api', 'grafana', 'https-redirect', 'kagent-ui']"}
+{"name": "no Envoy route retries a request", "passed": true, "observed": "[None, None, None, None]"}
+{"name": "HTTPS listener refuses TLS 1.1 and accepts TLS 1.2", "passed": true, "observed": "tls1.1: New, (NONE), Cipher is (NONE); tls1.2: New, TLSv1.2, Cipher is ECDHE-ECDSA-CHACHA20-POLY1305"}

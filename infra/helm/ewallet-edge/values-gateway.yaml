@@ -1,5 +1,8 @@
 # Values for the official chart: istio/gateway 1.30.7
 # (sha256 f8b350a2136ece7a103e479cb67ca9f71e2162ab7bc05100922fe65e681e125f).
+# Install as release ewallet-edge-gateway in the ewallet-ingress namespace: the edge chart's
+# Gateway binds to that Service by name and its filters select the pods by istio=<release>.
+# This release is the only owner of the gateway Deployment and Service.
 # ClusterIP by default: a public LoadBalancer is a separate owner decision.
 service:
   type: ClusterIP

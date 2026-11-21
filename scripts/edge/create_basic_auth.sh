@@ -4,7 +4,7 @@
 # Envoy accepts only the {SHA} htpasswd format, which is fast to attack, so use a long
 # random password. Restart the gateway after a change: Envoy reads the file at start-up.
 set -euo pipefail
-user=${1:?username required} namespace=${2:-ewallet-edge}; shift 2 || shift $#
+user=${1:?username required} namespace=${2:-ewallet-ingress}; shift 2 || shift $#
 [[ "$user" =~ ^[A-Za-z0-9._-]{1,64}$ ]] || { echo "invalid username" >&2; exit 2; }
 password=$(cat)
 [ "${#password}" -ge 24 ] || { echo "password must be at least 24 characters" >&2; exit 2; }

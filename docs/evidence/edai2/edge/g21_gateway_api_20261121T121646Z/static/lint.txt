@@ -1,0 +1,10 @@
+## helm lint
+==> Linting infra/helm/ewallet-edge
+[INFO] Chart.yaml: icon is recommended
+
+1 chart(s) linted, 0 chart(s) failed
+==> Linting infra/helm/ewallet-edge
+[INFO] Chart.yaml: icon is recommended
+
+1 chart(s) linted, 0 chart(s) failed
+## default render bytes: 1

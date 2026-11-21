@@ -1,0 +1,242 @@
+---
+# Source: ewallet-edge/templates/gateway.yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: ewallet-edge
+  namespace: ewallet-ingress
+  labels:
+    app.kubernetes.io/part-of: ewallet-edge
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: ewallet-edge-0.2.0
+spec:
+  gatewayClassName: istio
+  # Manual deployment: bind to the istio/gateway release's Service. Without an address
+  # Istio would create a second Deployment with a LoadBalancer Service.
+  addresses:
+    - type: Hostname
+      value: ewallet-edge-gateway.ewallet-ingress.svc.cluster.local
+  listeners:
+    - name: https
+      port: 443
+      protocol: HTTPS
+      hostname: "*.edge.local.test"
+      tls:
+        mode: Terminate
+        certificateRefs: [{kind: Secret, name: edge-tls}]
+      allowedRoutes: {namespaces: {from: Same}}
+    # Plain HTTP only ever answers with a redirect (HTTPRoute https-redirect).
+    - name: http
+      port: 80
+      protocol: HTTP
+      hostname: "*.edge.local.test"
+      allowedRoutes: {namespaces: {from: Same}}
+---
+# Source: ewallet-edge/templates/gateway.yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: https-redirect
+  namespace: ewallet-ingress
+  labels:
+    app.kubernetes.io/part-of: ewallet-edge
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: ewallet-edge-0.2.0
+spec:
+  parentRefs: [{name: ewallet-edge, sectionName: http}]
+  hostnames: ["registry.edge.local.test","features.edge.local.test","observe.edge.local.test","agents.edge.local.test"]
+  rules:
+    - name: https-redirect
+      filters:
+        - type: RequestRedirect
+          requestRedirect: {scheme: https, statusCode: 301}
+---
+# Source: ewallet-edge/templates/httproutes.yaml
+# Only the listed paths exist on this host; anything else answers 404 at the gateway.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: agent-registry
+  namespace: ewallet-ingress
+  labels:
+    app.kubernetes.io/part-of: ewallet-edge
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: ewallet-edge-0.2.0
+spec:
+  # HTTPS only: the HTTP listener carries nothing but the redirect.
+  parentRefs: [{name: ewallet-edge, sectionName: https}]
+  hostnames: ["registry.edge.local.test"]
+  rules:
+    # Istio names the Envoy route after the rule, so the EnvoyFilter's per-route limit can
+    # match it by this name.
+    - name: agent-registry
+      matches:
+        - path:
+            {type: PathPrefix, value: /}
+      filters:
+        - type: RequestHeaderModifier
+          requestHeaderModifier:
+            remove: ["authorization","x-user-id","x-forwarded-user","x-remote-user","x-edge-user"]
+      # Istio retries Gateway API routes twice by default. A gateway must not repeat a
+      # request: agent and prediction calls are not all idempotent.
+      retry: {attempts: 0}
+      backendRefs:
+        - {name: stub, namespace: edge-stub, port: 8080}
+---
+# Source: ewallet-edge/templates/httproutes.yaml
+# Only the listed paths exist on this host; anything else answers 404 at the gateway.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: feature-api
+  namespace: ewallet-ingress
+  labels:
+    app.kubernetes.io/part-of: ewallet-edge
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: ewallet-edge-0.2.0
+spec:
+  # HTTPS only: the HTTP listener carries nothing but the redirect.
+  parentRefs: [{name: ewallet-edge, sectionName: https}]
+  hostnames: ["features.edge.local.test"]
+  rules:
+    # Istio names the Envoy route after the rule, so the EnvoyFilter's per-route limit can
+    # match it by this name.
+    - name: feature-api
+      matches:
+        - path:
+            {type: Exact, value: /v1/features/lookup}
+          method: POST
+      filters:
+        - type: RequestHeaderModifier
+          requestHeaderModifier:
+            remove: ["authorization","x-user-id","x-forwarded-user","x-remote-user","x-edge-user"]
+      timeouts: {request: 5s}
+      # Istio retries Gateway API routes twice by default. A gateway must not repeat a
+      # request: agent and prediction calls are not all idempotent.
+      retry: {attempts: 0}
+      backendRefs:
+        - {name: stub, namespace: edge-stub, port: 8080}
+---
+# Source: ewallet-edge/templates/httproutes.yaml
+# Only the listed paths exist on this host; anything else answers 404 at the gateway.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: grafana
+  namespace: ewallet-ingress
+  labels:
+    app.kubernetes.io/part-of: ewallet-edge
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: ewallet-edge-0.2.0
+spec:
+  # HTTPS only: the HTTP listener carries nothing but the redirect.
+  parentRefs: [{name: ewallet-edge, sectionName: https}]
+  hostnames: ["observe.edge.local.test"]
+  rules:
+    # Istio names the Envoy route after the rule, so the EnvoyFilter's per-route limit can
+    # match it by this name.
+    - name: grafana
+      matches:
+        - path:
+            {type: PathPrefix, value: /}
+      filters:
+        - type: RequestHeaderModifier
+          requestHeaderModifier:
+            remove: ["authorization","x-user-id","x-forwarded-user","x-remote-user","x-edge-user"]
+      # Istio retries Gateway API routes twice by default. A gateway must not repeat a
+      # request: agent and prediction calls are not all idempotent.
+      retry: {attempts: 0}
+      backendRefs:
+        - {name: stub, namespace: edge-stub, port: 8080}
+---
+# Source: ewallet-edge/templates/httproutes.yaml
+# Only the listed paths exist on this host; anything else answers 404 at the gateway.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: kagent-ui
+  namespace: ewallet-ingress
+  labels:
+    app.kubernetes.io/part-of: ewallet-edge
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: ewallet-edge-0.2.0
+spec:
+  # HTTPS only: the HTTP listener carries nothing but the redirect.
+  parentRefs: [{name: ewallet-edge, sectionName: https}]
+  hostnames: ["agents.edge.local.test"]
+  rules:
+    # Istio names the Envoy route after the rule, so the EnvoyFilter's per-route limit can
+    # match it by this name.
+    - name: kagent-ui
+      matches:
+        - path:
+            {type: PathPrefix, value: /}
+      filters:
+        - type: RequestHeaderModifier
+          requestHeaderModifier:
+            remove: ["authorization","x-user-id","x-forwarded-user","x-remote-user","x-edge-user"]
+      # Istio retries Gateway API routes twice by default. A gateway must not repeat a
+      # request: agent and prediction calls are not all idempotent.
+      retry: {attempts: 0}
+      backendRefs:
+        - {name: stub, namespace: edge-stub, port: 8080}
+---
+# Source: ewallet-edge/templates/httproutes.yaml
+# Additive, in the backend's namespace: lets edge routes reference this one Service only.
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-ewallet-edge-agent-registry
+  namespace: edge-stub
+  labels:
+    app.kubernetes.io/part-of: ewallet-edge
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: ewallet-edge-0.2.0
+spec:
+  from: [{group: gateway.networking.k8s.io, kind: HTTPRoute, namespace: ewallet-ingress}]
+  to: [{group: "", kind: Service, name: stub}]
+---
+# Source: ewallet-edge/templates/httproutes.yaml
+# Additive, in the backend's namespace: lets edge routes reference this one Service only.
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-ewallet-edge-feature-api
+  namespace: edge-stub
+  labels:
+    app.kubernetes.io/part-of: ewallet-edge
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: ewallet-edge-0.2.0
+spec:
+  from: [{group: gateway.networking.k8s.io, kind: HTTPRoute, namespace: ewallet-ingress}]
+  to: [{group: "", kind: Service, name: stub}]
+---
+# Source: ewallet-edge/templates/httproutes.yaml
+# Additive, in the backend's namespace: lets edge routes reference this one Service only.
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-ewallet-edge-grafana
+  namespace: edge-stub
+  labels:
+    app.kubernetes.io/part-of: ewallet-edge
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: ewallet-edge-0.2.0
+spec:
+  from: [{group: gateway.networking.k8s.io, kind: HTTPRoute, namespace: ewallet-ingress}]
+  to: [{group: "", kind: Service, name: stub}]
+---
+# Source: ewallet-edge/templates/httproutes.yaml
+# Additive, in the backend's namespace: lets edge routes reference this one Service only.
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-ewallet-edge-kagent-ui
+  namespace: edge-stub
+  labels:
+    app.kubernetes.io/part-of: ewallet-edge
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: ewallet-edge-0.2.0
+spec:
+  from: [{group: gateway.networking.k8s.io, kind: HTTPRoute, namespace: ewallet-ingress}]
+  to: [{group: "", kind: Service, name: stub}]

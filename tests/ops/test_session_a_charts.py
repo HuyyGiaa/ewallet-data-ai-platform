@@ -22,10 +22,11 @@ IMAGE = "r.example/p/fraud-api@sha256:" + "a" * 64
 GSA = ["--set", "featureApi.serviceAccount.gcpServiceAccount=ewallet-feature-api@p.iam.gserviceaccount.com"]
 ON = GSA + ["--set", "featureApi.enabled=true", "--set", f"featureApi.image={IMAGE}", "--set", "featureApi.registryUri=gs://b/r",
       "--set", "metricsDiscovery.enabled=true", "--set", "autoscaling.enabled=true"]
-ALL_ROUTES = ["feature-api", "fraud-api", "a2a", "kagent-ui", "agent-registry"]
-EDGE_ON = ["--set", "enabled=true", "--set", "domain=edge.example.test"] + [
+ALL_ROUTES = ["feature-api", "kagent-ui", "agent-registry", "grafana"]
+EDGE_ON = ["-n", "ewallet-ingress", "--set", "enabled=true", "--set", "domain=edge.example.test"] + [
     item for route in ALL_ROUTES for item in ("--set", f"routes.{route}.enabled=true")
 ]
+EDGE_VERIFIED = EDGE_ON + ["--set", "securityFiltersVerified=true"]
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm unavailable")
 
 
@@ -113,53 +114,83 @@ def test_feature_api_redis_access_is_additive_and_scoped():
 
 
 def test_edge_refuses_to_render_without_a_domain_or_a_route():
-    assert render(EDGE, "--set", "enabled=true", check=False).returncode != 0
-    assert render(EDGE, "--set", "enabled=true", "--set", "domain=edge.example.test", check=False).returncode != 0
+    assert render(EDGE, "-n", "ewallet-ingress", "--set", "enabled=true", check=False).returncode != 0
+    assert render(EDGE, "-n", "ewallet-ingress", "--set", "enabled=true", "--set", "domain=edge.example.test",
+                  check=False).returncode != 0
+
+
+def test_edge_refuses_a_real_domain_until_the_security_filters_are_verified():
+    real = [arg.replace("edge.example.test", "ewallet.example.com") for arg in EDGE_ON]
+    assert render(EDGE, *real, check=False).returncode != 0
+    assert render(EDGE, *real, "--set", "securityFiltersVerified=true", check=False).returncode == 0
+    assert "EnvoyFilter" not in {item["kind"] for item in render(EDGE, *EDGE_ON)}
+
+
+def test_edge_refuses_a_namespace_other_than_its_own():
+    assert render(EDGE, *EDGE_ON, "-n", "ewallet-edge", check=False).returncode != 0
+
+
+def test_gateway_binds_to_the_helm_managed_service():
+    # Without an address Istio provisions its own Deployment and a LoadBalancer Service.
+    gateway = kinds(render(EDGE, *EDGE_ON), "Gateway")["ewallet-edge"]["spec"]
+    assert gateway["gatewayClassName"] == "istio"
+    assert gateway["addresses"] == [{"type": "Hostname", "value": "ewallet-edge-gateway.ewallet-ingress.svc.cluster.local"}]
 
 
 def test_edge_serves_https_and_redirects_http():
-    servers = kinds(render(EDGE, *EDGE_ON), "Gateway")["ewallet-edge"]["spec"]["servers"]
-    https, http = servers
-    assert https["tls"]["mode"] == "SIMPLE" and https["port"]["number"] == 443
-    assert http["tls"]["httpsRedirect"] is True
+    items = render(EDGE, *EDGE_ON)
+    https, http = kinds(items, "Gateway")["ewallet-edge"]["spec"]["listeners"]
+    assert https["protocol"] == "HTTPS" and https["port"] == 443 and https["tls"]["mode"] == "Terminate"
+    assert http["protocol"] == "HTTP" and http["port"] == 80
+    routes = kinds(items, "HTTPRoute")
+    redirect = routes.pop("https-redirect")["spec"]
+    assert redirect["parentRefs"] == [{"name": "ewallet-edge", "sectionName": "http"}]
+    assert redirect["rules"][0]["filters"] == [{"type": "RequestRedirect", "requestRedirect": {"scheme": "https", "statusCode": 301}}]
+    assert "backendRefs" not in redirect["rules"][0]
+    assert {route["spec"]["parentRefs"][0]["sectionName"] for route in routes.values()} == {"https"}
 
 
 def test_every_route_strips_identity_and_never_retries():
-    for service in kinds(render(EDGE, *EDGE_ON), "VirtualService").values():
-        route = service["spec"]["http"][0]
-        assert route["retries"]["attempts"] == 0
-        assert {"authorization", "x-user-id"} <= set(route["headers"]["request"]["remove"])
-
-
-def test_a2a_route_reaches_one_agent_and_pins_the_user():
-    route = kinds(render(EDGE, *EDGE_ON), "VirtualService")["a2a"]["spec"]["http"][0]
-    assert route["match"] == [{"uri": {"exact": "/api/a2a/ewallet-agents/fraud-coordinator"}},
-                              {"uri": {"prefix": "/api/a2a/ewallet-agents/fraud-coordinator/"}}]
-    assert route["headers"]["request"]["set"]["x-user-id"] == "edge-a2a-client"
+    routes = kinds(render(EDGE, *EDGE_ON), "HTTPRoute")
+    routes.pop("https-redirect")
+    assert set(routes) == set(ALL_ROUTES)
+    for route in routes.values():
+        rule = route["spec"]["rules"][0]
+        assert rule["retry"] == {"attempts": 0}
+        assert {"authorization", "x-user-id"} <= set(rule["filters"][0]["requestHeaderModifier"]["remove"])
 
 
 def test_data_routes_expose_one_exact_method_and_path():
-    services = kinds(render(EDGE, *EDGE_ON), "VirtualService")
-    assert services["feature-api"]["spec"]["http"][0]["match"] == [{"uri": {"exact": "/v1/features/lookup"}, "method": {"exact": "POST"}}]
-    assert services["fraud-api"]["spec"]["http"][0]["match"] == [{"uri": {"exact": "/v1/fraud/predict"}, "method": {"exact": "POST"}}]
+    rule = kinds(render(EDGE, *EDGE_ON), "HTTPRoute")["feature-api"]["spec"]["rules"][0]
+    assert rule["matches"] == [{"path": {"type": "Exact", "value": "/v1/features/lookup"}, "method": "POST"}]
 
 
 def test_internal_services_have_no_route():
     text = json.dumps(render(EDGE, *EDGE_ON))
-    for name in ("vllm", "agentgateway", "mcp-gateway", "redis", "predictor", "mlflow", "jenkins", "vault"):
-        assert f"{name}." not in text, name
+    for name in ("vllm", "agentgateway", "mcp-gateway", "redis", "predictor", "mlflow", "jenkins", "vault",
+                 "fraud-api", "fraud-coordinator", "kagent-controller"):
+        assert name not in text, name
+
+
+def test_each_reference_grant_admits_edge_routes_to_one_service():
+    for grant in kinds(render(EDGE, *EDGE_ON), "ReferenceGrant").values():
+        assert grant["spec"]["from"] == [{"group": "gateway.networking.k8s.io", "kind": "HTTPRoute", "namespace": "ewallet-ingress"}]
+        assert len(grant["spec"]["to"]) == 1 and grant["spec"]["to"][0]["name"]
 
 
 def test_rate_limiter_runs_before_basic_auth_and_every_route_has_a_limit():
-    patches = kinds(render(EDGE, *EDGE_ON), "EnvoyFilter")["edge-security"]["spec"]["configPatches"]
+    items = render(EDGE, *EDGE_VERIFIED)
+    patches = kinds(items, "EnvoyFilter")["edge-security"]["spec"]["configPatches"]
     filters = [patch["patch"]["value"]["name"] for patch in patches if patch["applyTo"] == "HTTP_FILTER"]
     assert filters == ["envoy.filters.http.local_ratelimit", "envoy.filters.http.basic_auth"]
     limited = {patch["match"]["routeConfiguration"]["vhost"]["route"]["name"] for patch in patches if patch["applyTo"] == "HTTP_ROUTE"}
-    assert limited == set(ALL_ROUTES)
+    # Istio names each Envoy route after its HTTPRoute rule; the patches match those names.
+    rules = {route["spec"]["rules"][0]["name"] for name, route in kinds(items, "HTTPRoute").items() if name != "https-redirect"}
+    assert limited == set(ALL_ROUTES) == rules
 
 
 def test_security_filters_never_attach_to_the_redirect_listener():
-    patches = kinds(render(EDGE, *EDGE_ON), "EnvoyFilter")["edge-security"]["spec"]["configPatches"]
+    patches = kinds(render(EDGE, *EDGE_VERIFIED), "EnvoyFilter")["edge-security"]["spec"]["configPatches"]
     for patch in patches:
         if patch["applyTo"] != "HTTP_ROUTE":
             assert patch["match"]["listener"]["portNumber"] == 443
