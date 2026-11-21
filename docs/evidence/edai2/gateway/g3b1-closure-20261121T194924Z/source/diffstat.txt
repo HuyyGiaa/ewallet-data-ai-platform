@@ -1,0 +1,15 @@
+ docs/runbooks/edai2/EXTERNAL_GATEWAY_RUNBOOK.md    | 115 +++++++
+ .../ewallet-edge/templates/source-restriction.yaml |   2 +-
+ scripts/edge/dns_check.py                          |  92 ++++++
+ scripts/edge/grafana_root_url_check.sh             |  27 ++
+ scripts/edge/issue_certificate.sh                  |  65 ++++
+ scripts/edge/local_validate.sh                     |  30 +-
+ scripts/edge/ownership_preflight.py                | 273 ++++++++++++---
+ scripts/edge/platform_checks.py                    | 293 +++++++++++++++++
+ scripts/edge/public_e2e.py                         | 174 ++++++++++
+ scripts/edge/release_diff.py                       |  71 ++++
+ scripts/edge/staged_rollout_check.sh               |  51 +++
+ tests/ops/test_edge_scripts.py                     | 366 +++++++++++++++++++++
+ tests/ops/test_public_preflight.py                 | 249 ++++++++++++++
+ tests/ops/test_session_a_charts.py                 |  19 +-
+ 14 files changed, 1745 insertions(+), 82 deletions(-)

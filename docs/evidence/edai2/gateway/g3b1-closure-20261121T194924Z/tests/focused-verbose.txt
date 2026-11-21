@@ -1,0 +1,88 @@
+tests/ops/test_public_preflight.py::test_ps01_valid_public_configuration_passes PASSED
+tests/ops/test_public_preflight.py::test_ps02_ps03_missing_basic_auth_or_rate_limit_fails[envoy.filters.http.basic_auth] PASSED
+tests/ops/test_public_preflight.py::test_ps02_ps03_missing_basic_auth_or_rate_limit_fails[envoy.filters.http.local_ratelimit] PASSED
+tests/ops/test_public_preflight.py::test_ps03b_filter_on_the_wrong_listener_fails PASSED
+tests/ops/test_public_preflight.py::test_ps04_missing_source_restriction_fails PASSED
+tests/ops/test_public_preflight.py::test_ps05_wrong_gateway_selector_fails[AuthorizationPolicy] PASSED
+tests/ops/test_public_preflight.py::test_ps05_wrong_gateway_selector_fails[EnvoyFilter] PASSED
+tests/ops/test_public_preflight.py::test_ps05b_policy_without_the_gateway_deployment_cannot_be_proven PASSED
+tests/ops/test_public_preflight.py::test_ps06_wrong_hostname_fails PASSED
+tests/ops/test_public_preflight.py::test_ps07_wrong_listener_port_fails[None] PASSED
+tests/ops/test_public_preflight.py::test_ps07_wrong_listener_port_fails[ports1] PASSED
+tests/ops/test_public_preflight.py::test_ps07_wrong_listener_port_fails[ports2] PASSED
+tests/ops/test_public_preflight.py::test_ps07_wrong_listener_port_fails[ports3] PASSED
+tests/ops/test_public_preflight.py::test_ps08_empty_cidr_list_fails PASSED
+tests/ops/test_public_preflight.py::test_ps09_public_cidr_not_approved_fails PASSED
+tests/ops/test_public_preflight.py::test_ps10_invalid_ipv4_cidr_fails[999.999.999.999/32] PASSED
+tests/ops/test_public_preflight.py::test_ps10_invalid_ipv4_cidr_fails[203.0.113.7/33] PASSED
+tests/ops/test_public_preflight.py::test_ps10_invalid_ipv4_cidr_fails[203.0.113.7] PASSED
+tests/ops/test_public_preflight.py::test_ps10_invalid_ipv4_cidr_fails[2001:db8::/32] PASSED
+tests/ops/test_public_preflight.py::test_ps10_invalid_ipv4_cidr_fails[203.0.113.7/24] PASSED
+tests/ops/test_public_preflight.py::test_ps10_invalid_ipv4_cidr_fails[abc] PASSED
+tests/ops/test_public_preflight.py::test_ps11_ps12_private_shared_wide_or_catch_all_fails[10.20.0.31/32] PASSED
+tests/ops/test_public_preflight.py::test_ps11_ps12_private_shared_wide_or_catch_all_fails[172.16.5.0/24] PASSED
+tests/ops/test_public_preflight.py::test_ps11_ps12_private_shared_wide_or_catch_all_fails[192.168.1.0/24] PASSED
+tests/ops/test_public_preflight.py::test_ps11_ps12_private_shared_wide_or_catch_all_fails[100.64.0.0/16] PASSED
+tests/ops/test_public_preflight.py::test_ps11_ps12_private_shared_wide_or_catch_all_fails[169.254.7.127/32] PASSED
+tests/ops/test_public_preflight.py::test_ps11_ps12_private_shared_wide_or_catch_all_fails[127.0.0.1/32] PASSED
+tests/ops/test_public_preflight.py::test_ps11_ps12_private_shared_wide_or_catch_all_fails[8.0.0.0/8] PASSED
+tests/ops/test_public_preflight.py::test_ps11_ps12_private_shared_wide_or_catch_all_fails[0.0.0.0/0] PASSED
+tests/ops/test_public_preflight.py::test_ps13_agents_route_disabled_passes_without_restriction PASSED
+tests/ops/test_public_preflight.py::test_ps15_valid_owner_cidr_matches_and_no_approval_means_no_pass PASSED
+tests/ops/test_public_preflight.py::test_ps16_different_live_cidr_fails PASSED
+tests/ops/test_public_preflight.py::test_ps16b_a_narrowing_condition_fails PASSED
+tests/ops/test_public_preflight.py::test_ps17_external_traffic_policy_cluster_fails PASSED
+tests/ops/test_public_preflight.py::test_ps18_unapproved_public_lb_fails PASSED
+tests/ops/test_public_preflight.py::test_ps19_acme_route_to_an_unexpected_backend_fails PASSED
+tests/ops/test_public_preflight.py::test_ps19b_an_application_route_on_port_80_fails PASSED
+tests/ops/test_public_preflight.py::test_ps20_valid_security_with_the_temporary_acme_responder_passes PASSED
+tests/ops/test_public_preflight.py::test_live_rbac_matches_the_approved_cidrs PASSED
+tests/ops/test_public_preflight.py::test_approved_cidrs_file_must_be_outside_the_repository PASSED
+tests/ops/test_public_preflight.py::test_cli_render_public_mode_end_to_end PASSED
+tests/ops/test_edge_scripts.py::test_judge_passes_a_healthy_snapshot_and_its_own_baseline PASSED
+tests/ops/test_edge_scripts.py::test_judge_reports_regressions_against_the_baseline[<lambda>-backend kagent/kagent-ui] PASSED
+tests/ops/test_edge_scripts.py::test_judge_reports_regressions_against_the_baseline[<lambda>-backend ewallet-agents/grafana] PASSED
+tests/ops/test_edge_scripts.py::test_judge_reports_regressions_against_the_baseline[<lambda>-backend ml-platform/feature-api] PASSED
+tests/ops/test_edge_scripts.py::test_judge_reports_regressions_against_the_baseline[<lambda>-jenkins -> registry] PASSED
+tests/ops/test_edge_scripts.py::test_judge_reports_regressions_against_the_baseline[<lambda>-grafana -> loki] PASSED
+tests/ops/test_edge_scripts.py::test_watch_passes_when_ready_and_restarts_stay_constant PASSED
+tests/ops/test_edge_scripts.py::test_watch_fails_on_not_ready_restart_or_probe_event[sequence0-events0] PASSED
+tests/ops/test_edge_scripts.py::test_watch_fails_on_not_ready_restart_or_probe_event[sequence1-events1] PASSED
+tests/ops/test_edge_scripts.py::test_watch_fails_on_not_ready_restart_or_probe_event[sequence2-events2] PASSED
+tests/ops/test_edge_scripts.py::test_envoy_checks_pass_on_the_g3a1_shape PASSED
+tests/ops/test_edge_scripts.py::test_envoy_checks_fail_on_drift[dump0-443: rate limit, then Basic Auth, then router] PASSED
+tests/ops/test_edge_scripts.py::test_envoy_checks_fail_on_drift[dump1-443: rate limit, then Basic Auth, then router] PASSED
+tests/ops/test_edge_scripts.py::test_envoy_checks_fail_on_drift[dump2-no route retries] PASSED
+tests/ops/test_edge_scripts.py::test_envoy_checks_fail_on_drift[dump3-TLS secret edge-tls loaded] PASSED
+tests/ops/test_edge_scripts.py::test_envoy_checks_fail_on_drift[dump4-per-route token buckets equal values.yaml] PASSED
+tests/ops/test_edge_scripts.py::test_envoy_checks_can_require_the_rbac_filter PASSED
+tests/ops/test_edge_scripts.py::test_gateway_checks_judge_conditions_and_grants PASSED
+tests/ops/test_edge_scripts.py::test_sleep_feasibility_reproduces_the_g3a1_gate PASSED
+tests/ops/test_edge_scripts.py::test_public_e2e_rows_pass_on_real_answers PASSED
+tests/ops/test_edge_scripts.py::test_public_e2e_fails_on_wrong_or_empty_answers[key0-reply0-43] PASSED
+tests/ops/test_edge_scripts.py::test_public_e2e_fails_on_wrong_or_empty_answers[key1-reply1-38] PASSED
+tests/ops/test_edge_scripts.py::test_public_e2e_fails_on_wrong_or_empty_answers[key2-reply2-39] PASSED
+tests/ops/test_edge_scripts.py::test_public_e2e_fails_on_wrong_or_empty_answers[key3-reply3-37] PASSED
+tests/ops/test_edge_scripts.py::test_public_e2e_fails_on_wrong_or_empty_answers[key4-reply4-37] PASSED
+tests/ops/test_edge_scripts.py::test_public_e2e_fails_on_wrong_or_empty_answers[key5-reply5-41] PASSED
+tests/ops/test_edge_scripts.py::test_public_e2e_agents_denied_mode PASSED
+tests/ops/test_edge_scripts.py::test_public_e2e_grafana_password_never_reaches_a_command_line PASSED
+tests/ops/test_edge_scripts.py::test_public_e2e_tls_checks_use_the_reported_names PASSED
+tests/ops/test_edge_scripts.py::test_credential_files_must_be_outside_the_repository PASSED
+tests/ops/test_edge_scripts.py::test_dns_online_needs_exactly_the_lb_address_and_no_aaaa PASSED
+tests/ops/test_edge_scripts.py::test_dns_offline_and_withheld_values PASSED
+tests/ops/test_edge_scripts.py::test_issue_certificate_refuses_before_any_acme_call[args0---domain is required] PASSED
+tests/ops/test_edge_scripts.py::test_issue_certificate_refuses_before_any_acme_call[args1---context is required] PASSED
+tests/ops/test_edge_scripts.py::test_issue_certificate_refuses_before_any_acme_call[args2---private-dir is required] PASSED
+tests/ops/test_edge_scripts.py::test_issue_certificate_refuses_before_any_acme_call[args3-outside the repository] PASSED
+tests/ops/test_edge_scripts.py::test_issue_certificate_refuses_before_any_acme_call[args4---confirm-production] PASSED
+tests/ops/test_edge_scripts.py::test_issue_certificate_refuses_before_any_acme_call[args5-staging, production or self-signed] PASSED
+tests/ops/test_edge_scripts.py::test_acme_hook_refuses_bad_tokens_and_domains[../etc-features.edge.example.test] PASSED
+tests/ops/test_edge_scripts.py::test_acme_hook_refuses_bad_tokens_and_domains[ok_token-evil;domain] PASSED
+tests/ops/test_edge_scripts.py::test_staged_rollout_check_refuses_a_non_kind_context PASSED
+tests/ops/test_edge_scripts.py::test_grafana_root_url_check_against_the_pinned_image PASSED
+tests/ops/test_edge_scripts.py::test_release_diff_accepts_exactly_the_approved_root_url PASSED
+tests/ops/test_edge_scripts.py::test_release_diff_refuses_anything_else[after0] PASSED
+tests/ops/test_edge_scripts.py::test_release_diff_refuses_anything_else[after1] PASSED
+tests/ops/test_edge_scripts.py::test_release_diff_refuses_anything_else[after2] PASSED
+tests/ops/test_edge_scripts.py::test_issue_certificate_self_signed_mode_writes_only_to_the_private_dir PASSED
