@@ -32,20 +32,25 @@ record() {  # name passed(true|false) observed
   python3 -c 'import json, sys; print(json.dumps({"name": sys.argv[1], "passed": sys.argv[2] == "true", "observed": sys.argv[3][:200]}))' \
     "$@" >> "$evidence/status.jsonl"
 }
-# A pod that tries the stub directly, bypassing the gateway. Prints REACHED or BLOCKED.
+# A pod that tries the stub directly, bypassing the gateway. Prints REACHED, or BLOCKED and
+# the underlying socket error (URLError hides whether it was a timeout or a DNS failure).
 probe() {  # pod-name namespace labels
   k -n "$2" run "$1" --image=python:3.12-alpine --restart=Never --labels="$3" --command -- python3 -c "
 import urllib.request
 try:
     urllib.request.urlopen('http://stub.$STUB.svc.cluster.local:8080/', timeout=4); print('REACHED')
 except Exception as error:
-    print('BLOCKED', type(error).__name__)" >/dev/null
+    print('BLOCKED', type(getattr(error, 'reason', error)).__name__)" >/dev/null
   k -n "$2" wait "pod/$1" --for=jsonpath='{.status.phase}'=Succeeded --timeout=90s >/dev/null 2>&1 || true
   k -n "$2" logs "$1" 2>/dev/null | tail -1; k -n "$2" delete pod "$1" --wait=false >/dev/null 2>&1 || true
 }
-authed_status() {  # host path: credentials go through stdin, never the command line
-  curl -sS -m 10 -o /dev/null -w '%{http_code}' -K - --cacert "$work/tls.crt" --resolve "$1.$DOMAIN:$https:$node" \
-    "https://$1.$DOMAIN:$https$2" <<< "user = \"$(cat "$work/credentials")\"" 2>/dev/null || true
+# Prints "echo" when the stub answered 200 with its echo, else the HTTP status (000: no answer).
+# Credentials come from a curl config file in the private work directory, never the command line.
+authed_reply() {  # host path
+  local code; code=$(curl -sS -m 10 -o "$work/body" -w '%{http_code}' -K "$work/curl-auth.conf" --cacert "$work/tls.crt" \
+    --resolve "$1.$DOMAIN:$https:$node" "https://$1.$DOMAIN:$https$2" 2>/dev/null || true)
+  if [ "$code" == 200 ] && python3 -c 'import json, sys; sys.exit(not isinstance(json.load(open(sys.argv[1])).get("headers"), dict))' "$work/body" 2>/dev/null
+  then echo echo; else echo "${code:-000}"; fi
 }
 anon_status() { curl -sS -m 10 -o /dev/null -w '%{http_code}' --cacert "$work/tls.crt" --resolve "$1.$DOMAIN:$https:$node" "https://$1.$DOMAIN:$https$2" 2>/dev/null || true; }
 lb_before=$(k get svc -A -o jsonpath='{range .items[?(@.spec.type=="LoadBalancer")]}{.metadata.namespace}/{.metadata.name} {end}')
@@ -53,7 +58,11 @@ k create ns "$NS" >/dev/null; k create ns "$STUB" >/dev/null
 openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -days 1 -subj "/CN=$DOMAIN" \
   -addext "subjectAltName=DNS:*.$DOMAIN" -keyout "$work/tls.key" -out "$work/tls.crt" 2>/dev/null
 k -n "$NS" create secret tls edge-tls --cert="$work/tls.crt" --key="$work/tls.key" >/dev/null
-password=$(openssl rand -hex 24); printf 'edge:%s\n' "$password" > "$work/credentials"
+# A quote, a backslash, an apostrophe and spaces: every client must pass them through unchanged.
+secret=$(openssl rand -hex 24); password="$secret q\"u'o\\te x"
+printf 'edge:%s\n' "$password" > "$work/credentials"
+python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); from negative_tests import curl_user_config
+print(curl_user_config(open(sys.argv[2]).read().rstrip("\r\n")), end="")' "$root/scripts/edge" "$work/credentials" > "$work/curl-auth.conf"
 printf '%s' "$password" | "$root/scripts/edge/create_basic_auth.sh" edge "$NS" "$CONTEXT" >/dev/null
 k -n "$STUB" create configmap stub --from-file="$root/scripts/edge/stub/echo_stub.py" >/dev/null
 k -n "$STUB" apply -f - >/dev/null <<YAML
@@ -173,7 +182,9 @@ if [ "$mode" == full ]; then
               "gateway-labels-wrong-identity:$NS:istio=ewallet-edge-gateway,app=probe"; do
     IFS=: read -r name ns labels <<< "$case"
     seen=$(probe "intruder-$name" "$ns" "$labels")
-    record "network: $name pod cannot reach the backend directly" "$([[ "$seen" == BLOCKED* ]] && echo true || echo false)" "$seen"
+    # Only a refused, reset or timed-out connection is a policy block; a DNS error proves nothing.
+    record "network: $name pod cannot reach the backend directly" \
+      "$([[ "$seen" =~ ^BLOCKED\ (TimeoutError|ConnectionResetError|ConnectionRefusedError|RemoteDisconnected)$ ]] && echo true || echo false)" "$seen"
   done
 fi
 
@@ -256,20 +267,48 @@ if [ "$mode" == full ]; then
   k -n "$NS" patch envoyfilter edge-security --type=json \
     -p '[{"op":"replace","path":"/spec/configPatches/1/patch/value/typed_config/users/filename","value":"/etc/edge-auth/missing"}]' >/dev/null
   sleep 15
-  a1=$(anon_status features /v1/features/lookup) v1=$(authed_status registry /)
-  record "broken users file, running proxy: no unauthenticated access" "$([ "$a1" != 200 ] && echo true || echo false)" "anonymous=$a1 authenticated=$v1"
+  # Envoy must reject (NACK) the new listener and keep serving the old one unchanged: Basic
+  # Auth still active on 443, anonymous exactly 401, and the real password still reaches the
+  # stub (a broken users file would refuse it). Envoy redacts the users data source in its
+  # config dump, so the file name itself cannot be read back.
+  good=$(k -n "$NS" get pod -l istio=ewallet-edge-gateway -o name | head -1)
+  basic_auth=$(k -n "$NS" exec "$good" -- pilot-agent request GET config_dump | python3 -c '
+import json, sys
+for c in json.load(sys.stdin)["configs"]:
+    for l in c.get("dynamic_listeners", []):
+        listener = l.get("active_state", {}).get("listener", {})
+        if listener.get("address", {}).get("socket_address", {}).get("port_value") != 443:
+            continue
+        for fc in listener.get("filter_chains", []):
+            for f in fc.get("filters", []):
+                for h in f.get("typed_config", {}).get("http_filters", []):
+                    if h["name"] == "envoy.filters.http.basic_auth":
+                        print("active"); sys.exit()
+print("missing")')
+  rejected=$(k -n "$NS" logs "$good" 2>/dev/null | grep -c 'Listener rejected' || true)
+  a1=$(anon_status features /v1/features/lookup) v1=$(authed_reply registry /)
+  ok=false; [ "$a1" == 401 ] && [ "$v1" == echo ] && [ "$basic_auth" == active ] && [ "$rejected" -gt 0 ] && ok=true
+  record "broken users file, running proxy: listener update rejected, last good auth kept" "$ok" \
+    "anonymous=$a1 authenticated=$v1 basic_auth on 443=$basic_auth rejected-listener log lines=$rejected"
   # A new pod gets the broken config from the start: Envoy rejects the listener, the pod never
   # becomes Ready, and the rolling update keeps the old pod with its last good config.
   k -n "$NS" rollout restart deploy/ewallet-edge-gateway >/dev/null
   k -n "$NS" rollout status deploy/ewallet-edge-gateway --timeout=60s >/dev/null 2>&1 || true; sleep 10
-  bad=$(k -n "$NS" get pods -l istio=ewallet-edge-gateway -o jsonpath='{range .items[?(@.status.containerStatuses[0].ready==false)]}{.metadata.name}{end}')
-  listeners=$( [ -n "$bad" ] && k -n "$NS" exec "$bad" -- pilot-agent request GET listeners 2>/dev/null | tr '\n' ' ')
-  a2=$(anon_status features /v1/features/lookup)
-  ok=false; [ -n "$bad" ] && [[ "$listeners" != *0.0.0.0_443* ]] && [ "$a2" != 200 ] && ok=true
-  record "broken users file, restarted proxy: the new pod serves no HTTPS and never becomes Ready" "$ok" \
-    "not-ready pod=${bad:-none}; its listeners: ${listeners:-none}; anonymous via Service=$a2"
+  bad=$(k -n "$NS" get pods -l istio=ewallet-edge-gateway -o jsonpath='{range .items[?(@.status.containerStatuses[0].ready==false)]}{.metadata.name} {end}')
+  ready=$(k -n "$NS" get pods -l istio=ewallet-edge-gateway -o jsonpath='{range .items[?(@.status.containerStatuses[0].ready==true)]}{.metadata.name} {end}')
+  bad=${bad% } ready=${ready% } listeners="" bad_rejected=0
+  if [ -n "$bad" ] && [[ "$bad" != *" "* ]]; then
+    listeners=$(k -n "$NS" exec "$bad" -- pilot-agent request GET listeners 2>/dev/null | tr '\n' ' ' || true)
+    bad_rejected=$(k -n "$NS" logs "$bad" 2>/dev/null | grep -c 'Listener rejected' || true)
+  fi
+  a2=$(anon_status features /v1/features/lookup) v2=$(authed_reply registry /)
+  ok=false
+  [ -n "$bad" ] && [[ "$bad" != *" "* ]] && [ -n "$ready" ] && [[ "$ready" != *" "* ]] && [ -n "$listeners" ] \
+    && [[ "$listeners" != *0.0.0.0_443* ]] && [ "$bad_rejected" -gt 0 ] && [ "$a2" == 401 ] && [ "$v2" == echo ] && ok=true
+  record "broken users file, restarted proxy: the new pod rejects its listener, serves no HTTPS and never becomes Ready" "$ok" \
+    "via Service anonymous=$a2 authenticated=$v2; ready pods=${ready:-none}; not-ready pod=${bad:-none} rejected-listener log lines=$bad_rejected; its listeners: ${listeners:-none}"
 fi
-if grep -rq "$password" "$evidence"; then echo "password reached the evidence directory" >&2; exit 1; fi
+if grep -rqF -e "$password" -e "$secret" "$evidence"; then echo "password reached the evidence directory" >&2; exit 1; fi
 status_failed=$(grep -c '"passed": false' "$evidence/status.jsonl" || true)
 [ "$status_failed" == 0 ] || { echo "$status_failed status checks failed (status.jsonl)" >&2; exit 1; }
 [ -z "${failed_http:-}" ] || { echo "HTTP checks failed (results*.jsonl)" >&2; exit 1; }

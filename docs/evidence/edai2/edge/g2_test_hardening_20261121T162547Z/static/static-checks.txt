@@ -1,0 +1,32 @@
+## chart unchanged since the audited commit 9b47cd95
+(empty = no change)
+## helm lint (default)
+1 chart(s) linted, 0 chart(s) failed
+## helm lint (all routes, .test)
+1 chart(s) linted, 0 chart(s) failed
+## default render bytes: 1
+## real domain, unverified:
+execution error at (ewallet-edge/templates/gateway.yaml:24:4): routes on a real domain need securityFiltersVerified=true (Basic Auth and rate limits, G2.2)
+## removed route a2a:
+execution error at (ewallet-edge/templates/gateway.yaml:12:4): route a2a is not defined: hostPrefix, match and backend are required
+## wrong namespace:
+execution error at (ewallet-edge/templates/gateway.yaml:3:4): install into the namespace "ewallet-ingress" set in values.namespace
+## all routes render: kinds
+      1 kind: AuthorizationPolicy
+      1 kind: Gateway
+      5 kind: HTTPRoute
+      4 kind: NetworkPolicy
+      4 kind: ReferenceGrant
+## preflight render: edge chart
+EDGE_OWNERSHIP_OK
+## preflight render: planned G3 render (G2.2 evidence)
+EDGE_OWNERSHIP_OK
+## preflight render: legacy values-gcp.yaml (must be UNSAFE, nothing changed)
+UNSAFE unexpected ingress Gateway ewallet-agents/ewallet-agent-gateway (only ewallet-ingress/ewallet-edge may exist)
+UNSAFE Gateway ewallet-agents/ewallet-agent-gateway is not bound to ewallet-edge-gateway.ewallet-ingress.svc.cluster.local: Istio would provision its own workload
+Nothing was changed. Review each finding; approve existing resources with --allow-* instead of deleting them.
+EDGE_OWNERSHIP_UNSAFE
+exit=1
+## preflight live --help shows both allow-lists
+--allow-gateway
+--allow-loadbalancer

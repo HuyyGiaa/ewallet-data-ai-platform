@@ -1,0 +1,59 @@
+{
+  "attempt1-failed/results-after-restart.jsonl": {
+    "checks": 48,
+    "passed": 48,
+    "failed": []
+  },
+  "attempt1-failed/results.jsonl": {
+    "checks": 48,
+    "passed": 48,
+    "failed": []
+  },
+  "attempt1-failed/status.jsonl": {
+    "checks": 26,
+    "passed": 25,
+    "failed": [
+      "broken users file, running proxy: listener update rejected, last good auth kept"
+    ]
+  },
+  "attempt2-pass-before-probe-hardening/results-after-restart.jsonl": {
+    "checks": 48,
+    "passed": 48,
+    "failed": []
+  },
+  "attempt2-pass-before-probe-hardening/results.jsonl": {
+    "checks": 48,
+    "passed": 48,
+    "failed": []
+  },
+  "attempt2-pass-before-probe-hardening/status.jsonl": {
+    "checks": 26,
+    "passed": 26,
+    "failed": []
+  },
+  "foundation/results.jsonl": {
+    "checks": 32,
+    "passed": 32,
+    "failed": []
+  },
+  "foundation/status.jsonl": {
+    "checks": 14,
+    "passed": 14,
+    "failed": []
+  },
+  "full/results-after-restart.jsonl": {
+    "checks": 48,
+    "passed": 48,
+    "failed": []
+  },
+  "full/results.jsonl": {
+    "checks": 48,
+    "passed": 48,
+    "failed": []
+  },
+  "full/status.jsonl": {
+    "checks": 26,
+    "passed": 26,
+    "failed": []
+  }
+}

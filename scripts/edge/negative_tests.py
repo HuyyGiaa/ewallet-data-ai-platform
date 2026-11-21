@@ -18,6 +18,7 @@ from pathlib import Path
 import subprocess
 import time
 from typing import Sequence
+from urllib.parse import urlsplit
 import uuid
 
 
@@ -30,54 +31,97 @@ class Result:
     observed: str
 
 
+def curl_user_config(credentials: str) -> str:
+    """A curl config line for ``user:password``. Inside double quotes curl unescapes
+    backslash sequences, so a backslash or a quote in the password must be escaped, or curl
+    would send a different password (or none). A line break cannot be expressed; refuse it."""
+    if any(c in credentials for c in "\r\n") or ":" not in credentials:
+        raise ValueError("credentials must be one user:password line")
+    return 'user = "' + credentials.replace("\\", "\\\\").replace('"', '\\"') + '"\n'
+
+
+@dataclass
+class Reply:
+    """What curl saw. A TLS or connection failure is status 0."""
+
+    status: int
+    body: str
+    location: str  # where a redirect points, resolved by curl; empty otherwise
+
+
 class Edge:
     """Send requests to one gateway address."""
 
     def __init__(self, args: argparse.Namespace) -> None:
         self.address, self.https, self.http, self.domain = args.address, args.https_port, args.http_port, args.domain
-        self.ca, self.stub = args.ca_file, args.stub
-        self.credentials = Path(args.credentials_file).read_text(encoding="utf-8").strip()
+        self.ca, self.stub, self.foundation = args.ca_file, args.stub, args.foundation
+        self.config = curl_user_config(Path(args.credentials_file).read_text(encoding="utf-8").rstrip("\r\n"))
 
-    def curl(self, host: str, path: str, *extra: str, scheme: str = "https", port: int | None = None) -> tuple[int, str]:
-        """Return status and body; a TLS or connection failure is status 0."""
-        port = port or (self.https if scheme == "https" else self.http)
+    def request(self, host: str, path: str, *extra: str, scheme: str = "https", authed: bool = False) -> Reply:
+        """One request with the route's SNI and Host; credentials go through stdin."""
+        port = self.https if scheme == "https" else self.http
         name = f"{host}.{self.domain}"
-        command = ["curl", "-sS", "-m", "20", "-o", "-", "-w", "\n%{http_code}", "--resolve", f"{name}:{port}:{self.address}",
-                   f"{scheme}://{name}:{port}{path}"]
+        command = ["curl", "-sS", "-m", "20", "-o", "-", "-w", "\n%{redirect_url}\n%{http_code}",
+                   "--resolve", f"{name}:{port}:{self.address}", f"{scheme}://{name}:{port}{path}"]
         if self.ca and scheme == "https":
             command += ["--cacert", self.ca]
-        done = subprocess.run([*command, *extra], capture_output=True, text=True)
-        body, _, status = done.stdout.rpartition("\n")
-        return (int(status) if status.isdigit() else 0), body
+        if authed:
+            command += ["-K", "-"]
+        done = subprocess.run([*command, *extra], input=self.config if authed else "", capture_output=True, text=True)
+        rest, _, status = done.stdout.rpartition("\n")
+        body, _, location = rest.rpartition("\n")
+        return Reply(int(status) if status.isdigit() else 0, body, location)
+
+    def curl(self, host: str, path: str, *extra: str, scheme: str = "https") -> tuple[int, str]:
+        """Without credentials: status and body."""
+        reply = self.request(host, path, *extra, scheme=scheme)
+        return reply.status, reply.body
 
     def authed(self, host: str, path: str, *extra: str) -> tuple[int, str]:
-        """Send a request with valid credentials, kept out of the process arguments."""
-        config = f'user = "{self.credentials}"\n'
-        done = subprocess.run(
-            ["curl", "-sS", "-m", "20", "-K", "-", "-o", "-", "-w", "\n%{http_code}", "--resolve",
-             f"{host}.{self.domain}:{self.https}:{self.address}", f"https://{host}.{self.domain}:{self.https}{path}",
-             *(["--cacert", self.ca] if self.ca else []), *extra],
-            input=config, capture_output=True, text=True,
-        )
-        body, _, status = done.stdout.rpartition("\n")
-        return (int(status) if status.isdigit() else 0), body
+        """With valid credentials: status and body."""
+        reply = self.request(host, path, *extra, authed=True)
+        return reply.status, reply.body
 
 
 POST_JSON = ("-X", "POST", "-H", "content-type: application/json", "-d", "{}")
 LOOKUP = "/v1/features/lookup"
 
 
+def stub_echo(status: int, body: str) -> dict | None:
+    """The headers the stub received, when the reply is the stub's 200 echo."""
+    try:
+        payload = json.loads(body)
+    except ValueError:
+        return None
+    if status != 200 or not isinstance(payload, dict) or not isinstance(payload.get("headers"), dict):
+        return None
+    return payload["headers"]
+
+
 def reached_application(edge: Edge, status: int, body: str) -> bool:
     """A real answer from the backend, not merely "not rejected": the stub's echo, or the
     Feature API's own validation error for the empty lookup body. A 5xx never counts."""
+    if edge.stub:
+        return stub_echo(status, body) is not None
     try:
         payload = json.loads(body)
     except ValueError:
         return False
-    if edge.stub:
-        return status == 200 and "headers" in payload
     error = payload.get("error") if isinstance(payload, dict) else None
     return status == 422 and isinstance(error, dict) and bool(error.get("correlation_id"))
+
+
+def registry_served(edge: Edge, reply: Reply) -> bool:
+    """The registry answered through the edge. The stub must echo with 200. The real UI
+    may answer 200, or redirect, but only to HTTPS on its own host; a redirect elsewhere,
+    any other 3xx/4xx/5xx and a connection failure (0) do not count."""
+    if edge.stub:
+        return stub_echo(reply.status, reply.body) is not None
+    if reply.status == 200:
+        return True
+    target = urlsplit(reply.location)
+    return reply.status in (301, 302, 303, 307, 308) and target.scheme == "https" \
+        and target.hostname == f"registry.{edge.domain}"
 
 
 def check(results: list[Result], name: str, passed: bool, observed: object) -> None:
@@ -120,12 +164,18 @@ def run_routing(edge: Edge, results: list[Result]) -> None:
         check(results, f"undeclared path {path} is not routed", status == 404, status)
     status, _ = edge.authed("features", LOOKUP)
     check(results, "wrong method on a declared path is not routed", status == 404, status)
+    reply = edge.request("features", LOOKUP, scheme="http")
+    target = urlsplit(reply.location)
+    check(results, "the redirect points to HTTPS on the same host",
+          target.scheme == "https" and target.hostname == f"features.{edge.domain}", reply.location)
+    # Every host below sits under the listener's *.domain wildcard, so the edge answers it
+    # itself: Basic Auth first (401; 404 before the filters exist), then routing (404). A
+    # connection failure (0) would hide a dead gateway, so it does not count.
+    expected_anonymous = 404 if edge.foundation else 401
     for host in ("a2a", "fraud", "vllm", "mlflow", "jenkins", "vault", "redis", "mcp", "kserve", "prometheus", "unknown"):
-        # Without credentials the edge may stop it at TLS (0), at Basic Auth (401) or at routing
-        # (404); with valid credentials it must still not route (0 or 404). Never a backend answer.
         anonymous, _ = edge.curl(host, "/")
         status, _ = edge.authed(host, "/")
-        check(results, f"host {host} is not served", anonymous in (0, 401, 404) and status in (0, 404),
+        check(results, f"host {host} is not served", anonymous == expected_anonymous and status == 404,
               f"anonymous={anonymous} authenticated={status}")
 
 
@@ -136,35 +186,41 @@ def run_rate_limit(edge: Edge, results: list[Result]) -> None:
     a second must therefore see some 429s. Local rate limiting counts per gateway pod.
     """
     time.sleep(1.5)
-    status, _ = edge.authed("registry", "/")
-    check(results, "normal traffic on the limited route succeeds", status == 200, status)
+    reply = edge.request("registry", "/", authed=True)
+    check(results, "normal traffic on the limited route succeeds", registry_served(edge, reply), reply.status)
     with ThreadPoolExecutor(30) as pool:
-        codes = list(pool.map(lambda _: edge.authed("registry", "/")[0], range(120)))
-    limited = codes.count(429)
-    check(results, "a burst receives HTTP 429", limited > 0 and set(codes) <= {200, 429},
-          f"200={codes.count(200)} 429={limited} other={len(codes) - codes.count(200) - limited} of {len(codes)}")
+        replies = list(pool.map(lambda _: edge.request("registry", "/", authed=True), range(120)))
+    served = sum(registry_served(edge, r) for r in replies)
+    limited = sum(r.status == 429 for r in replies)
+    # Every reply is either a real backend answer or the limiter's 429; a 5xx or a dropped
+    # connection is a failure, not a "limited" request.
+    check(results, "a burst receives HTTP 429", served > 0 and limited > 0 and served + limited == len(replies),
+          f"served={served} 429={limited} other={sorted({r.status for r in replies if r.status != 429 and not registry_served(edge, r)})}"
+          f" of {len(replies)}")
     with ThreadPoolExecutor(10) as pool:
         anonymous = list(pool.map(lambda _: edge.curl("registry", "/")[0], range(30)))
-    check(results, "an unauthenticated burst never reaches the backend", 200 not in anonymous,
-          f"401={anonymous.count(401)} 429={anonymous.count(429)} 200={anonymous.count(200)}")
-    status, _ = edge.authed("features", LOOKUP, *POST_JSON)
-    check(results, "the limit is per route", status != 429, status)
+    # The limiter runs before Basic Auth, so an anonymous request ends in 401 or 429, nothing else.
+    check(results, "an unauthenticated burst is refused with 401 or 429 only", set(anonymous) <= {401, 429},
+          f"401={anonymous.count(401)} 429={anonymous.count(429)} other={sorted(set(anonymous) - {401, 429})}")
+    status, body = edge.authed("features", LOOKUP, *POST_JSON)
+    check(results, "the limit is per route: another route still reaches its backend", reached_application(edge, status, body), status)
     time.sleep(2)
-    status, _ = edge.authed("registry", "/")
-    check(results, "the route recovers after the burst", status != 429, status)
+    reply = edge.request("registry", "/", authed=True)
+    check(results, "the route recovers after the burst: the backend answers again", registry_served(edge, reply), reply.status)
 
 
 def run_stub(edge: Edge, results: list[Result]) -> None:
     """Checks that read what the stub backend received."""
     for host, path, extra in (("features", LOOKUP, POST_JSON), ("agents", "/", ()), ("registry", "/", ()), ("observe", "/", ())):
         status, body = edge.authed(host, path, *extra)
-        check(results, f"declared route on {host} reaches the backend", status == 200 and '"headers"' in body, status)
+        check(results, f"declared route on {host} reaches the backend", stub_echo(status, body) is not None, status)
     status, body = edge.authed("features", LOOKUP, "-H", "x-user-id: attacker", "-H", "x-edge-user: root", *POST_JSON)
-    seen = json.loads(body).get("headers", {}) if status == 200 else {"unread": status}
-    check(results, "the upstream never sees the password", status == 200 and "authorization" not in seen, sorted(seen)[:8])
-    check(results, "a client-chosen user id is removed", status == 200 and "x-user-id" not in seen, seen.get("x-user-id"))
-    check(results, "a forged edge user is removed", status == 200 and "x-edge-user" not in seen, seen.get("x-edge-user"))
-    config = f'user = "{edge.credentials}"\n'
+    seen = stub_echo(status, body)
+    echoed = seen is not None
+    seen = seen or {}
+    check(results, "the upstream never sees the password", echoed and "authorization" not in seen, sorted(seen)[:8] or status)
+    check(results, "a client-chosen user id is removed", echoed and "x-user-id" not in seen, seen.get("x-user-id", status))
+    check(results, "a forged edge user is removed", echoed and "x-edge-user" not in seen, seen.get("x-edge-user", status))
     name = f"agents.{edge.domain}"
     started = time.perf_counter()
     process = subprocess.Popen(
@@ -172,7 +228,7 @@ def run_stub(edge: Edge, results: list[Result]) -> None:
          f"https://{name}:{edge.https}/stream", *(["--cacert", edge.ca] if edge.ca else [])],
         stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True,
     )
-    process.stdin.write(config)
+    process.stdin.write(edge.config)
     process.stdin.close()
     arrivals = []
     for line in process.stdout:

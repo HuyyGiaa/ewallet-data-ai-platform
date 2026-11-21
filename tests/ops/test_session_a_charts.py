@@ -261,3 +261,10 @@ def test_ownership_preflight_detects_a_provisioned_duplicate_and_a_load_balancer
     problems = preflight.live_problems([edge, legacy], [provisioned], [edge_service, balancer])
     assert len(problems) == 4, problems  # unexpected Gateway, unbound Gateway, provisioned Deployment, LoadBalancer
     assert len(preflight.live_problems([edge], [], [edge_service, balancer], frozenset({"ewallet-agents/ewallet-agent-gateway-istio"}))) == 0
+    # An owner-approved existing Gateway is reported neither as a Gateway nor by its workload.
+    named = {"metadata": meta("ewallet-agents", "ewallet-agent-gateway-istio",
+                              {"gateway.istio.io/managed": "istio.io-gateway-controller",
+                               "gateway.networking.k8s.io/gateway-name": "ewallet-agent-gateway"})}
+    approved = frozenset({"ewallet-agents/ewallet-agent-gateway"})
+    assert preflight.live_problems([edge, legacy], [named], [edge_service], frozenset(), approved) == []
+    assert len(preflight.live_problems([edge, legacy], [named], [edge_service])) == 3

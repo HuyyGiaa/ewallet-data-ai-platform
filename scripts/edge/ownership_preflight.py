@@ -7,6 +7,11 @@ the llm-agent-platform chart is such a Gateway, rendered by ``values-gcp.yaml``.
 
 ``render``: checks manifests (``helm template`` output) before anything is applied.
 ``live``: reads a cluster (get only) before and after a rollout.
+
+Report only: the script never changes or deletes anything. A finding means "stop and
+review", not "remove". Resources the owner has reviewed and approved, such as an existing
+LoadBalancer or another team's ingress Gateway, are passed with ``--allow-loadbalancer``
+or ``--allow-gateway`` (namespace/name) and are then not reported.
 """
 
 from __future__ import annotations
@@ -28,13 +33,16 @@ EDGE_ADDRESS = f"{EDGE_SERVICE}.{EDGE_NAMESPACE}.svc.cluster.local"
 INGRESS_CLASS = "istio"
 
 
-def gateway_problems(gateways: Iterable[dict]) -> list[str]:
-    """Every Gateway must be the edge Gateway, bound to the Helm-managed Service."""
+def gateway_problems(gateways: Iterable[dict], allowed: frozenset[str] = frozenset()) -> list[str]:
+    """Every Gateway must be the edge Gateway, bound to the Helm-managed Service, unless the
+    owner approved it (allowed lists namespace/name)."""
     problems = []
     for gateway in gateways:
         if gateway.get("spec", {}).get("gatewayClassName") != INGRESS_CLASS:
             continue
         where = f"{gateway['metadata'].get('namespace', '?')}/{gateway['metadata']['name']}"
+        if where in allowed:
+            continue
         if (gateway["metadata"].get("namespace"), gateway["metadata"]["name"]) != (EDGE_NAMESPACE, EDGE_GATEWAY):
             problems.append(f"unexpected ingress Gateway {where} (only {EDGE_NAMESPACE}/{EDGE_GATEWAY} may exist)")
         addresses = gateway.get("spec", {}).get("addresses") or []
@@ -53,10 +61,12 @@ def render_problems(documents: Iterable[dict]) -> list[str]:
 
 
 def live_problems(gateways: list[dict], deployments: list[dict], services: list[dict],
-                  allowed_lb: frozenset[str] = frozenset()) -> list[str]:
-    """Problems in a cluster's current state; allowed_lb lists owner-approved namespace/name."""
-    problems = gateway_problems(gateways)
-    managed = [d for d in deployments if d["metadata"].get("labels", {}).get("gateway.istio.io/managed") == "istio.io-gateway-controller"]
+                  allowed_lb: frozenset[str] = frozenset(), allowed_gateways: frozenset[str] = frozenset()) -> list[str]:
+    """Problems in a cluster's current state; allowed_* list owner-approved namespace/name."""
+    problems = gateway_problems(gateways, allowed_gateways)
+    labels = lambda d: d["metadata"].get("labels", {})
+    managed = [d for d in deployments if labels(d).get("gateway.istio.io/managed") == "istio.io-gateway-controller"
+               and f"{d['metadata']['namespace']}/{labels(d).get('gateway.networking.k8s.io/gateway-name')}" not in allowed_gateways]
     problems += [f"Istio-provisioned gateway Deployment {d['metadata']['namespace']}/{d['metadata']['name']}" for d in managed]
     problems += [f"LoadBalancer Service {s['metadata']['namespace']}/{s['metadata']['name']}"
                  for s in services if s["spec"].get("type") == "LoadBalancer"
@@ -88,6 +98,8 @@ def main(argv: list[str] | None = None) -> int:
     live.add_argument("--context", required=True)
     live.add_argument("--allow-loadbalancer", action="append", default=[], metavar="NAMESPACE/NAME",
                       help="an owner-approved LoadBalancer Service (repeatable)")
+    live.add_argument("--allow-gateway", action="append", default=[], metavar="NAMESPACE/NAME",
+                      help="an owner-approved ingress Gateway and the workload Istio made for it (repeatable)")
     args = parser.parse_args(argv)
     if args.mode == "render":
         documents = []
@@ -98,9 +110,11 @@ def main(argv: list[str] | None = None) -> int:
     else:
         problems = live_problems(kubectl_items(args.context, "gateways.gateway.networking.k8s.io"),
                                  kubectl_items(args.context, "deployments"), kubectl_items(args.context, "services"),
-                                 frozenset(args.allow_loadbalancer))
+                                 frozenset(args.allow_loadbalancer), frozenset(args.allow_gateway))
     for problem in problems:
         print(f"UNSAFE {problem}")
+    if problems:
+        print("Nothing was changed. Review each finding; approve existing resources with --allow-* instead of deleting them.")
     print("EDGE_OWNERSHIP_UNSAFE" if problems else "EDGE_OWNERSHIP_OK")
     return 1 if problems else 0
 
