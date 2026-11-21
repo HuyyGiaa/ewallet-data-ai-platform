@@ -210,7 +210,7 @@ def run(Map configuration) {
           stage('Prepare operator handoff') {
             // Jenkins holds no production identity (owner decision D1): it plans the approved production
             // release and hands it to the operator, who verifies the handoff and runs the transaction
-            // (docs/edai2/cicd/CICD_REHEARSAL_RUNBOOK.md §8). Nothing in production changes here.
+            // (docs/edai2/cicd/CICD_ARCHITECTURE.md §10). Nothing in production changes here.
             withEnv(["RELEASE_PROFILE=${profile}", "RELEASE_BRANCH_REF=${params.RELEASE_BRANCH ?: ''}", "TRIGGERED_BY=${triggeredBy}"]) {
               sh """#!/usr/bin/env bash
                 set -euo pipefail

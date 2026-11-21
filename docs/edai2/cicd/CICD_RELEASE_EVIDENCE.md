@@ -1,7 +1,7 @@
 # CI/CD V2 Release Evidence
 
 This report covers what CI/CD V2 actually did on the `ewallet-dev` GKE cluster between 2026-11-20 and 2026-11-21:
-- six successful CD executions, one per release group;
+- six selected successful CD executions across six of the seven release groups in [release-units.json](../../../jenkins/catalog/release-units.json); the seventh group, `release/agent-fleet`, is outside this evidence set (§11);
 - the failures that preceded two of them;
 - what each verdict proves, and what it leaves unverified.
 
@@ -175,7 +175,7 @@ Two dependencies are operator-applied and persist between runs: `feast-staging-r
 
 **Result.** [`unit-agent-staging-verdict.json`](../../evidence/edai2/cicd/cicd-v2-20261121/agent-staging-2/json/unit-agent-staging-verdict.json) (execution `20261120t225842-af18d5`) reports `status: PASS`. Its steps were `preflight → helm-template → helm-install → fleet-created → ready → verified`, followed by cleanup.
 
-| Check | Result |
+| Verification | Observed result |
 |---|---|
 | Feature-RAG Specialist, direct SandboxAgent route | `completed`, gate PASS, `fraud_probability` 0.0639895560144887 equals the pinned answer, 16.7 s |
 | Drift Specialist, direct SandboxAgent route | `completed`, gate PASS, `psi` 0.0004795543627041439 equals the pinned answer, 14.4 s |
@@ -258,7 +258,7 @@ Both images were built fresh. Reuse is looked up by the release SHA, and no tag 
 
 ### 8.3 The campaign
 
-The campaign `verify-cicd-e73e85a3ecac-3` ran in `ml-platform` under the `ewallet-cicd-streaming` identity:
+The campaign `verify-cicd-e73e85a3ecac-3` ran under the `ewallet-cicd-streaming` identity. That name is the logical campaign identifier, not a Kubernetes namespace: the workloads ran in the existing `ml-platform` namespace, and every resource carried the identifier as its `ewallet.block-a/namespace` label ([CICD_ARCHITECTURE.md §9.5](CICD_ARCHITECTURE.md#95-streaming-verification-block-a-on-gke)). The campaign ran these steps:
 - preflight PASS, with Redis DB 10 `claim=CLAIMED`;
 - Feast apply Job `fs-apply-cicd-e73e85a3ecac-3`;
 - Redpanda, Flink JobManager and Flink TaskManager;
@@ -319,7 +319,7 @@ The record counts in this report come from different instants and stages. The Fl
 
 [`consistency-report.json`](../../evidence/edai2/cicd/cicd-v2-20261121/streaming-3/json/consistency-report.json) (schema `block-a-consistency-report-v2`) reports:
 
-| Check | Result |
+| Metric | Observed value |
 |---|---|
 | Online state vs replay of the offline history: MATCH / MISMATCH / MISSING / STALE / NOT_REALTIME_OWNED | 182 / 0 / 0 / 0 / 0 |
 | Timestamp mismatches | 0 |
@@ -328,20 +328,20 @@ The record counts in this report come from different instants and stages. The Fl
 | Offline point-in-time verification | PASS, 23 rows retrieved, `PIT_VALUES_VERIFIED` 23, 31 historical features |
 | Source-event verification | PASS, 16 transactions, 182 comparisons |
 | History repeats dropped, disposition problems | 0, none |
-| Identity | campaign and run id `verify-cicd-e73e85a3ecac-3`, Git SHA `e73e85a3…` |
+| Identity | campaign and run id `verify-cicd-e73e85a3ecac-3` (also in the report's `namespace` field), Git SHA `e73e85a3…` |
 
-The validator Job ran 09:13:16–09:13:54Z and completed successfully ([`validator-job.json`](../../evidence/edai2/cicd/cicd-v2-20261121/streaming-3/json/validator-job.json)). On top of the report, `streaming_verify.py` checked that its namespace, run id and SHA belong to this build and found no evidence problems ([`unit-streaming-block-a-verdict.json`](../../evidence/edai2/cicd/cicd-v2-20261121/streaming-3/json/unit-streaming-block-a-verdict.json)).
+The validator Job ran 09:13:16–09:13:54Z and completed successfully ([`validator-job.json`](../../evidence/edai2/cicd/cicd-v2-20261121/streaming-3/json/validator-job.json)). On top of the report, `streaming_verify.py` checked that its campaign identifier, run id and SHA belong to this build and found no evidence problems ([`unit-streaming-block-a-verdict.json`](../../evidence/edai2/cicd/cicd-v2-20261121/streaming-3/json/unit-streaming-block-a-verdict.json)).
 
 **What the metrics mean.**
 - **Online state is consistent with history.** The 182 values Flink wrote to the online store (Redis DB 10, read through Feast) equal the values recomputed by replaying the accepted history. No feature is missing, stale or timestamped differently.
 - **The two stores agree.** The offline store on GCS and the online store hold the same values for every compared entity and feature.
-- **The run is self-contained.** Every path and key prefix is derived from the build's own namespace, and the report's identity matches it. Data from another run cannot have produced this PASS.
+- **The run is self-contained.** Every GCS path and Redis key prefix is derived from the build's own campaign identifier, and the report's identity matches it. Data from another run cannot have produced this PASS.
 
 **What they do not mean.** This is a correctness check of one deterministic 19-event scenario at parallelism 1. It measures neither throughput nor latency. It does not test recovery: the single checkpoint was stored on the JobManager pod's local filesystem and disappeared with the pod. Durable checkpoint recovery, failover and stateful upgrade remain unverified.
 
 ### 8.6 Cleanup
 
-The cleanup step removed every `block-a-*` Job, Deployment, Service and ConfigMap; afterwards no `verify-*` namespace and no campaign-labelled object remained. By design, three things stayed:
+The cleanup step deleted, in `ml-platform`, the campaign-owned Jobs, Deployments, Services and ConfigMaps that carried both Block A labels for this campaign (every `block-a-*` object). Afterwards no campaign-labelled object remained. No namespace had been created, so none was deleted. By design, three things stayed:
 - the campaign's GCS prefixes;
 - Redis DB 10, which now holds 24 keys and the campaign's owner marker;
 - the Feast apply Job, which Kubernetes removes after its 24-hour TTL.
@@ -383,7 +383,9 @@ In every case the pipeline stopped before any later stage and archived its evide
 
 ## 11. Production boundary and limitations
 
-**Production was not changed by CI/CD.** Every release verdict reports `stage: rehearsal, production_changed: false`, and no build set `PROMOTE_TO_PRODUCTION`. The production Helm releases had the same revisions after the campaign as before it: `llm-agent` 60, `llm-agent-mcp` 19, `kagent` 10.
+**The recorded outcome is that production was not changed.** Every release verdict reports `stage: rehearsal, production_changed: false`, and no build set `PROMOTE_TO_PRODUCTION`. The production Helm releases had the same revisions after the campaign as before it: `llm-agent` 60, `llm-agent-mcp` 19, `kagent` 10.
+
+This is the observed outcome of the evaluated rehearsals, not a proof that RBAC made production changes impossible. The streaming identity holds namespace-wide `pods/exec` in `ml-platform`, which also hosts production-serving workloads ([CICD_ARCHITECTURE.md §11.2](CICD_ARCHITECTURE.md#112-streaming-prerequisites-b1b4)).
 
 The production promotion path is implemented in source but has no runtime evidence. That path consists of the operator handoff, the candidate SandboxAgents, the image-only Helm promotion, the fleet patch and reverse rollback.
 

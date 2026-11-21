@@ -1,5 +1,5 @@
 # PROPOSAL, NOT APPROVED, NOT APPLIED. Kept for integration review. The recommended path gives
-# Jenkins no production rights: see docs/edai2/cicd/PRODUCTION_ROLLOUT_RBAC.md.
+# Jenkins no production rights: see docs/edai2/cicd/CICD_ARCHITECTURE.md §10.
 #
 # Least-privilege rights for Jenkins to roll a reviewed image digest into production. Nothing
 # applies this file: no script, kustomization or Jenkins job names it.

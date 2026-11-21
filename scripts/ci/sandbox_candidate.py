@@ -1,6 +1,6 @@
 """Release unit kind ``sandbox-candidate``: real candidate SandboxAgents on the shared WorkerPool, then deleted.
 
-Option B+ (docs/edai2/cicd/CICD_REHEARSAL_RUNBOOK.md, §7): a fully isolated staging copy is not
+Option B+ (docs/edai2/cicd/CICD_ARCHITECTURE.md, §8.3 and §10): a fully isolated staging copy is not
 possible without changing frozen code or production policy (hard-coded gateway hosts,
 production-only sandbox routes, MCP authorization and credential tables). The candidate is therefore
 a pair of additive, release-scoped SandboxAgents in ``ewallet-sandbox`` that reuse the existing

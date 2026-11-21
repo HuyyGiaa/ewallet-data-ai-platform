@@ -5,7 +5,7 @@
 #
 # What this does NOT reproduce: the Substrate WorkerPool, gVisor, actor suspend/resume and the
 # kagent A2A sandbox route. A rehearsal Substrate pool needs separate staging infrastructure and
-# approval (docs/edai2/cicd/CICD_REHEARSAL_RUNBOOK.md). The live fleet is checked after promotion by
+# approval (docs/edai2/cicd/CICD_ARCHITECTURE.md §9.4). The live fleet is checked after promotion by
 # scripts/ci/runtime_verify.py (agent_replay status + business E2E).
 # The Specialists' MCP Gateway URL is fixed in the frozen application, so here it is unreachable
 # (default-deny); the smoke proves the actor boots with its contract, serves its Agent Card and

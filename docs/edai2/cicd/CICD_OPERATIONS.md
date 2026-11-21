@@ -44,11 +44,14 @@ The controller pod is recreated on every rollout, so the port-forward has to be 
 
 ## 2. Preparing a release
 
-Jenkins reads only the Git bundle in its snapshot image ([CICD_ARCHITECTURE.md §3.2](CICD_ARCHITECTURE.md#32-why-a-git-bundle-instead-of-a-git-remote)). Every code change Jenkins must use therefore follows the sequence below. It was run for each release SHA in this campaign, the last time for `e73e85a3` at 07:56–08:01Z on 2026-11-21.
+Jenkins reads only the Git bundle in its snapshot image ([CICD_ARCHITECTURE.md §3.2](CICD_ARCHITECTURE.md#32-why-a-git-bundle-instead-of-a-git-remote)). Every code change Jenkins must use therefore follows the sequence below. It was run for each release SHA in the acceptance campaign, the last time for `e73e85a3` at 07:56–08:01Z on 2026-11-21.
+
+**The commands are a historical, verified example from that campaign, not defaults.** The base SHA `98b71e30…`, the branch `feature/edai2-cicd-v2` and the snapshot directories belong to that campaign. A future release must choose and validate its own source revision, base revision (an ancestor used for change detection), release branch, and the snapshot metadata produced in step 2.
 
 **1. Fix the release and base SHAs** (read-only). The release SHA must be pushed; the base must be an ancestor of it.
 
 ```bash
+# acceptance-campaign values; substitute and validate your own
 R=$(git rev-parse HEAD); BASE=98b71e30e51914f25ad17974debffadbdaca2487
 git status --short | wc -l                                   # 0
 test "$(git rev-parse origin/feature/edai2-cicd-v2)" = "$R"
@@ -111,7 +114,7 @@ The `Recreate` strategy means a short Jenkins outage on every rollout.
 
 ## 3. Running a release job
 
-Open the job, choose **Build with Parameters**, and enter values that match the snapshot. These are the values of Streaming Build #3:
+Open the job, choose **Build with Parameters**, and enter values that match the snapshot. The table shows the values of Streaming Build #3 as a worked example. SHAs, branches and campaign inputs must match the snapshot of the release being run:
 
 | Parameter | Value | Why |
 |---|---|---|
@@ -195,7 +198,7 @@ The Flink job is submitted only after `block-a-topics` completes. A dashboard op
 
 The port-forward goes through the kubelet, so NetworkPolicy B2 does not block it. Do not loosen B2 to reach the UI.
 
-The verdict files are archived under `release/streaming-block-a/verify-<namespace>/`:
+The verdict files are archived under `release/streaming-block-a/<campaign identifier>/`, for example `verify-cicd-e73e85a3ecac-3/`. The identifier names the campaign, not a Kubernetes namespace; the workloads run in `ml-platform`. The archived files are:
 - `consistency-report.json`, the full report;
 - `consistency-verdict.json`, the operator's `check-report` result;
 - `flink-jobs.json`, the Flink REST state at collection time;
@@ -284,7 +287,7 @@ On Build #3, the readback succeeded for both images (`registry_readback: VERIFIE
 - Agent staging deletes exactly what it created and uninstalls its Helm release. Anything not proven gone is listed in `left_behind` and must be removed by hand after inspection.
 - The dispatcher stops at the first failing unit and lists the rest in `not_run`.
 
-**Streaming failure.** Cleanup always runs once the campaign has started. If a run was interrupted, the operator's own cleanup removes only objects carrying both campaign labels:
+**Streaming failure.** Cleanup always runs once the campaign has started. If a run was interrupted, the operator's own cleanup removes, in `ml-platform`, only objects carrying both Block A labels for that campaign. Its argument is the campaign identifier:
 
 ```bash
 scripts/streaming/block_a_cloud.sh cleanup verify-cicd-<sha12>-<build>             # dry run: lists what it would delete

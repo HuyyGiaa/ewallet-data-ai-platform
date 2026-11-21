@@ -28,9 +28,9 @@ CI/CD V2 was rebuilt around one constraint: **a release must be traceable from a
 
 - **Components** say what to test and which images to build ([catalog.py](../../../scripts/ci/catalog.py)).
 - **Release units** say what is deployed, how, and in which order ([release_units.py](../../../scripts/ci/release_units.py)). Changing a file can never deploy anything by itself.
-- **Jenkins never reads GitHub.** It reads a Git bundle baked into an image. A release therefore needs a deliberate snapshot rebuild and controller rollout.
+- **Jenkins does not use GitHub as its source.** Every job checks out a Git bundle baked into an image, so a release needs a deliberate snapshot rebuild and controller rollout (§3.2).
 - **Every gate fails closed.** A missing registry permission, a scanner error, an empty test run or a stale plan stops the release. None of them is skipped.
-- **Jenkins holds no production identity.** Its CD jobs end in rehearsals in isolated namespaces. A production promotion is designed as an operator-run transaction on a verified Jenkins handoff (§10).
+- **Jenkins holds no production identity.** Its CD jobs end in rehearsals. Most run in dedicated namespaces (`ewallet-cicd` and the two Agent staging namespaces). The streaming campaign runs in the shared `ml-platform` namespace under a separate identity whose rights are broader than its task (§11.2). A production promotion is designed as an operator-run transaction on a verified Jenkins handoff (§10).
 
 ## 2. System overview
 
@@ -51,7 +51,7 @@ flowchart LR
     scan --> disp["release_dispatch.py<br/>typed executors + Lease locks"]
     disp --> r1["ewallet-cicd<br/>bounded / RAG rehearsals"]
     disp --> r2["ewallet-agents-staging<br/>ewallet-sandbox-staging"]
-    disp --> r3["verify-cicd-* campaign<br/>ml-platform Block A"]
+    disp --> r3["Block A campaign verify-cicd-*<br/>in namespace ml-platform"]
     disp --> r4["agentregistry<br/>read-only gate"]
     pipe -.->|archiveArtifacts| ev[("Jenkins archive<br/>evidence/ci/BUILD_TAG")]
 ```
@@ -61,7 +61,7 @@ flowchart LR
 The controller runs on GKE in namespace `ewallet-ci`. Release workloads land in four kinds of targets:
 - the CD namespace `ewallet-cicd`;
 - the two Agent staging namespaces;
-- a per-build streaming campaign that runs in `ml-platform` under its own identity;
+- a per-build streaming campaign whose workloads run in the existing `ml-platform` namespace, under their own identity;
 - the Prompt Registry, which is only read.
 
 ## 3. Jenkins runtime and the immutable source snapshot
@@ -77,7 +77,7 @@ The rendered Deployment has these properties:
 - **Single replica, `Recreate` strategy.** It uses one executor (`numExecutors: 1`) and the 32 GiB PVC `jenkins-home` for build history.
 - **Hardened pods.** Non-root user 1000, `readOnlyRootFilesystem`, all capabilities dropped, `RuntimeDefault` seccomp ([jenkins.yaml L164-L243](../../../infra/kubernetes/jenkins/jenkins.yaml#L164-L243)).
 - **No default service-account token.** `automountServiceAccountToken: false`. The controller receives a projected, one-hour token instead ([L259-L262](../../../infra/kubernetes/jenkins/jenkins.yaml#L259-L262)), used only for its namespace-scoped Roles.
-- **Narrow network.** A default-deny NetworkPolicy plus an allow-list: DNS, HTTPS egress, and the GKE metadata endpoints for Workload Identity ([L282-L335](../../../infra/kubernetes/jenkins/jenkins.yaml#L282-L334)).
+- **Restricted network.** A default-deny NetworkPolicy plus an allow-list: DNS, outbound HTTPS (TCP 443) to any address, and the GKE metadata endpoints for Workload Identity ([L282-L334](../../../infra/kubernetes/jenkins/jenkins.yaml#L282-L334)).
 
 Configuration as Code seeds the jobs with Job DSL ([L78-L140](../../../infra/kubernetes/jenkins/jenkins.yaml#L78-L140)). Each pipeline job is defined as follows:
 - `cpsScm` checks out `/opt/ewallet-source/repository.bundle`, not a network remote.
@@ -95,7 +95,9 @@ Each Jenkinsfile is three lines: it loads [componentPipeline.groovy](../../../je
 
 ### 3.2 Why a Git bundle instead of a Git remote
 
-The controller has no GitHub credential and no route to GitHub. [source_snapshot.py](../../../scripts/ci/source_snapshot.py) builds the bundle in a throw-away bare clone ([`build`, L82](../../../scripts/ci/source_snapshot.py#L82)). The bundle contains:
+The jobs' SCM is a local Git bundle, so pipeline execution does not fetch source from GitHub and the configured SCM needs no GitHub credential. This is a source-of-truth decision, not network isolation: the controller's NetworkPolicy allows outbound HTTPS to any address ([jenkins.yaml L321-L325](../../../infra/kubernetes/jenkins/jenkins.yaml#L321-L325)), so the configuration does not block GitHub at the network level.
+
+[source_snapshot.py](../../../scripts/ci/source_snapshot.py) builds the bundle in a throw-away bare clone ([`build`, L82](../../../scripts/ci/source_snapshot.py#L82)). The bundle contains:
 - `release/<group>` for every group in [release-units.json](../../../jenkins/catalog/release-units.json), at the reviewed SHA;
 - `proof/{ml,agent,docs}` at the same SHA;
 - `base` at the change-detection base, which must be an ancestor;
@@ -105,7 +107,7 @@ The output is the bundle plus a `source-metadata.txt` that records every ref and
 
 The bundle is copied into a `busybox`-based image ([Dockerfile](../../../infra/docker/jenkins-source-snapshot/Dockerfile)). The controller's init container refuses to start Jenkins unless the bundle's sha256 equals the recorded value ([jenkins.yaml L174-L184](../../../infra/kubernetes/jenkins/jenkins.yaml#L174-L184)).
 
-As a result, a branch pushed to GitHub changes nothing for Jenkins. A new release SHA requires:
+As a result, a branch pushed to GitHub changes nothing for the Jenkins jobs. A new release SHA requires:
 - a new bundle;
 - a new snapshot image, referenced by digest;
 - a controller rollout.
@@ -373,8 +375,17 @@ This kind runs two commands ([release_dispatch.py L76-L84](../../../scripts/ci/r
    - **Collect** reads Flink REST state and runs the validator Job.
    - **Cleanup** always runs.
 
-The campaign namespace is `verify-cicd-<sha12>-<build>` ([`campaign_namespace`, L69](../../../scripts/ci/streaming_verify.py#L69)). Every GCS prefix, Feast registry path and Redis campaign id is derived from it. [`verify_evidence`](../../../scripts/ci/streaming_verify.py#L143-L187) accepts a PASS only when:
-- the consistency report's namespace, run id and campaign id are this build's;
+Each build gets a logical campaign identifier, `verify-cicd-<sha12>-<build>` ([`campaign_namespace`, L69](../../../scripts/ci/streaming_verify.py#L69)). It is **not** a Kubernetes namespace. The Block A workloads run in the existing `ml-platform` namespace: every operator command uses `kubectl -n ml-platform` ([block_a_cloud.sh L41](../../../scripts/streaming/block_a_cloud.sh#L41)). The code calls the identifier `namespace`, and the report has a `namespace` field, but in both places the value is the campaign identifier.
+
+The identifier is used for:
+- campaign ownership;
+- the `ewallet.block-a/namespace` label on every campaign resource;
+- the GCS prefixes and the Feast registry path;
+- the Redis campaign identity;
+- the report's identity.
+
+[`verify_evidence`](../../../scripts/ci/streaming_verify.py#L143-L187) accepts a PASS only when:
+- the consistency report's campaign identifier, run id and campaign id are this build's;
 - its Git SHA is the release SHA;
 - offline verification, source-event parity and the direct offline/online comparison pass with a non-zero number of comparisons;
 - Flink reports at least one job and none failed.
@@ -386,7 +397,7 @@ The comparison itself is implemented in [consistency.py](../../../data_platform/
 - offline values are read through Feast from the campaign's GCS offline root ([L365](../../../data_platform/streaming/verification/consistency.py#L365));
 - the two are compared feature by feature ([L479](../../../data_platform/streaming/verification/consistency.py#L479)).
 
-Cleanup deletes only objects that carry both Block A campaign labels ([block_a_cloud.sh L425-L440](../../../scripts/streaming/block_a_cloud.sh#L425-L440)). Two things remain by design: the campaign's GCS prefixes and the claimed Redis database.
+Cleanup deletes, in `ml-platform`, only the Jobs, Deployments, Services and ConfigMaps that carry both `app.kubernetes.io/part-of=ewallet-block-a` and this campaign's `ewallet.block-a/namespace` label ([block_a_cloud.sh L425-L438](../../../scripts/streaming/block_a_cloud.sh#L425-L438)). No namespace is created or deleted. Two things remain by design: the campaign's GCS prefixes and the claimed Redis database.
 
 ## 10. The production boundary
 
@@ -404,6 +415,10 @@ The operator verifies the handoff ([`verify`](../../../scripts/ci/release_handof
 - rolls back in reverse order on failure.
 
 **None of this ran in the evaluated builds.** All six successful CD builds set `PROMOTE_TO_PRODUCTION=false`, and every release verdict reports `production_changed: false`. The production transaction, its rollback and its recovery plan are implemented and unit-tested only. They are not runtime-verified.
+
+This section describes the **release-path** boundary: the only designed route to production is the operator workflow above. It is not a complete **permission** boundary. The streaming identity holds namespace-wide `pods/exec` in `ml-platform`, where production-serving workloads also run (§11.2). Its RBAC therefore does not by itself prevent every possible production change.
+
+`production_changed: false` is what the evaluated rehearsals recorded about their own actions. It is not an independent proof that no production change was possible.
 
 ## 11. Identities, isolation and least privilege
 
@@ -431,19 +446,23 @@ The `.proposed.yaml` RBAC files for Agent staging and streaming were applied wit
 
 **Redis isolation.** Production features live in DB 0 of `feature-store/redis`. Earlier rehearsals hold DB 8 and DB 9. The preflight claims a database only if it is empty or already owned by the same campaign; otherwise it reports `CONFLICT`. After Build #3, DB 10 holds that campaign's keys and owner marker, so a new campaign on DB 10 would be refused until the owner frees it or points B4 at another database.
 
-**Residual risk: `pods/exec` in `ml-platform`.** The operator submits the Flink job with `kubectl exec` into the JobManager pod. Pod names are generated, so the Role cannot use `resourceNames`. The streaming SA can therefore exec into any pod in `ml-platform`, including `feature-api`, `fraud-api`, `mlflow` and `mlflow-postgresql`.
+**Residual risk: `pods/exec` in `ml-platform`.** The operator submits the Flink job with `kubectl exec` into the JobManager pod. Pod names are generated, so the Role cannot use `resourceNames`. The streaming SA can therefore exec into any pod in `ml-platform`, including the production-serving `feature-api` and `fraud-api` and `mlflow` with its database, and could run arbitrary commands there. The streaming rehearsal shares that namespace with production workloads; it does not run in a dedicated namespace.
 
-Two factors mitigate this:
-- the token is short-lived;
-- only Jenkins can mint it.
+Two factors limit, but do not remove, the exposure:
+- the token lasts one hour;
+- only the Jenkins ServiceAccount may mint it, and only for this one SA.
 
-The privilege is still broader than the task needs. Moving Block A into a dedicated namespace would remove it. Removing the three streaming RoleBindings when Streaming CD is not in use would also remove it.
+A compromised Jenkins controller or a misused token could still reach those pods. The privilege is broader than the task needs.
+
+Two hardening options exist, and neither is implemented:
+- run Block A in a dedicated namespace;
+- remove the three streaming RoleBindings while Streaming CD is not in use.
 
 ### 11.3 Network controls
 
 | Control | Effect |
 |---|---|
-| `jenkins-default-deny` + `jenkins-runtime-allow` | The controller accepts traffic only on 8080 from its own namespace. Egress is limited to DNS, HTTPS and the metadata server. |
+| `jenkins-default-deny` + `jenkins-runtime-allow` | The controller accepts traffic only on 8080 from its own namespace. Egress is limited to DNS, outbound HTTPS to any address (which includes public endpoints such as GitHub) and the metadata server. |
 | `block-a-flink-jobmanager-ingress` | No pod can reach the Flink REST API. Operators reach it only through `kubectl port-forward`, which goes through the kubelet and is not subject to NetworkPolicy. |
 | Prompt Registry access ([prompt-registry-access.proposed.yaml](../../../infra/kubernetes/jenkins/prompt-registry-access.proposed.yaml)) | Lets the controller reach agentregistry on the pod port 8080 for the read-only gate. |
 
@@ -454,6 +473,6 @@ The privilege is still broader than the task needs. Moving Block A into a dedica
 - **Prompt runtime consumption is not proven.** The registry gate proves registry consistency only.
 - **Streaming verifies one small, deterministic campaign.** It ran with parallelism 1 and pod-local `file://` checkpoints, with no savepoint. Stateful upgrade of a long-running job, failover recovery and throughput were not tested.
 - **Trivy exceptions expire on 2026-12-20** (§7). After that date the `rag-ingestion` and `flink-block-a` scans fail until the dependencies are upgraded or the exceptions are re-reviewed.
-- **Residual privileges remain.** The streaming SA holds broad `pods/exec` (§11.2). The Agent staging Role's `get` on Secrets allows reading values in the two staging namespaces; those namespaces hold only staging credentials.
+- **Residual privileges remain.** The streaming SA holds namespace-wide `pods/exec` in `ml-platform`, alongside production-serving workloads (§11.2). The Agent staging Role's `get` on Secrets allows reading values in the two staging namespaces; those namespaces hold only staging credentials.
 - **Snapshot rebuilds are manual.** Every new release SHA needs a snapshot rebuild and a controller rollout, and an owner runs them ([CICD_OPERATIONS.md §2](CICD_OPERATIONS.md#2-preparing-a-release)).
 - **Jenkins logic is validated in two layers.** Groovy is checked by parse and text-contract tests. CPS behaviour and Job DSL resolution are confirmed only by the real controller runs.
