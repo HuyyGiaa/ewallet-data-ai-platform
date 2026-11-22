@@ -9,6 +9,13 @@ This runbook supersedes `G3B_DEPLOYMENT_PLAN.md` in the G3-B0 and G3-B1 evidence
 **Nothing here runs without the owner's approval of the campaign.** Steps marked
 **[owner]** are done by the owner (Dynu, screenshots).
 
+**Current way to run it:** *Canonical replay*, under *Supervised G3-B campaign*. That is the
+orchestrator in supervised mode, reusing the trusted certificate already in `edge-tls`
+(`--reuse-existing-production-certificate`), as verified live by Run 7
+(`g3b-full-20261122T181805Z`, all technical checks PASS). The *Procedure* table below documents
+what the orchestrator does step by step. Do not run it by hand: the orchestrator adds the
+deadline, the cleanup ordering and the fail-closed gates.
+
 ## Inputs
 
 ```bash
@@ -33,6 +40,13 @@ Owner-supplied files in `$PRIV`; the scripts refuse paths inside the repository:
 | `g3b-values.yaml` | `domain: $D`, `sourceRestriction: {enabled: true, allowedCidrs: [...same as the file...]}`, `acmeHttp01: {enabled: true}` on top of `g3a-private-values.yaml` |
 
 ## Procedure
+
+Reference only: the steps `g3b_campaign.py` runs, written for **issuance mode** (the
+historical path that created the certificate in run 6). In the current **reuse mode**:
+- step 3 is replaced by the read-only `verify_edge_tls.py` check (*Reusing the issued production certificate*);
+- step 4 is installed without the ACME responder;
+- steps 7, 10 and the L4 test verify with system trust instead of `--ca-file <self-signed>`;
+- steps 11–12 are skipped (`SKIPPED_REUSE`).
 
 Evidence classes are never mixed: `LOCAL_KIND`, `GKE_PRIVATE` (port-forward) and
 `PUBLIC_INTERNET` (from outside the cluster).
@@ -127,11 +141,11 @@ sleeps.
 | Stage | What | Command | Cloud / DNS change | Owner approval |
 |---|---|---|---|---|
 | 0. Offline preparation | private files (mode 600), offline addresses re-read, `init` (read-only: render, Secret check, DNS check, client address) | `g3b_campaign.py init …` | none | none |
-| 1. Private deployment and checks | wake, baseline, temporary certificate, edge, L0, **edge-auth**, **private-e2e** | first phases of either scope | wake; edge upgrade; Secret sync if mismatched | the scope's approval, plus `--approve-edge-secret-sync` when the Secret differs |
+| 1. Private deployment and checks | wake, baseline, gateway-ready, `tls-reuse-verify` (reuse mode) or temporary certificate (issuance mode), edge, L0, **edge-auth**, **private-e2e** | first phases of either scope | wake; edge upgrade; Secret sync only if mismatched and approved | the scope's approval, plus `--approve-edge-secret-sync` only when the Secret differs |
 | 2. DNS transition verification (once) | LB opened on the checked edge, Offline → Online (LB) → signoff → Offline, then cleanup | `init --scope dns-transition` + `run` | LB (released at the end), two Dynu updates | `--approve-dns-transition-test` (not the G3-B live approval) |
-| 3. Public deployment (G3-B) | LB, DNS online, Internet gates, L4, certificates, Grafana, public E2E | `init` (scope `g3b`) + `run` | everything in the procedure | `--approve-live-campaign` + the gated flags; `--dns-offline-verified` with stage 2's evidence |
+| 3. Public deployment (G3-B) | LB, DNS online, Internet gates, L4, approved-network, certificate (reused and verified, or issued), Grafana, public E2E, evidence window | `init` (scope `g3b`) + `run`, see *Canonical replay* | everything in the procedure | `--approve-live-campaign` + the gated flags; `--dns-offline-verified` with stage 2's evidence |
 | 4. Cleanup | ACME off, DNS offline proven, LB released, guarded sleep, verify | automatic; `g3b_campaign.py cleanup --state …` to resume | as listed | covered by the scope's approval |
-| 5. G4 evidence replay | owner session with screenshots | *Owner G4 replay* | owner-controlled wake | separate |
+| 5. Owner evidence | screenshots during a stage 3 campaign's evidence window | *Evidence window and screenshots* | none beyond stage 3 | the stage 3 approvals |
 
 ### First DNS transition (`--scope dns-transition`)
 
@@ -211,9 +225,100 @@ Observed, **VERIFIED** `g3b-dns-transition-ipv4-20261122T054437Z` (2026-11-22), 
 A transition whose cleanup is incomplete (LB kept, sleep not verified) is not evidence; finish
 it with `cleanup`, after which its `state.json` qualifies.
 
+### Canonical replay (current, recommended)
+
+```text
+offline preflight → init → every pre-wake gate PASS → run → L4 (hotspot) → back to the approved
+network → certificate verified (reused) → Grafana ready → final public E2E → evidence window →
+owner screenshots → continue → automatic cleanup → verify 0 nodes
+```
+
+Run from the repository root, in one terminal for `run` and another for `status`:
+
+```bash
+D=ewallet-hg.gleeze.com; PRIV=~/ewallet-evidence/gateway/private
+KC=~/.cache/ewallet-cloud-lab/kubeconfig; CTX=gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev
+M0=~/ewallet-evidence/gateway/g3a1-20261121T175830Z/11-sleep/recovery-manifest
+TRANSITION=~/ewallet-evidence/gateway/g3b-dns-transition-ipv4-20261122T054437Z/state.json
+CID=g3b-full-$(date -u +%Y%m%dT%H%M%SZ); EV=~/ewallet-evidence/gateway/$CID
+
+# 1. offline preflight (read-only)
+python3 scripts/edge/dns_check.py --domain $D --expect-offline --offline-ip 162.216.242.207 --offline-ipv6 2602:ff23:0:8888::207 | tail -1   # DNS_OFFLINE_OK
+python3 scripts/edge/verify_edge_tls.py --domain $D --kubeconfig $KC --context $CTX                        # TLS_REUSE_VERIFIED
+bash scripts/edge/create_basic_auth.sh --credentials-file $PRIV/edge-cred --check --kubeconfig $KC --context $CTX   # EDGE_AUTH_MATCH
+kubectl --kubeconfig $KC --context $CTX get nodes --no-headers | wc -l                                      # 0
+
+# 2. init (read-only gates; nothing changes in the cloud)
+python3 scripts/edge/g3b_campaign.py init --scope g3b --mode supervised --campaign $CID --campaign-dir $EV \
+  --manifest $M0 --approved-cidrs $PRIV/approved-cidrs.txt --edge-credentials $PRIV/edge-cred \
+  --grafana-credentials $PRIV/grafana-cred --dns-credentials $PRIV/dynu.json --dns-offline-mode signoff \
+  --dns-offline-ip 162.216.242.207 --dns-offline-ipv6 2602:ff23:0:8888::207 \
+  --dns-offline-verified --dns-transition-evidence $TRANSITION \
+  --reuse-existing-production-certificate \
+  --approve-live-campaign --approve-production-certificate --approve-grafana-root-url \
+  --approve-guarded-sleep --approve-keda-pause --also-approve ewallet-mcp/feature-rag-mcp \
+  --evidence-window-minutes 45
+```
+
+`init` exits 0 only when every gate is PASS. In reuse mode those are: `CLOUD_LAB_RECOVERY_MANIFEST_VALID`, `PDB_APPROVAL_COMPLETE`,
+`KEDA_SLEEP_APPROVAL_READY`, `GUARDED_SLEEP_PLAN_VALID`, `CLIENT_ADDRESS_APPROVED`, `SAFE_CLEANUP_READY`,
+`L0_RENDER_READY`, `EDGE_AUTH_READY`, `TLS_REUSE_READY`, `OWNER_LIVE_APPROVAL`. Any FAIL: stop, still no cloud
+change. `--approve-edge-secret-sync` is **not** part of the canonical command. It is added only
+with a separate approval, when `init` reports `edge_auth_at_init: EDGE_AUTH_MISMATCH`.
+
+```bash
+# 3. run (terminal 1) and watch (terminal 2)
+systemd-inhibit --what=sleep:idle python3 scripts/edge/g3b_campaign.py run --state $EV/state.json
+watch -n 30 "python3 scripts/edge/g3b_campaign.py status --state $EV/state.json | grep -E '\"(CURRENT_PHASE|TLS_CERTIFICATE_STATUS|L4|L5|CLIENT_NETWORK|GRAFANA|EVIDENCE_WINDOW|EVIDENCE_WINDOW_REMAINING_MIN|CLEANUP_STATUS|SLEEP_STATUS)\"'"
+
+# 4. at CURRENT_PHASE: L4-denied, the owner moves the laptop to the hotspot; after L4: PASS, back to the
+#    approved Wi-Fi, reconnecting once (see *Laptop network for the campaign*)
+
+# 5. evidence window (EVIDENCE_WINDOW: open): owner screenshots, then
+python3 scripts/edge/g3b_campaign.py continue --state $EV/state.json     # CONTINUE_ACCEPTED; cleanup follows
+
+# 6. after cleanup
+python3 scripts/edge/g3b_campaign.py status --state $EV/state.json | grep -E '"(CLEANUP_STATUS|SLEEP_STATUS|LAST_VERIFIED_NODE_COUNT|TLS_MODE|TLS_CERTIFICATE_STATUS)"'
+kubectl --kubeconfig $KC --context $CTX get nodes --no-headers | wc -l                                      # 0
+kubectl --kubeconfig $KC --context $CTX get svc -A | grep -c LoadBalancer                                   # 0
+gcloud compute forwarding-rules list --project ewallet-data-ai-platform-hg26                              # empty
+python3 scripts/edge/dns_check.py --domain $D --expect-offline --offline-ip 162.216.242.207 --offline-ipv6 2602:ff23:0:8888::207 | tail -1   # DNS_OFFLINE_OK
+python3 scripts/edge/verify_edge_tls.py --domain $D --kubeconfig $KC --context $CTX                        # still TLS_REUSE_VERIFIED
+
+# incomplete cleanup only: fix the reported cause (see *Evidence window and screenshots*, Incomplete cleanup), then resume
+python3 scripts/edge/g3b_campaign.py cleanup --state $EV/state.json
+```
+
+Expected success (Run 7):
+- `G3B_DEPLOYMENT_STATUS: PASS`, `G3B_SECURITY_STATUS: G3B_SECURITY_COMPLETE`, `G3B_PUBLIC_E2E_STATUS: PASS`, `G4_AUTOMATED_CHECKS_STATUS: COMPLETE`;
+- `TLS_MODE: REUSE_EXISTING`, `TLS_CERTIFICATE_STATUS: VERIFIED_TRUSTED`, staging and production `SKIPPED_REUSE` (0 orders);
+- `CLEANUP_STATUS: COMPLETE`, `SLEEP_STATUS: VERIFIED`, 0 nodes.
+
+### Laptop network for the campaign
+
+Campaign runs 3–5 lost Let's Encrypt and `kubectl` connections because the home Wi-Fi SSID is
+served by two access points on different subnets, and the laptop roamed between them about 30 s
+after each reconnect. For the campaign, the home Wi-Fi NetworkManager profile is temporarily
+pinned to one BSSID, and both the home and hotspot profiles have `ipv6.method=disabled`. The
+original values are backed up (no secrets) in `~/ewallet-evidence/gateway/private/networkmanager-*-backup.txt`.
+- Before `init`:
+  - `iw dev wlo1 link` shows the pinned BSSID;
+  - `ip -6 addr show dev wlo1 scope global` prints nothing;
+  - `curl -s -o /dev/null -w '%{http_code} %{remote_ip}\n' https://acme-v02.api.letsencrypt.org/directory` gives 200 and an IPv4 address.
+- During the run: switch networks only when the campaign asks (L4), and reconnect **once**, using one method. After returning, don't change networks again until cleanup ends.
+- After the last campaign, restore the recorded values:
+  - `nmcli connection modify uuid <HOME-WIFI-UUID> 802-11-wireless.bssid ""`
+  - `nmcli connection modify uuid <HOME-WIFI-UUID> ipv6.method auto`
+  - `nmcli connection modify uuid <HOTSPOT-UUID> ipv6.method auto`
+  - then reconnect once while at the laptop.
+
 ### Preconditions and owner approvals
 
-**Environment preflight (before `init`; no cloud change).** `issue_certificate.sh` runs certbot
+The rest of this section is the full reference for every input and flag, including
+**issuance mode**. Issuance mode is only needed if `TLS_REUSE_READY` fails (missing, expiring or
+untrusted certificate); that is a separate owner decision, because it places a new Let's Encrypt order.
+
+**Environment preflight for issuance mode only (before `init`; no cloud change).** `issue_certificate.sh` runs certbot
 through `uvx`, which on the owner's laptop lives only in the `fintech` conda env. Append it to
 `PATH` (appending keeps the system `python3` first) in the terminal that runs `init` and `run`:
 
@@ -229,7 +334,7 @@ CID=g3b-full-$(date -u +%Y%m%dT%H%M%SZ); EV=~/ewallet-evidence/gateway/$CID
 python3 scripts/edge/dns_check.py --domain $D --expect-offline --offline-ip 162.216.242.207 --offline-ipv6 2602:ff23:0:8888::207   # DNS_OFFLINE_OK
 ```
 
-`init` checks it again (gate `CERTBOT_READY`). Dynu IPv6 must stay disabled (*First DNS transition*).
+In issuance mode `init` checks it again (gate `CERTBOT_READY`; in reuse mode the gate is `TLS_REUSE_READY` and certbot is not needed). Dynu IPv6 must stay disabled (*First DNS transition*).
 
 **Rotating the edge credential (owner, local only).** Do this when the edge password may have been
 exposed (G3-B 2026-11-22: a test recorded it inside a redirect URL; fixed, see below). The new
@@ -281,6 +386,8 @@ and Grafana credentials (raw, URL-encoded, Basic base64) with `<redacted>`.
 | The live run itself | `--approve-live-campaign` |
 | Screenshot window after a passed public-e2e (supervised g3b only, 1–60 min) | `--evidence-window-minutes 45` |
 
+Issuance-mode `init` (historical; the canonical command is in *Canonical replay*):
+
 ```bash
 python3 scripts/edge/g3b_campaign.py init --mode supervised --campaign $CID --campaign-dir $EV --manifest $M0 \
   --approved-cidrs $PRIV/approved-cidrs.txt --edge-credentials $PRIV/edge-cred --grafana-credentials $PRIV/grafana-cred \
@@ -297,7 +404,7 @@ python3 scripts/edge/g3b_campaign.py init --mode supervised --campaign $CID --ca
 - `SAFE_CLEANUP_READY` (DNS automation);
 - `L0_RENDER_READY` (the exact public render passes the strict preflight, offline);
 - `EDGE_AUTH_READY` (Secret = `edge-cred`, or a mismatch with `--approve-edge-secret-sync`);
-- `CERTBOT_READY` (`uvx --from certbot==5.10.0 certbot --version` answers `certbot 5.10.0`);
+- `CERTBOT_READY` in issuance mode (`uvx --from certbot==5.10.0 certbot --version` answers `certbot 5.10.0`), or `TLS_REUSE_READY` in reuse mode (`verify_edge_tls.py` verifies `edge-tls`, plus `--approve-production-certificate`);
 - `OWNER_LIVE_APPROVAL`.
 
 Supervised mode does not require the watchdog, linger or laptop-risk acceptance. Everything
@@ -483,7 +590,17 @@ and rate limit all in place. `status` shows `EVIDENCE_WINDOW: open` and
 - Ctrl-C also ends it, with cleanup; the run is then recorded as stopped.
 - A failed `public-e2e` never opens the window. The window changes no verdict and runs no command.
 
-Screenshots, taken by the owner during the window (`~/Pictures/Screenshots/GW-<row>-<subject>.png`):
+Screenshots are taken by the owner, from the real deployment, to illustrate the technical
+documentation (gateway, DNS/TLS, security policy, routing, observability, lifecycle). They are
+saved as `~/Pictures/Screenshots/GW-<subject>.png`. When to take them:
+
+| Moment | What exists then | What to capture |
+|---|---|---|
+| `CURRENT_PHASE: L4-denied`, laptop on the hotspot, after `L4: PASS` | the public edge, seen from a non-approved address | GW-L4-403: `https://agents.$D/` in a private browser window, **403** from the source restriction. The certificate is trusted in reuse mode. Then return to the approved Wi-Fi at once: `approved-network` waits at most 15 min |
+| `EVIDENCE_WINDOW: open` | public LB, DNS online, trusted certificate, Grafana root URL | GW-routes and GW-dns: `kubectl --kubeconfig $KC --context $CTX get gateway,httproute -n ewallet-ingress` and `dig +short features.$D` (the LB address); then the UI and HTTPS shots below |
+| after the window closes and cleanup ends | DNS offline, no LB, 0 nodes | `status` verdicts and cleanup steps, the node count, `dns_check.py --expect-offline` |
+
+During the evidence window:
 
 | ID | Row | Screenshot | Required |
 |---|---|---|---|
@@ -497,10 +614,9 @@ Screenshots, taken by the owner during the window (`~/Pictures/Screenshots/GW-<r
 | GW-40-agents | 40 | `https://agents.$D/`, one short synthetic prompt answered | yes |
 | GW-41-registry | 41 | `https://registry.$D/` listing an agent | yes |
 
-These can be taken after cleanup, from the evidence files or with 0 nodes:
+These can also be taken after cleanup, from the evidence files or with 0 nodes:
 - GW-42-429: the `14-negative.jsonl` burst line (required);
-- GW-L4-403: `11-l4-denied.jsonl` (optional);
-- GW-routes: `kubectl get gateway,httproute -n ewallet-ingress` (optional);
+- GW-L4-403 fallback, if the hotspot shot was missed: `11-l4-denied.jsonl` (optional);
 - GW-verdict: `g3b_campaign.py status` (optional);
 - GW-sleep: `cloud_lab.py verify --expect sleep` plus `dns_check.py --expect-offline` (optional).
 
@@ -523,12 +639,12 @@ cleanups at once (the campaign lock refuses a second).
 
 ### Owner G4 replay (separate session)
 
-Only if a screenshot was missed: Claude does not take the official screenshots. After the G3-B campaign has ended and GKE is asleep, the owner:
-1. Wakes the cluster under control.
-2. Re-runs the repository scripts (table *G4 evidence replay* above: `public_e2e.py`, `negative_tests.py`).
-3. Uses the real UIs and takes the screenshots.
-4. Checks rows 37–43.
-5. Runs cleanup and guarded sleep (`g3b_campaign.py cleanup`, or the Cloud Lab commands in step 16).
+Only if a screenshot was missed. Claude does not take the official screenshots. Do not wake the
+cluster by hand: the public edge needs the gateway, DNS and cleanup prerequisites that only the
+orchestrator enforces. Instead, run a new, separately approved campaign with the *Canonical replay*
+command (reuse mode: no new certificate order), and take the missing screenshots in its evidence
+window. The table *G4 evidence replay* above lists the checks that campaign runs (`public_e2e.py`,
+`negative_tests.py`).
 
 ## Unattended (overnight) campaign (optional; superseded by the supervised run)
 
