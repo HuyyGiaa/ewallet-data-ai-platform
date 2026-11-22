@@ -192,6 +192,14 @@ Observed, live retry `g3b-dns-transition-retry-20261122T050543Z` (2026-11-22):
 - Cleanup sent signoff from that real Online state and proved `DNS_OFFLINE_OK` with `--released-ip <LB>`. The fresh check passed, the LB was released, sleep was VERIFIED with 0 nodes, and no forwarding rule or address remained.
 - Open (owner decision before the next attempt): how to bring AAAA online. Either clear or disable the hostname's IPv6 in the Dynu panel, or accept AAAA = OFF6 as a documented online state (IPv6 clients would then reach Dynu's offline page, not the edge). Sending no `myipv6` could publish the updater's own IPv6 (home), so it is not an option.
 
+Observed, **VERIFIED** `g3b-dns-transition-ipv4-20261122T054437Z` (2026-11-22), after the owner set Dynu *Enable IPv6 Address* OFF and *Wildcard IPv6 Alias* OFF (TTL 120):
+- Offline state now: A = OFF4, **AAAA none** (OFF6 stays an allowed offline value, but no longer appears).
+- Private security: 8/8 and 35/35, edge auth MATCH, no mutation. The LB opened.
+- Online (`myip=<LB>&myipv6=no`): `DNS_ONLINE_OK` at attempt 7 (about 3 min): A = LB at every Dynu NS and 1.1.1.1/8.8.8.8, **AAAA none on every name, including the wildcard**.
+- Signoff: `DNS_OFFLINE_OK` at attempt 5 with `--released-ip <LB>`. The fresh check before release passed, the LB was released, sleep VERIFIED with 0 nodes, and no forwarding rule or address remained.
+- This `state.json` passes `transition_evidence()`; it is the stage 3 `--dns-transition-evidence`.
+- Keep Dynu IPv6 disabled. Re-enabling it brings back the AAAA = OFF6 online state (`g3b-dns-transition-retry-20261122T050543Z`).
+
 `--dns-offline-verified` alone does nothing. Stage 3's `SAFE_CLEANUP_READY` needs
 `--dns-transition-evidence` pointing at the `state.json` of a **real** transition run. That file must show:
 - `scope: dns-transition`, `simulated: false` (`--simulate` runs are marked and always refused);
@@ -378,7 +386,7 @@ Owner configuration:
 | Method | Observed | Use |
 |---|---|---|
 | `dynu_dns.py offline --mode no-ipv4` (`myip=no&myipv6=no`) | Dynu answered `nochg`; the old IPv4 stayed in DNS (`DNS_OFFLINE_NOT_YET`) | **not** an offline method; kept only behind DNS verification |
-| Dynu panel *Offline Settings → Go Offline Now* (action "Display offline message") | DNS changed on both families: A and AAAA point to Dynu's offline server; reverse DNS of both is `offline.dynu.com`, in the same ranges as `api.dynu.com` | the safe offline state |
+| Dynu panel *Offline Settings → Go Offline Now* (action "Display offline message") | (with IPv6 enabled) DNS changed on both families: A and AAAA point to Dynu's offline server; reverse DNS of both is `offline.dynu.com`, in the same ranges as `api.dynu.com` | the safe offline state |
 | `dynu_dns.py offline --mode signoff` (`offline=yes`, IP Update Protocol) | 2026-11-22, sent while the hostname was already Offline: `good`, then `DNS_OFFLINE_OK`. The Online → Offline transition is **not yet proven** | the automation, once *First DNS transition* proves it |
 
 A Dynu answer (`good`, `nochg`) only means the request was accepted. Only `dns_check.py`

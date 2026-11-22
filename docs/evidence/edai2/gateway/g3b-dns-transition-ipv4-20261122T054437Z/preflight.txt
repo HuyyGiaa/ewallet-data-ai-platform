@@ -1,0 +1,12 @@
+Read-only preflight (2026-11-22, before init)
+repo: feature/edai2-external-gateway-api at ef0983d3 = origin; clean; no campaign or port-forward running; AC power; 15 GiB RAM available
+focused tests (dns_campaign, dns_dualstack, g3b_prelive, g3b_supervised, edge_negative_checks): 292 passed
+cluster: 0 nodes; 0 LoadBalancer Services; ewallet-edge-gateway ClusterIP; 0 forwarding rules; 0 reserved addresses
+helm: ewallet-edge rev 5, ewallet-edge-gateway rev 4 (previous retry: edge upgrade + responder-off, LB open + release)
+KEDA: 2 ScaledObjects paused with the cloud-lab marker of g3b-dns-transition-retry-20261122T050543Z (wake-full unpauses any marked object)
+manifest: G3-A1 recovery-manifest checksums OK (unchanged since the comparison in g3b-dns-transition-retry-20261122T050543Z/manifest-comparison.txt)
+Secret: EDGE_AUTH_MATCH
+Dynu (owner change: Enable IPv6 Address OFF, Wildcard IPv6 Alias OFF, TTL 120):
+  dns_check --expect-offline OFF4/OFF6: DNS_OFFLINE_OK, A OK, AAAA OK, 0 errors
+  ns1.dynu.com / 1.1.1.1 / 8.8.8.8: A = OFF4 (162.216.242.207); AAAA none; wildcard AAAA none
+credentials: 4 files mode 600; client inside the approved /32
