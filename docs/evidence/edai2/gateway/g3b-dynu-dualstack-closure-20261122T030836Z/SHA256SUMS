@@ -1,0 +1,11 @@
+6382d653827f6307877b254bab851dd78f135fe310b7af7c55698675fda3548b  ./dns-offline-dualstack.jsonl
+cbbc1fd8b9bee6e2494f946e7a3e7292aa137db651894b2ebeb941837e1ac8a0  ./dns-offline-ipv4-only.jsonl
+336833990c9a6f306175f6f3c2ad74e62067925eb1f906ac953f544ed62dbfcf  ./offline-target-identity.txt
+94e832dcf01e0e02c88a5b4989f3048f9a1dcfdd520c631975402d1d02edc03e  ./README.md
+058495274367e7925d052d9b3ebfd9668ec9a22a0ea63d82a1a74ff328b1ad7a  ./source/diffstat.txt
+ea0cc19b6fcaef2dc642cd46e90647446f77f9582625766bf396437a748baae1  ./source/source.diff
+81c6e5b70ed76cc438b4ec51881fad3e982f44594906cae064b4abe556ebe3dd  ./tests/dualstack-summary.txt
+32b0255918c04dd892a981994ef9879ee6746dbb6ed980ec65362a5b256b217a  ./tests/dualstack-verbose.txt
+271971c3832c3c460953cd3ccbaa0ee31095ef28126c6cc842873ae4305fe738  ./tests/regression.txt
+61b7b4aabead06dfa126a62a8f1b64c8e2521043eeaf7c599f31ae8a05ae35d3  ./tests/static.txt
+c41722c6683db394fed2d8e5b74a8abe953c5ebb9cf0d76e9c0bde6d29d3e8a7  ./tests/tests-ops.txt

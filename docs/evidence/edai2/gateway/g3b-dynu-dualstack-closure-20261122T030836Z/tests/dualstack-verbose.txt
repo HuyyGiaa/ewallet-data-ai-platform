@@ -1,0 +1,40 @@
+tests/ops/test_dns_dualstack.py::test_offline_accepts_only_approved_addresses_or_proven_absence[<lambda>-<lambda>0] PASSED
+tests/ops/test_dns_dualstack.py::test_offline_accepts_only_approved_addresses_or_proven_absence[<lambda>-<lambda>1] PASSED
+tests/ops/test_dns_dualstack.py::test_offline_accepts_only_approved_addresses_or_proven_absence[<lambda>-<lambda>2] PASSED
+tests/ops/test_dns_dualstack.py::test_offline_accepts_only_approved_addresses_or_proven_absence[<lambda>-<lambda>3] PASSED
+tests/ops/test_dns_dualstack.py::test_offline_accepts_only_approved_addresses_or_proven_absence[<lambda>-<lambda>4] PASSED
+tests/ops/test_dns_dualstack.py::test_offline_anything_else_is_not_yet_and_withheld[<lambda>-<lambda>0] PASSED
+tests/ops/test_dns_dualstack.py::test_offline_anything_else_is_not_yet_and_withheld[<lambda>-<lambda>1] PASSED
+tests/ops/test_dns_dualstack.py::test_offline_anything_else_is_not_yet_and_withheld[<lambda>-<lambda>2] PASSED
+tests/ops/test_dns_dualstack.py::test_offline_anything_else_is_not_yet_and_withheld[<lambda>-<lambda>3] PASSED
+tests/ops/test_dns_dualstack.py::test_offline_anything_else_is_not_yet_and_withheld[<lambda>-<lambda>4] PASSED
+tests/ops/test_dns_dualstack.py::test_offline_ipv6_without_an_approved_offline_ipv6_is_not_yet PASSED
+tests/ops/test_dns_dualstack.py::test_aaaa_failures_are_check_failed[authoritative-bad0] PASSED
+tests/ops/test_dns_dualstack.py::test_aaaa_failures_are_check_failed[authoritative-bad1] PASSED
+tests/ops/test_dns_dualstack.py::test_aaaa_failures_are_check_failed[authoritative-bad2] PASSED
+tests/ops/test_dns_dualstack.py::test_aaaa_failures_are_check_failed[authoritative-bad3] PASSED
+tests/ops/test_dns_dualstack.py::test_aaaa_failures_are_check_failed[resolver-bad0] PASSED
+tests/ops/test_dns_dualstack.py::test_aaaa_failures_are_check_failed[resolver-bad1] PASSED
+tests/ops/test_dns_dualstack.py::test_aaaa_failures_are_check_failed[resolver-bad2] PASSED
+tests/ops/test_dns_dualstack.py::test_aaaa_failures_are_check_failed[resolver-bad3] PASSED
+tests/ops/test_dns_dualstack.py::test_authoritative_ns_timeout_fails_the_cli PASSED
+tests/ops/test_dns_dualstack.py::test_cli_normalises_ipv6_and_rejects_wrong_families PASSED
+tests/ops/test_dns_dualstack.py::test_online_still_refuses_any_aaaa[<lambda>0] PASSED
+tests/ops/test_dns_dualstack.py::test_online_still_refuses_any_aaaa[<lambda>1] PASSED
+tests/ops/test_dns_dualstack.py::test_summary_line_reports_where_and_how_long PASSED
+tests/ops/test_dns_dualstack.py::test_signoff_sends_only_offline_yes_and_forwards_both_offline_addresses PASSED
+tests/ops/test_dns_dualstack.py::test_an_accepted_update_is_not_offline_until_dns_says_so[no-ipv4-nochg] PASSED
+tests/ops/test_dns_dualstack.py::test_an_accepted_update_is_not_offline_until_dns_says_so[signoff-nochg] PASSED
+tests/ops/test_dns_dualstack.py::test_an_accepted_update_is_not_offline_until_dns_says_so[signoff-good] PASSED
+tests/ops/test_dns_dualstack.py::test_auth_failure_stops_before_verification PASSED
+tests/ops/test_dns_dualstack.py::test_verification_progress_lines_and_bounded_attempts PASSED
+tests/ops/test_dns_dualstack.py::test_ctrl_c_during_verification_sends_no_further_update PASSED
+tests/ops/test_dns_dualstack.py::test_dry_run_sends_nothing_and_wrong_families_are_refused PASSED
+tests/ops/test_dns_dualstack.py::test_campaign_forwards_both_offline_addresses_and_defaults_to_signoff PASSED
+tests/ops/test_dns_dualstack.py::test_any_unproven_dns_state_keeps_the_lb_and_a_later_cleanup_releases_it[unexpected AAAA] PASSED
+tests/ops/test_dns_dualstack.py::test_any_unproven_dns_state_keeps_the_lb_and_a_later_cleanup_releases_it[unexpected A] PASSED
+tests/ops/test_dns_dualstack.py::test_any_unproven_dns_state_keeps_the_lb_and_a_later_cleanup_releases_it[DNS timeout] PASSED
+tests/ops/test_dns_dualstack.py::test_any_unproven_dns_state_keeps_the_lb_and_a_later_cleanup_releases_it[API signoff failure] PASSED
+tests/ops/test_dns_dualstack.py::test_init_refuses_wrong_offline_addresses[2001:db8:0:8888::207-2001:db8:0:8888::207] PASSED
+tests/ops/test_dns_dualstack.py::test_init_refuses_wrong_offline_addresses[192.0.2.207-192.0.2.207] PASSED
+tests/ops/test_dns_dualstack.py::test_init_refuses_wrong_offline_addresses[not-an-ip-None] PASSED
