@@ -1,0 +1,5 @@
+ docs/runbooks/edai2/EXTERNAL_GATEWAY_RUNBOOK.md |  42 +++++-
+ scripts/edge/negative_tests.py                  |  51 ++++++-
+ scripts/edge/public_e2e.py                      |  11 +-
+ tests/ops/test_edge_credential_redaction.py     | 173 ++++++++++++++++++++++++
+ 4 files changed, 268 insertions(+), 9 deletions(-)

@@ -1,0 +1,2 @@
+py_compile OK
+infra/, ops/, g3b_campaign.py, create_basic_auth.sh unchanged
