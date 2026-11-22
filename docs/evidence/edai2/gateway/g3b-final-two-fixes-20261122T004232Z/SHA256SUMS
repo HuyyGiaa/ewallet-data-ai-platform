@@ -1,0 +1,8 @@
+ab9689638beb5b2cf70f95277a85920a662bb850a2f23a35406b4ef4e66d75e4  ./gke-state.txt
+bce2cf2b426ae56a294a2fd77fda8cdc9cbfc81402d2ffcb97d58b8c221a6fbc  ./README.md
+2d60e1f6595fafedc485abfdfdd72c04662ac3151daf40cc9ce501e0c8bdf3f3  ./source/diffstat.txt
+d9555475945fca817708284ccd4c2ba890c6d40e01ab35d23a70467d90257b8b  ./source/source.diff
+479d915a67296de42d691c20f047285db0770ee3e7d7bba4399bba29a8cc28cb  ./tests/focused-verbose.txt
+569519b823e3361dacc43d7f6f032448268213093bcd306ae18506852f562c90  ./tests/required-regression.txt
+61b7b4aabead06dfa126a62a8f1b64c8e2521043eeaf7c599f31ae8a05ae35d3  ./tests/static.txt
+598ac69590092091ecdb80077528294e4fc4424f2b5f3f6b12fbb4458c300b5d  ./tests/tests-ops.txt
