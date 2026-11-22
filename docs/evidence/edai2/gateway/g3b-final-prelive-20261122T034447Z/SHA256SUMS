@@ -1,0 +1,15 @@
+8e08b1090ea74e21ad8f61bab514bcb7492778b107e7482abb5e6b76d9609bb6  ./dns-offline-now.jsonl
+b4f04fe907a605b5db61af422ace3cca1de17e47d3e4dafc8ad83ea5ce93de5f  ./README.md
+1b4490ae86ae4509dd6fe291a42c9f2c744723af576e0d61a7cfbdcdaef123ae  ./readonly-state.txt
+f48f7c5ac2acc46660cf32659de4f9fad8d4b2b4a0c18e187300dab4244a569f  ./simulation/g3b-init.json
+2b63102c6995f3626eaebfee29310f52f023aaf463b9e0df16d2daaf8052cfae  ./simulation/g3b-init-no-evidence.json
+da2eefbbb3a597bf6c8811a262d9fc593c677ea070e870d8dd4425c57a5526ea  ./simulation/no-auth-init.json
+959911f3a04866788bd2cddc57d44c316f5d57febcfeb2fb510a61b2b1060b0a  ./simulation/transition-command-order.txt
+d76e9ae86238e6d703d76aef4c306338bcfab79e338253784693b1aaf9ec62be  ./simulation/transition-init.json
+fa3b39ef6f2e852020c6c2aba09382b2c6eb9a9820e8d91ed5749cfe7a48a031  ./simulation/transition-run.json
+1be2ba22ba64911f5c7edfd312dea636c31a8c51d0fd5b2e1717ec3278ac59f2  ./source/diffstat.txt
+c38906dc6c61faa8bfdb84d7cf2ea1caf6517be886b00f8df8e331e77ca1543c  ./source/source.diff
+ee734c690f185ba4ba72b593e9f693e1185bf961a3ee6eb94ae8603c221212a0  ./tests/prelive-verbose.txt
+f4965ddcef72e64495c98f0fc77015a1f37a3d0f84b635fc3796531cd82e7bb8  ./tests/regression.txt
+dba51e88bc2657ed5710ba339377813917b5d5c87bf66613158560291daa9544  ./tests/static.txt
+0e3984d14c5d5b79ab33e923a7dd7050d79a469fe81f1aecb92374fd50e8840d  ./tests/tests-ops.txt

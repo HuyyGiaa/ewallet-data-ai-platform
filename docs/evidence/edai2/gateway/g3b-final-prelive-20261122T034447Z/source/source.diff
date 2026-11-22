@@ -1,0 +1,1040 @@
+diff --git a/docs/runbooks/edai2/EXTERNAL_GATEWAY_RUNBOOK.md b/docs/runbooks/edai2/EXTERNAL_GATEWAY_RUNBOOK.md
+index 93fbd6bd..1b56220b 100644
+--- a/docs/runbooks/edai2/EXTERNAL_GATEWAY_RUNBOOK.md
++++ b/docs/runbooks/edai2/EXTERNAL_GATEWAY_RUNBOOK.md
+@@ -27,7 +27,8 @@ Owner-supplied files in `$PRIV`; the scripts refuse paths inside the repository:
+ | File | Content |
+ |---|---|
+ | `approved-cidrs.txt` | the public IPv4 /32–/16 addresses that may use `agents.$D`, one per line |
+-| `edge-cred` | edge Basic Auth `user:password` (`create_basic_auth.sh` reads the password on stdin) |
++| `edge-cred` | edge Basic Auth: exactly one line `user:password`, password ≥ 24 characters, mode 600. `create_basic_auth.sh --credentials-file` checks or writes the `edge-basic-auth` Secret from it |
++| `dynu.json` | Dynu IP update credentials (mode 600; only metadata is ever checked) |
+ | `grafana-cred` | Grafana admin `user:password` (read from its Secret into the file, never printed) |
+ | `g3b-values.yaml` | `domain: $D`, `sourceRestriction: {enabled: true, allowedCidrs: [...same as the file...]}`, `acmeHttp01: {enabled: true}` on top of `g3a-private-values.yaml` |
+ 
+@@ -46,9 +47,10 @@ Evidence classes are never mixed: `LOCAL_KIND`, `GKE_PRIVATE` (port-forward) and
+ | 4 | Edge with domain, restriction, responder (still ClusterIP) | `helm upgrade ewallet-edge infra/helm/ewallet-edge -n ewallet-ingress --kubeconfig $KCF --kube-context $CTX -f docs/evidence/edai2/gateway/g3a0_closure_20261121T172654Z/helm/g3a-private-values.yaml -f $PRIV/g3b-values.yaml` | `platform_checks.py $K gateway`, `… envoy --restricted`, `… watch` (kagent-ui Ready 180 s) |
+ | 5 | **L0 live** | `python3 scripts/edge/ownership_preflight.py live --context $CTX --kubeconfig $KCF --allow-public-loadbalancer --domain $D --approved-cidrs-file $PRIV/approved-cidrs.txt` | `EDGE_OWNERSHIP_OK`: policy selects the gateway pods, DENY on agents.$D (+`:*`) port 443, CIDRs = approved; Basic Auth, rate limit and RBAC active in every pod |
+ | 6 | **L0 render** | `helm template ewallet-edge-gateway <istio/gateway 1.30.7> -f infra/helm/ewallet-edge/values-gateway.yaml -f …/values-gateway-public.yaml -f …/values-gateway-public-open.yaml > $EV/gw.yaml`; `helm template ewallet-edge … -f g3a-private-values.yaml -f $PRIV/g3b-values.yaml > $EV/edge.yaml`; `python3 scripts/edge/ownership_preflight.py render --allow-public-loadbalancer --domain $D --approved-cidrs-file $PRIV/approved-cidrs.txt $EV/gw.yaml $EV/edge.yaml` | `EDGE_OWNERSHIP_OK`. **If L0 fails, the LB is not opened** |
+-| 7 | Private E2E over port-forward | `kubectl $K -n ewallet-ingress port-forward --address 127.0.0.1 svc/ewallet-edge-gateway 18443:443 18080:80`; `python3 scripts/edge/public_e2e.py --address 127.0.0.1 --https-port 18443 --http-port 18080 --domain $D --ca-file $PRIV/tls/self-signed/fullchain.pem --credentials-file $PRIV/edge-cred --agents denied --evidence-class GKE_PRIVATE --out $EV/07-e2e.jsonl` | agents 403 (the port-forward peer is not allowed); other rows PASS |
++| 6a | Edge Basic Auth Secret = `edge-cred` | `bash scripts/edge/create_basic_auth.sh --credentials-file $PRIV/edge-cred --check --kubeconfig $KCF --context $CTX` (read-only; prints only `EDGE_AUTH_MATCH` / `EDGE_AUTH_MISMATCH` / `EDGE_AUTH_MISSING` / `EDGE_AUTH_CHECK_FAILED`). On a mismatch, **with the owner's approval** only: `… --apply`, then `kubectl $K -n ewallet-ingress rollout restart deployment/ewallet-edge-gateway`, `… rollout status … --timeout=300s`, `--check` again | `EDGE_AUTH_MATCH`; Envoy reads the users file at start-up, so the restart is part of the step. Step 7 proves the behaviour; **a mismatch or a failing step 7 means no LB** |
++| 7 | Private E2E over port-forward | `kubectl $K -n ewallet-ingress port-forward --address 127.0.0.1 svc/ewallet-edge-gateway 18443:443 18080:80`; `python3 scripts/edge/public_e2e.py --address 127.0.0.1 --https-port 18443 --http-port 18080 --domain $D --ca-file $PRIV/tls/self-signed/fullchain.pem --credentials-file $PRIV/edge-cred --agents denied --evidence-class GKE_PRIVATE --out $EV/07-e2e.jsonl`; `python3 scripts/edge/negative_tests.py --address 127.0.0.1 --https-port 18443 --http-port 18080 --domain $D --ca-file … --credentials-file $PRIV/edge-cred --rate-limit-mode http2` | valid credentials accepted on every allowed route; missing, wrong, unknown-user, bearer and forged-header requests 401 (agents: 401 or 403); agents 403 with valid credentials (the port-forward peer is not allowed); burst limited (429) |
+ | 8 | Open the LB | `helm upgrade ewallet-edge-gateway <chart> -n ewallet-ingress … -f values-gateway.yaml -f values-gateway-public.yaml -f values-gateway-public-open.yaml`, then step 5 again | one LB, ports 80/443, `Local`; L0 live OK |
+-| 9 | **[owner]** DNS online | Dynu: set the IPv4 of `$D` to the LB IP (wildcard alias covers the names; no IPv6). Then `python3 scripts/edge/dns_check.py --domain $D --expect-ip <LB IP>` until `DNS_ONLINE_OK` | authoritative + 1.1.1.1 + 8.8.8.8, 4 names + wildcard, no AAAA |
++| 9 | DNS online | `python3 scripts/edge/dynu_dns.py --credentials $PRIV/dynu.json --execute online --ip <LB IP>` (`myip=<LB>&myipv6=no`; the wildcard alias covers the names). Only after the first transition was proven (*First DNS transition*). Then `python3 scripts/edge/dns_check.py --domain $D --expect-ip <LB IP>` until `DNS_ONLINE_OK` | authoritative + 1.1.1.1 + 8.8.8.8, 4 names + wildcard, no AAAA |
+ | 10 | Internet gates before the real certificate | `python3 scripts/edge/negative_tests.py --address <LB IP> --domain $D --ca-file $PRIV/tls/self-signed/fullchain.pem --credentials-file $PRIV/edge-cred --rate-limit-mode http2 --out $EV/10-negative.jsonl` (L2, L3, L6); `public_e2e.py … --address <LB IP> --agents allowed --evidence-class PUBLIC_INTERNET` from an approved address (L5); `public_e2e.py … --agents denied` from a non-approved network (L4) | all PASS, else step 15 |
+ | 11 | Staging certificate | `scripts/edge/issue_certificate.sh --environment staging --domain $D --context $CTX --kubeconfig $KCF --private-dir $PRIV/le` | 4 SANs, no challenge left |
+ | 12 | Production certificate | `scripts/edge/issue_certificate.sh --environment production --confirm-production --import --domain $D --context $CTX --kubeconfig $KCF --private-dir $PRIV/le` | L1: `public_e2e.py` without `--ca-file` (system trust) |
+@@ -120,13 +122,73 @@ The owner is present; Claude runs the technical steps through `scripts/edge/g3b_
+ The orchestrator runs the procedure above as phases with every gate, then always cleans up and
+ sleeps.
+ 
++### Stages and their approvals
++
++| Stage | What | Command | Cloud / DNS change | Owner approval |
++|---|---|---|---|---|
++| 0. Offline preparation | private files (mode 600), offline addresses re-read, `init` (read-only: render, Secret check, DNS check, client address) | `g3b_campaign.py init …` | none | none |
++| 1. Private deployment and checks | wake, baseline, temporary certificate, edge, L0, **edge-auth**, **private-e2e** | first phases of either scope | wake; edge upgrade; Secret sync if mismatched | the scope's approval, plus `--approve-edge-secret-sync` when the Secret differs |
++| 2. DNS transition verification (once) | LB opened on the checked edge, Offline → Online (LB) → signoff → Offline, then cleanup | `init --scope dns-transition` + `run` | LB (released at the end), two Dynu updates | `--approve-dns-transition-test` (not the G3-B live approval) |
++| 3. Public deployment (G3-B) | LB, DNS online, Internet gates, L4, certificates, Grafana, public E2E | `init` (scope `g3b`) + `run` | everything in the procedure | `--approve-live-campaign` + the gated flags; `--dns-offline-verified` with stage 2's evidence |
++| 4. Cleanup | ACME off, DNS offline proven, LB released, guarded sleep, verify | automatic; `g3b_campaign.py cleanup --state …` to resume | as listed | covered by the scope's approval |
++| 5. G4 evidence replay | owner session with screenshots | *Owner G4 replay* | owner-controlled wake | separate |
++
++### First DNS transition (`--scope dns-transition`)
++
++Why: `offline=yes` was tested by the owner on 2026-11-22 while the hostname was **already**
++Offline (`good`, `DNS_OFFLINE_OK`), so it proves nothing about Online → Offline. Dynu's protocol
++page documents `offline=yes` only. It does not say whether a later `myip=` update brings the
++hostname back online, and it documents no `offline=no`. The only address that may be published
++for the test is one the owner controls: the GKE LB of this campaign. A home address, a
++third-party address or a documentation address must never be published.
++
++Order (each step proven by `dns_check.py` at every Dynu NS plus 1.1.1.1 and 8.8.8.8, never by
++Dynu's answer word):
++1. Stage 1 phases unchanged: wake, baseline, temporary certificate, edge, L0 render, L0 live, edge-auth, private-e2e. The LB opens only after the private security checks.
++2. `open-lb` + L0 live on the public service.
++3. `dns-transition`:
++   1. **pre-check**: `--expect-offline` with OFF4/OFF6 must be `DNS_OFFLINE_OK`, else no update is sent (`DNS_TRANSITION_NOT_STARTED`);
++   2. **online**: `dynu_dns.py --execute online --ip <LB>`, then `DNS_ONLINE_OK` (A = LB everywhere, no AAAA), else `DNS_TRANSITION_ONLINE_NOT_PROVEN`;
++   3. **signoff**: `dynu_dns.py --execute offline --mode signoff --offline-ip OFF4 --offline-ipv6 OFF6 --released-ip <LB>`, then `DNS_OFFLINE_OK`, else `DNS_TRANSITION_OFFLINE_NOT_PROVEN`;
++   4. `DNS_TRANSITION=VERIFIED` in `state.json`; outputs are kept in `dns-transition-{0-precheck,1-online,2-offline}.jsonl`.
++4. Cleanup as always. The LB is released only when DNS is proven offline; then guarded sleep.
++
++No certificate, no Internet gate, no G3-B or G4 verdict (`NOT_RUN (dns-transition scope)`).
++
++```bash
++CID=g3b-dns-transition-<UTC>; EV=~/ewallet-evidence/gateway/$CID
++python3 scripts/edge/g3b_campaign.py init --scope dns-transition --mode supervised --campaign $CID --campaign-dir $EV \
++  --manifest $M0 --approved-cidrs $PRIV/approved-cidrs.txt --edge-credentials $PRIV/edge-cred \
++  --dns-credentials $PRIV/dynu.json --dns-offline-mode signoff --dns-offline-ip $OFF4 --dns-offline-ipv6 $OFF6 \
++  --approve-dns-transition-test [--approve-edge-secret-sync] --approve-guarded-sleep --approve-keda-pause \
++  --also-approve ewallet-mcp/feature-rag-mcp
++systemd-inhibit --what=sleep:idle python3 scripts/edge/g3b_campaign.py run --state $EV/state.json
++```
++
++Gates (`TRANSITION_GATES`): manifest, PDB, KEDA, guarded sleep, client address, L0 render,
++`EDGE_AUTH_READY`, `DNS_TRANSITION_TEST_READY` (supervised, signoff with both offline addresses,
++DNS credentials, hostname proven offline **now**), `OWNER_DNS_TRANSITION_APPROVAL`. The G3-B live
++approval neither replaces nor is replaced by it.
++
++| Outcome | DNS | LB | Next |
++|---|---|---|---|
++| `VERIFIED` | offline (proven) | released | stage 3 with `--dns-offline-verified --dns-transition-evidence $EV/state.json` |
++| `ONLINE_NOT_PROVEN` (Dynu stays Offline after `myip=`) | cleanup sends signoff and proves offline | released once proven | owner decision: bring it online in the panel during stage 3 (a supervised manual step), or stop |
++| `OFFLINE_NOT_PROVEN` | names may still point at the LB | **kept** (still ours, nothing dangles); nodes still sleep; `CLEANUP_INCOMPLETE` | owner: panel *Go Offline Now*, then `g3b_campaign.py cleanup --state $EV/state.json` (proves offline, releases the LB). Signoff is not used for stage 3 |
++| `NOT_STARTED` | untouched | released | re-read OFF4/OFF6, re-run `init` |
++
++`--dns-offline-verified` alone does nothing: stage 3's `SAFE_CLEANUP_READY` needs
++`--dns-transition-evidence` pointing at a `state.json` with `scope: dns-transition`,
++`DNS_TRANSITION: VERIFIED` and the same domain, offline mode, OFF4 and OFF6.
++
+ ### Preconditions and owner approvals
+ 
+ | Input | Where |
+ |---|---|
+ | Approved client CIDRs (must include this machine's current public address, for L5) | `$PRIV/approved-cidrs.txt` |
+ | Edge and Grafana credentials | `$PRIV/edge-cred`, `$PRIV/grafana-cred` (Grafana: needed for rows 37–39; without it Grafana is BLOCKED, never PASS) |
+-| Dynu IP update credentials; approved offline IPv4/IPv6; API signoff verified once (see *Dynu offline: dual-stack*) | `$PRIV/dynu.json`, `--dns-offline-mode signoff --dns-offline-ip … --dns-offline-ipv6 …`, `--dns-offline-verified` |
++| Dynu IP update credentials; approved offline IPv4/IPv6; the first transition proven (*First DNS transition*) | `$PRIV/dynu.json`, `--dns-offline-mode signoff --dns-offline-ip … --dns-offline-ipv6 …`, `--dns-offline-verified --dns-transition-evidence <stage 2 state.json>` |
++| Edge Secret differs from `edge-cred` (`init` reports `edge_auth_at_init`) | `--approve-edge-secret-sync` (a Kubernetes mutation of `ewallet-ingress/edge-basic-auth`; the old password stops working) |
+ | Recovery manifest | `$M0` (G3-A1, checksums OK) |
+ | PDB exception for this campaign | `--also-approve ewallet-mcp/feature-rag-mcp` |
+ | Guarded sleep, KEDA pause, production certificate, Grafana root URL | `--approve-guarded-sleep --approve-keda-pause --approve-production-certificate [--approve-grafana-root-url]` |
+@@ -136,7 +198,7 @@ sleeps.
+ python3 scripts/edge/g3b_campaign.py init --mode supervised --campaign $CID --campaign-dir $EV --manifest $M0 \
+   --approved-cidrs $PRIV/approved-cidrs.txt --edge-credentials $PRIV/edge-cred --grafana-credentials $PRIV/grafana-cred \
+   --dns-credentials $PRIV/dynu.json --dns-offline-mode signoff --dns-offline-ip <OFF4> --dns-offline-ipv6 <OFF6> \
+-  --dns-offline-verified --approve-live-campaign --approve-guarded-sleep --approve-keda-pause --also-approve ewallet-mcp/feature-rag-mcp \
++  --dns-offline-verified --dns-transition-evidence <stage 2 state.json> --approve-live-campaign --approve-guarded-sleep --approve-keda-pause --also-approve ewallet-mcp/feature-rag-mcp \
+   --approve-production-certificate --approve-grafana-root-url
+ ```
+ 
+@@ -145,6 +207,7 @@ python3 scripts/edge/g3b_campaign.py init --mode supervised --campaign $CID --ca
+ - `CLIENT_ADDRESS_APPROVED`;
+ - `SAFE_CLEANUP_READY` (DNS automation);
+ - `L0_RENDER_READY` (the exact public render passes the strict preflight, offline);
++- `EDGE_AUTH_READY` (Secret = `edge-cred`, or a mismatch with `--approve-edge-secret-sync`);
+ - `OWNER_LIVE_APPROVAL`.
+ 
+ Supervised mode does not require the watchdog, linger or laptop-risk acceptance. Everything
+@@ -170,7 +233,8 @@ python3 scripts/edge/g3b_campaign.py status --state $EV/state.json      # in ano
+ |---|---|---|---|
+ | L0 render | `init` and `L0-render` | LOCAL (render) | exact public values; `ownership_preflight.py render --allow-public-loadbalancer` |
+ | L0 live | `L0-live` | GKE_PRIVATE | active Envoy filters, RBAC CIDRs = approved; **if L0 fails, no LB** |
+-| Private E2E | `private-e2e` | GKE_PRIVATE | port-forward; Feature API, Registry, Grafana (if credentials), filters; agents must be **403** (the port-forward peer is never approved). It is not L4. **If it fails, no LB** |
++| Edge Basic Auth | `edge-auth` | GKE_PRIVATE | `create_basic_auth.sh --check`; on an approved mismatch `--apply`, gateway restart, rollout status, `platform_checks gateway`, `--check`. Nothing secret is printed or stored. **A mismatch without approval, or a sync that does not take, means no LB** |
++| Private E2E | `private-e2e` | GKE_PRIVATE | port-forward; Feature API, Registry, Grafana (if credentials), filters; agents must be **403** (the port-forward peer is never approved); `negative_tests.py`: missing/wrong/forged credentials 401, valid accepted, rate limit 429. A gateway still holding the old users file fails here. It is not L4. **If it fails, no LB** |
+ | L2/L3/L6 | `internet-gates` | PUBLIC_INTERNET | `negative_tests.py --rate-limit-mode http2` |
+ | L5 | `internet-gates` | PUBLIC_INTERNET | this machine must be inside the approved CIDRs (checked first) |
+ | L4 | `L4-denied` | PUBLIC_INTERNET, **only from a non-approved address** | this laptop on another network; otherwise `L4_BLOCKED_NO_VERIFIED_EXTERNAL_SOURCE` |
+@@ -269,7 +333,7 @@ python3 scripts/edge/g3b_campaign.py init --campaign $CID --campaign-dir $EV --m
+   --approved-cidrs $PRIV/approved-cidrs.txt --edge-credentials $PRIV/edge-cred --grafana-credentials $PRIV/grafana-cred \
+   --dns-credentials $PRIV/dynu.json --dns-offline-mode signoff --dns-offline-ip <OFF4> --dns-offline-ipv6 <OFF6> \
+   --approve-guarded-sleep --approve-keda-pause --also-approve ewallet-mcp/feature-rag-mcp \
+-  --approve-production-certificate [--approve-grafana-root-url] --dns-offline-verified \
++  --approve-production-certificate [--approve-grafana-root-url] --dns-offline-verified --dns-transition-evidence <stage 2 state.json> \
+   (--accept-local-only-risk | --cloud-fallback-ready)
+ ```
+ 
+@@ -278,7 +342,7 @@ python3 scripts/edge/g3b_campaign.py init --campaign $CID --campaign-dir $EV --m
+ | `CLOUD_LAB_RECOVERY_MANIFEST_VALID` | the manifest has its five files and is for `ewallet-dev` |
+ | `PDB_APPROVAL_COMPLETE` | `platform_checks.py sleep-feasibility` with the listed `--also-approve` covers every predicted blocker |
+ | `KEDA_SLEEP_APPROVAL_READY` / `GUARDED_SLEEP_PLAN_VALID` | the owner's approvals, and the approved record `sleep_20261106T163042Z` exists |
+-| `UNATTENDED_CLEANUP_READY` | DNS credentials present and the offline mode verified once (below); watchdog timer active; linger on; laptop risk covered (fallback ready, or risk explicitly accepted) |
++| `UNATTENDED_CLEANUP_READY` | DNS credentials present and the first transition proven (`--dns-transition-evidence`, *First DNS transition*); watchdog timer active; linger on; laptop risk covered (fallback ready, or risk explicitly accepted) |
+ | `CLIENT_ADDRESS_APPROVED` | this laptop's public address is inside the approved CIDRs (it is not recorded) |
+ 
+ Owner configuration:
+@@ -292,7 +356,7 @@ Owner configuration:
+ |---|---|---|
+ | `dynu_dns.py offline --mode no-ipv4` (`myip=no&myipv6=no`) | Dynu answered `nochg`; the old IPv4 stayed in DNS (`DNS_OFFLINE_NOT_YET`) | **not** an offline method; kept only behind DNS verification |
+ | Dynu panel *Offline Settings → Go Offline Now* (action "Display offline message") | DNS changed on both families: A and AAAA point to Dynu's offline server; reverse DNS of both is `offline.dynu.com`, in the same ranges as `api.dynu.com` | the safe offline state |
+-| `dynu_dns.py offline --mode signoff` (`offline=yes`, IP Update Protocol) | **not yet tested** | the automation, once the test below proves it equals the panel state |
++| `dynu_dns.py offline --mode signoff` (`offline=yes`, IP Update Protocol) | 2026-11-22, sent while the hostname was already Offline: `good`, then `DNS_OFFLINE_OK`. The Online → Offline transition is **not yet proven** | the automation, once *First DNS transition* proves it |
+ 
+ A Dynu answer (`good`, `nochg`) only means the request was accepted. Only `dns_check.py`
+ decides. The offline addresses are campaign inputs, never defaults in the code. They are
+@@ -311,20 +375,10 @@ NODATA; a timeout is a failure. Online still means A = the LB address and **no A
+ OFF6. The last JSON line summarises the verdict, failed servers and names, A/AAAA status and
+ duration (concurrent queries: about 3 s).
+ 
+-**API signoff verification** (owner-approved Dynu mutation; GKE stays asleep). Its purpose is
+-to prove that `offline=yes` reaches the same state as the panel. Since the panel state is
+-already Offline, the test needs one online step first:
+-
+-1. Pre-check: `dns_check.py --expect-offline --offline-ip $OFF4 --offline-ipv6 $OFF6` gives `DNS_OFFLINE_OK`, and the Dynu panel shows *Offline*.
+-2. Owner, in the panel: *Go Online*. Then `dns_check.py --expect-offline …` must turn `NOT_YET`. The address Dynu publishes when online is withheld by the check; it must not be the home address, and if it is, the owner decides whether this test is worth that minute.
+-3. `python3 scripts/edge/dynu_dns.py --credentials $PRIV/dynu.json --execute --attempts 10 --interval 30 offline --mode signoff --offline-ip $OFF4 --offline-ipv6 $OFF6`. It prints the Dynu answer, then one line per attempt; PASS only on `DNS_OFFLINE_OK`.
+-4. Confirm the hostname still exists in the panel (status Offline) and that every name, including the wildcard, is OFF4/OFF6 (the step 3 output).
+-5. Record the output lines (no credentials are printed) in the campaign evidence.
+-
+-Results:
+-- `DNS_OFFLINE_OK`: pass `--dns-offline-verified --dns-offline-mode signoff` to `init`.
+-- Dynu answers `badauth` with the header-only authentication: the protocol page shows signoff with a `password` parameter. Sending it in the URL would break the "no credentials in URLs" rule, so this is an owner decision. The fallback is the panel's *Go Offline Now* during cleanup, with `g3b_campaign.py cleanup` re-run afterwards.
+-- Anything else: `DNS_AUTOMATION_BLOCKED` for signoff. Use the same panel fallback, and never switch to another mode without approval.
++**API signoff verification.** This is now the `dns-transition` scope (*First DNS transition*,
++stage 2): the online step publishes this campaign's own LB address, so no home or third-party
++address is ever published. The earlier plan here (panel *Go Online* with the LB asleep) is
++withdrawn because it could publish an address the owner does not control.
+ 
+ ### During execution
+ 
+diff --git a/scripts/edge/create_basic_auth.sh b/scripts/edge/create_basic_auth.sh
+index cbdff645..a7ccbcdd 100755
+--- a/scripts/edge/create_basic_auth.sh
++++ b/scripts/edge/create_basic_auth.sh
+@@ -1,14 +1,64 @@
+ #!/usr/bin/env bash
+-# Create the edge credential Secret. The password is read from stdin, never an argument.
+-# usage: printf '%s' "$PASSWORD" | create_basic_auth.sh <username> [namespace] [context]
+-# Envoy accepts only the {SHA} htpasswd format, which is fast to attack, so use a long
+-# random password. Restart the gateway after a change: Envoy reads the file at start-up.
++# The edge credential Secret (ewallet-ingress/edge-basic-auth). The password never appears in
++# an argument, an environment variable or the output; the hash is only compared or piped.
++#
++#   printf '%s' "$PASSWORD" | create_basic_auth.sh <username> [namespace] [context]   create/replace
++#   create_basic_auth.sh --credentials-file FILE --check|--apply [--namespace NS] [--context CTX] [--kubeconfig PATH]
++#
++# FILE: one line "user:password", outside the repository, mode 600.
++# --check prints EDGE_AUTH_MATCH (exit 0), EDGE_AUTH_MISMATCH / EDGE_AUTH_MISSING (exit 1) or
++# EDGE_AUTH_CHECK_FAILED (exit 2). It is read-only. --apply replaces the Secret (a cluster
++# mutation: owner approval). Envoy reads the users file at start-up, so restart the gateway
++# after --apply (g3b_campaign.py edge-auth does it and checks the behaviour).
++# Envoy accepts only the {SHA} htpasswd format, which is fast to attack: use a long random password.
+ set -euo pipefail
+-user=${1:?username required} namespace=${2:-ewallet-ingress}; shift 2 || shift $#
+-[[ "$user" =~ ^[A-Za-z0-9._-]{1,64}$ ]] || { echo "invalid username" >&2; exit 2; }
+-password=$(cat)
+-[ "${#password}" -ge 24 ] || { echo "password must be at least 24 characters" >&2; exit 2; }
+-hash=$(printf '%s' "$password" | openssl dgst -binary -sha1 | base64)
+-kubectl ${1:+--context "$1"} -n "$namespace" create secret generic edge-basic-auth \
+-  --from-file=htpasswd=<(printf '%s:{SHA}%s\n' "$user" "$hash") --dry-run=client -o yaml \
+-  | kubectl ${1:+--context "$1"} apply -f -
++mode=apply namespace=ewallet-ingress context="" kubeconfig="" file=""
++if [ "${1:-}" = "--credentials-file" ]; then
++  file=${2:?credentials file required}; shift 2
++  mode=""
++  while [ $# -gt 0 ]; do
++    case "$1" in
++      --check) mode=check ;;
++      --apply) mode=apply ;;
++      --namespace) namespace=${2:?}; shift ;;
++      --context) context=${2:?}; shift ;;
++      --kubeconfig) kubeconfig=${2:?}; shift ;;
++      *) echo "unknown argument: $1" >&2; exit 2 ;;
++    esac
++    shift
++  done
++  [ -n "$mode" ] || { echo "--check or --apply required" >&2; exit 2; }
++  [ -f "$file" ] || { echo "EDGE_AUTH_CHECK_FAILED: credentials file missing"; exit 2; }
++  if (( 8#$(stat -c %a "$file") & 8#077 )); then echo "EDGE_AUTH_CHECK_FAILED: credentials file must be mode 600"; exit 2; fi
++  [ "$(grep -c . "$file")" -eq 1 ] || { echo "EDGE_AUTH_CHECK_FAILED: credentials file must hold exactly one user:password line"; exit 2; }
++  line=$(grep . "$file")
++  case "$line" in *:*) ;; *) echo "EDGE_AUTH_CHECK_FAILED: credentials file is not user:password"; exit 2 ;; esac
++  user=${line%%:*} password=${line#*:}
++  unset line
++else
++  user=${1:?username required} namespace=${2:-ewallet-ingress} context=${3:-}
++  password=$(cat)
++fi
++[[ "$user" =~ ^[A-Za-z0-9._-]{1,64}$ ]] || { echo "EDGE_AUTH_CHECK_FAILED: invalid username"; exit 2; }
++[[ "$password" != *$'\r'* ]] || { echo "EDGE_AUTH_CHECK_FAILED: password contains a carriage return"; exit 2; }
++[ "${#password}" -ge 24 ] || { echo "EDGE_AUTH_CHECK_FAILED: password must be at least 24 characters"; exit 2; }
++kube=(kubectl ${kubeconfig:+--kubeconfig "$kubeconfig"} ${context:+--context "$context"} -n "$namespace")
++expected="$user:{SHA}$(printf '%s' "$password" | openssl dgst -binary -sha1 | base64)"
++unset password
++
++if [ "$mode" = check ]; then
++  if ! current=$("${kube[@]}" get secret edge-basic-auth --ignore-not-found -o 'jsonpath={.data.htpasswd}' 2>/dev/null); then
++    echo "EDGE_AUTH_CHECK_FAILED: cannot read the Secret"; exit 2
++  fi
++  [ -n "$current" ] || { echo "EDGE_AUTH_MISSING"; exit 1; }
++  if ! decoded=$(printf '%s' "$current" | base64 -d 2>/dev/null); then
++    echo "EDGE_AUTH_CHECK_FAILED: Secret data is not base64"; exit 2
++  fi
++  # exactly this one user line: any other or extra user is a mismatch
++  if [ "$decoded" = "$expected" ]; then echo "EDGE_AUTH_MATCH"; exit 0; fi
++  echo "EDGE_AUTH_MISMATCH"; exit 1
++fi
++
++"${kube[@]}" create secret generic edge-basic-auth --from-file=htpasswd=<(printf '%s\n' "$expected") \
++  --dry-run=client -o yaml | "${kube[@]}" apply -f - >/dev/null
++echo "EDGE_AUTH_APPLIED"
+diff --git a/scripts/edge/g3b_campaign.py b/scripts/edge/g3b_campaign.py
+index 615db8c6..5b31b5a2 100644
+--- a/scripts/edge/g3b_campaign.py
++++ b/scripts/edge/g3b_campaign.py
+@@ -25,6 +25,26 @@ SIGTERM (it does not) or a hung kernel call; the owner then uses ``kill -9`` and
+ ``g3b_campaign.py cleanup`` (resumable). Nothing here helps if the laptop suspends, loses power
+ or network.
+ 
++Scopes (init --scope):
++  g3b             the full campaign (certificates, Internet gates, G4 rows). SAFE_CLEANUP_READY needs
++                  --dns-offline-verified AND --dns-transition-evidence: the state.json of a
++                  dns-transition campaign that ended DNS_TRANSITION=VERIFIED with the same domain,
++                  offline mode and offline addresses. A bare flag proves nothing.
++  dns-transition  supervised only, its own approval (--approve-dns-transition-test, not the G3-B
++                  live approval): the same phases up to and including open-lb (private security
++                  checks first, so the LB opens only on a checked edge), then the first real
++                  Dynu cycle on the owner's own GKE LB address: DNS proven offline, online to the
++                  LB (A = LB, no AAAA), signoff back to the approved offline IPv4 + IPv6, every
++                  step decided by dns_check at the authoritative servers and public resolvers.
++                  Then normal cleanup: LB released only when DNS is proven offline, guarded sleep.
++
++Edge Basic Auth (phase edge-auth, before private-e2e): create_basic_auth.sh --check compares the
++Secret with the owner's edge-cred file (nothing secret is printed). A mismatch stops the campaign
++unless --approve-edge-secret-sync was given; then the Secret is replaced by the same script, the
++gateway is restarted (Envoy reads the users file at start-up) and re-checked. private-e2e then
++proves the behaviour (no / wrong credentials refused, valid accepted, agents restricted, rate
++limit) before any public LB.
++
+ DNS before the LB: the LB address is released only after dns_check.py proves the names no
+ longer point at it. If that cannot be proven, the LB is kept (its address stays ours, so no
+ record dangles to someone else's address), the nodes still go to guarded sleep, and the result
+@@ -62,10 +82,15 @@ MIN_COMMAND_TIMEOUT = 30            # a command started just before the deadline
+ ACME_WAIT_SECONDS = 600             # cleanup lets an in-flight certbot finish this long before ending it
+ L4_WAIT_SECONDS = 1200              # how long the L4 phase waits for an external vantage point
+ PORT_FORWARD = ("18443", "18080")
++GATEWAY_DEPLOYMENT = "ewallet-edge-gateway"
+ COMMON_GATES = ("CLOUD_LAB_RECOVERY_MANIFEST_VALID", "PDB_APPROVAL_COMPLETE", "KEDA_SLEEP_APPROVAL_READY",
+                 "GUARDED_SLEEP_PLAN_VALID", "CLIENT_ADDRESS_APPROVED", "SAFE_CLEANUP_READY", "L0_RENDER_READY",
+-                "OWNER_LIVE_APPROVAL")
++                "EDGE_AUTH_READY", "OWNER_LIVE_APPROVAL")
+ GATES = COMMON_GATES + ("UNATTENDED_CLEANUP_READY",)   # unattended mode; supervised mode uses COMMON_GATES
++# dns-transition scope: no G3-B live approval and no SAFE_CLEANUP_READY (that is what it proves);
++# instead the DNS test preconditions and the owner's approval of exactly this test.
++TRANSITION_GATES = tuple(g for g in COMMON_GATES if g not in ("SAFE_CLEANUP_READY", "OWNER_LIVE_APPROVAL")) + (
++    "DNS_TRANSITION_TEST_READY", "OWNER_DNS_TRANSITION_APPROVAL")
+ 
+ 
+ # --- state --------------------------------------------------------------------------------------
+@@ -180,6 +205,7 @@ class Simulator(Executor):
+     def __init__(self, log: Path):
+         super().__init__()
+         self.log = log
++        self.auth_applied = False
+ 
+     def background(self, cmd):
+         self.run(cmd)
+@@ -193,6 +219,18 @@ class Simulator(Executor):
+         fail = os.environ.get("EDGE_SIM_FAIL")
+         if fail and fail in text:
+             return 1, ""
++        if "create_basic_auth.sh" in text:
++            # EDGE_SIM_EDGE_AUTH: unset = Secret matches; mismatch = matches after --apply;
++            # stuck = never matches; error = cannot be read
++            auth = os.environ.get("EDGE_SIM_EDGE_AUTH", "")
++            if "--apply" in cmd:
++                self.auth_applied = True
++                return 0, "EDGE_AUTH_APPLIED"
++            if auth == "error":
++                return 2, "EDGE_AUTH_CHECK_FAILED"
++            if auth == "stuck" or (auth == "mismatch" and not self.auth_applied):
++                return 1, "EDGE_AUTH_MISMATCH"
++            return 0, "EDGE_AUTH_MATCH"
+         if "myip.opendns.com" in text:
+             return 0, os.environ.get("EDGE_SIM_MYIP", "203.0.113.7")
+         if "-o name" in text and "app.kubernetes.io/part-of=ewallet-edge" in text:
+@@ -228,6 +266,17 @@ def py(script: str, *args: str) -> list[str]:
+     return [sys.executable, str(EDGE / script), *args]
+ 
+ 
++def edge_auth_cmd(cfg: dict, mode: str) -> list[str]:
++    """create_basic_auth.sh against the owner's edge-cred file; only file paths on the command line."""
++    return ["bash", str(EDGE / "create_basic_auth.sh"), "--credentials-file", cfg["edge_credentials"], mode,
++            "--kubeconfig", cfg["kubeconfig"], "--context", cfg["context"]]
++
++
++def offline_args(cfg: dict) -> list[str]:
++    return [*(["--offline-ip", cfg["dns_offline_ip"]] if cfg.get("dns_offline_ip") else []),
++            *(["--offline-ipv6", cfg["dns_offline_ipv6"]] if cfg.get("dns_offline_ipv6") else [])]
++
++
+ def kargs(state: dict) -> list[str]:
+     return ["--kubeconfig", state["config"]["kubeconfig"], "--context", state["config"]["context"]]
+ 
+@@ -373,6 +422,59 @@ def phases(state: dict) -> list[tuple[str, Callable]]:
+         return step(py("ownership_preflight.py", "render", "--allow-public-loadbalancer", "--domain", c["domain"],
+                        "--approved-cidrs-file", c["approved_cidrs"], str(gw), str(edge)))(state, ex)
+ 
++    def edge_auth(state, ex):
++        """The Secret must hold exactly the owner's edge-cred user; a sync is an approved mutation,
++        followed by a gateway restart (Envoy reads the file at start-up) and a re-check. The
++        behaviour itself is proven by private-e2e right after."""
++        rc, out = ex.run(edge_auth_cmd(c, "--check"))
++        if rc == 0:
++            remember(EDGE_AUTH="EDGE_AUTH_MATCH")
++            return None
++        if rc != 1:
++            remember(EDGE_AUTH="EDGE_AUTH_CHECK_FAILED")
++            return "EDGE_AUTH_CHECK_FAILED"
++        if not state["approvals"].get("edge_secret_sync"):
++            remember(EDGE_AUTH="EDGE_AUTH_MISMATCH: Secret update not approved")
++            return state["EDGE_AUTH"]
++        remember(EDGE_AUTH="sync-requested")  # before the mutation
++        error = step(edge_auth_cmd(c, "--apply"),
++                     k(state, "-n", "ewallet-ingress", "rollout", "restart", f"deployment/{GATEWAY_DEPLOYMENT}"),
++                     k(state, "-n", "ewallet-ingress", "rollout", "status", f"deployment/{GATEWAY_DEPLOYMENT}", "--timeout=300s"),
++                     py("platform_checks.py", *kargs(state), "gateway"),
++                     edge_auth_cmd(c, "--check"))(state, ex)
++        remember(EDGE_AUTH="EDGE_AUTH_SYNCED" if error is None else f"EDGE_AUTH_SYNC_FAILED: {error}")
++        return error
++
++    def dns_transition(state, ex):
++        """First real Dynu cycle on our own LB address. Each step is decided by dns_check, never by
++        Dynu's answer word. A failure leaves DNS_TARGET_STATE at online/unknown, so cleanup takes
++        DNS offline (signoff) and keeps the LB unless that is proven."""
++        dns = ["--credentials", c["dns_credentials"], "--execute", "--attempts", "10", "--interval", "30"]
++
++        def record(name, out):
++            (ev / f"dns-transition-{name}.jsonl").write_text(out, encoding="utf-8")
++
++        rc, out = ex.run(py("dns_check.py", "--domain", c["domain"], "--expect-offline", *offline_args(c)))
++        record("0-precheck", out)
++        if rc != 0:
++            remember(DNS_TRANSITION="DNS_TRANSITION_NOT_STARTED: DNS not proven offline before the test")
++            return state["DNS_TRANSITION"]
++        remember(DNS_TARGET_STATE="unknown", DNS_TRANSITION="online-requested")  # before the update
++        rc, out = ex.run(py("dynu_dns.py", *dns, "online", "--ip", state["LB_IP"]))
++        record("1-online", out)
++        if rc != 0:
++            remember(DNS_TRANSITION="DNS_TRANSITION_ONLINE_NOT_PROVEN")
++            return state["DNS_TRANSITION"]
++        remember(DNS_TARGET_STATE="online", DNS_TRANSITION="offline-requested")
++        rc, out = ex.run(py("dynu_dns.py", *dns, "offline", "--mode", "signoff", *offline_args(c),
++                            "--released-ip", state["LB_IP"]))
++        record("2-offline", out)
++        if rc != 0:
++            remember(DNS_TRANSITION="DNS_TRANSITION_OFFLINE_NOT_PROVEN")
++            return state["DNS_TRANSITION"]
++        remember(DNS_TARGET_STATE="offline", DNS_TRANSITION="VERIFIED")
++        return None
++
+     def private_e2e(state, ex):
+         """GKE_PRIVATE: the real backends through the private gateway (port-forward). The
+         port-forward peer is never an approved address, so agents must answer 403 here."""
+@@ -516,7 +618,7 @@ def phases(state: dict) -> list[tuple[str, Callable]]:
+             remember(GRAFANA="PASS" if ok else "GRAFANA_VERIFICATION_FAILED: rows 37-39")
+         return error
+ 
+-    return [
++    full = [
+         ("wake", wake),
+         ("baseline", step(py("platform_checks.py", *kargs(state), "backends", "--snapshot-out", str(ev / "baseline.json"),
+                              "--out", str(ev / "02-backends.jsonl")), retries=25)),
+@@ -524,6 +626,7 @@ def phases(state: dict) -> list[tuple[str, Callable]]:
+         ("edge-restricted", edge_restricted),
+         ("L0-render", l0_render),
+         ("L0-live", step(public_preflight)),
++        ("edge-auth", edge_auth),
+         ("private-e2e", private_e2e),
+         ("open-lb", open_lb),
+         ("dns-online", dns_online),
+@@ -536,9 +639,13 @@ def phases(state: dict) -> list[tuple[str, Callable]]:
+         ("grafana", grafana),
+         ("public-e2e", public_e2e),
+     ]
++    if state.get("scope") == "dns-transition":
++        names = [n for n, _ in full]
++        return full[:names.index("open-lb") + 1] + [("dns-transition", dns_transition)]
++    return full
+ 
+ 
+-SECURITY_PHASES = ("L0-render", "L0-live", "private-e2e", "internet-gates", "production-certificate", "public-e2e")
++SECURITY_PHASES = ("L0-render", "L0-live", "edge-auth", "private-e2e", "internet-gates", "production-certificate", "public-e2e")
+ DEPLOYMENT_PHASES = ("wake", "baseline", "temporary-certificate", "edge-restricted", "open-lb", "dns-online",
+                      "staging-certificate", "production-certificate", "responder-off")
+ 
+@@ -547,6 +654,13 @@ def verdicts(state: dict) -> dict:
+     """Summary statuses from what was actually observed. G3B_SECURITY_COMPLETE needs every
+     security gate, including L4 from a real non-approved address."""
+     ph = state.get("phases", {})
++    if state.get("scope") == "dns-transition":
++        not_run = "NOT_RUN (dns-transition scope)"
++        return {"SCOPE": "dns-transition", "DNS_TRANSITION": state.get("DNS_TRANSITION", "NOT_RUN"),
++                "EDGE_AUTH": state.get("EDGE_AUTH", "NOT_RUN"), "PRIVATE_E2E": ph.get("private-e2e", "NOT_RUN"),
++                "G3B_DEPLOYMENT_STATUS": not_run, "G3B_SECURITY_STATUS": not_run, "G3B_PUBLIC_E2E_STATUS": not_run,
++                "G4_AUTOMATED_CHECKS_STATUS": not_run, "CLEANUP_STATUS": state.get("CLEANUP_STATUS"),
++                "SLEEP_STATUS": state.get("SLEEP_STATUS")}
+     status = lambda names: ("NOT_STARTED" if not any(n in ph for n in names) else
+                             "FAIL" if any(ph.get(n, "").startswith("FAIL") for n in names) else
+                             "PASS" if all(ph.get(n) == "PASS" for n in names) else "INCOMPLETE")
+@@ -564,7 +678,8 @@ def verdicts(state: dict) -> dict:
+         g4 = "COMPLETE"
+     else:
+         g4 = "PARTIAL"
+-    return {"G3B_DEPLOYMENT_STATUS": status(DEPLOYMENT_PHASES), "G3B_SECURITY_STATUS": security,
++    return {"SCOPE": "g3b", "EDGE_AUTH": state.get("EDGE_AUTH", "NOT_RUN"),
++            "G3B_DEPLOYMENT_STATUS": status(DEPLOYMENT_PHASES), "G3B_SECURITY_STATUS": security,
+             "G3B_PUBLIC_E2E_STATUS": e2e, "G4_AUTOMATED_CHECKS_STATUS": g4, "L4": l4, "L5": state.get("L5", "NOT_RUN"),
+             "GRAFANA": grafana, "CLEANUP_STATUS": state.get("CLEANUP_STATUS"), "SLEEP_STATUS": state.get("SLEEP_STATUS")}
+ 
+@@ -623,9 +738,7 @@ def cleanup(state_path: Path, ex: Executor, reason: str) -> dict:
+             dns_safe = done("dns-offline", False, "no DNS automation configured")
+         else:
+             cmd = py("dynu_dns.py", "--credentials", c["dns_credentials"], "--execute", "--attempts", "10", "--interval", "30",
+-                     "offline", "--mode", c["dns_offline_mode"],
+-                     *(["--offline-ip", c["dns_offline_ip"]] if c.get("dns_offline_ip") else []),
+-                     *(["--offline-ipv6", c["dns_offline_ipv6"]] if c.get("dns_offline_ipv6") else []),
++                     "offline", "--mode", c["dns_offline_mode"], *offline_args(c),
+                      *(["--released-ip", state["LB_IP"]] if state.get("LB_IP") else []))
+             rc, _ = retry(cmd, attempts=2)
+             dns_safe = done("dns-offline", rc == 0, "DNS_OFFLINE_OK verified" if rc == 0 else f"not proven (exit {rc})")
+@@ -804,6 +917,28 @@ def outside_repo(path: str | None, label: str, problems: list[str], required: bo
+     return str(resolved)
+ 
+ 
++def transition_evidence(path: str | None, cfg: dict, problems: list[str]) -> bool:
++    """--dns-offline-verified counts only with the state.json of a dns-transition campaign that
++    proved Offline -> Online (LB) -> signoff -> Offline for this domain, mode and offline addresses."""
++    if not path:
++        problems.append("--dns-offline-verified needs --dns-transition-evidence (state.json of a VERIFIED dns-transition campaign)")
++        return False
++    try:
++        evidence = json.loads(Path(path).expanduser().read_text(encoding="utf-8"))
++    except (OSError, ValueError):
++        problems.append("DNS transition evidence is unreadable")
++        return False
++    ec = evidence.get("config", {})
++    checks = {"scope": evidence.get("scope") == "dns-transition", "DNS_TRANSITION": evidence.get("DNS_TRANSITION") == "VERIFIED",
++              "domain": ec.get("domain") == cfg["domain"], "dns_offline_mode": ec.get("dns_offline_mode") == cfg["dns_offline_mode"],
++              "dns_offline_ip": ec.get("dns_offline_ip") == cfg["dns_offline_ip"],
++              "dns_offline_ipv6": ec.get("dns_offline_ipv6") == cfg["dns_offline_ipv6"]}
++    bad = [name for name, ok in checks.items() if not ok]
++    if bad:
++        problems.append(f"DNS transition evidence does not prove this configuration: {bad}")
++    return not bad
++
++
+ def init(args: argparse.Namespace, ex: Executor) -> dict:
+     campaign = Path(args.campaign_dir).expanduser().resolve()
+     private = campaign / "private"
+@@ -828,6 +963,12 @@ def init(args: argparse.Namespace, ex: Executor) -> dict:
+                 cfg[key] = str(parsed)
+             except ValueError:
+                 problems.append(f"{key} is not an IPv{version} address")
++    scope = getattr(args, "scope", "g3b")
++    mode = getattr(args, "mode", "unattended")
++    if scope == "dns-transition" and mode != "supervised":
++        problems.append("the dns-transition scope runs supervised only (--mode supervised)")
++    if cfg["dns_offline_mode"] == "signoff" and not (cfg["dns_offline_ip"] and cfg["dns_offline_ipv6"]):
++        problems.append("signoff needs --dns-offline-ip and --dns-offline-ipv6 (Dynu answers its offline server on both families)")
+     cidrs = [l.split("#")[0].strip() for l in Path(cfg["approved_cidrs"]).read_text().splitlines()] if cfg["approved_cidrs"] and Path(cfg["approved_cidrs"]).exists() else []
+     cidrs = [x for x in cidrs if x]
+     for name, acme in (("values_acme", True), ("values_final", False)):
+@@ -836,8 +977,9 @@ def init(args: argparse.Namespace, ex: Executor) -> dict:
+                                                                                  "allowedCidrs": cidrs},
+                                     "acmeHttp01": {"enabled": acme}}, indent=2) + "\n", encoding="utf-8")
+         cfg[name] = str(path)
+-    mode = getattr(args, "mode", "unattended")
+     approvals = {"live_campaign": getattr(args, "approve_live_campaign", False),
++                 "edge_secret_sync": getattr(args, "approve_edge_secret_sync", False),
++                 "dns_transition_test": getattr(args, "approve_dns_transition_test", False),
+                  "guarded_sleep": args.approve_guarded_sleep, "keda_pause": args.approve_keda_pause,
+                  "also_approve": args.also_approve, "production_certificate": args.approve_production_certificate,
+                  "grafana_root_url": args.approve_grafana_root_url, "dns_offline_verified": args.dns_offline_verified,
+@@ -857,13 +999,27 @@ def init(args: argparse.Namespace, ex: Executor) -> dict:
+     gates["GUARDED_SLEEP_PLAN_VALID"] = "PASS" if args.approve_guarded_sleep and (APPROVED_RECORD / "pdb-after-scale.txt").exists() else "FAIL"
+     rc_t, _ = ex.run(["systemctl", "--user", "is-active", "edge-campaign-watchdog.timer"])
+     rc_l, linger = ex.run(["loginctl", "show-user", os.environ.get("USER", ""), "-p", "Linger", "--value"])
+-    unattended = {"dns_automation": bool(cfg["dns_credentials"]) and args.dns_offline_verified,
++    proven = scope == "g3b" and args.dns_offline_verified and transition_evidence(
++        getattr(args, "dns_transition_evidence", None), cfg, problems)
++    unattended = {"dns_automation": bool(cfg["dns_credentials"]) and bool(proven),
+                   "watchdog_timer_active": rc_t == 0, "linger": linger.strip() == "yes" or isinstance(ex, Simulator),
+                   "laptop_risk_covered": args.cloud_fallback_ready or args.accept_local_only_risk}
+-    gates["SAFE_CLEANUP_READY"] = "PASS" if unattended["dns_automation"] and not problems else "FAIL"
+-    if mode == "unattended":
+-        gates["UNATTENDED_CLEANUP_READY"] = "PASS" if all(unattended.values()) else "FAIL"
+-    gates["OWNER_LIVE_APPROVAL"] = "PASS" if approvals["live_campaign"] else "FAIL"
++    if scope == "g3b":
++        gates["SAFE_CLEANUP_READY"] = "PASS" if unattended["dns_automation"] and not problems else "FAIL"
++        if mode == "unattended":
++            gates["UNATTENDED_CLEANUP_READY"] = "PASS" if all(unattended.values()) else "FAIL"
++        gates["OWNER_LIVE_APPROVAL"] = "PASS" if approvals["live_campaign"] else "FAIL"
++    else:
++        # read-only: the hostname must be proven offline on the approved addresses right now
++        rc_d, _ = ex.run(py("dns_check.py", "--domain", args.domain, "--expect-offline", *offline_args(cfg)), timeout=300)
++        ready = bool(cfg["dns_credentials"]) and cfg["dns_offline_mode"] == "signoff" and rc_d == 0
++        gates["DNS_TRANSITION_TEST_READY"] = "PASS" if ready and not problems else "FAIL"
++        gates["OWNER_DNS_TRANSITION_APPROVAL"] = "PASS" if approvals["dns_transition_test"] else "FAIL"
++    # read-only: the Secret against edge-cred; a mismatch is ready only with the sync approval
++    rc_a, out_a = ex.run(edge_auth_cmd(cfg, "--check"), timeout=120) if cfg["edge_credentials"] else (2, "")
++    word = (out_a.split() or ["EDGE_AUTH_CHECK_FAILED"])[0].rstrip(":")
++    edge_auth_init = word if word in ("EDGE_AUTH_MATCH", "EDGE_AUTH_MISMATCH", "EDGE_AUTH_MISSING") else "EDGE_AUTH_CHECK_FAILED"
++    gates["EDGE_AUTH_READY"] = "PASS" if rc_a == 0 or (rc_a == 1 and approvals["edge_secret_sync"]) else "FAIL"
+     # L0 render, offline: the exact public render must already pass the strict preflight.
+     l0 = []
+     for out, cmd in ((campaign / "l0-gateway.yaml", ["helm", "template", "ewallet-edge-gateway", cfg["gateway_chart"], "-n",
+@@ -887,9 +1043,11 @@ def init(args: argparse.Namespace, ex: Executor) -> dict:
+         inside = False
+     gates["CLIENT_ADDRESS_APPROVED"] = "PASS" if inside else "FAIL"  # the address itself is not recorded
+     if problems:
+-        gates = {g: ("FAIL" if g in ("CLOUD_LAB_RECOVERY_MANIFEST_VALID", "UNATTENDED_CLEANUP_READY", "SAFE_CLEANUP_READY") else v)
++        gates = {g: ("FAIL" if g in ("CLOUD_LAB_RECOVERY_MANIFEST_VALID", "UNATTENDED_CLEANUP_READY", "SAFE_CLEANUP_READY",
++                                     "DNS_TRANSITION_TEST_READY") else v)
+                  for g, v in gates.items()}
+-    state = {"CAMPAIGN_ID": args.campaign, "CLUSTER": CLUSTER, "PROJECT": PROJECT, "mode": mode, "config": cfg, "approvals": approvals,
++    state = {"CAMPAIGN_ID": args.campaign, "CLUSTER": CLUSTER, "PROJECT": PROJECT, "mode": mode, "scope": scope,
++             "config": cfg, "approvals": approvals, "edge_auth_at_init": edge_auth_init,
+              "gates": gates, "gate_problems": problems, "unattended": unattended, "START_TIME": None, "DEADLINE": None,
+              "CURRENT_PHASE": "initialised", "WAKE_COMPLETED": False, "PUBLIC_LB_CREATED": False, "LB_IP": None,
+              "DNS_TARGET_STATE": "untouched", "ACME_STATUS": None, "G3B_STATUS": "NOT_STARTED", "CLEANUP_STARTED": None,
+@@ -918,9 +1076,12 @@ def main(argv: list[str] | None = None) -> int:
+     i.add_argument("--dns-offline-mode", choices=["no-ipv4", "signoff"], default="signoff")
+     i.add_argument("--dns-offline-ip", help="approved offline IPv4 (Dynu's offline server), checked by dns_check")
+     i.add_argument("--dns-offline-ipv6", help="approved offline IPv6 (Dynu's offline server), checked by dns_check")
++    i.add_argument("--scope", choices=["g3b", "dns-transition"], default="g3b",
++                   help="dns-transition: the first supervised Dynu Offline->Online->Offline test on the LB, then cleanup")
++    i.add_argument("--dns-transition-evidence", help="state.json of a dns-transition campaign with DNS_TRANSITION=VERIFIED")
+     i.add_argument("--mode", choices=["supervised", "unattended"], default="unattended",
+                    help="supervised: the owner watches the run (no watchdog/linger/laptop-risk gate)")
+-    for flag in ("approve-live-campaign", "approve-guarded-sleep", "approve-keda-pause", "approve-production-certificate", "approve-grafana-root-url",
++    for flag in ("approve-live-campaign", "approve-edge-secret-sync", "approve-dns-transition-test", "approve-guarded-sleep", "approve-keda-pause", "approve-production-certificate", "approve-grafana-root-url",
+                  "dns-offline-verified", "accept-local-only-risk", "cloud-fallback-ready"):
+         i.add_argument(f"--{flag}", action="store_true")
+     i.add_argument("--also-approve", action="append", default=[], metavar="NS/NAME")
+@@ -955,8 +1116,9 @@ def main(argv: list[str] | None = None) -> int:
+         state = run(state_path, ex)
+     print(json.dumps({**state["verdicts"], "G3B_STATUS": state.get("G3B_STATUS"),
+                       "LAST_VERIFIED_NODE_COUNT": state.get("LAST_VERIFIED_NODE_COUNT")}))
+-    ok = state["verdicts"]["G3B_SECURITY_STATUS"] == "G3B_SECURITY_COMPLETE" and state["CLEANUP_STATUS"] == "COMPLETE" \
+-        and state.get("SLEEP_STATUS") == "VERIFIED"
++    goal = state.get("DNS_TRANSITION") == "VERIFIED" if state.get("scope") == "dns-transition" else \
++        state["verdicts"]["G3B_SECURITY_STATUS"] == "G3B_SECURITY_COMPLETE"
++    ok = goal and state["CLEANUP_STATUS"] == "COMPLETE" and state.get("SLEEP_STATUS") == "VERIFIED"
+     return 0 if ok else 1
+ 
+ 
+diff --git a/tests/ops/test_dns_campaign.py b/tests/ops/test_dns_campaign.py
+index 3a6d6f51..3ac5b3de 100644
+--- a/tests/ops/test_dns_campaign.py
++++ b/tests/ops/test_dns_campaign.py
+@@ -231,10 +231,17 @@ def init_args(tmp_path, **kw):
+     args = dict(campaign="g3b-test", campaign_dir=str(tmp_path / "campaign"), domain=DOMAIN, context="ctx", kubeconfig="kc",
+                 gateway_chart="chart.tgz", manifest=str(manifest(tmp_path)), approved_cidrs=secret("cidrs", "203.0.113.7/32\n"),
+                 edge_credentials=secret("edge", "edge:x"), grafana_credentials=None, dns_credentials=secret("dns", "{}"),
+-                dns_offline_mode="no-ipv4", dns_offline_ip=None, approve_guarded_sleep=True, approve_keda_pause=True,
++                dns_offline_mode="signoff", dns_offline_ip="192.0.2.207", dns_offline_ipv6="2001:db8:0:8888::207",
++                approve_guarded_sleep=True, approve_keda_pause=True,
+                 approve_production_certificate=True, approve_grafana_root_url=False, dns_offline_verified=True,
+                 accept_local_only_risk=True, cloud_fallback_ready=False, also_approve=["ewallet-mcp/feature-rag-mcp"])
+     args.update(kw)
++    if "dns_transition_evidence" not in kw:  # a VERIFIED dns-transition run for exactly this configuration
++        evidence = tmp_path / "transition-state.json"
++        evidence.write_text(json.dumps({"scope": "dns-transition", "DNS_TRANSITION": "VERIFIED", "config": {
++            "domain": args["domain"], "dns_offline_mode": args["dns_offline_mode"], "dns_offline_ip": args["dns_offline_ip"],
++            "dns_offline_ipv6": args["dns_offline_ipv6"]}}))
++        args["dns_transition_evidence"] = str(evidence)
+     return SimpleNamespace(**args)
+ 
+ 
+diff --git a/tests/ops/test_edge_negative_checks.py b/tests/ops/test_edge_negative_checks.py
+index f65e75c1..b67f3854 100644
+--- a/tests/ops/test_edge_negative_checks.py
++++ b/tests/ops/test_edge_negative_checks.py
+@@ -208,7 +208,7 @@ def test_a_recovery_failure_and_another_route_failure_are_reported(monkeypatch):
+ def test_http2_burst_parses_every_transfer(monkeypatch, tmp_path):
+     """One curl run, one line per transfer; a transfer curl never reports counts as a failure."""
+     credentials = tmp_path / "c"
+-    credentials.write_text("edge:pw\n")
++    credentials.write_text("edge:pw-synthetic-7f3a\n")
+     import argparse
+     edge = nt.Edge(argparse.Namespace(address="127.0.0.1", https_port=8443, http_port=8080, domain=DOMAIN, ca_file=None,
+                                       stub=True, foundation=False, rate_limit_mode="http2", credentials_file=str(credentials)))
+@@ -231,5 +231,5 @@ def test_http2_burst_parses_every_transfer(monkeypatch, tmp_path):
+     replies, seconds = edge.burst("registry", "/", 6)
+     assert [r.status for r in replies] == [200, 429, 200, 429, 200, 0]
+     assert nt.stub_echo(replies[0].status, replies[0].body) is not None
+-    assert "--http2" in seen["command"] and "-K" in seen["command"] and "pw" not in " ".join(seen["command"])
+-    assert seen["stdin"] == 'user = "edge:pw"\n'
++    assert "--http2" in seen["command"] and "-K" in seen["command"] and "pw-synthetic-7f3a" not in " ".join(seen["command"])
++    assert seen["stdin"] == 'user = "edge:pw-synthetic-7f3a"\n'
+diff --git a/tests/ops/test_g3b_prelive.py b/tests/ops/test_g3b_prelive.py
+new file mode 100644
+index 00000000..874b7e0c
+--- /dev/null
++++ b/tests/ops/test_g3b_prelive.py
+@@ -0,0 +1,382 @@
++"""G3-B pre-live: edge Basic Auth Secret synchronisation and the first Dynu DNS transition (offline).
++
++The Basic Auth script runs for real against a fake kubectl (no cluster). The campaign runs with
++its Simulator (commands recorded, never executed). Addresses are documentation ranges."""
++
++from __future__ import annotations
++
++import base64
++import hashlib
++import json
++import os
++from pathlib import Path
++import subprocess
++
++import pytest
++
++from tests.ops.test_dns_campaign import EDGE, LB, Recorder, camp, ready_state
++
++SCRIPT = EDGE / "create_basic_auth.sh"
++PASSWORD = "Synthetic-Pr3live-Password-0123456789abcdef"
++OFF4, OFF6 = "192.0.2.207", "2001:db8:0:8888::207"
++
++FAKE_KUBECTL = r"""#!/usr/bin/env bash
++# fake kubectl: logs its arguments, serves $FAKE_DIR/secret.b64, records what is applied
++printf '%s\n' "$*" >> "$FAKE_DIR/argv.log"
++case " $* " in
++  *" get secret edge-basic-auth "*)
++    [ -f "$FAKE_DIR/fail" ] && exit 1
++    cat "$FAKE_DIR/secret.b64" 2>/dev/null; exit 0 ;;
++  *" create secret generic "*)
++    for a in "$@"; do case "$a" in --from-file=htpasswd=*) f=${a#--from-file=htpasswd=} ;; esac; done
++    printf 'apiVersion: v1\nkind: Secret\ndata:\n  htpasswd: %s\n' "$(base64 -w0 < "$f")"; exit 0 ;;
++  *" apply -f - "*)
++    sed -n 's/^  htpasswd: //p' > "$FAKE_DIR/secret.b64"; echo "secret/edge-basic-auth configured"; exit 0 ;;
++esac
++exit 3
++"""
++
++
++def sha_line(user, password):
++    return f"{user}:{{SHA}}{base64.b64encode(hashlib.sha1(password.encode()).digest()).decode()}"
++
++
++@pytest.fixture
++def kube(tmp_path):
++    bin_dir = tmp_path / "bin"
++    bin_dir.mkdir()
++    (bin_dir / "kubectl").write_text(FAKE_KUBECTL)
++    (bin_dir / "kubectl").chmod(0o755)
++    env = {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}", "FAKE_DIR": str(tmp_path)}
++    return tmp_path, env
++
++
++def cred_file(tmp_path, text=f"edgeadmin:{PASSWORD}\n", mode=0o600):
++    f = tmp_path / "edge-cred"
++    f.write_text(text)
++    f.chmod(mode)
++    return f
++
++
++def secret(tmp_path, *lines):
++    (tmp_path / "secret.b64").write_text(base64.b64encode(("\n".join(lines) + "\n").encode()).decode())
++
++
++def auth(env, cred, mode="--check"):
++    return subprocess.run(["bash", str(SCRIPT), "--credentials-file", str(cred), mode, "--kubeconfig", "kc", "--context", "ctx"],
++                          capture_output=True, text=True, env=env)
++
++
++# --- create_basic_auth.sh -----------------------------------------------------------------------
++
++def test_check_matches_the_owner_credentials_and_prints_nothing_secret(kube):
++    tmp, env = kube
++    secret(tmp, sha_line("edgeadmin", PASSWORD))
++    done = auth(env, cred_file(tmp))
++    assert done.returncode == 0 and done.stdout.strip() == "EDGE_AUTH_MATCH"
++    hashed = sha_line("edgeadmin", PASSWORD).split("}")[1]
++    for text in (done.stdout, done.stderr, (tmp / "argv.log").read_text()):
++        assert PASSWORD not in text and hashed not in text
++
++
++@pytest.mark.parametrize("lines,word", [
++    ((sha_line("edgeadmin", "an-old-password-from-g3a1-xxxxxxxx"),), "EDGE_AUTH_MISMATCH"),
++    ((sha_line("edge", PASSWORD),), "EDGE_AUTH_MISMATCH"),
++    ((sha_line("edgeadmin", PASSWORD), sha_line("other", "another-password-xxxxxxxxxxxx")), "EDGE_AUTH_MISMATCH"),
++    (None, "EDGE_AUTH_MISSING"),
++])
++def test_check_reports_mismatch_and_missing(kube, lines, word):
++    tmp, env = kube
++    if lines:
++        secret(tmp, *lines)
++    done = auth(env, cred_file(tmp))
++    assert done.returncode == 1 and done.stdout.strip() == word
++
++
++def test_check_fails_closed_when_the_secret_cannot_be_read(kube):
++    tmp, env = kube
++    (tmp / "fail").write_text("")
++    done = auth(env, cred_file(tmp))
++    assert done.returncode == 2 and done.stdout.startswith("EDGE_AUTH_CHECK_FAILED")
++
++
++@pytest.mark.parametrize("text,mode,reason", [
++    (f"edgeadmin:{PASSWORD}\n", 0o644, "mode 600"),
++    ("edgeadmin:short\n", 0o600, "at least 24"),
++    (f"edgeadmin:{PASSWORD}\nsecond:{PASSWORD}\n", 0o600, "exactly one"),
++    (f"{PASSWORD}\n", 0o600, "not user:password"),
++    (f"bad user:{PASSWORD}\n", 0o600, "invalid username"),
++])
++def test_unsafe_or_malformed_credential_files_are_refused_before_kubectl(kube, text, mode, reason):
++    tmp, env = kube
++    done = auth(env, cred_file(tmp, text, mode))
++    assert done.returncode == 2 and reason in done.stdout
++    assert not (tmp / "argv.log").exists()
++
++
++def test_apply_writes_the_same_htpasswd_line_and_check_then_matches(kube):
++    tmp, env = kube
++    secret(tmp, sha_line("edge", "the-g3a1-password-xxxxxxxxxxxxxx"))
++    cred = cred_file(tmp)
++    assert auth(env, cred).returncode == 1
++    done = auth(env, cred, "--apply")
++    assert done.returncode == 0 and done.stdout.strip() == "EDGE_AUTH_APPLIED"
++    stored = base64.b64decode((tmp / "secret.b64").read_text()).decode().strip()
++    assert stored == sha_line("edgeadmin", PASSWORD)
++    assert auth(env, cred).stdout.strip() == "EDGE_AUTH_MATCH"
++    argv = (tmp / "argv.log").read_text()
++    assert PASSWORD not in argv and stored.split("}")[1] not in argv and PASSWORD not in done.stdout + done.stderr
++
++
++def test_stdin_mode_is_unchanged_for_the_local_validators(kube):
++    tmp, env = kube
++    done = subprocess.run(["bash", str(SCRIPT), "edge", "ewallet-ingress", "ctx"], input=PASSWORD, capture_output=True,
++                          text=True, env=env)
++    assert done.returncode == 0
++    assert base64.b64decode((tmp / "secret.b64").read_text()).decode().strip() == sha_line("edge", PASSWORD)
++
++
++# --- campaign: edge-auth ------------------------------------------------------------------------
++
++def run_campaign(tmp_path, monkeypatch, auth_mode=None, fail=(), **kw):
++    if auth_mode:
++        monkeypatch.setenv("EDGE_SIM_EDGE_AUTH", auth_mode)
++    path, state = ready_state(tmp_path, mode="supervised", approve_live_campaign=True, **kw)
++    ex = Recorder(tmp_path / "sim.jsonl", fail=fail)
++    return camp.run(path, ex), ex, state
++
++
++def lb_index(ex):
++    return next(i for i, (c, _) in enumerate(ex.cmds) if "upgrade ewallet-edge-gateway" in c and "public-open" in c)
++
++
++def lb_opened(ex):
++    return any("upgrade ewallet-edge-gateway" in c and "public-open" in c for c, _ in ex.cmds)
++
++
++@pytest.mark.parametrize("auth_mode,approved,gate", [
++    (None, False, "PASS"), ("mismatch", False, "FAIL"), ("mismatch", True, "PASS"), ("error", True, "FAIL")])
++def test_init_edge_auth_gate(tmp_path, monkeypatch, auth_mode, approved, gate):
++    if auth_mode:
++        monkeypatch.setenv("EDGE_SIM_EDGE_AUTH", auth_mode)
++    _, state = ready_state(tmp_path, mode="supervised", approve_live_campaign=True, approve_edge_secret_sync=approved)
++    assert state["gates"]["EDGE_AUTH_READY"] == gate
++    assert state["edge_auth_at_init"] == {None: "EDGE_AUTH_MATCH", "mismatch": "EDGE_AUTH_MISMATCH",
++                                          "error": "EDGE_AUTH_CHECK_FAILED"}[auth_mode]
++
++
++def test_matching_secret_needs_no_mutation(tmp_path, monkeypatch):
++    state, ex, _ = run_campaign(tmp_path, monkeypatch)
++    assert state["EDGE_AUTH"] == "EDGE_AUTH_MATCH" and state["phases"]["edge-auth"] == "PASS"
++    assert not any("--apply" in c or "rollout restart" in c for c, _ in ex.cmds)
++
++
++def test_mismatch_without_approval_stops_before_private_e2e_and_the_lb(tmp_path, monkeypatch):
++    state, ex, _ = run_campaign(tmp_path, monkeypatch, "mismatch")
++    assert state["phases"]["edge-auth"].startswith("FAIL: EDGE_AUTH_MISMATCH")
++    assert "private-e2e" not in state["phases"] and not lb_opened(ex)
++    assert not any("--apply" in c for c, _ in ex.cmds)
++    assert state["CLEANUP_STATUS"] == "COMPLETE" and state["SLEEP_STATUS"] == "VERIFIED"
++
++
++def test_approved_sync_applies_restarts_rechecks_then_private_e2e_then_lb(tmp_path, monkeypatch):
++    state, ex, _ = run_campaign(tmp_path, monkeypatch, "mismatch", approve_edge_secret_sync=True)
++    assert state["EDGE_AUTH"] == "EDGE_AUTH_SYNCED"
++    order = [ex.index("create_basic_auth.sh --credentials-file"), ex.index(" --apply --kubeconfig"),
++             ex.index("rollout restart deployment/ewallet-edge-gateway"),
++             ex.index("rollout status deployment/ewallet-edge-gateway"),
++             ex.index("07-private-e2e.jsonl"), ex.index("07-private-negative.jsonl"), lb_index(ex)]
++    assert order == sorted(order)
++    recheck = [i for i, (c, _) in enumerate(ex.cmds) if "create_basic_auth.sh" in c and "--check" in c]
++    assert any(ex.index("rollout status") < i < ex.index("07-private-e2e.jsonl") for i in recheck)
++
++
++def test_secret_that_does_not_take_blocks_the_lb(tmp_path, monkeypatch):
++    state, ex, _ = run_campaign(tmp_path, monkeypatch, "stuck", approve_edge_secret_sync=True)
++    assert state["EDGE_AUTH"].startswith("EDGE_AUTH_SYNC_FAILED") and not lb_opened(ex)
++
++
++@pytest.mark.parametrize("failing", ["rollout status", "07-private-e2e.jsonl", "07-private-negative.jsonl"])
++def test_gateway_not_reloaded_or_auth_behaviour_wrong_blocks_the_lb(tmp_path, monkeypatch, failing):
++    """A gateway that did not restart, or valid credentials refused / wrong ones accepted (the
++    real requests of public_e2e and negative_tests), stops the campaign before any public LB."""
++    state, ex, _ = run_campaign(tmp_path, monkeypatch, "mismatch", approve_edge_secret_sync=True, fail=(failing,))
++    assert not lb_opened(ex) and "open-lb" not in state["phases"]
++
++
++def test_password_never_reaches_commands_state_or_campaign_files(tmp_path, monkeypatch):
++    cred = cred_file(tmp_path)
++    state, ex, _ = run_campaign(tmp_path, monkeypatch, "mismatch", approve_edge_secret_sync=True, edge_credentials=str(cred))
++    assert state["EDGE_AUTH"] == "EDGE_AUTH_SYNCED"
++    assert all(PASSWORD not in c for c, _ in ex.cmds)
++    campaign = Path(state["config"]["campaign_dir"])
++    for f in campaign.rglob("*"):
++        if f.is_file():
++            assert PASSWORD not in f.read_text(errors="ignore"), f
++    assert PASSWORD not in (tmp_path / "sim.jsonl").read_text()
++
++
++# --- campaign: dns-transition scope -------------------------------------------------------------
++
++def transition(tmp_path, monkeypatch=None, fail=(), **kw):
++    args = dict(scope="dns-transition", mode="supervised", approve_dns_transition_test=True, dns_offline_verified=False)
++    args.update(kw)
++    path, state = ready_state(tmp_path, **args)
++    return path, state
++
++
++def test_transition_scope_has_its_own_gates_and_approval(tmp_path):
++    _, state = transition(tmp_path)
++    assert set(state["gates"]) == set(camp.TRANSITION_GATES)
++    assert "SAFE_CLEANUP_READY" not in state["gates"] and "OWNER_LIVE_APPROVAL" not in state["gates"]
++    assert all(v == "PASS" for v in state["gates"].values()), state["gates"]
++
++
++@pytest.mark.parametrize("change,gate", [
++    ({"approve_dns_transition_test": False}, "OWNER_DNS_TRANSITION_APPROVAL"),
++    ({"mode": "unattended"}, "DNS_TRANSITION_TEST_READY"),
++    ({"dns_offline_ipv6": None}, "DNS_TRANSITION_TEST_READY"),
++    ({"dns_credentials": None}, "DNS_TRANSITION_TEST_READY"),
++    ({"dns_offline_mode": "no-ipv4"}, "DNS_TRANSITION_TEST_READY"),
++])
++def test_transition_scope_refuses_missing_preconditions(tmp_path, change, gate):
++    _, state = transition(tmp_path, **change)
++    assert state["gates"][gate] == "FAIL"
++
++
++def test_transition_needs_dns_proven_offline_now(tmp_path, monkeypatch):
++    monkeypatch.setenv("EDGE_SIM_FAIL", "dns_check.py")
++    _, state = transition(tmp_path)
++    assert state["gates"]["DNS_TRANSITION_TEST_READY"] == "FAIL"
++
++
++def test_the_live_g3b_approval_does_not_unlock_the_transition_test(tmp_path):
++    _, state = transition(tmp_path, approve_dns_transition_test=False, approve_live_campaign=True)
++    assert state["gates"]["OWNER_DNS_TRANSITION_APPROVAL"] == "FAIL"
++
++
++def test_successful_transition_cycles_dns_on_the_lb_then_cleans_up(tmp_path):
++    path, _ = transition(tmp_path)
++    ex = Recorder(tmp_path / "sim.jsonl")
++    state = camp.run(path, ex)
++    assert state["DNS_TRANSITION"] == "VERIFIED" and state["DNS_TARGET_STATE"] == "offline"
++    names = [n for n, _ in camp.phases(state)]
++    assert names[-3:] == ["private-e2e", "open-lb", "dns-transition"] and set(state["phases"]) == set(names)
++    assert all(v == "PASS" for v in state["phases"].values())
++    texts = [c for c, _ in ex.cmds]
++    for absent in ("issue_certificate.sh --environment staging", "--confirm-production", "PUBLIC_INTERNET", "rootUrl"):
++        assert not any(absent in c for c in texts), absent
++    online = ex.index(f"online --ip {LB}")
++    offline = ex.index("offline --mode signoff")
++    assert f"--offline-ip {OFF4} --offline-ipv6 {OFF6} --released-ip {LB}" in texts[offline]
++    order = [ex.index("07-private-negative.jsonl"), lb_index(ex), ex.index("--expect-offline"), online, offline]
++    assert order == sorted(order)
++    release = max(i for i, c in enumerate(texts) if "upgrade ewallet-edge-gateway" in c and "public-open" not in c)
++    assert offline < release < ex.index("--scale-pdb-guarded")
++    assert sum("dynu_dns.py" in c for c in texts) == 2  # cleanup has nothing left to take offline
++    v = state["verdicts"]
++    assert v["SCOPE"] == "dns-transition" and v["G3B_SECURITY_STATUS"].startswith("NOT_RUN")
++    assert state["CLEANUP_STATUS"] == "COMPLETE" and state["SLEEP_STATUS"] == "VERIFIED"
++
++
++def test_dns_not_offline_at_the_start_sends_no_update(tmp_path):
++    path, _ = transition(tmp_path)
++    ex = Recorder(tmp_path / "sim.jsonl", fail=("dns_check.py",))
++    state = camp.run(path, ex)
++    assert state["DNS_TRANSITION"].startswith("DNS_TRANSITION_NOT_STARTED")
++    assert not any("dynu_dns.py" in c for c, _ in ex.cmds)
++    assert state["cleanup_steps"]["lb-release"]["ok"]
++
++
++def test_online_not_proven_is_taken_offline_by_cleanup_before_the_lb_is_released(tmp_path):
++    path, _ = transition(tmp_path)
++    ex = Recorder(tmp_path / "sim.jsonl", fail=(" online --ip",))
++    state = camp.run(path, ex)
++    assert state["DNS_TRANSITION"] == "DNS_TRANSITION_ONLINE_NOT_PROVEN"
++    off = ex.index("offline --mode signoff")
++    release = max(i for i, (c, _) in enumerate(ex.cmds) if "upgrade ewallet-edge-gateway" in c and "public-open" not in c)
++    assert off < release and state["cleanup_steps"]["dns-offline"]["ok"]
++    assert state["CLEANUP_STATUS"] == "COMPLETE"
++
++
++def test_signoff_failure_keeps_the_lb_still_sleeps_and_resumes(tmp_path):
++    path, _ = transition(tmp_path)
++    ex = Recorder(tmp_path / "sim.jsonl", fail=("offline --mode signoff",))
++    state = camp.run(path, ex)
++    assert state["DNS_TRANSITION"] == "DNS_TRANSITION_OFFLINE_NOT_PROVEN"
++    assert state["cleanup_steps"]["lb-release"]["detail"].startswith("LB KEPT")
++    assert state["cleanup_steps"]["sleep"]["ok"] and state["CLEANUP_STATUS"] == "CLEANUP_INCOMPLETE"
++    # owner fallback: panel "Go Offline Now", then cleanup again; DNS proven offline releases the LB
++    later = camp.cleanup(path, Recorder(tmp_path / "sim2.jsonl"), "manual cleanup")
++    assert later["CLEANUP_STATUS"] == "COMPLETE" and later["cleanup_steps"]["lb-release"]["ok"]
++
++
++def test_propagation_never_completing_counts_as_not_proven(tmp_path):
++    """dynu_dns exits 1 when dns_check stays NOT_YET for all attempts: same path as a failure."""
++    path, _ = transition(tmp_path)
++
++    class Slow(Recorder):
++        def run(self, cmd, env=None, timeout=3600):
++            if "dynu_dns.py" in " ".join(cmd) and " online " in " ".join(cmd):
++                self.cmds.append((" ".join(cmd), []))
++                return 1, json.dumps({"verdict": "DNS_ONLINE_NOT_YET", "dns_check_attempts": 10})
++            return super().run(cmd, env, timeout)
++    state = camp.run(path, Slow(tmp_path / "sim.jsonl"))
++    assert state["DNS_TRANSITION"] == "DNS_TRANSITION_ONLINE_NOT_PROVEN"
++    assert "DNS_ONLINE_NOT_YET" in (Path(state["config"]["campaign_dir"]) / "dns-transition-1-online.jsonl").read_text()
++
++
++# --- G3-B scope: --dns-offline-verified needs the transition evidence -------------------------------
++
++def test_a_bare_dns_offline_verified_flag_is_not_enough(tmp_path):
++    _, state = ready_state(tmp_path, mode="supervised", approve_live_campaign=True, dns_transition_evidence=None)
++    assert state["gates"]["SAFE_CLEANUP_READY"] == "FAIL"
++    assert any("needs --dns-transition-evidence" in p for p in state["gate_problems"])
++
++
++def test_evidence_without_the_owner_flag_does_not_enable_anything(tmp_path):
++    _, state = ready_state(tmp_path, mode="supervised", approve_live_campaign=True, dns_offline_verified=False)
++    assert state["gates"]["SAFE_CLEANUP_READY"] == "FAIL"
++
++
++@pytest.mark.parametrize("change", [{"DNS_TRANSITION": "DNS_TRANSITION_OFFLINE_NOT_PROVEN"}, {"scope": "g3b"},
++                                    {"config": {"domain": "edge.example.test", "dns_offline_mode": "signoff",
++                                                "dns_offline_ip": "192.0.2.99", "dns_offline_ipv6": OFF6}}])
++def test_evidence_must_prove_this_exact_configuration(tmp_path, change):
++    evidence = tmp_path / "other-state.json"
++    base = {"scope": "dns-transition", "DNS_TRANSITION": "VERIFIED",
++            "config": {"domain": "edge.example.test", "dns_offline_mode": "signoff", "dns_offline_ip": OFF4, "dns_offline_ipv6": OFF6}}
++    evidence.write_text(json.dumps({**base, **change}))
++    _, state = ready_state(tmp_path, mode="supervised", approve_live_campaign=True, dns_transition_evidence=str(evidence))
++    assert state["gates"]["SAFE_CLEANUP_READY"] == "FAIL"
++
++
++def test_a_real_verified_transition_run_allows_the_normal_g3b_approval(tmp_path):
++    first = tmp_path / "first"
++    first.mkdir()
++    path, _ = transition(first)
++    assert camp.run(path, Recorder(first / "sim.jsonl"))["DNS_TRANSITION"] == "VERIFIED"
++    second = tmp_path / "second"
++    second.mkdir()
++    _, state = ready_state(second, mode="supervised", approve_live_campaign=True, dns_transition_evidence=str(path))
++    assert state["gates"]["SAFE_CLEANUP_READY"] == "PASS" and all(v == "PASS" for v in state["gates"].values())
++
++
++def test_a_failed_transition_run_does_not(tmp_path):
++    first = tmp_path / "first"
++    first.mkdir()
++    path, _ = transition(first)
++    camp.run(path, Recorder(first / "sim.jsonl", fail=(" online --ip",)))
++    second = tmp_path / "second"
++    second.mkdir()
++    _, state = ready_state(second, mode="supervised", approve_live_campaign=True, dns_transition_evidence=str(path))
++    assert state["gates"]["SAFE_CLEANUP_READY"] == "FAIL"
++
++
++def test_full_g3b_order_is_unchanged_apart_from_edge_auth(tmp_path, monkeypatch):
++    state, ex, _ = run_campaign(tmp_path, monkeypatch)
++    assert set(state["phases"]) == set(n for n, _ in camp.phases(state))
++    assert [n for n, _ in camp.phases(state)] == ["wake", "baseline", "temporary-certificate", "edge-restricted", "L0-render", "L0-live",
++                                     "edge-auth", "private-e2e", "open-lb", "dns-online", "internet-gates", "L4-denied",
++                                     "staging-certificate", "production-certificate", "responder-off", "grafana", "public-e2e"]
++    assert not any("dns-transition" in c for c, _ in ex.cmds)
