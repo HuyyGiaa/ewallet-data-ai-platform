@@ -106,7 +106,8 @@ def test_private_e2e_is_gke_private_through_a_port_forward_with_agents_denied(tm
 
 def test_l4_without_an_external_client_is_blocked_and_security_not_complete(tmp_path):
     state, _ = run_campaign(tmp_path)  # the client stays inside the approved CIDRs
-    assert state["L4"] == "L4_BLOCKED_NO_EXTERNAL_CLIENT" and state["phases"]["L4-denied"] == "L4_BLOCKED_NO_EXTERNAL_CLIENT"
+    assert state["L4"] == "L4_BLOCKED_NO_VERIFIED_EXTERNAL_SOURCE"
+    assert state["phases"]["L4-denied"] == "L4_BLOCKED_NO_VERIFIED_EXTERNAL_SOURCE"
     assert state["verdicts"]["G3B_SECURITY_STATUS"].startswith("INCOMPLETE")
     assert state["verdicts"]["G4_AUTOMATED_CHECKS_STATUS"] == "PARTIAL"
 
@@ -120,15 +121,59 @@ def test_l4_runs_once_this_client_is_outside_the_approved_cidrs(tmp_path):
     assert "--agents denied" in l4 and "--evidence-class PUBLIC_INTERNET" in l4 and "--address 203.0.113.10" in l4
 
 
-def test_l4_accepts_only_a_passing_external_public_internet_file(tmp_path):
+@pytest.mark.parametrize("passed", [True, False])
+def test_an_external_jsonl_file_can_neither_pass_nor_fail_l4(tmp_path, passed):
+    """Nothing proves a dropped-in file's source, age or campaign: it is ignored."""
     path, state = ready_state(tmp_path)
     ev = Path(state["config"]["campaign_dir"])
     (ev / "l4-external.jsonl").write_text(json.dumps({"row": "40", "check": "agents: refused from a non-allowed address",
-                                                      "passed": False, "evidence_class": "PUBLIC_INTERNET"}) + "\n")
+                                                      "passed": passed, "evidence_class": "PUBLIC_INTERNET"}) + "\n")
     result = camp.run(path, Campaign(tmp_path / "sim.jsonl", e2e_rows=rows_for))
-    assert result["L4"].startswith("FAIL") and result["verdicts"]["G3B_SECURITY_STATUS"] == "FAIL"
-    assert result["phases"]["L4-denied"].startswith("FAIL")
-    assert "staging-certificate" not in result["phases"]
+    assert result["L4"] == "L4_BLOCKED_NO_VERIFIED_EXTERNAL_SOURCE"
+    assert result["verdicts"]["G3B_SECURITY_STATUS"].startswith("INCOMPLETE")
+
+
+def test_a_stale_l4_result_from_an_approved_network_cannot_pass(tmp_path):
+    path, state = ready_state(tmp_path)
+    ev = Path(state["config"]["campaign_dir"])
+    (ev / "11-l4-denied.jsonl").write_text(json.dumps({"row": "40", "check": "agents: refused from a non-allowed address",
+                                                       "passed": True, "evidence_class": "PUBLIC_INTERNET"}) + "\n")
+    result = camp.run(path, Campaign(tmp_path / "sim.jsonl", e2e_rows=rows_for))  # the client stays approved
+    assert result["L4"] == "L4_BLOCKED_NO_VERIFIED_EXTERNAL_SOURCE"
+
+
+def test_a_stale_result_is_removed_before_the_real_request(tmp_path):
+    """Outside the CIDRs but the request writes nothing (e.g. it never reached the LB): the old
+    passing file must not be read as this request's result."""
+    path, state = ready_state(tmp_path)
+    ev = Path(state["config"]["campaign_dir"])
+    (ev / "11-l4-denied.jsonl").write_text(json.dumps({"row": "40", "check": "agents: refused from a non-allowed address",
+                                                       "passed": True, "evidence_class": "PUBLIC_INTERNET"}) + "\n")
+    silent = lambda text: [] if "--agents denied" in text else rows_for(text)
+    result = camp.run(path, Campaign(tmp_path / "sim.jsonl", ips=("203.0.113.7", "198.51.100.200"), e2e_rows=silent))
+    assert result["L4"] == "L4_BLOCKED_NO_VERIFIED_EXTERNAL_SOURCE"
+
+
+@pytest.mark.parametrize("ips,rows,expected", [
+    # back on the approved network when the request finished: the source is not proven
+    (("203.0.113.7", "198.51.100.200", "203.0.113.7"), rows_for, "L4_BLOCKED_NO_VERIFIED_EXTERNAL_SOURCE"),
+    # a result labelled with the wrong evidence class
+    (("203.0.113.7", "198.51.100.200"),
+     lambda text: [{**r, "evidence_class": "GKE_PRIVATE"} for r in rows_for(text)] if "--agents denied" in text else [],
+     "L4_BLOCKED_NO_VERIFIED_EXTERNAL_SOURCE"),
+])
+def test_l4_needs_a_proven_source_and_a_public_internet_result(tmp_path, ips, rows, expected):
+    path, _ = ready_state(tmp_path)
+    result = camp.run(path, Campaign(tmp_path / "sim.jsonl", ips=ips, e2e_rows=rows))
+    assert result["L4"] == expected and not result["verdicts"]["G3B_SECURITY_STATUS"] == "G3B_SECURITY_COMPLETE"
+
+
+def test_l4_reachable_agents_from_a_non_approved_client_is_a_security_failure(tmp_path):
+    path, _ = ready_state(tmp_path)
+    reachable = lambda text: [{**r, "passed": False} for r in rows_for(text)] if "--agents denied" in text else rows_for(text)
+    result = camp.run(path, Campaign(tmp_path / "sim.jsonl", ips=("203.0.113.7", "198.51.100.200"), e2e_rows=reachable))
+    assert result["L4"] == "FAIL" and result["phases"]["L4-denied"].startswith("FAIL")
+    assert result["verdicts"]["G3B_SECURITY_STATUS"] == "FAIL" and "staging-certificate" not in result["phases"]
 
 
 def test_l5_fails_when_this_client_is_not_approved(tmp_path):
@@ -145,10 +190,7 @@ def test_complete_security_and_g4_only_with_l4_and_grafana_verified(tmp_path):
     grafana.write_text("admin:synthetic")
     state["config"]["grafana_credentials"] = str(grafana)
     camp.save(path, state)
-    ev = Path(cfg["campaign_dir"])
-    (ev / "l4-external.jsonl").write_text(json.dumps({"row": "40", "check": "agents: refused from a non-allowed address",
-                                                      "passed": True, "evidence_class": "PUBLIC_INTERNET"}) + "\n")
-    ex = Campaign(tmp_path / "sim.jsonl", e2e_rows=rows_for)
+    ex = Campaign(tmp_path / "sim.jsonl", ips=("203.0.113.7", "198.51.100.200"), e2e_rows=rows_for)
     result = camp.run(path, ex)
     v = result["verdicts"]
     assert v["G3B_SECURITY_STATUS"] == "G3B_SECURITY_COMPLETE" and v["G4_AUTOMATED_CHECKS_STATUS"] == "COMPLETE"
@@ -364,3 +406,74 @@ def test_kill_during_acme_is_cleaned_up_by_the_watchdog(tmp_path):
                          capture_output=True, text=True, timeout=180).stdout.strip()
     final = json.loads(path.read_text())
     assert out == "COMPLETE" and final["cleanup_steps"]["acme-responder-off"]["ok"] and final["cleanup_steps"]["sleep"]["ok"]
+
+
+# --- ACME cleanup must keep every approved route and edge-tls (exact object identities) ------------
+
+ROUTES = ["feature-api", "kagent-ui", "agent-registry", "grafana", "https-redirect"]
+ACME = list(camp.ACME_OBJECTS)
+
+
+class Listing(camp.Executor):
+    """Answers the two reads acme_objects_gone makes."""
+
+    def __init__(self, names, secret="secret/edge-tls", rc_secret=0):
+        super().__init__()
+        self.names, self.secret, self.rc_secret = names, secret, rc_secret
+
+    def run(self, cmd, env=None, timeout=1800):
+        if "secret" in cmd:
+            return self.rc_secret, self.secret
+        return 0, "\n".join(self.names)
+
+
+def routes(*names):
+    return [f"httproute.gateway.networking.k8s.io/{n}" for n in names]
+
+
+@pytest.mark.parametrize("names,secret,ok,detail", [
+    (routes(*ROUTES) + ["deployment.apps/ewallet-edge-gateway-x"], "secret/edge-tls", True, "edge-tls kept"),
+    (routes("feature-api", "agent-registry", "grafana", "https-redirect"), "secret/edge-tls", False, "kagent-ui"),
+    (routes("feature-api", "kagent-ui", "agent-registry", "https-redirect"), "secret/edge-tls", False, "grafana"),
+    (routes("feature-api", "kagent-ui", "grafana", "https-redirect"), "secret/edge-tls", False, "agent-registry"),
+    (routes("kagent-ui", "agent-registry", "grafana", "https-redirect"), "secret/edge-tls", False, "feature-api"),
+    (routes("feature-api", "kagent-ui", "agent-registry", "grafana"), "secret/edge-tls", False, "https-redirect"),
+    (routes(*ROUTES) + [ACME[0]], "secret/edge-tls", False, "acme-http01"),
+    (routes(*ROUTES) + [ACME[1]], "secret/edge-tls", False, "deployment.apps/edge-acme-responder"),
+    (routes(*ROUTES) + [ACME[2]], "secret/edge-tls", False, "service/edge-acme-responder"),
+    (routes(*ROUTES) + [ACME[3]], "secret/edge-tls", False, "configmap/edge-acme-responder"),
+    (routes(*ROUTES), "", False, "edge-tls missing"),
+])
+def test_acme_cleanup_verifies_every_route_each_acme_object_and_the_tls_secret(tmp_path, names, secret, ok, detail):
+    _, state = ready_state(tmp_path)
+    got, message = camp.acme_objects_gone(state, Listing(names, secret, 0 if secret else 1))
+    assert got is ok and detail in message
+
+
+def test_expected_routes_follow_the_approved_values(tmp_path):
+    _, state = ready_state(tmp_path)
+    assert camp.expected_routes(state) == set(ROUTES)
+    final = Path(state["config"]["values_final"])
+    values = json.loads(final.read_text())
+    values["routes"] = {"kagent-ui": {"enabled": False}}  # an owner-disabled route is not required
+    final.write_text(json.dumps(values))
+    assert camp.expected_routes(state) == set(ROUTES) - {"kagent-ui"}
+    ok, _ = camp.acme_objects_gone(state, Listing(routes("feature-api", "agent-registry", "grafana", "https-redirect")))
+    assert ok
+
+
+def test_a_name_that_merely_contains_acme_is_not_mistaken_for_the_responder(tmp_path):
+    _, state = ready_state(tmp_path)
+    ok, _ = camp.acme_objects_gone(state, Listing(routes(*ROUTES) + ["configmap/acme-unrelated-notes"]))
+    assert ok
+
+
+def test_a_failed_route_check_makes_cleanup_incomplete_and_a_replay_completes(tmp_path, monkeypatch):
+    path, _ = ready_state(tmp_path)
+    original = camp.acme_objects_gone
+    monkeypatch.setattr(camp, "acme_objects_gone", lambda state, ex: (False, "application routes missing: ['grafana']"))
+    state = camp.run(path, Campaign(tmp_path / "sim.jsonl", fail=("--environment staging",), e2e_rows=rows_for))
+    assert state["CLEANUP_STATUS"] == "CLEANUP_INCOMPLETE" and "grafana" in state["cleanup_steps"]["acme-responder-off"]["detail"]
+    monkeypatch.setattr(camp, "acme_objects_gone", original)
+    resumed = camp.cleanup(path, Campaign(tmp_path / "sim2.jsonl"), "replay")
+    assert resumed["CLEANUP_STATUS"] == "COMPLETE" and resumed["cleanup_steps"]["acme-responder-off"]["ok"]

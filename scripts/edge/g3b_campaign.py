@@ -46,6 +46,8 @@ import sys
 import time
 from typing import Callable
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[2]
 EDGE = ROOT / "scripts/edge"
 CLUSTER, PROJECT = "ewallet-dev", "ewallet-data-ai-platform-hg26"
@@ -196,7 +198,7 @@ class Simulator(Executor):
         if "-o name" in text and "app.kubernetes.io/part-of=ewallet-edge" in text:
             names = ["httproute.gateway.networking.k8s.io/" + n for n in ("feature-api", "kagent-ui", "agent-registry", "grafana", "https-redirect")]
             if os.environ.get("EDGE_SIM_ACME_STAYS"):
-                names.append("httproute.gateway.networking.k8s.io/acme-http01")
+                names += ["httproute.gateway.networking.k8s.io/acme-http01", "deployment.apps/edge-acme-responder"]
             return 0, "\n".join(names)
         if "get secret edge-tls" in text:
             return 0, "secret/edge-tls"
@@ -274,25 +276,44 @@ def jsonl_rows(path: Path) -> list[dict]:
         return []
 
 
+ACME_OBJECTS = ("httproute.gateway.networking.k8s.io/acme-http01", "deployment.apps/edge-acme-responder",
+                "service/edge-acme-responder", "configmap/edge-acme-responder")
+
+
+def expected_routes(state: dict) -> set[str]:
+    """The application HTTPRoutes the approved campaign values enable (each route renders an
+    HTTPRoute of the same name), plus https-redirect, which the chart always renders."""
+    routes: dict = {}
+    for values in (PRIVATE_VALUES, Path(state["config"]["values_final"])):
+        for name, route in (yaml.safe_load(Path(values).read_text(encoding="utf-8")) or {}).get("routes", {}).items():
+            routes[name] = {**routes.get(name, {}), **(route or {})}
+    return {name for name, route in routes.items() if route.get("enabled")} | {"https-redirect"}
+
+
 def acme_objects_gone(state: dict, ex: Executor) -> tuple[bool, str]:
-    """The temporary ACME objects are gone, the application routes and edge-tls are still there."""
-    rc, names = ex.run(k(state, "-n", "ewallet-ingress", "get", "httproute,deploy,svc,configmap", "-l",
+    """By exact object identity: the four temporary ACME objects are gone, every application
+    route the approved values enable (and https-redirect) is still there, and so is edge-tls."""
+    rc, names = ex.run(k(state, "-n", "ewallet-ingress", "get", "httproute,deployment,service,configmap", "-l",
                          "app.kubernetes.io/part-of=ewallet-edge", "-o", "name"))
     rc_s, secret = ex.run(k(state, "-n", "ewallet-ingress", "get", "secret", "edge-tls", "-o", "name"))
-    if rc != 0 or rc_s != 0:
-        return False, f"cannot read ewallet-ingress (exit {rc}/{rc_s})"
-    lines = names.split()
-    apps = {n.rsplit("/", 1)[-1] for n in lines if n.startswith("httproute")}
-    if any("acme" in n for n in lines):
-        return False, "ACME objects still present"
-    if not {"feature-api", "agent-registry", "https-redirect"} <= apps:
-        return False, f"application routes missing: {sorted(apps)}"
-    return "edge-tls" in secret, "ACME objects gone; application routes and edge-tls kept"
+    if rc != 0:
+        return False, f"cannot list ewallet-ingress objects (exit {rc})"
+    present = set(names.split())
+    left = sorted(set(ACME_OBJECTS) & present)
+    if left:
+        return False, f"ACME objects still present: {left}"
+    routes = {n.split("/", 1)[1] for n in present if n.startswith("httproute.gateway.networking.k8s.io/")}
+    missing = sorted(expected_routes(state) - routes)
+    if missing:
+        return False, f"application routes missing: {missing}"
+    if rc_s != 0 or secret.strip() != "secret/edge-tls":
+        return False, "TLS Secret ewallet-ingress/edge-tls missing"
+    return True, f"ACME objects gone; routes {sorted(expected_routes(state))} and edge-tls kept"
 
 
 def phases(state: dict) -> list[tuple[str, Callable]]:
     """(name, function(state, ex) -> error or None), in runbook order. A phase that returns an
-    error stops new work; gates that are only blocked (L4 without an external client, Grafana
+    error stops new work; gates that are only blocked (L4 without a verified external source, Grafana
     not verifiable) record their status and let the campaign continue to a non-COMPLETE verdict."""
     c, p = state["config"], Path(state["config"]["private"])
     ev = Path(c["campaign_dir"])
@@ -403,31 +424,29 @@ def phases(state: dict) -> list[tuple[str, Callable]]:
         return error
 
     def l4_denied(state, ex):
-        """L4 needs a real request from OUTSIDE the approved CIDRs. Either this machine moves to
-        another network (checked by its public address, never recorded), or the owner runs
-        public_e2e.py --agents denied on a second machine and drops the JSONL at
-        <campaign>/l4-external.jsonl. Mocks, headers or port-forward never count."""
-        external = ev / "l4-external.jsonl"
+        """L4 needs a real request from OUTSIDE the approved CIDRs: this machine on another network
+        (e.g. a phone hotspot). Its public address is checked before and after the request (never
+        recorded), the request goes to the public LB with valid credentials, and the agents host
+        must answer 403 in a result file this run wrote. Files from elsewhere (l4-external.jsonl),
+        mocks, headers or port-forward never count: without a verified source the gate is
+        L4_BLOCKED_NO_VERIFIED_EXTERNAL_SOURCE, never PASS."""
+        result = ev / "11-l4-denied.jsonl"
         polls = 3 if isinstance(ex, Simulator) else max(1, L4_WAIT_SECONDS // 30)
         for _ in range(polls):
             if ex.deadline and now() > ex.deadline:
                 break
-            rows = jsonl_rows(external)
-            denied = [r for r in rows if r.get("row") == "40" and "refused" in r.get("check", "")]
-            if denied:
-                ok = all(r.get("passed") for r in denied) and all(r.get("evidence_class") == "PUBLIC_INTERNET" for r in rows)
-                remember(L4="PASS (external client file)" if ok else "FAIL (external client file)")
-                return None if ok else "L4 FAIL: agents reachable from a non-approved address"
             if client_in_allowlist(state, ex) is False:
-                rc, _ = ex.run(py("public_e2e.py", "--address", state["LB_IP"], "--ca-file", selfsigned, "--agents", "denied",
-                                  "--evidence-class", "PUBLIC_INTERNET", "--out", str(ev / "11-l4-denied.jsonl"), *edge_args))
-                rows = jsonl_rows(ev / "11-l4-denied.jsonl")
-                agents = [r for r in rows if r.get("row") == "40"]
-                ok = bool(agents) and all(r["passed"] for r in agents)
-                remember(L4="PASS (this client, outside the approved CIDRs)" if ok else "FAIL")
-                return None if ok else "L4 FAIL: agents reachable from a non-approved address"
+                result.unlink(missing_ok=True)  # only rows written by this request count
+                ex.run(py("public_e2e.py", "--address", state["LB_IP"], "--ca-file", selfsigned, "--agents", "denied",
+                          "--evidence-class", "PUBLIC_INTERNET", "--out", str(result), *edge_args))
+                still_outside = client_in_allowlist(state, ex) is False
+                agents = [r for r in jsonl_rows(result) if r.get("row") == "40"]
+                if still_outside and agents and all(r.get("evidence_class") == "PUBLIC_INTERNET" for r in agents):
+                    ok = all(r.get("passed") for r in agents)
+                    remember(L4="PASS (this client, outside the approved CIDRs before and after)" if ok else "FAIL")
+                    return None if ok else "L4 FAIL: agents reachable from a non-approved address"
             time.sleep(0 if isinstance(ex, Simulator) else 30)
-        remember(L4="L4_BLOCKED_NO_EXTERNAL_CLIENT")
+        remember(L4="L4_BLOCKED_NO_VERIFIED_EXTERNAL_SOURCE")
         return None
 
     def certificate(environment, *extra):

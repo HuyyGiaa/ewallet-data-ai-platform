@@ -173,20 +173,28 @@ python3 scripts/edge/g3b_campaign.py status --state $EV/state.json      # in ano
 | Private E2E | `private-e2e` | GKE_PRIVATE | port-forward; Feature API, Registry, Grafana (if credentials), filters; agents must be **403** (the port-forward peer is never approved). It is not L4. **If it fails, no LB** |
 | L2/L3/L6 | `internet-gates` | PUBLIC_INTERNET | `negative_tests.py --rate-limit-mode http2` |
 | L5 | `internet-gates` | PUBLIC_INTERNET | this machine must be inside the approved CIDRs (checked first) |
-| L4 | `L4-denied` | PUBLIC_INTERNET, **only from a non-approved address** | see below; otherwise `L4_BLOCKED_NO_EXTERNAL_CLIENT` |
+| L4 | `L4-denied` | PUBLIC_INTERNET, **only from a non-approved address** | this laptop on another network; otherwise `L4_BLOCKED_NO_VERIFIED_EXTERNAL_SOURCE` |
 | L1 | `production-certificate` + `public-e2e` (row 43) | PUBLIC_INTERNET | system trust, 4 SANs, TLS 1.1 refused |
 | L7/L8 | `public-e2e` | GKE_PRIVATE / PUBLIC_INTERNET | ownership preflight live; regression against the baseline |
 | L9 / rows 37–39 | `grafana` + `public-e2e` | PUBLIC_INTERNET | `release_diff.py` must be clean before the one-line upgrade; rows 37–39 must pass, else `GRAFANA_VERIFICATION_*` |
 
 **L4 needs a real request from outside the approved CIDRs.** No mocks, forged headers,
-port-forward or kind run counts. When `status` shows `CURRENT_PHASE: L4-denied`, the phase
-waits up to 20 minutes for one of:
-1. **This machine on another network**, for example a phone hotspot. The phase notices that the public address is outside the approved CIDRs (the address is not recorded), runs `public_e2e.py --agents denied` against the LB, and expects 403 with valid credentials. Then the owner switches back.
-2. **A second machine** with the repository and the edge credentials runs `python3 scripts/edge/public_e2e.py --address <LB IP> --domain $D --credentials-file <cred> --ca-file <temporary CA from $PRIV/tls/self-signed/fullchain.pem> --agents denied --evidence-class PUBLIC_INTERNET --out l4-external.jsonl`, and the file is copied to `$EV/l4-external.jsonl`.
+port-forward, kind run or result file from elsewhere counts. When `status` shows
+`CURRENT_PHASE: L4-denied`, the phase waits up to 20 minutes for the owner to move **this
+laptop** to another network (for example a phone hotspot). It then:
+1. confirms the public address is outside the approved CIDRs (the address is not recorded);
+2. deletes any old result and sends a real request with valid credentials to the public LB (`public_e2e.py --agents denied`);
+3. requires 403 for the agents host in the result this request wrote;
+4. confirms the address is still outside the approved CIDRs.
 
-If neither happens in time, L4 is `L4_BLOCKED_NO_EXTERNAL_CLIENT`. The campaign continues
-(nothing unsafe), but the security verdict cannot be complete. A failing L4 (agents reachable
-from a non-approved address) stops the campaign and cleans up.
+Then the owner switches back. The client-side address check only decides whether the test may
+run; the acceptance is the gateway's 403 to that real request.
+
+`l4-external.jsonl` from a second machine is **not accepted**: nothing in such a file proves its
+source address, its age or its campaign. Without a verified source, L4 is
+`L4_BLOCKED_NO_VERIFIED_EXTERNAL_SOURCE`. The campaign continues (nothing unsafe), but the
+security verdict cannot be complete. A failing L4 (agents reachable from a non-approved
+address) stops the campaign and cleans up.
 
 ### Verdicts
 
@@ -197,14 +205,14 @@ from a non-approved address) stops the campaign and cleans up.
 
 `G3B_SECURITY_COMPLETE` requires every security phase to PASS **and** L4 PASS. `run` exits 0
 only when security is complete, cleanup is COMPLETE and sleep is VERIFIED. A blocked gate
-records what it observed (for example `L4_BLOCKED_NO_EXTERNAL_CLIENT`, `GRAFANA_NOT_APPROVED`),
+records what it observed (for example `L4_BLOCKED_NO_VERIFIED_EXTERNAL_SOURCE`, `GRAFANA_NOT_APPROVED`),
 never PASS. These are technical checks; the official G4 screenshots are a separate owner session.
 
 ### Cleanup order (every path)
 
 1. Stop new work.
 2. Let an in-flight certbot finish (at most 10 min), then end it.
-3. Disable `acmeHttp01` and verify the responder and its route are gone, while the application routes and `edge-tls` are kept. The production certificate is never rolled back.
+3. Disable `acmeHttp01`. By exact object identity, verify that the responder Deployment, Service, ConfigMap and HTTPRoute are gone, while every route the approved values enable (here feature-api, kagent-ui, agent-registry, grafana, plus https-redirect) and `edge-tls` are kept. The production certificate is never rolled back.
 4. Dynu offline, proven by `dns_check.py`.
 5. Release the LB (only after DNS is proven offline; otherwise the LB is kept and the result is `CLEANUP_INCOMPLETE`).
 6. Fresh recovery manifest.
