@@ -67,8 +67,8 @@ Goals:
 - keep the Dynu hostname for later demos.
 
 1. Stop the public tests.
-2. **[owner]** In Dynu, take `ewallet-hg.gleeze.com` offline in a way the interface actually supports. Preferred: *Offline Settings* (hostname offline, no offline IP), or remove/disable the IPv4 address so the wildcard alias returns nothing. If Dynu only offers an offline IP, choosing a placeholder (for example a documentation address) is an owner decision, and the check takes it via `--offline-ip`. No other workaround is used.
-3. `python3 scripts/edge/dns_check.py --domain $D --expect-offline [--offline-ip <placeholder>]`, repeated until `DNS_OFFLINE_OK`. The TTL is about 120 s; allow up to 10 minutes for public resolvers.
+2. Take the hostname offline: `dynu_dns.py --execute offline --mode signoff --offline-ip $OFF4 --offline-ipv6 $OFF6 --released-ip <LB IP>` once API signoff is verified (see *Dynu offline: dual-stack*), else the panel's *Offline Settings → Go Offline Now*. Dynu's offline state answers its offline server on A **and** AAAA. `myip=no` is not an offline method. No other workaround is used.
+3. `python3 scripts/edge/dns_check.py --domain $D --expect-offline --offline-ip $OFF4 --offline-ipv6 $OFF6 --released-ip <LB IP>`, repeated until `DNS_OFFLINE_OK`. The TTL is about 120 s; allow up to 10 minutes for public resolvers.
 4. Only then release the LB (step 15), and verify with `ownership_preflight.py live`.
 
 Checklist recorded in the campaign evidence. Values that are not the LB address are written as "withheld".
@@ -76,7 +76,7 @@ Checklist recorded in the campaign evidence. Values that are not the LB address 
 ```text
 DNS hostname:                 ewallet-hg.gleeze.com
 Wildcard A:                   (dns_check: present / none)
-Wildcard AAAA:                (must be none)
+Wildcard AAAA:                online: none; offline: none or OFF6
 Current target:               LB IP | offline | withheld
 Planned offline state:        Dynu Offline Settings / IPv4 removed / owner placeholder
 Authoritative DNS result:     dns_check lines for ns1/ns3/ns4.dynu.com
@@ -126,7 +126,7 @@ sleeps.
 |---|---|
 | Approved client CIDRs (must include this machine's current public address, for L5) | `$PRIV/approved-cidrs.txt` |
 | Edge and Grafana credentials | `$PRIV/edge-cred`, `$PRIV/grafana-cred` (Grafana: needed for rows 37–39; without it Grafana is BLOCKED, never PASS) |
-| Dynu IP update credentials, offline mode verified once (see *One-time Dynu offline verification*) | `$PRIV/dynu.json`, `--dns-offline-mode`, `--dns-offline-verified` |
+| Dynu IP update credentials; approved offline IPv4/IPv6; API signoff verified once (see *Dynu offline: dual-stack*) | `$PRIV/dynu.json`, `--dns-offline-mode signoff --dns-offline-ip … --dns-offline-ipv6 …`, `--dns-offline-verified` |
 | Recovery manifest | `$M0` (G3-A1, checksums OK) |
 | PDB exception for this campaign | `--also-approve ewallet-mcp/feature-rag-mcp` |
 | Guarded sleep, KEDA pause, production certificate, Grafana root URL | `--approve-guarded-sleep --approve-keda-pause --approve-production-certificate [--approve-grafana-root-url]` |
@@ -135,8 +135,8 @@ sleeps.
 ```bash
 python3 scripts/edge/g3b_campaign.py init --mode supervised --campaign $CID --campaign-dir $EV --manifest $M0 \
   --approved-cidrs $PRIV/approved-cidrs.txt --edge-credentials $PRIV/edge-cred --grafana-credentials $PRIV/grafana-cred \
-  --dns-credentials $PRIV/dynu.json --dns-offline-mode <no-ipv4|signoff> --dns-offline-verified \
-  --approve-live-campaign --approve-guarded-sleep --approve-keda-pause --also-approve ewallet-mcp/feature-rag-mcp \
+  --dns-credentials $PRIV/dynu.json --dns-offline-mode signoff --dns-offline-ip <OFF4> --dns-offline-ipv6 <OFF6> \
+  --dns-offline-verified --approve-live-campaign --approve-guarded-sleep --approve-keda-pause --also-approve ewallet-mcp/feature-rag-mcp \
   --approve-production-certificate --approve-grafana-root-url
 ```
 
@@ -267,7 +267,7 @@ no nodes costs a few cents an hour.
 ```bash
 python3 scripts/edge/g3b_campaign.py init --campaign $CID --campaign-dir $EV --manifest $M0 \
   --approved-cidrs $PRIV/approved-cidrs.txt --edge-credentials $PRIV/edge-cred --grafana-credentials $PRIV/grafana-cred \
-  --dns-credentials $PRIV/dynu.json --dns-offline-mode <no-ipv4|signoff> [--dns-offline-ip <placeholder>] \
+  --dns-credentials $PRIV/dynu.json --dns-offline-mode signoff --dns-offline-ip <OFF4> --dns-offline-ipv6 <OFF6> \
   --approve-guarded-sleep --approve-keda-pause --also-approve ewallet-mcp/feature-rag-mcp \
   --approve-production-certificate [--approve-grafana-root-url] --dns-offline-verified \
   (--accept-local-only-risk | --cloud-fallback-ready)
@@ -286,11 +286,45 @@ Owner configuration:
 2. `scripts/edge/install_watchdog.sh --enable`, `loginctl enable-linger $USER`, and point `~/ewallet-evidence/gateway/active-campaign` at `$EV`.
 3. Keep the laptop on mains power and online. Start the run as `systemd-inhibit --what=sleep:idle python3 scripts/edge/g3b_campaign.py run --state $EV/state.json`.
 
-**One-time Dynu offline verification** (owner-approved DNS mutation; the cluster can stay
-asleep). Dynu documents neither offline mode's DNS answer, so prove it:
-1. `python3 scripts/edge/dynu_dns.py --credentials $PRIV/dynu.json --execute offline --mode no-ipv4`. Expected: `DNS_OFFLINE_OK` (NXDOMAIN or NODATA everywhere). This also stops the names pointing at the home address.
-2. If it is not `DNS_OFFLINE_OK`: `… offline --mode signoff`, then read which address is answered. If it is a Dynu address the owner accepts, record it as `--dns-offline-ip`.
-3. Use the mode that verified as `--dns-offline-mode`, and pass `--dns-offline-verified` to `init`.
+### Dynu offline: dual-stack (owner observations, 2026-11-22)
+
+| Method | Observed | Use |
+|---|---|---|
+| `dynu_dns.py offline --mode no-ipv4` (`myip=no&myipv6=no`) | Dynu answered `nochg`; the old IPv4 stayed in DNS (`DNS_OFFLINE_NOT_YET`) | **not** an offline method; kept only behind DNS verification |
+| Dynu panel *Offline Settings → Go Offline Now* (action "Display offline message") | DNS changed on both families: A and AAAA point to Dynu's offline server; reverse DNS of both is `offline.dynu.com`, in the same ranges as `api.dynu.com` | the safe offline state |
+| `dynu_dns.py offline --mode signoff` (`offline=yes`, IP Update Protocol) | **not yet tested** | the automation, once the test below proves it equals the panel state |
+
+A Dynu answer (`good`, `nochg`) only means the request was accepted. Only `dns_check.py`
+decides. The offline addresses are campaign inputs, never defaults in the code. They are
+re-read before each campaign, because Dynu may change them:
+
+```bash
+OFF4=$(dig +short @ns1.dynu.com $D A)        # while the hostname is Offline in the panel
+OFF6=$(dig +short @ns1.dynu.com $D AAAA)
+dig +short -x $OFF4; dig +short -x $OFF6     # both must be offline.dynu.com
+python3 scripts/edge/dns_check.py --domain $D --expect-offline --offline-ip $OFF4 --offline-ipv6 $OFF6
+```
+
+Offline means each name, at every Dynu NS and at 1.1.1.1/8.8.8.8, answers A ∈ {none, OFF4} and
+AAAA ∈ {none, OFF6}, never the released LB address. "None" counts only as a proven NXDOMAIN or
+NODATA; a timeout is a failure. Online still means A = the LB address and **no AAAA**, not even
+OFF6. The last JSON line summarises the verdict, failed servers and names, A/AAAA status and
+duration (concurrent queries: about 3 s).
+
+**API signoff verification** (owner-approved Dynu mutation; GKE stays asleep). Its purpose is
+to prove that `offline=yes` reaches the same state as the panel. Since the panel state is
+already Offline, the test needs one online step first:
+
+1. Pre-check: `dns_check.py --expect-offline --offline-ip $OFF4 --offline-ipv6 $OFF6` gives `DNS_OFFLINE_OK`, and the Dynu panel shows *Offline*.
+2. Owner, in the panel: *Go Online*. Then `dns_check.py --expect-offline …` must turn `NOT_YET`. The address Dynu publishes when online is withheld by the check; it must not be the home address, and if it is, the owner decides whether this test is worth that minute.
+3. `python3 scripts/edge/dynu_dns.py --credentials $PRIV/dynu.json --execute --attempts 10 --interval 30 offline --mode signoff --offline-ip $OFF4 --offline-ipv6 $OFF6`. It prints the Dynu answer, then one line per attempt; PASS only on `DNS_OFFLINE_OK`.
+4. Confirm the hostname still exists in the panel (status Offline) and that every name, including the wildcard, is OFF4/OFF6 (the step 3 output).
+5. Record the output lines (no credentials are printed) in the campaign evidence.
+
+Results:
+- `DNS_OFFLINE_OK`: pass `--dns-offline-verified --dns-offline-mode signoff` to `init`.
+- Dynu answers `badauth` with the header-only authentication: the protocol page shows signoff with a `password` parameter. Sending it in the URL would break the "no credentials in URLs" rule, so this is an owner decision. The fallback is the panel's *Go Offline Now* during cleanup, with `g3b_campaign.py cleanup` re-run afterwards.
+- Anything else: `DNS_AUTOMATION_BLOCKED` for signoff. Use the same panel fallback, and never switch to another mode without approval.
 
 ### During execution
 

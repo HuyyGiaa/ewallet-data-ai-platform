@@ -622,8 +622,10 @@ def cleanup(state_path: Path, ex: Executor, reason: str) -> dict:
         if not c.get("dns_credentials"):
             dns_safe = done("dns-offline", False, "no DNS automation configured")
         else:
-            cmd = py("dynu_dns.py", "--credentials", c["dns_credentials"], "--execute", "offline", "--mode", c["dns_offline_mode"],
+            cmd = py("dynu_dns.py", "--credentials", c["dns_credentials"], "--execute", "--attempts", "10", "--interval", "30",
+                     "offline", "--mode", c["dns_offline_mode"],
                      *(["--offline-ip", c["dns_offline_ip"]] if c.get("dns_offline_ip") else []),
+                     *(["--offline-ipv6", c["dns_offline_ipv6"]] if c.get("dns_offline_ipv6") else []),
                      *(["--released-ip", state["LB_IP"]] if state.get("LB_IP") else []))
             rc, _ = retry(cmd, attempts=2)
             dns_safe = done("dns-offline", rc == 0, "DNS_OFFLINE_OK verified" if rc == 0 else f"not proven (exit {rc})")
@@ -815,7 +817,17 @@ def init(args: argparse.Namespace, ex: Executor) -> dict:
            "edge_credentials": outside_repo(args.edge_credentials, "edge credentials", problems),
            "grafana_credentials": outside_repo(args.grafana_credentials, "Grafana credentials", problems, required=False),
            "dns_credentials": outside_repo(args.dns_credentials, "DNS credentials", problems, required=False),
-           "dns_offline_mode": args.dns_offline_mode, "dns_offline_ip": args.dns_offline_ip}
+           "dns_offline_mode": args.dns_offline_mode, "dns_offline_ip": args.dns_offline_ip,
+           "dns_offline_ipv6": getattr(args, "dns_offline_ipv6", None)}
+    for key, version in (("dns_offline_ip", 4), ("dns_offline_ipv6", 6)):
+        if cfg[key]:
+            try:
+                parsed = ipaddress.ip_address(cfg[key])
+                if parsed.version != version:
+                    raise ValueError
+                cfg[key] = str(parsed)
+            except ValueError:
+                problems.append(f"{key} is not an IPv{version} address")
     cidrs = [l.split("#")[0].strip() for l in Path(cfg["approved_cidrs"]).read_text().splitlines()] if cfg["approved_cidrs"] and Path(cfg["approved_cidrs"]).exists() else []
     cidrs = [x for x in cidrs if x]
     for name, acme in (("values_acme", True), ("values_final", False)):
@@ -902,8 +914,10 @@ def main(argv: list[str] | None = None) -> int:
     i.add_argument("--edge-credentials", required=True)
     i.add_argument("--grafana-credentials")
     i.add_argument("--dns-credentials")
-    i.add_argument("--dns-offline-mode", choices=["no-ipv4", "signoff"], default="no-ipv4")
-    i.add_argument("--dns-offline-ip")
+    # signoff (offline=yes) is the default: myip=no answered nochg and left the old A record (2026-11-22).
+    i.add_argument("--dns-offline-mode", choices=["no-ipv4", "signoff"], default="signoff")
+    i.add_argument("--dns-offline-ip", help="approved offline IPv4 (Dynu's offline server), checked by dns_check")
+    i.add_argument("--dns-offline-ipv6", help="approved offline IPv6 (Dynu's offline server), checked by dns_check")
     i.add_argument("--mode", choices=["supervised", "unattended"], default="unattended",
                    help="supervised: the owner watches the run (no watchdog/linger/laptop-risk gate)")
     for flag in ("approve-live-campaign", "approve-guarded-sleep", "approve-keda-pause", "approve-production-certificate", "approve-grafana-root-url",
