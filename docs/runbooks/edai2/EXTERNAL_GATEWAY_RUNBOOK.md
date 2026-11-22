@@ -185,6 +185,13 @@ Observed, first live attempt `g3b-dns-transition-20261122T042939Z` (2026-11-22):
 - A read-only check on the live gateway confirmed the corrected probe (SNI `features`, `Host: <host>`): anonymous 401, authenticated 404. It is now in `negative_tests.py`.
 - Left on the cluster: `edge-basic-auth` matches `edge-cred`; `ewallet-edge` is at rev 3 (campaign values, ACME off, ClusterIP).
 
+Observed, live retry `g3b-dns-transition-retry-20261122T050543Z` (2026-11-22):
+- Private security passed in full: `public_e2e` 8/8 and `negative_tests` 35/35 (unserved hosts: anonymous 401, authenticated 404). Edge auth MATCH, no mutation. The LB opened.
+- Pre-check `DNS_OFFLINE_OK`. Then `online --ip <LB>` (`myip=<LB>&myipv6=no`): Dynu answered `good`, and **A switched to the LB on every server** after about 2.5 minutes (one TTL). So an API update does bring the hostname out of Offline.
+- **AAAA stayed on Dynu's offline IPv6 (OFF6)** for all 10 attempts (5 minutes). ns1 was read directly while still Online: A = LB, AAAA = OFF6. Result: `DNS_TRANSITION_ONLINE_NOT_PROVEN`, because the online policy requires no AAAA.
+- Cleanup sent signoff from that real Online state and proved `DNS_OFFLINE_OK` with `--released-ip <LB>`. The fresh check passed, the LB was released, sleep was VERIFIED with 0 nodes, and no forwarding rule or address remained.
+- Open (owner decision before the next attempt): how to bring AAAA online. Either clear or disable the hostname's IPv6 in the Dynu panel, or accept AAAA = OFF6 as a documented online state (IPv6 clients would then reach Dynu's offline page, not the edge). Sending no `myipv6` could publish the updater's own IPv6 (home), so it is not an option.
+
 `--dns-offline-verified` alone does nothing. Stage 3's `SAFE_CLEANUP_READY` needs
 `--dns-transition-evidence` pointing at the `state.json` of a **real** transition run. That file must show:
 - `scope: dns-transition`, `simulated: false` (`--simulate` runs are marked and always refused);

@@ -1,0 +1,9 @@
+{"check": "backend ml-platform/feature-api", "passed": true, "observed": {"ready_replicas": 1, "restarts": 0, "ready_endpoints": 1}}
+{"check": "backend kagent/kagent-ui", "passed": true, "observed": {"ready_replicas": 1, "restarts": 0, "ready_endpoints": 1}}
+{"check": "backend kagent/kagent-controller", "passed": true, "observed": {"ready_replicas": 1, "restarts": 1, "ready_endpoints": 1}}
+{"check": "backend ewallet-prompts/prompt-registry-agentregistry", "passed": true, "observed": {"ready_replicas": 1, "restarts": 5, "ready_endpoints": 1}}
+{"check": "backend ewallet-agents/grafana", "passed": true, "observed": {"ready_replicas": 1, "restarts": 0, "ready_endpoints": 1}}
+{"check": "jenkins -> registry", "passed": true, "observed": "HTTP/1.0 200 OK"}
+{"check": "grafana -> prometheus", "passed": true, "observed": "Prometheus Server is Ready."}
+{"check": "grafana -> loki", "passed": true, "observed": "ready"}
+{"check": "grafana -> tempo", "passed": true, "observed": "ready"}

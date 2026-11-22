@@ -1,0 +1,12 @@
+Recovery manifest comparison (read-only), before the retry
+A = g3a1-20261121T175830Z/11-sleep/recovery-manifest (approved; used)
+B = g3b-dns-transition-20261122T042939Z/recovery-manifest (fresh, recorded during the failed campaign's cleanup)
+cluster/project/location/node_pool: identical (ewallet-dev, ewallet-data-ai-platform-hg26, asia-southeast1-b, cpu-pool); pool_vms 5 / 5
+workloads: 83 / 83; same set; replicas identical; only 'ready' differs: B saw ewallet-agents/vllm-primary and ewallet-agents-staging/fraud-detector-predictor not yet ready (recorded 13 min after wake)
+not_ready_at_record: A = 2 kubeflow pipeline workloads; B = the same 2 + the 2 above
+workload-requests: 73 / 73; B lacks fraud-detector-predictor (not running yet) and has the temporary edge-acme-responder
+disks-before: same PVC disks; only node boot-disk names differ (new VMs per wake)
+buckets-before: identical
+Decision: no material drift; A (G3-A1) is the cleaner snapshot -> used, as the owner preferred.
+KEDA: 2 ScaledObjects paused with the cloud-lab marker of the previous campaign; cloud_lab unpause_keda() resumes every ScaledObject carrying the marker (any campaign).
+plan-wake --mode full: nodes 5, cpu_m 10291, mem_mi 25380, node_hourly_usd 0.8267
