@@ -20,7 +20,9 @@ import subprocess
 import tempfile
 import time
 from typing import Sequence
-from urllib.parse import urlsplit
+import base64
+import re
+from urllib.parse import quote, urlsplit, urlunsplit
 import uuid
 
 
@@ -40,6 +42,42 @@ def curl_user_config(credentials: str) -> str:
     if any(c in credentials for c in "\r\n") or ":" not in credentials:
         raise ValueError("credentials must be one user:password line")
     return 'user = "' + credentials.replace("\\", "\\\\").replace('"', '\\"') + '"\n'
+
+
+# scheme://userinfo@ : userinfo is everything before the first "@" of the authority
+_USERINFO = re.compile(r"(?i)\b([a-z][a-z0-9+.-]*://)[^/?#\s@\"'<>]*@")
+
+
+def redact_url(url: str) -> str:
+    """A URL without its userinfo (``user:password@``); scheme, host, port, path, query and
+    fragment are kept. Relative URLs and URLs without userinfo are returned unchanged. curl's
+    %{redirect_url} carries the request's credentials, so every recorded redirect goes through
+    this (G3-B 2026-11-22: a Grafana login redirect recorded the edge password)."""
+    if not url or "@" not in url:
+        return url
+    parts = urlsplit(url)
+    if not parts.netloc or "@" not in parts.netloc:
+        return _USERINFO.sub(r"\1", url)
+    return urlunsplit(parts._replace(netloc=parts.netloc.rpartition("@")[2]))
+
+
+def secret_forms(credentials: str) -> list[str]:
+    """Every form in which ``user:password`` could leak: raw, URL-encoded, and the Basic
+    Authorization value. The user name alone is not secret."""
+    _, _, password = credentials.partition(":")
+    forms = {password, credentials, quote(password, safe=""), quote(credentials, safe=""),
+             quote(password), base64.b64encode(credentials.encode()).decode()}
+    return sorted((f for f in forms if len(f) >= 6), key=len, reverse=True)
+
+
+def sanitize_text(text: str, secrets: Sequence[str] = ()) -> str:
+    """Last line of defence before anything is printed or recorded: drop URL userinfo and
+    replace every known secret form with <redacted>."""
+    text = _USERINFO.sub(r"\1", str(text))
+    for secret in secrets:
+        if secret:
+            text = text.replace(secret, "<redacted>")
+    return text
 
 
 @dataclass
@@ -62,7 +100,9 @@ class Edge:
         self.address, self.https, self.http, self.domain = args.address, args.https_port, args.http_port, args.domain
         self.ca, self.stub, self.foundation = args.ca_file, args.stub, args.foundation
         self.http2 = getattr(args, "rate_limit_mode", "threads") == "http2"
-        self.config = curl_user_config(Path(args.credentials_file).read_text(encoding="utf-8").rstrip("\r\n"))
+        credentials = Path(args.credentials_file).read_text(encoding="utf-8").rstrip("\r\n")
+        self.config = curl_user_config(credentials)
+        self.secrets = secret_forms(credentials)
 
     def request(self, host: str, path: str, *extra: str, scheme: str = "https", authed: bool = False) -> Reply:
         """One request with the route's SNI and Host; credentials go through stdin.
@@ -87,7 +127,7 @@ class Edge:
         done = subprocess.run([*command, *extra], input=self.config if authed else "", capture_output=True, text=True)
         rest, _, status = done.stdout.rpartition("\n")
         body, _, location = rest.rpartition("\n")
-        return Reply(int(status) if status.isdigit() else 0, body, location)
+        return Reply(int(status) if status.isdigit() else 0, body, redact_url(location))
 
     def burst(self, host: str, path: str, count: int) -> tuple[list[Reply], float]:
         """``count`` authenticated requests as fast as the client can send them, and how long it
@@ -118,7 +158,7 @@ class Edge:
                 if not index.isdigit() or int(index) >= count:
                     continue
                 body = Path(filename).read_text(errors="replace") if Path(filename).exists() else ""
-                replies[int(index)] = Reply(int(status) if status.isdigit() else 0, body, location[0].strip())
+                replies[int(index)] = Reply(int(status) if status.isdigit() else 0, body, redact_url(location[0].strip()))
         return replies, seconds
 
     def curl(self, host: str, path: str, *extra: str, scheme: str = "https") -> tuple[int, str]:
@@ -366,6 +406,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         run_stub(edge, results)
     if not args.foundation:
         run_rate_limit(edge, results)
+    secrets = getattr(edge, "secrets", [])
+    for item in results:  # defence in depth: nothing recorded or printed may carry a credential
+        item.observed = sanitize_text(item.observed, secrets)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text("".join(json.dumps(asdict(item)) + "\n" for item in results), encoding="utf-8")
     failed = [item for item in results if not item.passed]

@@ -142,7 +142,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--credentials-file", required=True, help="edge Basic Auth user:password, outside the repo")
     parser.add_argument("--grafana-credentials-file", help="Grafana user:password, outside the repo (rows 37-39)")
     parser.add_argument("--grafana-root-url", help="expected Grafana appUrl, e.g. https://observe.<domain>/")
-    parser.add_argument("--loki-query", default='{namespace="ewallet-agents"}')
+    # Alloy/OpenTelemetry label names (verified on GKE 2026-11-22: Loki has k8s_namespace_name, no "namespace")
+    parser.add_argument("--loki-query", default='{k8s_namespace_name="ewallet-agents"}')
     parser.add_argument("--lookup-json", help="optional synthetic lookup body (row 43 business lookup)")
     parser.add_argument("--agents", choices=["allowed", "denied", "skip"], default="allowed",
                         help="expected agents result from this client address")
@@ -159,9 +160,13 @@ def main(argv: list[str] | None = None) -> int:
     if args.agents != "skip":
         ui_checks(edge, results, "40", "agents", "/api/agents", args.agents)
     ui_checks(edge, results, "41", "registry", "/v0/agents")
+    secrets = list(edge.secrets)
     if args.grafana_credentials_file:
-        grafana_checks(edge, results, private_file(args.grafana_credentials_file), args.grafana_root_url, args.loki_query)
-    for r in results:
+        grafana = private_file(args.grafana_credentials_file)
+        secrets += nt.secret_forms(grafana)
+        grafana_checks(edge, results, grafana, args.grafana_root_url, args.loki_query)
+    for r in results:  # defence in depth: no URL userinfo and no credential form in stdout or JSONL
+        r["observed"] = nt.sanitize_text(r["observed"], secrets)
         r["evidence_class"] = args.evidence_class
         print(json.dumps(r))
     if args.out:

@@ -96,7 +96,7 @@ owner screenshot taken during the same session.
 | Row | Script and invocation | Expected | Owner screenshot |
 |---|---|---|---|
 | 37 Metrics UI | `python3 scripts/edge/public_e2e.py --address <LB IP> --domain $D --credentials-file $PRIV/edge-cred --grafana-credentials-file $PRIV/grafana-cred --grafana-root-url https://observe.$D/ --evidence-class PUBLIC_INTERNET --out $EV/14-e2e.jsonl` (row 37 lines) | redirect to login on the same host, appUrl = public URL, login, dashboards > 0, Prometheus `up` series > 0 | `https://observe.$D/` → a metrics dashboard with live panels |
-| 38 Logs UI | same run (row 38) | Loki returns log lines for `{namespace="ewallet-agents"}` | Grafana Explore → Loki query with recent lines |
+| 38 Logs UI | same run (row 38) | Loki returns log lines for `{k8s_namespace_name="ewallet-agents"}` | Grafana Explore → Loki query with recent lines |
 | 39 Traces UI | same run (row 39) | Tempo returns traces | Grafana Explore → Tempo, one trace with spans |
 | 40 Agent Test UI | same run (row 40) from an approved address; `--agents denied` from another network | UI, static asset, read-only `/api/agents`; 403 elsewhere | `https://agents.$D/`, one short synthetic test prompt answered (uses the LLM once; no PII) |
 | 41 Agent Registry UI | same run (row 41) | UI, static asset, `/v0/agents` 200 | `https://registry.$D/` listing |
@@ -230,6 +230,44 @@ python3 scripts/edge/dns_check.py --domain $D --expect-offline --offline-ip 162.
 ```
 
 `init` checks it again (gate `CERTBOT_READY`). Dynu IPv6 must stay disabled (*First DNS transition*).
+
+**Rotating the edge credential (owner, local only).** Do this when the edge password may have been
+exposed (G3-B 2026-11-22: a test recorded it inside a redirect URL; fixed, see below). The new
+password is generated straight into a mode-600 file and never shown, typed, pasted or logged:
+
+```bash
+umask 077
+python3 - <<'PY'
+import os, secrets
+path = os.path.expanduser("~/ewallet-evidence/gateway/private/edge-cred.new")
+fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)   # refuses to overwrite
+with os.fdopen(fd, "w") as handle:
+    handle.write("edgeadmin:" + secrets.token_urlsafe(36) + "\n")   # 48 random characters, never reused
+print("written:", path)
+PY
+stat -c '%a %s' ~/ewallet-evidence/gateway/private/edge-cred.new      # 600, about 59 bytes; never cat it
+mv ~/ewallet-evidence/gateway/private/edge-cred ~/ewallet-evidence/gateway/private/edge-cred.retired
+mv ~/ewallet-evidence/gateway/private/edge-cred.new ~/ewallet-evidence/gateway/private/edge-cred
+```
+
+The Kubernetes Secret is not touched here. The next campaign's `init` reports
+`edge_auth_at_init: EDGE_AUTH_MISMATCH`, so `EDGE_AUTH_READY` fails unless the owner approves
+`--approve-edge-secret-sync` for that campaign. With the approval, phase `edge-auth` runs, in order:
+1. `create_basic_auth.sh --check` detects the mismatch;
+2. `--apply` (the password is read from the file, never an argument);
+3. gateway `rollout restart`;
+4. `rollout status --timeout=300s`;
+5. `platform_checks gateway`;
+6. `--check` again (MATCH);
+7. `private-e2e` proves the new credential before any LB.
+
+A failure at any step stops the campaign before the LB, and cleanup runs. After a successful
+campaign, delete `edge-cred.retired` (`shred -u`) and clear the old password from the browser.
+
+**Recorded results never contain credentials.** `negative_tests.py` and `public_e2e.py` strip
+URL userinfo from every redirect they record (curl's `%{redirect_url}` carries the request
+credentials). Before anything is printed or written, they also replace every form of the edge
+and Grafana credentials (raw, URL-encoded, Basic base64) with `<redacted>`.
 
 | Input | Where |
 |---|---|
@@ -392,7 +430,7 @@ Screenshots, taken by the owner during the window (`~/Pictures/Screenshots/GW-<r
 | GW-42-dialog | 42 | the browser's Basic Auth dialog | yes |
 | GW-42-401 | 42 | terminal: `curl -sI https://features.$D/` → 401 with `www-authenticate: Basic realm="e-wallet"` | yes |
 | GW-37-metrics | 37 | `https://observe.$D/` dashboard with live panels (edge auth, then Grafana login) | yes |
-| GW-38-logs | 38 | Grafana Explore → Loki `{namespace="ewallet-agents"}` with recent lines | yes |
+| GW-38-logs | 38 | Grafana Explore → Loki `{k8s_namespace_name="ewallet-agents"}` with recent lines | yes |
 | GW-39-traces | 39 | Grafana Explore → Tempo, one trace with spans | yes |
 | GW-40-agents | 40 | `https://agents.$D/`, one short synthetic prompt answered | yes |
 | GW-41-registry | 41 | `https://registry.$D/` listing an agent | yes |
