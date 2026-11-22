@@ -1,0 +1,771 @@
+diff --git a/docs/runbooks/edai2/EXTERNAL_GATEWAY_RUNBOOK.md b/docs/runbooks/edai2/EXTERNAL_GATEWAY_RUNBOOK.md
+index d01af6c2..bcc38ca0 100644
+--- a/docs/runbooks/edai2/EXTERNAL_GATEWAY_RUNBOOK.md
++++ b/docs/runbooks/edai2/EXTERNAL_GATEWAY_RUNBOOK.md
+@@ -213,6 +213,24 @@ it with `cleanup`, after which its `state.json` qualifies.
+ 
+ ### Preconditions and owner approvals
+ 
++**Environment preflight (before `init`; no cloud change).** `issue_certificate.sh` runs certbot
++through `uvx`, which on the owner's laptop lives only in the `fintech` conda env. Append it to
++`PATH` (appending keeps the system `python3` first) in the terminal that runs `init` and `run`:
++
++```bash
++export PATH="$PATH:$HOME/miniconda3/envs/fintech/bin"
++command -v python3                                   # /usr/bin/python3
++uvx --from certbot==5.10.0 certbot --version         # certbot 5.10.0
++cat /sys/class/power_supply/AC*/online               # 1 (on AC power)
++D=ewallet-hg.gleeze.com; PRIV=~/ewallet-evidence/gateway/private
++M0=~/ewallet-evidence/gateway/g3a1-20261121T175830Z/11-sleep/recovery-manifest
++TRANSITION=~/ewallet-evidence/gateway/g3b-dns-transition-ipv4-20261122T054437Z/state.json
++CID=g3b-full-$(date -u +%Y%m%dT%H%M%SZ); EV=~/ewallet-evidence/gateway/$CID
++python3 scripts/edge/dns_check.py --domain $D --expect-offline --offline-ip 162.216.242.207 --offline-ipv6 2602:ff23:0:8888::207   # DNS_OFFLINE_OK
++```
++
++`init` checks it again (gate `CERTBOT_READY`). Dynu IPv6 must stay disabled (*First DNS transition*).
++
+ | Input | Where |
+ |---|---|
+ | Approved client CIDRs (must include this machine's current public address, for L5) | `$PRIV/approved-cidrs.txt` |
+@@ -223,21 +241,25 @@ it with `cleanup`, after which its `state.json` qualifies.
+ | PDB exception for this campaign | `--also-approve ewallet-mcp/feature-rag-mcp` |
+ | Guarded sleep, KEDA pause, production certificate, Grafana root URL | `--approve-guarded-sleep --approve-keda-pause --approve-production-certificate [--approve-grafana-root-url]` |
+ | The live run itself | `--approve-live-campaign` |
++| Screenshot window after a passed public-e2e (supervised g3b only, 1–60 min) | `--evidence-window-minutes 45` |
+ 
+ ```bash
+ python3 scripts/edge/g3b_campaign.py init --mode supervised --campaign $CID --campaign-dir $EV --manifest $M0 \
+   --approved-cidrs $PRIV/approved-cidrs.txt --edge-credentials $PRIV/edge-cred --grafana-credentials $PRIV/grafana-cred \
+   --dns-credentials $PRIV/dynu.json --dns-offline-mode signoff --dns-offline-ip <OFF4> --dns-offline-ipv6 <OFF6> \
+-  --dns-offline-verified --dns-transition-evidence <stage 2 state.json> --approve-live-campaign --approve-guarded-sleep --approve-keda-pause --also-approve ewallet-mcp/feature-rag-mcp \
+-  --approve-production-certificate --approve-grafana-root-url
++  --dns-offline-verified --dns-transition-evidence $TRANSITION --approve-live-campaign --approve-guarded-sleep --approve-keda-pause --also-approve ewallet-mcp/feature-rag-mcp \
++  --approve-production-certificate --approve-grafana-root-url --evidence-window-minutes 45
+ ```
+ 
++(`<OFF4>`/`<OFF6>`: `162.216.242.207` / `2602:ff23:0:8888::207`, re-read before the campaign.)
++
+ `init` must print every gate as PASS:
+ - `CLOUD_LAB_RECOVERY_MANIFEST_VALID`, `PDB_APPROVAL_COMPLETE`, `KEDA_SLEEP_APPROVAL_READY`, `GUARDED_SLEEP_PLAN_VALID`;
+ - `CLIENT_ADDRESS_APPROVED`;
+ - `SAFE_CLEANUP_READY` (DNS automation);
+ - `L0_RENDER_READY` (the exact public render passes the strict preflight, offline);
+ - `EDGE_AUTH_READY` (Secret = `edge-cred`, or a mismatch with `--approve-edge-secret-sync`);
++- `CERTBOT_READY` (`uvx --from certbot==5.10.0 certbot --version` answers `certbot 5.10.0`);
+ - `OWNER_LIVE_APPROVAL`.
+ 
+ Supervised mode does not require the watchdog, linger or laptop-risk acceptance. Everything
+@@ -248,11 +270,12 @@ that protects security and data is still required.
+ ```bash
+ systemd-inhibit --what=sleep:idle python3 scripts/edge/g3b_campaign.py run --state $EV/state.json
+ python3 scripts/edge/g3b_campaign.py status --state $EV/state.json      # in another terminal
++watch -n 30 "python3 scripts/edge/g3b_campaign.py status --state $EV/state.json | grep -E '\"(CURRENT_PHASE|L4|L5|CLIENT_NETWORK|GRAFANA|EVIDENCE_WINDOW|EVIDENCE_WINDOW_REMAINING_MIN|CLEANUP_STATUS|SLEEP_STATUS)\"'"
+ ```
+ 
+ | Behaviour | What happens |
+ |---|---|
+-| Deadline | 3 h from the wake; no step starts after it |
++| Deadline | 3 h from the wake; no step starts after it. Expected use: about 1 h to the end of public-e2e (live DNS-transition runs reached the open LB 12 min after wake; L4 can take up to 20 min), then the 45-min window, then cleanup (about 18 min, never cut short by the deadline) |
+ | Commands | each runs in its own process group with a timeout bounded by the deadline (max 30 min); a timeout ends the whole group |
+ | Stop safely | Ctrl-C or `kill -TERM <main pid>` (shown in `status`): the running command is ended, then cleanup runs. A second signal does not interrupt cleanup |
+ | Main process hung | `kill -9 <main pid>`, then `g3b_campaign.py cleanup --state $EV/state.json` (resumable). The optional watchdog does the same after a stale heartbeat, and sends SIGTERM to a main process still running 15 min past the deadline. It never cleans up while the main process holds the campaign lock |
+@@ -268,9 +291,11 @@ python3 scripts/edge/g3b_campaign.py status --state $EV/state.json      # in ano
+ | L2/L3/L6 | `internet-gates` | PUBLIC_INTERNET | `negative_tests.py --rate-limit-mode http2` |
+ | L5 | `internet-gates` | PUBLIC_INTERNET | this machine must be inside the approved CIDRs (checked first) |
+ | L4 | `L4-denied` | PUBLIC_INTERNET, **only from a non-approved address** | this laptop on another network; otherwise `L4_BLOCKED_NO_VERIFIED_EXTERNAL_SOURCE` |
++| Back on an approved network | `approved-network` | client address (IPv4, not recorded) | waits up to 15 min for this laptop to be inside the approved CIDRs again; outside or unverifiable means FAIL and cleanup (public-e2e needs an approved client) |
+ | L1 | `production-certificate` + `public-e2e` (row 43) | PUBLIC_INTERNET | system trust, 4 SANs, TLS 1.1 refused |
+ | L7/L8 | `public-e2e` | GKE_PRIVATE / PUBLIC_INTERNET | ownership preflight live; regression against the baseline |
+ | L9 / rows 37–39 | `grafana` + `public-e2e` | PUBLIC_INTERNET | `release_diff.py` must be clean before the one-line upgrade; rows 37–39 must pass, else `GRAFANA_VERIFICATION_*` |
++| Owner evidence window | `evidence-window` | none (a pause) | only after a passed public-e2e; see *Evidence window and screenshots* |
+ 
+ **L4 needs a real request from outside the approved CIDRs.** No mocks, forged headers,
+ port-forward, kind run or result file from elsewhere counts. When `status` shows
+@@ -284,6 +309,17 @@ laptop** to another network (for example a phone hotspot). It then:
+ Then the owner switches back. The client-side address check only decides whether the test may
+ run; the acceptance is the gateway's 403 to that real request.
+ 
++**Hotspot steps (owner).** kubectl keeps working on any network (the kubeconfig uses the GKE DNS
++endpoint, IAM-authenticated), so the orchestrator keeps running while the laptop moves.
++1. Stay on the approved network until `CURRENT_PHASE: L4-denied` (L5 has passed by then).
++2. Move this laptop to the phone hotspot. Do not stop the campaign.
++3. Wait for `L4: PASS (this client, outside the approved CIDRs before and after)`, about one minute.
++4. Move back to the approved network at once. `approved-network` waits at most 15 minutes and shows `CLIENT_NETWORK: approved`.
++5. If the hotspot address happens to be inside the allowlist, L4 ends `L4_BLOCKED_NO_VERIFIED_EXTERNAL_SOURCE`. The run continues safely, but security is INCOMPLETE.
++
++Client addresses are looked up with `dig -4` (the gateway sees IPv4) and never written to the
++state or evidence.
++
+ `l4-external.jsonl` from a second machine is **not accepted**: nothing in such a file proves its
+ source address, its age or its campaign. Without a verified source, L4 is
+ `L4_BLOCKED_NO_VERIFIED_EXTERNAL_SOURCE`. The campaign continues (nothing unsafe), but the
+@@ -318,9 +354,58 @@ never PASS. These are technical checks; the official G4 screenshots are a separa
+ A step that fails is recorded, the following safe steps still run, and `cleanup` can be run
+ again to resume.
+ 
++### Evidence window and screenshots (rows 37–43)
++
++With `--evidence-window-minutes 45`, the campaign stops after a **passed** `public-e2e` and holds
++the public edge unchanged: trusted certificate, Grafana root URL, Basic Auth, source restriction
++and rate limit all in place. `status` shows `EVIDENCE_WINDOW: open` and
++`EVIDENCE_WINDOW_REMAINING_MIN`.
++
++- The window closes on `python3 scripts/edge/g3b_campaign.py continue --state $EV/state.json` (accepted only while it is open), when the minutes run out, or when only 30 minutes remain before the deadline. Cleanup then starts by itself.
++- Ctrl-C also ends it, with cleanup; the run is then recorded as stopped.
++- A failed `public-e2e` never opens the window. The window changes no verdict and runs no command.
++
++Screenshots, taken by the owner during the window (`~/Pictures/Screenshots/GW-<row>-<subject>.png`):
++
++| ID | Row | Screenshot | Required |
++|---|---|---|---|
++| GW-43-padlock | 43 | padlock and certificate details on `https://features.$D/` (Let's Encrypt, 4 names) | yes |
++| GW-43-api | 43 | terminal: authenticated Feature API lookup over HTTPS (422/424 = application reached) | yes |
++| GW-42-dialog | 42 | the browser's Basic Auth dialog | yes |
++| GW-42-401 | 42 | terminal: `curl -sI https://features.$D/` → 401 with `www-authenticate: Basic realm="e-wallet"` | yes |
++| GW-37-metrics | 37 | `https://observe.$D/` dashboard with live panels (edge auth, then Grafana login) | yes |
++| GW-38-logs | 38 | Grafana Explore → Loki `{namespace="ewallet-agents"}` with recent lines | yes |
++| GW-39-traces | 39 | Grafana Explore → Tempo, one trace with spans | yes |
++| GW-40-agents | 40 | `https://agents.$D/`, one short synthetic prompt answered | yes |
++| GW-41-registry | 41 | `https://registry.$D/` listing an agent | yes |
++
++These can be taken after cleanup, from the evidence files or with 0 nodes:
++- GW-42-429: the `14-negative.jsonl` burst line (required);
++- GW-L4-403: `11-l4-denied.jsonl` (optional);
++- GW-routes: `kubectl get gateway,httproute -n ewallet-ingress` (optional);
++- GW-verdict: `g3b_campaign.py status` (optional);
++- GW-sleep: `cloud_lab.py verify --expect sleep` plus `dns_check.py --expect-offline` (optional).
++
++Record `sha256sum ~/Pictures/Screenshots/GW-*.png` in the campaign evidence.
++
++**Automated PASS is not screenshot evidence.** `G4_AUTOMATED_CHECKS_STATUS: COMPLETE` means the
++repository checks passed. Rows 37–43 are `EVIDENCE_COMPLETE` only when the owner's required
++screenshots exist from the same campaign.
++
++**Grafana root URL after cleanup.** The approved upgrade sets `GF_SERVER_ROOT_URL` to
++`https://observe.$D/`, and cleanup does not revert it. After the campaign, Grafana opened through
++a local port-forward may redirect to that (offline) public URL. A revert is a separate,
++owner-approved `helm upgrade llm-agent` without the `--set`.
++
++**Incomplete cleanup.** `status` lists `cleanup_failed_steps`, and `$EV/ALERT.txt` explains them.
++A kept LB means DNS could not be proven offline: the owner uses the Dynu panel *Go Offline Now*,
++runs `dns_check.py --expect-offline …` until `DNS_OFFLINE_OK`, then runs
++`g3b_campaign.py cleanup --state $EV/state.json`. It resumes and skips finished steps. Never two
++cleanups at once (the campaign lock refuses a second).
++
+ ### Owner G4 replay (separate session)
+ 
+-Claude does not take the official screenshots. After the G3-B campaign has ended and GKE is asleep, the owner:
++Only if a screenshot was missed: Claude does not take the official screenshots. After the G3-B campaign has ended and GKE is asleep, the owner:
+ 1. Wakes the cluster under control.
+ 2. Re-runs the repository scripts (table *G4 evidence replay* above: `public_e2e.py`, `negative_tests.py`).
+ 3. Uses the real UIs and takes the screenshots.
+diff --git a/scripts/edge/g3b_campaign.py b/scripts/edge/g3b_campaign.py
+index 6f1f5621..c12d93bc 100644
+--- a/scripts/edge/g3b_campaign.py
++++ b/scripts/edge/g3b_campaign.py
+@@ -13,7 +13,8 @@ written atomically, so any process can resume or clean up.
+   cleanup   idempotent, resumable, bounded retries; never bypasses Cloud Lab, PDB or KEDA guards
+   watchdog  for the systemd user timer: cleans up when the deadline passed, or when the
+             heartbeat is stale and the main process is gone
+-  status    print the state
++  status    print the state (and the evidence window's remaining minutes)
++  continue  end the owner's evidence window early (only while it is open); cleanup follows
+ 
+ Guarantees, honestly: commands run in their own process group with a timeout bounded by the
+ deadline, so no step outlives it by more than its own kill; SIGTERM/SIGINT stops the running
+@@ -45,6 +46,17 @@ gateway is restarted (Envoy reads the users file at start-up) and re-checked. pr
+ proves the behaviour (no / wrong credentials refused, valid accepted, agents restricted, rate
+ limit) before any public LB.
+ 
++Supervised evidence window (g3b scope, supervised, --evidence-window-minutes N, 1..60): after a
++passed public-e2e the campaign holds the public edge, changing nothing, so the owner can take the
++G4 screenshots. It ends on `continue`, when the N minutes are over, when only the cleanup reserve
++(30 min) is left before the deadline, or on SIGTERM/SIGINT; then cleanup runs as always. A failed
++public-e2e never opens it, and it never changes a verdict. `continue` writes only a marker file
++(exclusive create), never state.json, so it cannot race the main process.
++
++After L4 the campaign waits (at most 15 min) until this client is back inside the approved CIDRs
++(phase approved-network); otherwise it stops and cleans up. Client addresses are looked up over
++IPv4 (dig -4), as the gateway sees them, and never recorded.
++
+ DNS before the LB: the LB address is released only after dns_check.py proves the names no
+ longer point at it. If that cannot be proven, the LB is kept (its address stays ours, so no
+ record dangles to someone else's address), the nodes still go to guarded sleep, and the result
+@@ -81,15 +93,21 @@ COMMAND_TIMEOUT = 1800              # no single command runs longer
+ MIN_COMMAND_TIMEOUT = 30            # a command started just before the deadline still gets this long
+ ACME_WAIT_SECONDS = 600             # cleanup lets an in-flight certbot finish this long before ending it
+ L4_WAIT_SECONDS = 1200              # how long the L4 phase waits for an external vantage point
++RETURN_WAIT_SECONDS = 900           # after L4: how long to wait for this client to be back on an approved network
++EVIDENCE_WINDOW_MAX_MINUTES = 60
++CLEANUP_RESERVE_SECONDS = 1800      # the evidence window always ends this long before the deadline
++WINDOW_POLL_SECONDS = 10
++CONTINUE_MARKER = "evidence-window-continue"
++CERTBOT_PIN = "certbot==5.10.0"     # the version issue_certificate.sh runs through uvx
+ PORT_FORWARD = ("18443", "18080")
+ GATEWAY_DEPLOYMENT = "ewallet-edge-gateway"
+ COMMON_GATES = ("CLOUD_LAB_RECOVERY_MANIFEST_VALID", "PDB_APPROVAL_COMPLETE", "KEDA_SLEEP_APPROVAL_READY",
+                 "GUARDED_SLEEP_PLAN_VALID", "CLIENT_ADDRESS_APPROVED", "SAFE_CLEANUP_READY", "L0_RENDER_READY",
+-                "EDGE_AUTH_READY", "OWNER_LIVE_APPROVAL")
++                "EDGE_AUTH_READY", "CERTBOT_READY", "OWNER_LIVE_APPROVAL")
+ GATES = COMMON_GATES + ("UNATTENDED_CLEANUP_READY",)   # unattended mode; supervised mode uses COMMON_GATES
+ # dns-transition scope: no G3-B live approval and no SAFE_CLEANUP_READY (that is what it proves);
+ # instead the DNS test preconditions and the owner's approval of exactly this test.
+-TRANSITION_GATES = tuple(g for g in COMMON_GATES if g not in ("SAFE_CLEANUP_READY", "OWNER_LIVE_APPROVAL")) + (
++TRANSITION_GATES = tuple(g for g in COMMON_GATES if g not in ("SAFE_CLEANUP_READY", "OWNER_LIVE_APPROVAL", "CERTBOT_READY")) + (
+     "DNS_TRANSITION_TEST_READY", "OWNER_DNS_TRANSITION_APPROVAL")
+ 
+ 
+@@ -157,6 +175,7 @@ class Executor:
+         self.current: subprocess.Popen | None = None
+         self.deadline: float | None = None
+         self.on_start: Callable[[int], None] | None = None
++        self.stop_requested = False  # set by run()'s signal handler; long waits poll it
+ 
+     def run(self, cmd: list[str], env: dict | None = None, timeout: int = COMMAND_TIMEOUT) -> tuple[int, str]:
+         if self.deadline:
+@@ -233,6 +252,8 @@ class Simulator(Executor):
+             return 0, "EDGE_AUTH_MATCH"
+         if "myip.opendns.com" in text:
+             return 0, os.environ.get("EDGE_SIM_MYIP", "203.0.113.7")
++        if "certbot --version" in text:
++            return 0, "certbot 5.10.0"
+         if "-o name" in text and "app.kubernetes.io/part-of=ewallet-edge" in text:
+             names = ["httproute.gateway.networking.k8s.io/" + n for n in ("feature-api", "kagent-ui", "agent-registry", "grafana", "https-redirect")]
+             if os.environ.get("EDGE_SIM_ACME_STAYS"):
+@@ -304,10 +325,14 @@ def cert(state: dict, environment: str, *extra: str) -> list[str]:
+             "--context", c["context"], "--kubeconfig", c["kubeconfig"], "--private-dir", str(Path(c["private"]) / "tls"), *extra]
+ 
+ 
++# IPv4 transport: the gateway sees the client's IPv4 address; over IPv6 OpenDNS answers no A record.
++MYIP_LOOKUP = ["dig", "-4", "+short", "myip.opendns.com", "@resolver1.opendns.com"]
++
++
+ def client_in_allowlist(state: dict, ex: Executor) -> bool | None:
+     """Is this machine's public address inside the approved CIDRs? (None: unknown.) The
+     address itself is never written to the state."""
+-    rc, out = ex.run(["dig", "+short", "myip.opendns.com", "@resolver1.opendns.com"], timeout=30)
++    rc, out = ex.run(MYIP_LOOKUP, timeout=30)
+     try:
+         mine = ipaddress.ip_address(out.strip().splitlines()[-1]) if rc == 0 and out.strip() else None
+     except ValueError:
+@@ -551,6 +576,58 @@ def phases(state: dict) -> list[tuple[str, Callable]]:
+         remember(L4="L4_BLOCKED_NO_VERIFIED_EXTERNAL_SOURCE")
+         return None
+ 
++    def approved_network(state, ex):
++        """After L4 the owner returns to an approved network; public-e2e needs it. Only a verified
++        address inside the approved CIDRs counts; unknown is not inside."""
++        polls = 3 if isinstance(ex, Simulator) else max(1, RETURN_WAIT_SECONDS // 30)
++        inside = None
++        for attempt in range(polls):
++            if ex.deadline and now() > ex.deadline:
++                return "DEADLINE_EXPIRED"
++            inside = client_in_allowlist(state, ex)
++            if inside:
++                remember(CLIENT_NETWORK="approved")
++                return None
++            if attempt + 1 < polls:
++                time.sleep(0 if isinstance(ex, Simulator) else 30)
++        remember(CLIENT_NETWORK="not approved" if inside is False else "unverified")
++        return ("client not back inside the approved CIDRs within 15 min" if inside is False
++                else "client address could not be verified within 15 min")
++
++    def evidence_window(state, ex):
++        """Hold the public edge for the owner's screenshots; nothing is changed. Ends on the
++        owner's `continue` marker, the window length, the cleanup reserve before the deadline, or
++        a signal (stop_requested). Never an error: it does not change any verdict."""
++        marker = ev / CONTINUE_MARKER
++        marker.unlink(missing_ok=True)  # a marker written before the window opened does not count
++        end = now() + int(c["evidence_window_minutes"]) * 60
++        if ex.deadline:
++            end = min(end, ex.deadline - CLEANUP_RESERVE_SECONDS)
++        if end <= now():
++            remember(EVIDENCE_WINDOW="skipped: inside the cleanup reserve before the deadline")
++            return None
++        if isinstance(ex, Simulator) and not os.environ.get("EDGE_SIM_WINDOW_WAIT"):
++            remember(EVIDENCE_WINDOW="closed: simulated (no wait)")
++            return None
++        remember(EVIDENCE_WINDOW="open", evidence_window_until=end, EVIDENCE_WINDOW_UNTIL=iso(end))
++        reason = "window expired"
++        while True:
++            if marker.exists():
++                reason = "owner continue"
++                break
++            if ex.stop_requested:
++                reason = "signal"
++                break
++            left = end - now()
++            if left <= 0:
++                reason = "window expired" if end < (ex.deadline or float("inf")) - CLEANUP_RESERVE_SECONDS else "deadline cleanup reserve"
++                break
++            state["heartbeat"] = now()
++            save(path(), state)
++            time.sleep(min(WINDOW_POLL_SECONDS, left))
++        remember(EVIDENCE_WINDOW=f"closed: {reason}", EVIDENCE_WINDOW_CLOSED=iso(now()))
++        return None
++
+     def certificate(environment, *extra):
+         def run(state, ex):
+             remember(ACME_STATUS=f"issuing-{environment}")
+@@ -632,6 +709,7 @@ def phases(state: dict) -> list[tuple[str, Callable]]:
+         ("dns-online", dns_online),
+         ("internet-gates", internet_gates),
+         ("L4-denied", l4_denied),
++        ("approved-network", approved_network),
+         ("staging-certificate", certificate("staging")),
+         ("production-certificate", certificate("production", "--confirm-production", "--import")
+          if state["approvals"].get("production_certificate") else (lambda s, e: "production certificate not approved")),
+@@ -639,6 +717,8 @@ def phases(state: dict) -> list[tuple[str, Callable]]:
+         ("grafana", grafana),
+         ("public-e2e", public_e2e),
+     ]
++    if int(c.get("evidence_window_minutes") or 0) > 0:
++        full.append(("evidence-window", evidence_window))  # only reached after a passed public-e2e
+     if state.get("scope") == "dns-transition":
+         names = [n for n, _ in full]
+         return full[:names.index("open-lb") + 1] + [("dns-transition", dns_transition)]
+@@ -827,6 +907,7 @@ def run(state_path: Path, ex: Executor) -> dict:
+ 
+     def on_signal(signum, _frame):
+         stop["signal"] = signal.Signals(signum).name
++        ex.stop_requested = True
+         ex.terminate_current()  # the running command (and its children) stops now; cleanup follows
+     signal.signal(signal.SIGTERM, on_signal)
+     signal.signal(signal.SIGINT, on_signal)
+@@ -857,6 +938,8 @@ def run(state_path: Path, ex: Executor) -> dict:
+             result = state.get("L4", "NOT_RUN")
+         if error is None and name == "grafana" and state.get("GRAFANA") != "ROOT_URL_APPLIED":
+             result = state.get("GRAFANA", "NOT_RUN")
++        if name == "evidence-window":
++            result = state.get("EVIDENCE_WINDOW", "NOT_RUN")  # a pause, never a gate
+         state.setdefault("phases", {})[name] = result
+         if name == "baseline" and error is None:
+             state["baseline_passed"] = True
+@@ -979,7 +1062,8 @@ def init(args: argparse.Namespace, ex: Executor) -> dict:
+            "grafana_credentials": outside_repo(args.grafana_credentials, "Grafana credentials", problems, required=False),
+            "dns_credentials": outside_repo(args.dns_credentials, "DNS credentials", problems, required=False),
+            "dns_offline_mode": args.dns_offline_mode, "dns_offline_ip": args.dns_offline_ip,
+-           "dns_offline_ipv6": getattr(args, "dns_offline_ipv6", None)}
++           "dns_offline_ipv6": getattr(args, "dns_offline_ipv6", None),
++           "evidence_window_minutes": int(getattr(args, "evidence_window_minutes", 0) or 0)}
+     for key, version in (("dns_offline_ip", 4), ("dns_offline_ipv6", 6)):
+         if cfg[key]:
+             try:
+@@ -993,6 +1077,11 @@ def init(args: argparse.Namespace, ex: Executor) -> dict:
+     mode = getattr(args, "mode", "unattended")
+     if scope == "dns-transition" and mode != "supervised":
+         problems.append("the dns-transition scope runs supervised only (--mode supervised)")
++    window = cfg["evidence_window_minutes"]
++    if window and (scope != "g3b" or mode != "supervised"):
++        problems.append("--evidence-window-minutes needs --scope g3b --mode supervised")
++    if not 0 <= window <= EVIDENCE_WINDOW_MAX_MINUTES:
++        problems.append(f"--evidence-window-minutes must be 0..{EVIDENCE_WINDOW_MAX_MINUTES}")
+     if cfg["dns_offline_mode"] == "signoff" and not (cfg["dns_offline_ip"] and cfg["dns_offline_ipv6"]):
+         problems.append("signoff needs --dns-offline-ip and --dns-offline-ipv6 (Dynu answers its offline server on both families)")
+     cidrs = [l.split("#")[0].strip() for l in Path(cfg["approved_cidrs"]).read_text().splitlines()] if cfg["approved_cidrs"] and Path(cfg["approved_cidrs"]).exists() else []
+@@ -1046,6 +1135,11 @@ def init(args: argparse.Namespace, ex: Executor) -> dict:
+     word = (out_a.split() or ["EDGE_AUTH_CHECK_FAILED"])[0].rstrip(":")
+     edge_auth_init = word if word in ("EDGE_AUTH_MATCH", "EDGE_AUTH_MISMATCH", "EDGE_AUTH_MISSING") else "EDGE_AUTH_CHECK_FAILED"
+     gates["EDGE_AUTH_READY"] = "PASS" if rc_a == 0 or (rc_a == 1 and approvals["edge_secret_sync"]) else "FAIL"
++    if scope == "g3b":
++        # issue_certificate.sh runs certbot through uvx; prove both are reachable before any wake
++        uvx = shutil.which("uvx") or ("uvx" if isinstance(ex, Simulator) else None)
++        rc_c, out_c = ex.run([uvx, "--from", CERTBOT_PIN, "certbot", "--version"], timeout=300) if uvx else (127, "")
++        gates["CERTBOT_READY"] = "PASS" if rc_c == 0 and CERTBOT_PIN.replace("==", " ") in out_c else "FAIL"
+     # L0 render, offline: the exact public render must already pass the strict preflight.
+     l0 = []
+     for out, cmd in ((campaign / "l0-gateway.yaml", ["helm", "template", "ewallet-edge-gateway", cfg["gateway_chart"], "-n",
+@@ -1061,7 +1155,7 @@ def init(args: argparse.Namespace, ex: Executor) -> dict:
+                         "--approved-cidrs-file", cfg["approved_cidrs"] or "/nonexistent",
+                         str(campaign / "l0-gateway.yaml"), str(campaign / "l0-edge.yaml")), timeout=120)
+     gates["L0_RENDER_READY"] = "PASS" if l0 == [0, 0] and rc_p == 0 else "FAIL"
+-    rc_ip, ip = ex.run(["dig", "+short", "myip.opendns.com", "@resolver1.opendns.com"])
++    rc_ip, ip = ex.run(MYIP_LOOKUP)
+     try:
+         mine = ipaddress.ip_address(ip.strip().splitlines()[-1]) if rc_ip == 0 and ip.strip() else None
+         inside = mine is not None and any(mine in ipaddress.ip_network(x) for x in cidrs)
+@@ -1083,6 +1177,30 @@ def init(args: argparse.Namespace, ex: Executor) -> dict:
+     return state
+ 
+ 
++def request_continue(state_path: Path) -> tuple[int, str]:
++    """Owner: end the evidence window early. Reads state.json only; writes one marker file with an
++    exclusive create, so it never races the main process's state writes."""
++    state = load(state_path)
++    until = state.get("evidence_window_until")
++    if state.get("CURRENT_PHASE") != "evidence-window" or state.get("EVIDENCE_WINDOW") != "open" or not until or now() >= until:
++        return 1, f"CONTINUE_REJECTED: no evidence window is open (phase {state.get('CURRENT_PHASE')}, window {state.get('EVIDENCE_WINDOW')})"
++    marker = Path(state["config"]["campaign_dir"]) / CONTINUE_MARKER
++    try:
++        fd = os.open(marker, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
++    except FileExistsError:
++        return 0, "CONTINUE_ALREADY_REQUESTED"
++    with os.fdopen(fd, "w") as handle:
++        handle.write(f"{iso(now())} owner continue\n")
++    return 0, "CONTINUE_ACCEPTED: the window closes within 10 s, then cleanup runs"
++
++
++def window_status(state: dict) -> dict:
++    until = state.get("evidence_window_until")
++    open_ = state.get("EVIDENCE_WINDOW") == "open" and until
++    return {"EVIDENCE_WINDOW": state.get("EVIDENCE_WINDOW", "NOT_CONFIGURED" if not state.get("config", {}).get("evidence_window_minutes") else "NOT_OPEN"),
++            "EVIDENCE_WINDOW_REMAINING_MIN": round(max(0.0, until - now()) / 60, 1) if open_ else None}
++
++
+ def main(argv: list[str] | None = None) -> int:
+     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+     parser.add_argument("--simulate", action="store_true", help="record commands instead of running them (offline tests)")
+@@ -1112,7 +1230,9 @@ def main(argv: list[str] | None = None) -> int:
+                  "dns-offline-verified", "accept-local-only-risk", "cloud-fallback-ready"):
+         i.add_argument(f"--{flag}", action="store_true")
+     i.add_argument("--also-approve", action="append", default=[], metavar="NS/NAME")
+-    for name in ("run", "cleanup", "watchdog", "status"):
++    i.add_argument("--evidence-window-minutes", type=int, default=0,
++                   help="g3b + supervised: hold the public edge this long (1..60, recommended 45) after a passed public-e2e")
++    for name in ("run", "cleanup", "watchdog", "status", "continue"):
+         sub.add_parser(name).add_argument("--state", required=True)
+     args = parser.parse_args(argv)
+     state_path = Path(getattr(args, "state", "") or (Path(getattr(args, "campaign_dir", ".")).expanduser() / "state.json"))
+@@ -1123,8 +1243,12 @@ def main(argv: list[str] | None = None) -> int:
+         return 0 if all(v == "PASS" for v in state["gates"].values()) else 1
+     if args.command == "status":
+         state = load(state_path)
+-        print(json.dumps({**state, "verdicts": verdicts(state)}, indent=2, sort_keys=True))
++        print(json.dumps({**state, "verdicts": verdicts(state), **window_status(state)}, indent=2, sort_keys=True))
+         return 0
++    if args.command == "continue":
++        rc, message = request_continue(state_path)
++        print(message)
++        return rc
+     if args.command == "watchdog":
+         print(watchdog(state_path, ex) if state_path.exists() else "IDLE (no active campaign)")
+         return 0
+diff --git a/tests/ops/test_g3b_evidence_window.py b/tests/ops/test_g3b_evidence_window.py
+new file mode 100644
+index 00000000..e04c2e18
+--- /dev/null
++++ b/tests/ops/test_g3b_evidence_window.py
+@@ -0,0 +1,296 @@
++"""Full G3-B pre-live patch: owner evidence window, return to the approved network, IPv4 client
++lookup and the certbot preflight gate (offline: Simulator commands, fake clock)."""
++
++from __future__ import annotations
++
++import json
++import os
++from pathlib import Path
++import signal
++import threading
++
++import pytest
++
++from tests.ops.test_dns_campaign import Recorder, camp, ready_state
++from tests.ops.test_g3b_supervised import Campaign, rows_for
++
++INSIDE, OUTSIDE = "203.0.113.7", "198.51.100.200"
++
++
++def g3b(tmp_path, window=45, **kw):
++    args = dict(mode="supervised", approve_live_campaign=True, evidence_window_minutes=window)
++    args.update(kw)
++    return ready_state(tmp_path, **args)
++
++
++class Clock:
++    """now() and time.sleep() on a fake clock; ``on_sleep`` runs at each window poll."""
++
++    def __init__(self, monkeypatch, on_sleep=None):
++        self.t, self.on_sleep, self.sleeps = 1_000_000.0, on_sleep, []
++        monkeypatch.setattr(camp, "now", lambda: self.t)
++        monkeypatch.setattr(camp.time, "sleep", self.sleep)
++        monkeypatch.setenv("EDGE_SIM_WINDOW_WAIT", "1")
++
++    def sleep(self, seconds):
++        self.sleeps.append(seconds)
++        if seconds and self.on_sleep:
++            self.on_sleep(self)
++        self.t += seconds
++
++
++def names(state):
++    return [n for n, _ in camp.phases(state)]
++
++
++# --- configuration --------------------------------------------------------------------------------
++
++def test_disabled_by_default_cleanup_follows_public_e2e(tmp_path):
++    path, state = g3b(tmp_path, window=0)
++    assert "evidence-window" not in names(state)
++    result = camp.run(path, Campaign(tmp_path / "sim.jsonl", e2e_rows=rows_for))
++    assert "evidence-window" not in result["phases"] and result["CLEANUP_STATUS"] == "COMPLETE"
++    assert camp.window_status(result)["EVIDENCE_WINDOW"] == "NOT_CONFIGURED"
++
++
++@pytest.mark.parametrize("change,problem", [
++    ({"mode": "unattended", "accept_local_only_risk": True}, "needs --scope g3b --mode supervised"),
++    ({"scope": "dns-transition", "approve_dns_transition_test": True, "dns_offline_verified": False}, "needs --scope g3b --mode supervised"),
++    ({"window": 61}, "must be 0..60"),
++    ({"window": -1}, "must be 0..60"),
++])
++def test_window_only_for_supervised_g3b_and_at_most_60_minutes(tmp_path, change, problem):
++    change = dict(change)
++    _, state = g3b(tmp_path, window=change.pop("window", 45), **change)
++    assert any(problem in p for p in state["gate_problems"])
++    assert not all(v == "PASS" for v in state["gates"].values())
++
++
++def test_window_is_the_last_phase_after_public_e2e(tmp_path):
++    _, state = g3b(tmp_path)
++    assert names(state)[-2:] == ["public-e2e", "evidence-window"]
++
++
++# --- the window -----------------------------------------------------------------------------------
++
++def test_simulation_closes_the_window_without_waiting(tmp_path):
++    path, _ = g3b(tmp_path)
++    result = camp.run(path, Campaign(tmp_path / "sim.jsonl", e2e_rows=rows_for))
++    assert result["phases"]["evidence-window"] == "closed: simulated (no wait)"
++    assert result["CLEANUP_STATUS"] == "COMPLETE" and result["SLEEP_STATUS"] == "VERIFIED"
++
++
++def test_window_expires_then_cleanup_runs_and_nothing_runs_during_it(tmp_path, monkeypatch):
++    path, _ = g3b(tmp_path, window=2)
++    ex = Campaign(tmp_path / "sim.jsonl", e2e_rows=rows_for)
++    during = []
++    Clock(monkeypatch, on_sleep=lambda c: during.append(len(ex.cmds)))
++    result = camp.run(path, ex)
++    assert result["phases"]["evidence-window"] == "closed: window expired"
++    assert len(set(during)) == 1  # no command at all while the window was open
++    signoff = max(i for i, (c, _) in enumerate(ex.cmds) if "offline --mode signoff" in c)
++    assert result["CLEANUP_STATUS"] == "COMPLETE" and signoff >= during[0]  # cleanup after the window
++
++
++def test_continue_during_the_window_closes_it(tmp_path, monkeypatch):
++    path, _ = g3b(tmp_path, window=45)
++    answers = []
++
++    def owner(clock):
++        if not answers:
++            answers.append(camp.request_continue(path))
++    clock = Clock(monkeypatch, on_sleep=owner)
++    result = camp.run(path, Campaign(tmp_path / "sim.jsonl", e2e_rows=rows_for))
++    assert answers[0][0] == 0 and answers[0][1].startswith("CONTINUE_ACCEPTED")
++    assert result["phases"]["evidence-window"] == "closed: owner continue"
++    assert sum(clock.sleeps) < 45 * 60 and result["CLEANUP_STATUS"] == "COMPLETE"
++
++
++def test_continue_is_rejected_before_and_after_the_window(tmp_path):
++    path, _ = g3b(tmp_path)
++    rc, message = camp.request_continue(path)
++    assert rc == 1 and message.startswith("CONTINUE_REJECTED")
++    camp.run(path, Campaign(tmp_path / "sim.jsonl", e2e_rows=rows_for))
++    rc, message = camp.request_continue(path)
++    assert rc == 1 and message.startswith("CONTINUE_REJECTED")
++    assert not (Path(json.loads(path.read_text())["config"]["campaign_dir"]) / camp.CONTINUE_MARKER).exists()
++
++
++def test_a_stale_marker_from_before_the_window_does_not_close_it(tmp_path, monkeypatch):
++    path, state = g3b(tmp_path, window=1)
++    (Path(state["config"]["campaign_dir"]) / camp.CONTINUE_MARKER).write_text("stale")
++    Clock(monkeypatch)
++    result = camp.run(path, Campaign(tmp_path / "sim.jsonl", e2e_rows=rows_for))
++    assert result["phases"]["evidence-window"] == "closed: window expired"
++
++
++def test_concurrent_continue_requests_create_one_marker_and_never_touch_state(tmp_path, monkeypatch):
++    path, _ = g3b(tmp_path)
++    seen = {}
++
++    def owners(clock):
++        if seen:
++            return
++        before = path.read_bytes()
++        results, barrier = [], threading.Barrier(8)
++
++        def one():
++            barrier.wait()
++            results.append(camp.request_continue(path))
++        threads = [threading.Thread(target=one) for _ in range(8)]
++        for t in threads:
++            t.start()
++        for t in threads:
++            t.join()
++        seen.update(results=results, unchanged=path.read_bytes() == before)
++    Clock(monkeypatch, on_sleep=owners)
++    result = camp.run(path, Campaign(tmp_path / "sim.jsonl", e2e_rows=rows_for))
++    messages = [m for _, m in seen["results"]]
++    assert sum(m.startswith("CONTINUE_ACCEPTED") for m in messages) == 1
++    assert sum(m == "CONTINUE_ALREADY_REQUESTED" for m in messages) == 7
++    assert seen["unchanged"] and json.loads(path.read_text())["CLEANUP_STATUS"] == "COMPLETE"
++    assert result["phases"]["evidence-window"] == "closed: owner continue"
++
++
++def window_function(state):
++    return dict(camp.phases(state))["evidence-window"]
++
++
++def test_window_ends_30_minutes_before_the_deadline(tmp_path, monkeypatch):
++    path, state = g3b(tmp_path, window=60)
++    state["state_path"] = str(path)
++    clock = Clock(monkeypatch)
++    ex = Recorder(tmp_path / "sim.jsonl")
++    ex.deadline = clock.t + 40 * 60  # 40 min left: only 10 min of window allowed
++    window_function(state)(state, ex)
++    assert state["EVIDENCE_WINDOW"] == "closed: deadline cleanup reserve"
++    assert abs(sum(clock.sleeps) - 10 * 60) < 1
++
++
++def test_no_window_inside_the_cleanup_reserve(tmp_path, monkeypatch):
++    path, state = g3b(tmp_path, window=45)
++    state["state_path"] = str(path)
++    clock = Clock(monkeypatch)
++    ex = Recorder(tmp_path / "sim.jsonl")
++    ex.deadline = clock.t + 20 * 60
++    window_function(state)(state, ex)
++    assert state["EVIDENCE_WINDOW"].startswith("skipped") and not clock.sleeps
++
++
++@pytest.mark.parametrize("signum", [signal.SIGTERM, signal.SIGINT])
++def test_a_signal_during_the_window_still_runs_cleanup(tmp_path, monkeypatch, signum):
++    path, _ = g3b(tmp_path, window=45)
++    sent = []
++
++    def owner(clock):
++        if not sent:
++            sent.append(True)
++            os.kill(os.getpid(), signum)
++    Clock(monkeypatch, on_sleep=owner)
++    try:
++        result = camp.run(path, Campaign(tmp_path / "sim.jsonl", e2e_rows=rows_for))
++    finally:
++        signal.signal(signal.SIGTERM, signal.SIG_DFL)
++        signal.signal(signal.SIGINT, signal.default_int_handler)
++    assert result["EVIDENCE_WINDOW"] == "closed: signal"
++    assert result["G3B_STATUS"].startswith("stopped by")
++    assert result["CLEANUP_STATUS"] == "COMPLETE" and result["SLEEP_STATUS"] == "VERIFIED"
++
++
++def test_a_failed_public_e2e_never_opens_the_window(tmp_path, monkeypatch):
++    path, _ = g3b(tmp_path)
++    Clock(monkeypatch)
++    result = camp.run(path, Campaign(tmp_path / "sim.jsonl", fail=("14-e2e.jsonl",), e2e_rows=rows_for))
++    assert result["phases"]["public-e2e"].startswith("FAIL") and "evidence-window" not in result["phases"]
++    assert result["CLEANUP_STATUS"] == "COMPLETE"
++
++
++def test_window_does_not_change_verdicts(tmp_path):
++    (tmp_path / "a").mkdir()
++    (tmp_path / "b").mkdir()
++    with_window, _ = g3b(tmp_path / "a")
++    without, _ = g3b(tmp_path / "b", window=0)
++    a = camp.run(with_window, Campaign(tmp_path / "a.jsonl", e2e_rows=rows_for))["verdicts"]
++    b = camp.run(without, Campaign(tmp_path / "b.jsonl", e2e_rows=rows_for))["verdicts"]
++    assert a == b
++
++
++def test_production_certificate_gate_still_stops_before_the_window(tmp_path):
++    path, _ = g3b(tmp_path, approve_production_certificate=False)
++    result = camp.run(path, Campaign(tmp_path / "sim.jsonl", e2e_rows=rows_for))
++    assert result["phases"]["production-certificate"] == "FAIL: production certificate not approved"
++    assert "evidence-window" not in result["phases"] and result["cleanup_steps"]["dns-verify-before-release"]["ok"]
++
++
++def test_status_shows_window_state_and_remaining_minutes(tmp_path, monkeypatch):
++    path, _ = g3b(tmp_path, window=45)
++    seen = {}
++
++    def peek(clock):
++        if not seen:
++            seen.update(camp.window_status(json.loads(path.read_text())))
++            camp.request_continue(path)
++    Clock(monkeypatch, on_sleep=peek)
++    camp.run(path, Campaign(tmp_path / "sim.jsonl", e2e_rows=rows_for))
++    assert seen["EVIDENCE_WINDOW"] == "open" and 44 < seen["EVIDENCE_WINDOW_REMAINING_MIN"] <= 45
++
++
++# --- return to the approved network -----------------------------------------------------------------
++
++def test_return_to_the_approved_network_after_l4(tmp_path):
++    path, _ = g3b(tmp_path, window=0)
++    ex = Campaign(tmp_path / "sim.jsonl", ips=(INSIDE, OUTSIDE, OUTSIDE, OUTSIDE, INSIDE), e2e_rows=rows_for)
++    result = camp.run(path, ex)
++    assert result["L4"].startswith("PASS") and result["phases"]["approved-network"] == "PASS"
++    assert result["CLIENT_NETWORK"] == "approved" and result["phases"]["public-e2e"] == "PASS"
++
++
++@pytest.mark.parametrize("last,message", [(OUTSIDE, "not back inside the approved CIDRs"), ("", "could not be verified")])
++def test_client_not_back_stops_before_certificates_and_cleans_up(tmp_path, last, message):
++    path, _ = g3b(tmp_path, window=0)
++    ex = Campaign(tmp_path / "sim.jsonl", ips=(INSIDE, OUTSIDE, OUTSIDE, last), e2e_rows=rows_for)
++    result = camp.run(path, ex)
++    assert result["L4"].startswith("PASS")
++    assert result["phases"]["approved-network"].startswith("FAIL") and message in result["phases"]["approved-network"]
++    assert not any("issue_certificate.sh" in c and "staging" in c for c, _ in ex.cmds)
++    assert result["CLEANUP_STATUS"] == "COMPLETE"
++
++
++def test_client_address_lookups_use_ipv4(tmp_path):
++    path, _ = g3b(tmp_path, window=0)
++    ex = Campaign(tmp_path / "sim.jsonl", e2e_rows=rows_for)
++    camp.run(path, ex)
++    lookups = [c for c, _ in ex.cmds if "myip.opendns.com" in c]
++    assert lookups and all(c.startswith("dig -4 +short myip.opendns.com @resolver1.opendns.com") for c in lookups)
++    assert camp.MYIP_LOOKUP[:2] == ["dig", "-4"]
++    assert INSIDE not in path.read_text()  # the address itself is never stored
++
++
++# --- certbot preflight ------------------------------------------------------------------------------
++
++class Certbot(Recorder):
++    def __init__(self, log, rc=0, out="certbot 5.10.0"):
++        super().__init__(log)
++        self.rc, self.out = rc, out
++
++    def run(self, cmd, env=None, timeout=3600):
++        if "certbot --version" in " ".join(cmd):
++            self.cmds.append((" ".join(cmd), []))
++            return self.rc, self.out
++        return super().run(cmd, env, timeout)
++
++
++@pytest.mark.parametrize("rc,out,gate", [(0, "certbot 5.10.0", "PASS"), (127, "", "FAIL"), (0, "certbot 4.0.0", "FAIL")])
++def test_certbot_gate(tmp_path, rc, out, gate):
++    args = camp.argparse.Namespace(**{**vars(__import__("tests.ops.test_dns_campaign", fromlist=["init_args"]).init_args(tmp_path)),
++                                     "mode": "supervised", "approve_live_campaign": True})
++    ex = Certbot(tmp_path / "sim.jsonl", rc, out)
++    state = camp.init(args, ex)
++    assert state["gates"]["CERTBOT_READY"] == gate
++    assert any(c.endswith(f"--from {camp.CERTBOT_PIN} certbot --version") for c, _ in ex.cmds)
++
++
++def test_dns_transition_scope_has_no_certbot_gate(tmp_path):
++    _, state = ready_state(tmp_path, scope="dns-transition", mode="supervised", approve_dns_transition_test=True,
++                           dns_offline_verified=False)
++    assert "CERTBOT_READY" not in state["gates"] and set(state["gates"]) == set(camp.TRANSITION_GATES)
+diff --git a/tests/ops/test_g3b_prelive.py b/tests/ops/test_g3b_prelive.py
+index a99b2bae..068ffe20 100644
+--- a/tests/ops/test_g3b_prelive.py
++++ b/tests/ops/test_g3b_prelive.py
+@@ -438,7 +438,7 @@ def test_full_g3b_order_is_unchanged_apart_from_edge_auth(tmp_path, monkeypatch)
+     assert set(state["phases"]) == set(n for n, _ in camp.phases(state))
+     assert [n for n, _ in camp.phases(state)] == ["wake", "baseline", "temporary-certificate", "edge-restricted", "L0-render", "L0-live",
+                                      "edge-auth", "private-e2e", "open-lb", "dns-online", "internet-gates", "L4-denied",
+-                                     "staging-certificate", "production-certificate", "responder-off", "grafana", "public-e2e"]
++                                     "approved-network", "staging-certificate", "production-certificate", "responder-off", "grafana", "public-e2e"]
+     assert not any("dns-transition" in c for c, _ in ex.cmds)
+ 
+ 
+diff --git a/tests/ops/test_g3b_supervised.py b/tests/ops/test_g3b_supervised.py
+index 9b2d624f..e82360ac 100644
+--- a/tests/ops/test_g3b_supervised.py
++++ b/tests/ops/test_g3b_supervised.py
+@@ -190,7 +190,8 @@ def test_complete_security_and_g4_only_with_l4_and_grafana_verified(tmp_path):
+     grafana.write_text("admin:synthetic")
+     state["config"]["grafana_credentials"] = str(grafana)
+     camp.save(path, state)
+-    ex = Campaign(tmp_path / "sim.jsonl", ips=("203.0.113.7", "198.51.100.200"), e2e_rows=rows_for)
++    # approved network (L5), hotspot before and after the L4 request, back on the approved network
++    ex = Campaign(tmp_path / "sim.jsonl", ips=("203.0.113.7", "198.51.100.200", "198.51.100.200", "203.0.113.7"), e2e_rows=rows_for)
+     result = camp.run(path, ex)
+     v = result["verdicts"]
+     assert v["G3B_SECURITY_STATUS"] == "G3B_SECURITY_COMPLETE" and v["G4_AUTOMATED_CHECKS_STATUS"] == "COMPLETE"

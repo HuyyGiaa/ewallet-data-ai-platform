@@ -1,0 +1,36 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.7, pytest-8.3.5, pluggy-1.5.0 -- /usr/bin/python3
+rootdir: ~/Develop/ewallet-data-ai-platform
+plugins: typeguard-4.4.2
+collecting ... collected 28 items
+
+tests/ops/test_g3b_evidence_window.py::test_disabled_by_default_cleanup_follows_public_e2e PASSED [  3%]
+tests/ops/test_g3b_evidence_window.py::test_window_only_for_supervised_g3b_and_at_most_60_minutes[change0-needs --scope g3b --mode supervised] PASSED [  7%]
+tests/ops/test_g3b_evidence_window.py::test_window_only_for_supervised_g3b_and_at_most_60_minutes[change1-needs --scope g3b --mode supervised] PASSED [ 10%]
+tests/ops/test_g3b_evidence_window.py::test_window_only_for_supervised_g3b_and_at_most_60_minutes[change2-must be 0..60] PASSED [ 14%]
+tests/ops/test_g3b_evidence_window.py::test_window_only_for_supervised_g3b_and_at_most_60_minutes[change3-must be 0..60] PASSED [ 17%]
+tests/ops/test_g3b_evidence_window.py::test_window_is_the_last_phase_after_public_e2e PASSED [ 21%]
+tests/ops/test_g3b_evidence_window.py::test_simulation_closes_the_window_without_waiting PASSED [ 25%]
+tests/ops/test_g3b_evidence_window.py::test_window_expires_then_cleanup_runs_and_nothing_runs_during_it PASSED [ 28%]
+tests/ops/test_g3b_evidence_window.py::test_continue_during_the_window_closes_it PASSED [ 32%]
+tests/ops/test_g3b_evidence_window.py::test_continue_is_rejected_before_and_after_the_window PASSED [ 35%]
+tests/ops/test_g3b_evidence_window.py::test_a_stale_marker_from_before_the_window_does_not_close_it PASSED [ 39%]
+tests/ops/test_g3b_evidence_window.py::test_concurrent_continue_requests_create_one_marker_and_never_touch_state PASSED [ 42%]
+tests/ops/test_g3b_evidence_window.py::test_window_ends_30_minutes_before_the_deadline PASSED [ 46%]
+tests/ops/test_g3b_evidence_window.py::test_no_window_inside_the_cleanup_reserve PASSED [ 50%]
+tests/ops/test_g3b_evidence_window.py::test_a_signal_during_the_window_still_runs_cleanup[15] PASSED [ 53%]
+tests/ops/test_g3b_evidence_window.py::test_a_signal_during_the_window_still_runs_cleanup[2] PASSED [ 57%]
+tests/ops/test_g3b_evidence_window.py::test_a_failed_public_e2e_never_opens_the_window PASSED [ 60%]
+tests/ops/test_g3b_evidence_window.py::test_window_does_not_change_verdicts PASSED [ 64%]
+tests/ops/test_g3b_evidence_window.py::test_production_certificate_gate_still_stops_before_the_window PASSED [ 67%]
+tests/ops/test_g3b_evidence_window.py::test_status_shows_window_state_and_remaining_minutes PASSED [ 71%]
+tests/ops/test_g3b_evidence_window.py::test_return_to_the_approved_network_after_l4 PASSED [ 75%]
+tests/ops/test_g3b_evidence_window.py::test_client_not_back_stops_before_certificates_and_cleans_up[198.51.100.200-not back inside the approved CIDRs] PASSED [ 78%]
+tests/ops/test_g3b_evidence_window.py::test_client_not_back_stops_before_certificates_and_cleans_up[-could not be verified] PASSED [ 82%]
+tests/ops/test_g3b_evidence_window.py::test_client_address_lookups_use_ipv4 PASSED [ 85%]
+tests/ops/test_g3b_evidence_window.py::test_certbot_gate[0-certbot 5.10.0-PASS] PASSED [ 89%]
+tests/ops/test_g3b_evidence_window.py::test_certbot_gate[127--FAIL] PASSED [ 92%]
+tests/ops/test_g3b_evidence_window.py::test_certbot_gate[0-certbot 4.0.0-FAIL] PASSED [ 96%]
+tests/ops/test_g3b_evidence_window.py::test_dns_transition_scope_has_no_certbot_gate PASSED [100%]
+
+============================== 28 passed in 0.20s ==============================

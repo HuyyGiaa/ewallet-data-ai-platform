@@ -1,0 +1,1 @@
+CONTINUE_ACCEPTED: the window closes within 10 s, then cleanup runs

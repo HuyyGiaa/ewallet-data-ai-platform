@@ -1,0 +1,3 @@
+  "CURRENT_PHASE": "evidence-window",
+  "EVIDENCE_WINDOW": "open",
+  "EVIDENCE_WINDOW_REMAINING_MIN": 1.0,
