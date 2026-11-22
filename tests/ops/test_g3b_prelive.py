@@ -184,11 +184,11 @@ def test_approved_sync_applies_restarts_rechecks_then_private_e2e_then_lb(tmp_pa
     assert state["EDGE_AUTH"] == "EDGE_AUTH_SYNCED"
     order = [ex.index("create_basic_auth.sh --credentials-file"), ex.index(" --apply --kubeconfig"),
              ex.index("rollout restart deployment/ewallet-edge-gateway"),
-             ex.index("rollout status deployment/ewallet-edge-gateway"),
+             ex.index("rollout status deployment/ewallet-edge-gateway --timeout=300s"),  # the sync's restart, not gateway-ready
              ex.index("07-private-e2e.jsonl"), ex.index("07-private-negative.jsonl"), lb_index(ex)]
     assert order == sorted(order)
     recheck = [i for i, (c, _) in enumerate(ex.cmds) if "create_basic_auth.sh" in c and "--check" in c]
-    assert any(ex.index("rollout status") < i < ex.index("07-private-e2e.jsonl") for i in recheck)
+    assert any(ex.index("rollout status deployment/ewallet-edge-gateway --timeout=300s") < i < ex.index("07-private-e2e.jsonl") for i in recheck)
 
 
 def test_secret_that_does_not_take_blocks_the_lb(tmp_path, monkeypatch):
@@ -196,7 +196,8 @@ def test_secret_that_does_not_take_blocks_the_lb(tmp_path, monkeypatch):
     assert state["EDGE_AUTH"].startswith("EDGE_AUTH_SYNC_FAILED") and not lb_opened(ex)
 
 
-@pytest.mark.parametrize("failing", ["rollout status", "07-private-e2e.jsonl", "07-private-negative.jsonl"])
+@pytest.mark.parametrize("failing", ["rollout status deployment/ewallet-edge-gateway --timeout=300s",
+                                     "07-private-e2e.jsonl", "07-private-negative.jsonl"])
 def test_gateway_not_reloaded_or_auth_behaviour_wrong_blocks_the_lb(tmp_path, monkeypatch, failing):
     """A gateway that did not restart, or valid credentials refused / wrong ones accepted (the
     real requests of public_e2e and negative_tests), stops the campaign before any public LB."""
@@ -436,7 +437,7 @@ def test_a_failed_transition_run_does_not(tmp_path):
 def test_full_g3b_order_is_unchanged_apart_from_edge_auth(tmp_path, monkeypatch):
     state, ex, _ = run_campaign(tmp_path, monkeypatch)
     assert set(state["phases"]) == set(n for n, _ in camp.phases(state))
-    assert [n for n, _ in camp.phases(state)] == ["wake", "baseline", "temporary-certificate", "edge-restricted", "L0-render", "L0-live",
+    assert [n for n, _ in camp.phases(state)] == ["wake", "baseline", "gateway-ready", "temporary-certificate", "edge-restricted", "L0-render", "L0-live",
                                      "edge-auth", "private-e2e", "open-lb", "dns-online", "internet-gates", "L4-denied",
                                      "approved-network", "staging-certificate", "production-certificate", "responder-off", "grafana", "public-e2e"]
     assert not any("dns-transition" in c for c, _ in ex.cmds)

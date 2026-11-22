@@ -53,6 +53,12 @@ G4 screenshots. It ends on `continue`, when the N minutes are over, when only th
 public-e2e never opens it, and it never changes a verdict. `continue` writes only a marker file
 (exclusive create), never state.json, so it cannot race the main process.
 
+Gateway readiness (phase gateway-ready, after wake and baseline, before any edge change): the
+ewallet-edge-gateway Deployment must want at least one replica, finish `kubectl rollout status`
+and report a ready replica, within one 25-minute budget (capped by the deadline). On wake, its pod
+can be rejected while istiod's injection webhook is still starting; the ReplicaSet retries with
+back-off (first Full G3-B attempt, 2026-11-22). Read-only: nothing is restarted or bypassed.
+
 After L4 the campaign waits (at most 15 min) until this client is back inside the approved CIDRs
 (phase approved-network); otherwise it stops and cleans up. Client addresses are looked up over
 IPv4 (dig -4), as the gateway sees them, and never recorded.
@@ -93,6 +99,7 @@ COMMAND_TIMEOUT = 1800              # no single command runs longer
 MIN_COMMAND_TIMEOUT = 30            # a command started just before the deadline still gets this long
 ACME_WAIT_SECONDS = 600             # cleanup lets an in-flight certbot finish this long before ending it
 L4_WAIT_SECONDS = 1200              # how long the L4 phase waits for an external vantage point
+GATEWAY_READY_SECONDS = 1500       # total wait for the gateway Deployment after wake (one budget, no nested retries)
 RETURN_WAIT_SECONDS = 900           # after L4: how long to wait for this client to be back on an approved network
 EVIDENCE_WINDOW_MAX_MINUTES = 60
 CLEANUP_RESERVE_SECONDS = 1800      # the evidence window always ends this long before the deadline
@@ -254,6 +261,8 @@ class Simulator(Executor):
             return 0, os.environ.get("EDGE_SIM_MYIP", "203.0.113.7")
         if "certbot --version" in text:
             return 0, "certbot 5.10.0"
+        if "{.spec.replicas} {.status.readyReplicas}" in text:
+            return 0, "1 1"
         if "-o name" in text and "app.kubernetes.io/part-of=ewallet-edge" in text:
             names = ["httproute.gateway.networking.k8s.io/" + n for n in ("feature-api", "kagent-ui", "agent-registry", "grafana", "https-redirect")]
             if os.environ.get("EDGE_SIM_ACME_STAYS"):
@@ -576,6 +585,45 @@ def phases(state: dict) -> list[tuple[str, Callable]]:
         remember(L4="L4_BLOCKED_NO_VERIFIED_EXTERNAL_SOURCE")
         return None
 
+    def gateway_ready(state, ex):
+        """Read-only: the gateway Deployment wants >= 1 replica, its rollout is complete and a
+        replica is Ready, all within GATEWAY_READY_SECONDS (and the deadline). rollout status may
+        return early (progress deadline); then it is asked again until the budget is spent."""
+        budget = GATEWAY_READY_SECONDS
+        if ex.deadline:
+            budget = min(budget, int(ex.deadline - now()))
+        if budget <= 0:
+            return "DEADLINE_EXPIRED"
+        end = now() + budget
+        counts = k(state, "-n", "ewallet-ingress", "get", "deployment", GATEWAY_DEPLOYMENT,
+                   "-o", "jsonpath={.spec.replicas} {.status.readyReplicas}")
+
+        def replicas():
+            rc, out = ex.run(counts, timeout=60)
+            parts = (out.split() + ["0", "0"])[:2] if rc == 0 else ["", ""]
+            return tuple(int(x) if x.isdigit() else None for x in parts)
+        desired, _ = replicas()
+        if not desired:
+            remember(GATEWAY_READY=f"FAIL: desired replicas {desired}")
+            return f"gateway Deployment has no desired replica (spec.replicas={desired})"
+        attempts = 0
+        sim = isinstance(ex, Simulator) and not os.environ.get("EDGE_SIM_CLOCK")  # tests with a fake clock opt in
+        while True:
+            left = int(end - now())
+            if left <= 0 or ex.stop_requested or (sim and attempts >= 3):
+                break
+            attempts += 1
+            rc, _ = ex.run(k(state, "-n", "ewallet-ingress", "rollout", "status", f"deployment/{GATEWAY_DEPLOYMENT}",
+                             f"--timeout={left}s"), timeout=left + 30)
+            desired, ready = replicas()
+            if rc == 0 and desired and ready and ready >= 1:
+                remember(GATEWAY_READY=f"READY ({ready}/{desired}, rollout status attempt {attempts})")
+                return None
+            if int(end - now()) > 0 and not sim:
+                time.sleep(min(30, max(0.0, end - now())))
+        remember(GATEWAY_READY=f"FAIL: not Ready within {budget // 60} min")
+        return f"gateway Deployment not Ready within {budget // 60} min (no edge change made)"
+
     def approved_network(state, ex):
         """After L4 the owner returns to an approved network; public-e2e needs it. Only a verified
         address inside the approved CIDRs counts; unknown is not inside."""
@@ -699,6 +747,7 @@ def phases(state: dict) -> list[tuple[str, Callable]]:
         ("wake", wake),
         ("baseline", step(py("platform_checks.py", *kargs(state), "backends", "--snapshot-out", str(ev / "baseline.json"),
                              "--out", str(ev / "02-backends.jsonl")), retries=25)),
+        ("gateway-ready", gateway_ready),
         ("temporary-certificate", step(cert(state, "self-signed", "--import"))),
         ("edge-restricted", edge_restricted),
         ("L0-render", l0_render),
@@ -726,7 +775,7 @@ def phases(state: dict) -> list[tuple[str, Callable]]:
 
 
 SECURITY_PHASES = ("L0-render", "L0-live", "edge-auth", "private-e2e", "internet-gates", "production-certificate", "public-e2e")
-DEPLOYMENT_PHASES = ("wake", "baseline", "temporary-certificate", "edge-restricted", "open-lb", "dns-online",
+DEPLOYMENT_PHASES = ("wake", "baseline", "gateway-ready", "temporary-certificate", "edge-restricted", "open-lb", "dns-online",
                      "staging-certificate", "production-certificate", "responder-off")
 
 

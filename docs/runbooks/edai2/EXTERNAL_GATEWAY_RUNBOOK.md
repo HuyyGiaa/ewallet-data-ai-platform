@@ -286,6 +286,7 @@ watch -n 30 "python3 scripts/edge/g3b_campaign.py status --state $EV/state.json 
 |---|---|---|---|
 | L0 render | `init` and `L0-render` | LOCAL (render) | exact public values; `ownership_preflight.py render --allow-public-loadbalancer` |
 | L0 live | `L0-live` | GKE_PRIVATE | active Envoy filters, RBAC CIDRs = approved; **if L0 fails, no LB** |
+| Gateway Deployment Ready | `gateway-ready` (after wake and baseline, before any edge change) | GKE_PRIVATE | read-only: `ewallet-edge-gateway` must want ≥ 1 replica, finish `kubectl rollout status` and report a Ready replica within one 25-minute budget, capped by the deadline. Otherwise FAIL, no edge change, no LB, normal cleanup and sleep. See *Gateway readiness after wake* |
 | Edge Basic Auth | `edge-auth` | GKE_PRIVATE | `create_basic_auth.sh --check`; on an approved mismatch `--apply`, gateway restart, rollout status, `platform_checks gateway`, `--check`. Nothing secret is printed or stored. **A mismatch without approval, or a sync that does not take, means no LB** |
 | Private E2E | `private-e2e` | GKE_PRIVATE | port-forward; Feature API, Registry, Grafana (if credentials), filters; agents must be **403** (the port-forward peer is never approved); `negative_tests.py`: missing/wrong/forged credentials 401, valid accepted, rate limit 429. A gateway still holding the old users file fails here. It is not L4. **If it fails, no LB** |
 | L2/L3/L6 | `internet-gates` | PUBLIC_INTERNET | `negative_tests.py --rate-limit-mode http2` |
@@ -353,6 +354,23 @@ never PASS. These are technical checks; the official G4 screenshots are a separa
 
 A step that fails is recorded, the following safe steps still run, and `cleanup` can be run
 again to resume.
+
+### Gateway readiness after wake
+
+What happened in the first Full G3-B attempt, `g3b-full-20261122T070154Z` (2026-11-22):
+- `edge-restricted` failed about 7 minutes after the wake. `ewallet-edge-gateway` had 0 pods: during the wake, its ReplicaSet's pod creation was rejected (`failed calling webhook "object.sidecar-injector.istio.io"`) because istiod was still starting.
+- Kubernetes retries a failed pod creation with exponential back-off, up to about 17 minutes, so the pod appears late.
+- The run stopped fail-closed: no LB, DNS untouched, cleanup COMPLETE, 0 nodes.
+
+Phase `gateway-ready` now waits for the Deployment itself; `platform_checks.py gateway` only checks Gateway API conditions. The gate:
+- requires at least one desired replica, so a Deployment scaled to 0 never passes;
+- runs `kubectl rollout status deployment/ewallet-edge-gateway --timeout=<remaining>s`, asked again if it returns early;
+- requires at least one Ready replica;
+- uses one 25-minute budget, capped by the campaign deadline.
+
+It restarts, deletes or bypasses nothing: no istiod restart, no injection-policy change. If the Deployment is not Ready in time, the phase fails before any edge change, and cleanup and guarded sleep run as usual.
+
+The next wake keeps the G3-A1 recovery manifest. The manifest recorded by that failed run shows the gateway with 0 ready pods and must not replace it.
 
 ### Evidence window and screenshots (rows 37–43)
 
