@@ -231,10 +231,17 @@ def init_args(tmp_path, **kw):
     args = dict(campaign="g3b-test", campaign_dir=str(tmp_path / "campaign"), domain=DOMAIN, context="ctx", kubeconfig="kc",
                 gateway_chart="chart.tgz", manifest=str(manifest(tmp_path)), approved_cidrs=secret("cidrs", "203.0.113.7/32\n"),
                 edge_credentials=secret("edge", "edge:x"), grafana_credentials=None, dns_credentials=secret("dns", "{}"),
-                dns_offline_mode="no-ipv4", dns_offline_ip=None, approve_guarded_sleep=True, approve_keda_pause=True,
+                dns_offline_mode="signoff", dns_offline_ip="192.0.2.207", dns_offline_ipv6="2001:db8:0:8888::207",
+                approve_guarded_sleep=True, approve_keda_pause=True,
                 approve_production_certificate=True, approve_grafana_root_url=False, dns_offline_verified=True,
                 accept_local_only_risk=True, cloud_fallback_ready=False, also_approve=["ewallet-mcp/feature-rag-mcp"])
     args.update(kw)
+    if "dns_transition_evidence" not in kw:  # a VERIFIED dns-transition run for exactly this configuration
+        evidence = tmp_path / "transition-state.json"
+        evidence.write_text(json.dumps({"scope": "dns-transition", "DNS_TRANSITION": "VERIFIED", "config": {
+            "domain": args["domain"], "dns_offline_mode": args["dns_offline_mode"], "dns_offline_ip": args["dns_offline_ip"],
+            "dns_offline_ipv6": args["dns_offline_ipv6"]}}))
+        args["dns_transition_evidence"] = str(evidence)
     return SimpleNamespace(**args)
 
 

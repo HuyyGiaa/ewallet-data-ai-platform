@@ -27,7 +27,8 @@ Owner-supplied files in `$PRIV`; the scripts refuse paths inside the repository:
 | File | Content |
 |---|---|
 | `approved-cidrs.txt` | the public IPv4 /32–/16 addresses that may use `agents.$D`, one per line |
-| `edge-cred` | edge Basic Auth `user:password` (`create_basic_auth.sh` reads the password on stdin) |
+| `edge-cred` | edge Basic Auth: exactly one line `user:password`, password ≥ 24 characters, mode 600. `create_basic_auth.sh --credentials-file` checks or writes the `edge-basic-auth` Secret from it |
+| `dynu.json` | Dynu IP update credentials (mode 600; only metadata is ever checked) |
 | `grafana-cred` | Grafana admin `user:password` (read from its Secret into the file, never printed) |
 | `g3b-values.yaml` | `domain: $D`, `sourceRestriction: {enabled: true, allowedCidrs: [...same as the file...]}`, `acmeHttp01: {enabled: true}` on top of `g3a-private-values.yaml` |
 
@@ -46,9 +47,10 @@ Evidence classes are never mixed: `LOCAL_KIND`, `GKE_PRIVATE` (port-forward) and
 | 4 | Edge with domain, restriction, responder (still ClusterIP) | `helm upgrade ewallet-edge infra/helm/ewallet-edge -n ewallet-ingress --kubeconfig $KCF --kube-context $CTX -f docs/evidence/edai2/gateway/g3a0_closure_20261121T172654Z/helm/g3a-private-values.yaml -f $PRIV/g3b-values.yaml` | `platform_checks.py $K gateway`, `… envoy --restricted`, `… watch` (kagent-ui Ready 180 s) |
 | 5 | **L0 live** | `python3 scripts/edge/ownership_preflight.py live --context $CTX --kubeconfig $KCF --allow-public-loadbalancer --domain $D --approved-cidrs-file $PRIV/approved-cidrs.txt` | `EDGE_OWNERSHIP_OK`: policy selects the gateway pods, DENY on agents.$D (+`:*`) port 443, CIDRs = approved; Basic Auth, rate limit and RBAC active in every pod |
 | 6 | **L0 render** | `helm template ewallet-edge-gateway <istio/gateway 1.30.7> -f infra/helm/ewallet-edge/values-gateway.yaml -f …/values-gateway-public.yaml -f …/values-gateway-public-open.yaml > $EV/gw.yaml`; `helm template ewallet-edge … -f g3a-private-values.yaml -f $PRIV/g3b-values.yaml > $EV/edge.yaml`; `python3 scripts/edge/ownership_preflight.py render --allow-public-loadbalancer --domain $D --approved-cidrs-file $PRIV/approved-cidrs.txt $EV/gw.yaml $EV/edge.yaml` | `EDGE_OWNERSHIP_OK`. **If L0 fails, the LB is not opened** |
-| 7 | Private E2E over port-forward | `kubectl $K -n ewallet-ingress port-forward --address 127.0.0.1 svc/ewallet-edge-gateway 18443:443 18080:80`; `python3 scripts/edge/public_e2e.py --address 127.0.0.1 --https-port 18443 --http-port 18080 --domain $D --ca-file $PRIV/tls/self-signed/fullchain.pem --credentials-file $PRIV/edge-cred --agents denied --evidence-class GKE_PRIVATE --out $EV/07-e2e.jsonl` | agents 403 (the port-forward peer is not allowed); other rows PASS |
+| 6a | Edge Basic Auth Secret = `edge-cred` | `bash scripts/edge/create_basic_auth.sh --credentials-file $PRIV/edge-cred --check --kubeconfig $KCF --context $CTX` (read-only; prints only `EDGE_AUTH_MATCH` / `EDGE_AUTH_MISMATCH` / `EDGE_AUTH_MISSING` / `EDGE_AUTH_CHECK_FAILED`). On a mismatch, **with the owner's approval** only: `… --apply`, then `kubectl $K -n ewallet-ingress rollout restart deployment/ewallet-edge-gateway`, `… rollout status … --timeout=300s`, `--check` again | `EDGE_AUTH_MATCH`; Envoy reads the users file at start-up, so the restart is part of the step. Step 7 proves the behaviour; **a mismatch or a failing step 7 means no LB** |
+| 7 | Private E2E over port-forward | `kubectl $K -n ewallet-ingress port-forward --address 127.0.0.1 svc/ewallet-edge-gateway 18443:443 18080:80`; `python3 scripts/edge/public_e2e.py --address 127.0.0.1 --https-port 18443 --http-port 18080 --domain $D --ca-file $PRIV/tls/self-signed/fullchain.pem --credentials-file $PRIV/edge-cred --agents denied --evidence-class GKE_PRIVATE --out $EV/07-e2e.jsonl`; `python3 scripts/edge/negative_tests.py --address 127.0.0.1 --https-port 18443 --http-port 18080 --domain $D --ca-file … --credentials-file $PRIV/edge-cred --rate-limit-mode http2` | valid credentials accepted on every allowed route; missing, wrong, unknown-user, bearer and forged-header requests 401 (agents: 401 or 403); agents 403 with valid credentials (the port-forward peer is not allowed); burst limited (429) |
 | 8 | Open the LB | `helm upgrade ewallet-edge-gateway <chart> -n ewallet-ingress … -f values-gateway.yaml -f values-gateway-public.yaml -f values-gateway-public-open.yaml`, then step 5 again | one LB, ports 80/443, `Local`; L0 live OK |
-| 9 | **[owner]** DNS online | Dynu: set the IPv4 of `$D` to the LB IP (wildcard alias covers the names; no IPv6). Then `python3 scripts/edge/dns_check.py --domain $D --expect-ip <LB IP>` until `DNS_ONLINE_OK` | authoritative + 1.1.1.1 + 8.8.8.8, 4 names + wildcard, no AAAA |
+| 9 | DNS online | `python3 scripts/edge/dynu_dns.py --credentials $PRIV/dynu.json --execute online --ip <LB IP>` (`myip=<LB>&myipv6=no`; the wildcard alias covers the names). Only after the first transition was proven (*First DNS transition*). Then `python3 scripts/edge/dns_check.py --domain $D --expect-ip <LB IP>` until `DNS_ONLINE_OK` | authoritative + 1.1.1.1 + 8.8.8.8, 4 names + wildcard, no AAAA |
 | 10 | Internet gates before the real certificate | `python3 scripts/edge/negative_tests.py --address <LB IP> --domain $D --ca-file $PRIV/tls/self-signed/fullchain.pem --credentials-file $PRIV/edge-cred --rate-limit-mode http2 --out $EV/10-negative.jsonl` (L2, L3, L6); `public_e2e.py … --address <LB IP> --agents allowed --evidence-class PUBLIC_INTERNET` from an approved address (L5); `public_e2e.py … --agents denied` from a non-approved network (L4) | all PASS, else step 15 |
 | 11 | Staging certificate | `scripts/edge/issue_certificate.sh --environment staging --domain $D --context $CTX --kubeconfig $KCF --private-dir $PRIV/le` | 4 SANs, no challenge left |
 | 12 | Production certificate | `scripts/edge/issue_certificate.sh --environment production --confirm-production --import --domain $D --context $CTX --kubeconfig $KCF --private-dir $PRIV/le` | L1: `public_e2e.py` without `--ca-file` (system trust) |
@@ -120,13 +122,73 @@ The owner is present; Claude runs the technical steps through `scripts/edge/g3b_
 The orchestrator runs the procedure above as phases with every gate, then always cleans up and
 sleeps.
 
+### Stages and their approvals
+
+| Stage | What | Command | Cloud / DNS change | Owner approval |
+|---|---|---|---|---|
+| 0. Offline preparation | private files (mode 600), offline addresses re-read, `init` (read-only: render, Secret check, DNS check, client address) | `g3b_campaign.py init …` | none | none |
+| 1. Private deployment and checks | wake, baseline, temporary certificate, edge, L0, **edge-auth**, **private-e2e** | first phases of either scope | wake; edge upgrade; Secret sync if mismatched | the scope's approval, plus `--approve-edge-secret-sync` when the Secret differs |
+| 2. DNS transition verification (once) | LB opened on the checked edge, Offline → Online (LB) → signoff → Offline, then cleanup | `init --scope dns-transition` + `run` | LB (released at the end), two Dynu updates | `--approve-dns-transition-test` (not the G3-B live approval) |
+| 3. Public deployment (G3-B) | LB, DNS online, Internet gates, L4, certificates, Grafana, public E2E | `init` (scope `g3b`) + `run` | everything in the procedure | `--approve-live-campaign` + the gated flags; `--dns-offline-verified` with stage 2's evidence |
+| 4. Cleanup | ACME off, DNS offline proven, LB released, guarded sleep, verify | automatic; `g3b_campaign.py cleanup --state …` to resume | as listed | covered by the scope's approval |
+| 5. G4 evidence replay | owner session with screenshots | *Owner G4 replay* | owner-controlled wake | separate |
+
+### First DNS transition (`--scope dns-transition`)
+
+Why: `offline=yes` was tested by the owner on 2026-11-22 while the hostname was **already**
+Offline (`good`, `DNS_OFFLINE_OK`), so it proves nothing about Online → Offline. Dynu's protocol
+page documents `offline=yes` only. It does not say whether a later `myip=` update brings the
+hostname back online, and it documents no `offline=no`. The only address that may be published
+for the test is one the owner controls: the GKE LB of this campaign. A home address, a
+third-party address or a documentation address must never be published.
+
+Order (each step proven by `dns_check.py` at every Dynu NS plus 1.1.1.1 and 8.8.8.8, never by
+Dynu's answer word):
+1. Stage 1 phases unchanged: wake, baseline, temporary certificate, edge, L0 render, L0 live, edge-auth, private-e2e. The LB opens only after the private security checks.
+2. `open-lb` + L0 live on the public service.
+3. `dns-transition`:
+   1. **pre-check**: `--expect-offline` with OFF4/OFF6 must be `DNS_OFFLINE_OK`, else no update is sent (`DNS_TRANSITION_NOT_STARTED`);
+   2. **online**: `dynu_dns.py --execute online --ip <LB>`, then `DNS_ONLINE_OK` (A = LB everywhere, no AAAA), else `DNS_TRANSITION_ONLINE_NOT_PROVEN`;
+   3. **signoff**: `dynu_dns.py --execute offline --mode signoff --offline-ip OFF4 --offline-ipv6 OFF6 --released-ip <LB>`, then `DNS_OFFLINE_OK`, else `DNS_TRANSITION_OFFLINE_NOT_PROVEN`;
+   4. `DNS_TRANSITION=VERIFIED` in `state.json`; outputs are kept in `dns-transition-{0-precheck,1-online,2-offline}.jsonl`.
+4. Cleanup as always. The LB is released only when DNS is proven offline; then guarded sleep.
+
+No certificate, no Internet gate, no G3-B or G4 verdict (`NOT_RUN (dns-transition scope)`).
+
+```bash
+CID=g3b-dns-transition-<UTC>; EV=~/ewallet-evidence/gateway/$CID
+python3 scripts/edge/g3b_campaign.py init --scope dns-transition --mode supervised --campaign $CID --campaign-dir $EV \
+  --manifest $M0 --approved-cidrs $PRIV/approved-cidrs.txt --edge-credentials $PRIV/edge-cred \
+  --dns-credentials $PRIV/dynu.json --dns-offline-mode signoff --dns-offline-ip $OFF4 --dns-offline-ipv6 $OFF6 \
+  --approve-dns-transition-test [--approve-edge-secret-sync] --approve-guarded-sleep --approve-keda-pause \
+  --also-approve ewallet-mcp/feature-rag-mcp
+systemd-inhibit --what=sleep:idle python3 scripts/edge/g3b_campaign.py run --state $EV/state.json
+```
+
+Gates (`TRANSITION_GATES`): manifest, PDB, KEDA, guarded sleep, client address, L0 render,
+`EDGE_AUTH_READY`, `DNS_TRANSITION_TEST_READY` (supervised, signoff with both offline addresses,
+DNS credentials, hostname proven offline **now**), `OWNER_DNS_TRANSITION_APPROVAL`. The G3-B live
+approval neither replaces nor is replaced by it.
+
+| Outcome | DNS | LB | Next |
+|---|---|---|---|
+| `VERIFIED` | offline (proven) | released | stage 3 with `--dns-offline-verified --dns-transition-evidence $EV/state.json` |
+| `ONLINE_NOT_PROVEN` (Dynu stays Offline after `myip=`) | cleanup sends signoff and proves offline | released once proven | owner decision: bring it online in the panel during stage 3 (a supervised manual step), or stop |
+| `OFFLINE_NOT_PROVEN` | names may still point at the LB | **kept** (still ours, nothing dangles); nodes still sleep; `CLEANUP_INCOMPLETE` | owner: panel *Go Offline Now*, then `g3b_campaign.py cleanup --state $EV/state.json` (proves offline, releases the LB). Signoff is not used for stage 3 |
+| `NOT_STARTED` | untouched | released | re-read OFF4/OFF6, re-run `init` |
+
+`--dns-offline-verified` alone does nothing: stage 3's `SAFE_CLEANUP_READY` needs
+`--dns-transition-evidence` pointing at a `state.json` with `scope: dns-transition`,
+`DNS_TRANSITION: VERIFIED` and the same domain, offline mode, OFF4 and OFF6.
+
 ### Preconditions and owner approvals
 
 | Input | Where |
 |---|---|
 | Approved client CIDRs (must include this machine's current public address, for L5) | `$PRIV/approved-cidrs.txt` |
 | Edge and Grafana credentials | `$PRIV/edge-cred`, `$PRIV/grafana-cred` (Grafana: needed for rows 37–39; without it Grafana is BLOCKED, never PASS) |
-| Dynu IP update credentials; approved offline IPv4/IPv6; API signoff verified once (see *Dynu offline: dual-stack*) | `$PRIV/dynu.json`, `--dns-offline-mode signoff --dns-offline-ip … --dns-offline-ipv6 …`, `--dns-offline-verified` |
+| Dynu IP update credentials; approved offline IPv4/IPv6; the first transition proven (*First DNS transition*) | `$PRIV/dynu.json`, `--dns-offline-mode signoff --dns-offline-ip … --dns-offline-ipv6 …`, `--dns-offline-verified --dns-transition-evidence <stage 2 state.json>` |
+| Edge Secret differs from `edge-cred` (`init` reports `edge_auth_at_init`) | `--approve-edge-secret-sync` (a Kubernetes mutation of `ewallet-ingress/edge-basic-auth`; the old password stops working) |
 | Recovery manifest | `$M0` (G3-A1, checksums OK) |
 | PDB exception for this campaign | `--also-approve ewallet-mcp/feature-rag-mcp` |
 | Guarded sleep, KEDA pause, production certificate, Grafana root URL | `--approve-guarded-sleep --approve-keda-pause --approve-production-certificate [--approve-grafana-root-url]` |
@@ -136,7 +198,7 @@ sleeps.
 python3 scripts/edge/g3b_campaign.py init --mode supervised --campaign $CID --campaign-dir $EV --manifest $M0 \
   --approved-cidrs $PRIV/approved-cidrs.txt --edge-credentials $PRIV/edge-cred --grafana-credentials $PRIV/grafana-cred \
   --dns-credentials $PRIV/dynu.json --dns-offline-mode signoff --dns-offline-ip <OFF4> --dns-offline-ipv6 <OFF6> \
-  --dns-offline-verified --approve-live-campaign --approve-guarded-sleep --approve-keda-pause --also-approve ewallet-mcp/feature-rag-mcp \
+  --dns-offline-verified --dns-transition-evidence <stage 2 state.json> --approve-live-campaign --approve-guarded-sleep --approve-keda-pause --also-approve ewallet-mcp/feature-rag-mcp \
   --approve-production-certificate --approve-grafana-root-url
 ```
 
@@ -145,6 +207,7 @@ python3 scripts/edge/g3b_campaign.py init --mode supervised --campaign $CID --ca
 - `CLIENT_ADDRESS_APPROVED`;
 - `SAFE_CLEANUP_READY` (DNS automation);
 - `L0_RENDER_READY` (the exact public render passes the strict preflight, offline);
+- `EDGE_AUTH_READY` (Secret = `edge-cred`, or a mismatch with `--approve-edge-secret-sync`);
 - `OWNER_LIVE_APPROVAL`.
 
 Supervised mode does not require the watchdog, linger or laptop-risk acceptance. Everything
@@ -170,7 +233,8 @@ python3 scripts/edge/g3b_campaign.py status --state $EV/state.json      # in ano
 |---|---|---|---|
 | L0 render | `init` and `L0-render` | LOCAL (render) | exact public values; `ownership_preflight.py render --allow-public-loadbalancer` |
 | L0 live | `L0-live` | GKE_PRIVATE | active Envoy filters, RBAC CIDRs = approved; **if L0 fails, no LB** |
-| Private E2E | `private-e2e` | GKE_PRIVATE | port-forward; Feature API, Registry, Grafana (if credentials), filters; agents must be **403** (the port-forward peer is never approved). It is not L4. **If it fails, no LB** |
+| Edge Basic Auth | `edge-auth` | GKE_PRIVATE | `create_basic_auth.sh --check`; on an approved mismatch `--apply`, gateway restart, rollout status, `platform_checks gateway`, `--check`. Nothing secret is printed or stored. **A mismatch without approval, or a sync that does not take, means no LB** |
+| Private E2E | `private-e2e` | GKE_PRIVATE | port-forward; Feature API, Registry, Grafana (if credentials), filters; agents must be **403** (the port-forward peer is never approved); `negative_tests.py`: missing/wrong/forged credentials 401, valid accepted, rate limit 429. A gateway still holding the old users file fails here. It is not L4. **If it fails, no LB** |
 | L2/L3/L6 | `internet-gates` | PUBLIC_INTERNET | `negative_tests.py --rate-limit-mode http2` |
 | L5 | `internet-gates` | PUBLIC_INTERNET | this machine must be inside the approved CIDRs (checked first) |
 | L4 | `L4-denied` | PUBLIC_INTERNET, **only from a non-approved address** | this laptop on another network; otherwise `L4_BLOCKED_NO_VERIFIED_EXTERNAL_SOURCE` |
@@ -269,7 +333,7 @@ python3 scripts/edge/g3b_campaign.py init --campaign $CID --campaign-dir $EV --m
   --approved-cidrs $PRIV/approved-cidrs.txt --edge-credentials $PRIV/edge-cred --grafana-credentials $PRIV/grafana-cred \
   --dns-credentials $PRIV/dynu.json --dns-offline-mode signoff --dns-offline-ip <OFF4> --dns-offline-ipv6 <OFF6> \
   --approve-guarded-sleep --approve-keda-pause --also-approve ewallet-mcp/feature-rag-mcp \
-  --approve-production-certificate [--approve-grafana-root-url] --dns-offline-verified \
+  --approve-production-certificate [--approve-grafana-root-url] --dns-offline-verified --dns-transition-evidence <stage 2 state.json> \
   (--accept-local-only-risk | --cloud-fallback-ready)
 ```
 
@@ -278,7 +342,7 @@ python3 scripts/edge/g3b_campaign.py init --campaign $CID --campaign-dir $EV --m
 | `CLOUD_LAB_RECOVERY_MANIFEST_VALID` | the manifest has its five files and is for `ewallet-dev` |
 | `PDB_APPROVAL_COMPLETE` | `platform_checks.py sleep-feasibility` with the listed `--also-approve` covers every predicted blocker |
 | `KEDA_SLEEP_APPROVAL_READY` / `GUARDED_SLEEP_PLAN_VALID` | the owner's approvals, and the approved record `sleep_20261106T163042Z` exists |
-| `UNATTENDED_CLEANUP_READY` | DNS credentials present and the offline mode verified once (below); watchdog timer active; linger on; laptop risk covered (fallback ready, or risk explicitly accepted) |
+| `UNATTENDED_CLEANUP_READY` | DNS credentials present and the first transition proven (`--dns-transition-evidence`, *First DNS transition*); watchdog timer active; linger on; laptop risk covered (fallback ready, or risk explicitly accepted) |
 | `CLIENT_ADDRESS_APPROVED` | this laptop's public address is inside the approved CIDRs (it is not recorded) |
 
 Owner configuration:
@@ -292,7 +356,7 @@ Owner configuration:
 |---|---|---|
 | `dynu_dns.py offline --mode no-ipv4` (`myip=no&myipv6=no`) | Dynu answered `nochg`; the old IPv4 stayed in DNS (`DNS_OFFLINE_NOT_YET`) | **not** an offline method; kept only behind DNS verification |
 | Dynu panel *Offline Settings → Go Offline Now* (action "Display offline message") | DNS changed on both families: A and AAAA point to Dynu's offline server; reverse DNS of both is `offline.dynu.com`, in the same ranges as `api.dynu.com` | the safe offline state |
-| `dynu_dns.py offline --mode signoff` (`offline=yes`, IP Update Protocol) | **not yet tested** | the automation, once the test below proves it equals the panel state |
+| `dynu_dns.py offline --mode signoff` (`offline=yes`, IP Update Protocol) | 2026-11-22, sent while the hostname was already Offline: `good`, then `DNS_OFFLINE_OK`. The Online → Offline transition is **not yet proven** | the automation, once *First DNS transition* proves it |
 
 A Dynu answer (`good`, `nochg`) only means the request was accepted. Only `dns_check.py`
 decides. The offline addresses are campaign inputs, never defaults in the code. They are
@@ -311,20 +375,10 @@ NODATA; a timeout is a failure. Online still means A = the LB address and **no A
 OFF6. The last JSON line summarises the verdict, failed servers and names, A/AAAA status and
 duration (concurrent queries: about 3 s).
 
-**API signoff verification** (owner-approved Dynu mutation; GKE stays asleep). Its purpose is
-to prove that `offline=yes` reaches the same state as the panel. Since the panel state is
-already Offline, the test needs one online step first:
-
-1. Pre-check: `dns_check.py --expect-offline --offline-ip $OFF4 --offline-ipv6 $OFF6` gives `DNS_OFFLINE_OK`, and the Dynu panel shows *Offline*.
-2. Owner, in the panel: *Go Online*. Then `dns_check.py --expect-offline …` must turn `NOT_YET`. The address Dynu publishes when online is withheld by the check; it must not be the home address, and if it is, the owner decides whether this test is worth that minute.
-3. `python3 scripts/edge/dynu_dns.py --credentials $PRIV/dynu.json --execute --attempts 10 --interval 30 offline --mode signoff --offline-ip $OFF4 --offline-ipv6 $OFF6`. It prints the Dynu answer, then one line per attempt; PASS only on `DNS_OFFLINE_OK`.
-4. Confirm the hostname still exists in the panel (status Offline) and that every name, including the wildcard, is OFF4/OFF6 (the step 3 output).
-5. Record the output lines (no credentials are printed) in the campaign evidence.
-
-Results:
-- `DNS_OFFLINE_OK`: pass `--dns-offline-verified --dns-offline-mode signoff` to `init`.
-- Dynu answers `badauth` with the header-only authentication: the protocol page shows signoff with a `password` parameter. Sending it in the URL would break the "no credentials in URLs" rule, so this is an owner decision. The fallback is the panel's *Go Offline Now* during cleanup, with `g3b_campaign.py cleanup` re-run afterwards.
-- Anything else: `DNS_AUTOMATION_BLOCKED` for signoff. Use the same panel fallback, and never switch to another mode without approval.
+**API signoff verification.** This is now the `dns-transition` scope (*First DNS transition*,
+stage 2): the online step publishes this campaign's own LB address, so no home or third-party
+address is ever published. The earlier plan here (panel *Go Online* with the LB asleep) is
+withdrawn because it could publish an address the owner does not control.
 
 ### During execution
 

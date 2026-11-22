@@ -208,7 +208,7 @@ def test_a_recovery_failure_and_another_route_failure_are_reported(monkeypatch):
 def test_http2_burst_parses_every_transfer(monkeypatch, tmp_path):
     """One curl run, one line per transfer; a transfer curl never reports counts as a failure."""
     credentials = tmp_path / "c"
-    credentials.write_text("edge:pw\n")
+    credentials.write_text("edge:pw-synthetic-7f3a\n")
     import argparse
     edge = nt.Edge(argparse.Namespace(address="127.0.0.1", https_port=8443, http_port=8080, domain=DOMAIN, ca_file=None,
                                       stub=True, foundation=False, rate_limit_mode="http2", credentials_file=str(credentials)))
@@ -231,5 +231,5 @@ def test_http2_burst_parses_every_transfer(monkeypatch, tmp_path):
     replies, seconds = edge.burst("registry", "/", 6)
     assert [r.status for r in replies] == [200, 429, 200, 429, 200, 0]
     assert nt.stub_echo(replies[0].status, replies[0].body) is not None
-    assert "--http2" in seen["command"] and "-K" in seen["command"] and "pw" not in " ".join(seen["command"])
-    assert seen["stdin"] == 'user = "edge:pw"\n'
+    assert "--http2" in seen["command"] and "-K" in seen["command"] and "pw-synthetic-7f3a" not in " ".join(seen["command"])
+    assert seen["stdin"] == 'user = "edge:pw-synthetic-7f3a"\n'
