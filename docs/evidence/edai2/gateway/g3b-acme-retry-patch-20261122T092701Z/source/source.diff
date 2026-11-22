@@ -1,0 +1,359 @@
+diff --git a/docs/runbooks/edai2/EXTERNAL_GATEWAY_RUNBOOK.md b/docs/runbooks/edai2/EXTERNAL_GATEWAY_RUNBOOK.md
+index 7ae60866..15812f31 100644
+--- a/docs/runbooks/edai2/EXTERNAL_GATEWAY_RUNBOOK.md
++++ b/docs/runbooks/edai2/EXTERNAL_GATEWAY_RUNBOOK.md
+@@ -410,6 +410,27 @@ It restarts, deletes or bypasses nothing: no istiod restart, no injection-policy
+ 
+ The next wake keeps the G3-A1 recovery manifest. The manifest recorded by that failed run shows the gateway with 0 ready pods and must not replace it.
+ 
++### Let's Encrypt production: one bounded retry
++
++What happened in the third Full G3-B attempt, `g3b-full-20261122T083830Z` (2026-11-22):
++- Every phase up to and including Let's Encrypt staging passed.
++- The production step then failed. certbot read the directory, then timed out (45 s, `requests.exceptions.ReadTimeout`) on `POST /acme/new-acct`, the account registration.
++- No `new-order` request had been sent, and no certificate was received.
++- Cleanup was COMPLETE: signoff, fresh DNS check, LB released, 0 nodes.
++
++The production phase now tries **once more, after 60 s**, only when that attempt's own certbot log (`private/tls/logs/letsencrypt.log`) proves all of the following:
++- it was written by this attempt;
++- the last request was `new-acct`;
++- no order, finalize or challenge request was sent;
++- no certificate was received, and none exists in `config/live/edge`;
++- the final error is a network timeout.
++
++In addition, no signal may have arrived, the first certbot process group must be gone, and at least 20 minutes must remain before the deadline.
++
++Anything else fails closed with no retry: HTTP-01 failure, rate limit, `unauthorized`, ambiguous or stale logs, a received certificate that failed to import, a staging failure. There are at most two production attempts, run one after the other with the same certbot configuration and directories.
++
++`state.json` records `ACME_PRODUCTION_ATTEMPTS`, `ACME_PRODUCTION_RETRY_REASON` (or `no retry: …`) and `ACME_PRODUCTION_FINAL_STATUS`, and no ACME material. A second failure fails the phase, and cleanup runs as usual.
++
+ ### Evidence window and screenshots (rows 37–43)
+ 
+ With `--evidence-window-minutes 45`, the campaign stops after a **passed** `public-e2e` and holds
+diff --git a/scripts/edge/g3b_campaign.py b/scripts/edge/g3b_campaign.py
+index 7f3bfdf8..7fd6beb3 100644
+--- a/scripts/edge/g3b_campaign.py
++++ b/scripts/edge/g3b_campaign.py
+@@ -59,6 +59,13 @@ and report a ready replica, within one 25-minute budget (capped by the deadline)
+ can be rejected while istiod's injection webhook is still starting; the ReplicaSet retries with
+ back-off (first Full G3-B attempt, 2026-11-22). Read-only: nothing is restarted or bypassed.
+ 
++Let's Encrypt production, one bounded retry: the third Full G3-B attempt (2026-11-22) timed out
++while registering the ACME account (POST /acme/new-acct), before any order. The production step is
++tried once more, after 60 s, only when that attempt's own certbot log proves exactly this: the last
++request sent was new-acct, no new-order request was sent, no certificate was received (and none is
++on disk), the final error is a network timeout, the log was written by this attempt, no signal
++arrived and enough time is left. Anything else fails closed.
++
+ After L4 the campaign waits (at most 15 min) until this client is back inside the approved CIDRs
+ (phase approved-network); otherwise it stops and cleans up. Client addresses are looked up over
+ IPv4 (dig -4), as the gateway sees them, and never recorded.
+@@ -77,6 +84,7 @@ import ipaddress
+ import json
+ import os
+ from pathlib import Path
++import re
+ import shutil
+ import signal
+ import subprocess
+@@ -100,7 +108,9 @@ MIN_COMMAND_TIMEOUT = 30            # a command started just before the deadline
+ ACME_WAIT_SECONDS = 600             # cleanup lets an in-flight certbot finish this long before ending it
+ L4_WAIT_SECONDS = 1200              # how long the L4 phase waits for an external vantage point
+ GATEWAY_READY_SECONDS = 1500       # total wait for the gateway Deployment after wake (one budget, no nested retries)
+-RETURN_WAIT_SECONDS = 900           # after L4: how long to wait for this client to be back on an approved network
++RETURN_WAIT_SECONDS = 900
++ACME_RETRY_DELAY_SECONDS = 60       # production only: one retry after an account-registration timeout
++ACME_RETRY_MIN_REMAINING = 1200     # retry only with at least this long before the deadline           # after L4: how long to wait for this client to be back on an approved network
+ EVIDENCE_WINDOW_MAX_MINUTES = 60
+ CLEANUP_RESERVE_SECONDS = 1800      # the evidence window always ends this long before the deadline
+ WINDOW_POLL_SECONDS = 10
+@@ -338,6 +348,39 @@ def cert(state: dict, environment: str, *extra: str) -> list[str]:
+ MYIP_LOOKUP = ["dig", "-4", "+short", "myip.opendns.com", "@resolver1.opendns.com"]
+ 
+ 
++_REQUEST = re.compile(r"Sending (?:GET|POST|HEAD) request to (https?://\S+?)[.:]?\s*$")
++_TIMEOUT = re.compile(r"requests\.exceptions\.(?:ReadTimeout|ConnectTimeout)\b|urllib3\.exceptions\.(?:ReadTimeoutError|ConnectTimeoutError)\b")
++
++
++def acme_retry_safe(log: Path, started: float, live: Path) -> tuple[bool, str]:
++    """Is one more production attempt safe? Only when this attempt's certbot log proves an
++    account-registration timeout before any order. Any doubt answers (False, reason)."""
++    if live.exists():
++        return False, "a production certificate exists on disk (no repeated issuance)"
++    try:
++        text = log.read_text(encoding="utf-8", errors="replace")
++    except OSError:
++        return False, "no certbot log for this attempt"
++    first = text.split("\n", 1)[0][:19]
++    try:
++        written = time.mktime(time.strptime(first, "%Y-%m-%d %H:%M:%S"))
++    except ValueError:
++        return False, "certbot log has no start time"
++    if written < started - 5:
++        return False, "certbot log predates this attempt (certbot may not have run)"
++    if re.search(r"Successfully received certificate|Certificate is saved at", text):
++        return False, "a certificate was received (no repeated issuance)"
++    requests = [m.group(1) for line in text.splitlines() if (m := _REQUEST.search(line))]
++    if any(re.search(r"new-?order|newOrder|/finalize|/order/", r, re.I) for r in requests):
++        return False, "a certificate order was sent"
++    if not requests or not re.search(r"/new-acct$|/newAccount$", requests[-1]):
++        return False, "the last ACME request was not account registration"
++    errors = [line for line in text.splitlines() if ":ERROR:" in line]
++    if not errors or not _TIMEOUT.search(errors[-1]):
++        return False, "the failure is not a network timeout"
++    return True, "network timeout during ACME account registration (POST new-acct), before any order"
++
++
+ def client_in_allowlist(state: dict, ex: Executor) -> bool | None:
+     """Is this machine's public address inside the approved CIDRs? (None: unknown.) The
+     address itself is never written to the state."""
+@@ -677,14 +720,43 @@ def phases(state: dict) -> list[tuple[str, Callable]]:
+         return None
+ 
+     def certificate(environment, *extra):
+-        def run(state, ex):
++        def attempt(state, ex):
+             remember(ACME_STATUS=f"issuing-{environment}")
+             ex.on_start = lambda pid: remember(acme_pgid=pid)
+             try:
+-                error = step(cert(state, environment, *extra))(state, ex)
++                return step(cert(state, environment, *extra))(state, ex)
+             finally:
+                 ex.on_start = None
+-            remember(ACME_STATUS=f"{environment}-{'issued' if error is None else 'failed'}", acme_pgid=None)
++
++        def run(state, ex):
++            if environment != "production":
++                error = attempt(state, ex)
++                remember(ACME_STATUS=f"{environment}-{'issued' if error is None else 'failed'}", acme_pgid=None)
++                return error
++            tls = Path(c["private"]) / "tls"
++            started = now()
++            remember(ACME_PRODUCTION_ATTEMPTS=1, ACME_PRODUCTION_RETRY_REASON=None)
++            error = attempt(state, ex)
++            if error is not None:
++                safe, reason = acme_retry_safe(tls / "logs/letsencrypt.log", started, tls / "config/live/edge")
++                if safe and ex.stop_requested:
++                    safe, reason = False, "stopped by a signal"
++                if safe and ex.deadline and ex.deadline - now() < ACME_RETRY_MIN_REMAINING:
++                    safe, reason = False, "not enough time before the deadline"
++                prior = state.get("acme_pgid")
++                if safe and prior and pid_alive(prior):
++                    safe, reason = False, "the first certbot process group is still alive"
++                remember(ACME_PRODUCTION_RETRY_REASON=reason if safe else f"no retry: {reason}", acme_pgid=None)
++                if safe:
++                    waited = 0
++                    while waited < (0 if isinstance(ex, Simulator) else ACME_RETRY_DELAY_SECONDS) and not ex.stop_requested:
++                        time.sleep(1)
++                        waited += 1
++                    if not ex.stop_requested:
++                        remember(ACME_PRODUCTION_ATTEMPTS=2)
++                        error = attempt(state, ex)
++            status = "issued" if error is None else "failed"
++            remember(ACME_STATUS=f"production-{status}", ACME_PRODUCTION_FINAL_STATUS=status.upper(), acme_pgid=None)
+             return error
+         return run
+ 
+diff --git a/tests/ops/test_g3b_acme_retry.py b/tests/ops/test_g3b_acme_retry.py
+new file mode 100644
+index 00000000..eb864ab0
+--- /dev/null
++++ b/tests/ops/test_g3b_acme_retry.py
+@@ -0,0 +1,197 @@
++"""One bounded Let's Encrypt production retry, only after a proven account-registration timeout
++before any order (third Full G3-B attempt, 2026-11-22). Offline: Simulator, synthetic certbot logs."""
++
++from __future__ import annotations
++
++from pathlib import Path
++import time
++
++import pytest
++
++from tests.ops.test_dns_campaign import Recorder, camp, ready_state
++
++ACME = "https://acme-v02.api.letsencrypt.org"
++
++
++def log_text(requests, error, received=False, at=None):
++    stamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(at or time.time())) + ",000"
++    lines = [f"{stamp}:DEBUG:certbot._internal.main:certbot version: 5.10.0",
++             f"{stamp}:DEBUG:acme.client:Sending GET request to {ACME}/directory."]
++    for method, path in requests:
++        lines.append(f"{stamp}:DEBUG:acme.client:Sending {method} request to {ACME}{path}:")
++    if received:
++        lines.append("Successfully received certificate.")
++    if error:
++        lines.append(f"{stamp}:ERROR:certbot._internal.log:An unexpected error occurred:")
++        lines.append(f"{stamp}:ERROR:certbot._internal.log:{error}")
++    return "\n".join(lines) + "\n"
++
++
++TIMEOUT = "requests.exceptions.ReadTimeout: HTTPSConnectionPool(host='acme-v02.api.letsencrypt.org', port=443): Read timed out."
++ACCOUNT = [("HEAD", "/acme/new-nonce"), ("POST", "/acme/new-acct")]
++ORDER = ACCOUNT + [("POST", "/acme/new-order")]
++
++
++class Certbot(Recorder):
++    """Each production attempt writes its own certbot log (as certbot rotates logs per run)."""
++
++    def __init__(self, log, private, attempts, live=False, on_attempt=None):
++        super().__init__(log)
++        self.private, self.attempts, self.live, self.on_attempt, self.production = Path(private), list(attempts), live, on_attempt, 0
++
++    def run(self, cmd, env=None, timeout=3600):
++        text = " ".join(cmd)
++        if "issue_certificate.sh" in text and "--environment production" in text:
++            self.cmds.append((text, []))
++            rc, content = self.attempts[min(self.production, len(self.attempts) - 1)]
++            self.production += 1
++            logs = self.private / "tls/logs"
++            logs.mkdir(parents=True, exist_ok=True)
++            (logs / "letsencrypt.log").write_text(content)
++            if self.live:
++                (self.private / "tls/config/live/edge").mkdir(parents=True, exist_ok=True)
++            if self.on_attempt:
++                self.on_attempt(self)
++            return rc, ""
++        return super().run(cmd, env, timeout)
++
++
++def campaign(tmp_path):
++    path, state = ready_state(tmp_path, mode="supervised", approve_live_campaign=True)
++    return path, state, state["config"]["private"]
++
++
++def run(tmp_path, attempts, **kw):
++    path, _, private = campaign(tmp_path)
++    ex = Certbot(tmp_path / "sim.jsonl", private, attempts, **kw)
++    return camp.run(path, ex), ex
++
++
++def test_timeout_before_order_retries_once_and_success_passes(tmp_path):
++    result, ex = run(tmp_path, [(1, log_text(ACCOUNT, TIMEOUT)), (0, log_text(ORDER, None, received=True))])
++    assert ex.production == 2 and result["phases"]["production-certificate"] == "PASS"
++    assert result["ACME_PRODUCTION_ATTEMPTS"] == 2 and result["ACME_PRODUCTION_FINAL_STATUS"] == "ISSUED"
++    assert result["ACME_PRODUCTION_RETRY_REASON"].startswith("network timeout during ACME account registration")
++    assert result["phases"]["responder-off"] == "PASS"
++
++
++def test_retry_failing_too_stops_after_two_attempts_and_cleans_up(tmp_path):
++    result, ex = run(tmp_path, [(1, log_text(ACCOUNT, TIMEOUT))] * 5)
++    assert ex.production == 2 and result["ACME_PRODUCTION_ATTEMPTS"] == 2
++    assert result["phases"]["production-certificate"].startswith("FAIL") and result["ACME_PRODUCTION_FINAL_STATUS"] == "FAILED"
++    assert result["CLEANUP_STATUS"] == "COMPLETE" and result["SLEEP_STATUS"] == "VERIFIED"
++
++
++@pytest.mark.parametrize("make,reason", [  # built at run time: the log must be written by this attempt
++    (lambda: log_text(ACCOUNT, "acme.messages.Error: urn:ietf:params:acme:error:unauthorized"), "not a network timeout"),      # 4
++    (lambda: log_text(ORDER + [("POST", "/acme/chall/abc")], "Some challenges have failed."), "a certificate order was sent"),  # 5
++    (lambda: log_text(ACCOUNT, "acme.messages.Error: urn:ietf:params:acme:error:rateLimited :: too many registrations"),
++     "not a network timeout"),                                                                                                  # 6
++    (lambda: log_text(ORDER, TIMEOUT), "a certificate order was sent"),                                                        # 7
++    (lambda: log_text([], TIMEOUT), "last ACME request was not account registration"),                                         # 7
++    (lambda: log_text([("HEAD", "/acme/new-nonce")], TIMEOUT), "last ACME request was not account registration"),              # 7
++    (lambda: log_text(ORDER, "kubectl: secret import failed", received=True), "a certificate was received"),                    # 8
++    (lambda: log_text(ACCOUNT, TIMEOUT, at=time.time() - 7200), "predates this attempt"),                                      # 7 stale
++    (lambda: "garbage without a timestamp\n" + TIMEOUT, "no start time"),                                                      # 7
++], ids=["unauthorized", "http01-failed", "rate-limited", "timeout-after-order", "timeout-no-request", "timeout-at-nonce",
++        "received-import-failed", "stale-log", "no-timestamp"])
++def test_anything_but_a_proven_registration_timeout_is_not_retried(tmp_path, make, reason):
++    result, ex = run(tmp_path, [(1, make())])
++    assert ex.production == 1 and result["ACME_PRODUCTION_ATTEMPTS"] == 1
++    assert reason in result["ACME_PRODUCTION_RETRY_REASON"] and result["ACME_PRODUCTION_RETRY_REASON"].startswith("no retry")
++    assert result["phases"]["production-certificate"].startswith("FAIL") and result["CLEANUP_STATUS"] == "COMPLETE"
++
++
++def test_certificate_on_disk_is_never_issued_again(tmp_path):                                                       # 8
++    result, ex = run(tmp_path, [(1, log_text(ACCOUNT, TIMEOUT))], live=True)
++    assert ex.production == 1 and "exists on disk" in result["ACME_PRODUCTION_RETRY_REASON"]
++
++
++def test_missing_log_is_not_retried(tmp_path):
++    path, state, private = campaign(tmp_path)
++    state["state_path"] = str(path)
++
++    class NoLog(Recorder):
++        def run(self, cmd, env=None, timeout=3600):
++            if "--environment production" in " ".join(cmd):
++                return 1, ""
++            return super().run(cmd, env, timeout)
++    ex = NoLog(tmp_path / "s.jsonl")
++    assert dict(camp.phases(state))["production-certificate"](state, ex)
++    assert "no certbot log" in state["ACME_PRODUCTION_RETRY_REASON"]
++
++
++def test_no_retry_when_the_deadline_is_close(tmp_path):                                                              # 9
++    path, state, private = campaign(tmp_path)
++    state["state_path"] = str(path)
++    ex = Certbot(tmp_path / "s.jsonl", private, [(1, log_text(ACCOUNT, TIMEOUT))])
++    ex.deadline = camp.now() + 600
++    assert dict(camp.phases(state))["production-certificate"](state, ex)
++    assert ex.production == 1 and "not enough time" in state["ACME_PRODUCTION_RETRY_REASON"]
++
++
++def test_no_retry_after_a_signal_and_cleanup_still_runs(tmp_path):                                                    # 10
++    def signal_arrives(ex):
++        ex.stop_requested = True
++    result, ex = run(tmp_path, [(1, log_text(ACCOUNT, TIMEOUT))], on_attempt=signal_arrives)
++    assert ex.production == 1 and "stopped by a signal" in result["ACME_PRODUCTION_RETRY_REASON"]
++    assert result["CLEANUP_STATUS"] == "COMPLETE"
++
++
++def test_staging_is_never_retried(tmp_path):                                                                         # 11
++    path, _, private = campaign(tmp_path)
++
++    class StagingTimeout(Recorder):
++        def run(self, cmd, env=None, timeout=3600):
++            text = " ".join(cmd)
++            if "--environment staging" in text:
++                self.cmds.append((text, []))
++                logs = Path(private) / "tls/logs"
++                logs.mkdir(parents=True, exist_ok=True)
++                (logs / "letsencrypt.log").write_text(log_text(ACCOUNT, TIMEOUT))
++                return 1, ""
++            return super().run(cmd, env, timeout)
++    ex = StagingTimeout(tmp_path / "s.jsonl")
++    result = camp.run(path, ex)
++    assert sum("--environment staging" in c for c, _ in ex.cmds) == 1
++    assert not any("--environment production" in c for c, _ in ex.cmds)
++    assert result["phases"]["staging-certificate"].startswith("FAIL") and "ACME_PRODUCTION_ATTEMPTS" not in result
++
++
++def test_no_second_certbot_while_the_first_process_group_is_alive(tmp_path, monkeypatch):                          # 12
++    monkeypatch.setattr(camp, "pid_alive", lambda pid: pid == 424242)
++
++    def first_started(ex):
++        if ex.on_start:
++            ex.on_start(424242)
++    result, ex = run(tmp_path, [(1, log_text(ACCOUNT, TIMEOUT))], on_attempt=first_started)
++    assert ex.production == 1 and "still alive" in result["ACME_PRODUCTION_RETRY_REASON"]
++
++
++def test_attempts_are_sequential_with_one_fixed_delay(tmp_path, monkeypatch):
++    path, state, private = campaign(tmp_path)
++    state["state_path"] = str(path)
++    sleeps, running = [], {"now": 0, "max": 0}
++
++    class Real(Certbot):  # behaves like the real Executor for the delay (not a Simulator instance check)
++        def run(self, cmd, env=None, timeout=3600):
++            running["now"] += 1
++            running["max"] = max(running["max"], running["now"])
++            try:
++                return super().run(cmd, env, timeout)
++            finally:
++                running["now"] -= 1
++    ex = Real(tmp_path / "s.jsonl", private, [(1, log_text(ACCOUNT, TIMEOUT)), (0, log_text(ORDER, None, received=True))])
++    monkeypatch.setattr(camp, "Simulator", type("NotASimulator", (), {}))  # take the real 60 s delay path
++    monkeypatch.setattr(camp.time, "sleep", lambda s: sleeps.append(s))
++    assert dict(camp.phases(state))["production-certificate"](state, ex) is None
++    assert ex.production == 2 and running["max"] == 1
++    assert sum(sleeps) == camp.ACME_RETRY_DELAY_SECONDS and len(sleeps) == camp.ACME_RETRY_DELAY_SECONDS
++
++
++def test_third_run_log_shape_is_classified_as_safe(tmp_path):
++    """The exact request sequence of g3b-full-20261122T083830Z: directory, new-nonce, new-acct, ReadTimeout."""
++    log = tmp_path / "letsencrypt.log"
++    log.write_text(log_text(ACCOUNT, TIMEOUT))
++    safe, reason = camp.acme_retry_safe(log, time.time() - 10, tmp_path / "live/edge")
++    assert safe and "new-acct" in reason
