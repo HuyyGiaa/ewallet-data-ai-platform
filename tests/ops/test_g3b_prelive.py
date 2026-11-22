@@ -279,13 +279,22 @@ def test_successful_transition_cycles_dns_on_the_lb_then_cleans_up(tmp_path):
     assert state["CLEANUP_STATUS"] == "COMPLETE" and state["SLEEP_STATUS"] == "VERIFIED"
 
 
-def test_dns_not_offline_at_the_start_sends_no_update(tmp_path):
+def test_dns_not_offline_at_the_start_sends_no_update_and_keeps_the_lb(tmp_path):
+    """Pre-check fails: no Dynu update, and the LB (already public) is released only after a fresh
+    dns_check proves offline, which here it cannot. Resume once DNS is fixed."""
     path, _ = transition(tmp_path)
     ex = Recorder(tmp_path / "sim.jsonl", fail=("dns_check.py",))
     state = camp.run(path, ex)
-    assert state["DNS_TRANSITION"].startswith("DNS_TRANSITION_NOT_STARTED")
+    assert state["DNS_TRANSITION"].startswith("DNS_TRANSITION_NOT_STARTED") and state["DNS_TARGET_STATE"] == "untouched"
     assert not any("dynu_dns.py" in c for c, _ in ex.cmds)
-    assert state["cleanup_steps"]["lb-release"]["ok"]
+    steps = state["cleanup_steps"]
+    assert not steps["dns-verify-before-release"]["ok"] and steps["lb-release"]["detail"].startswith("LB KEPT")
+    assert not any("upgrade ewallet-edge-gateway" in c and "public-open" not in c for c, _ in ex.cmds)
+    assert steps["sleep"]["ok"] and state["CLEANUP_STATUS"] == "CLEANUP_INCOMPLETE"
+    later_ex = Recorder(tmp_path / "sim2.jsonl")
+    later = camp.cleanup(path, later_ex, "manual cleanup")
+    assert later["CLEANUP_STATUS"] == "COMPLETE" and later["cleanup_steps"]["lb-release"]["ok"]
+    assert not any("dynu_dns.py" in c for c, _ in later_ex.cmds)
 
 
 def test_online_not_proven_is_taken_offline_by_cleanup_before_the_lb_is_released(tmp_path):
@@ -351,26 +360,77 @@ def test_evidence_must_prove_this_exact_configuration(tmp_path, change):
     assert state["gates"]["SAFE_CLEANUP_READY"] == "FAIL"
 
 
-def test_a_real_verified_transition_run_allows_the_normal_g3b_approval(tmp_path):
+def verified_run(tmp_path, fail=()):
     first = tmp_path / "first"
     first.mkdir()
     path, _ = transition(first)
-    assert camp.run(path, Recorder(first / "sim.jsonl"))["DNS_TRANSITION"] == "VERIFIED"
+    camp.run(path, Recorder(first / "sim.jsonl", fail=fail))
     second = tmp_path / "second"
     second.mkdir()
+    return path, second
+
+
+def g3b_with_evidence(second, path):
     _, state = ready_state(second, mode="supervised", approve_live_campaign=True, dns_transition_evidence=str(path))
+    return state
+
+
+def test_a_simulated_transition_can_never_open_the_live_gate(tmp_path):
+    path, second = verified_run(tmp_path)
+    assert json.loads(path.read_text())["DNS_TRANSITION"] == "VERIFIED"
+    state = g3b_with_evidence(second, path)
+    assert state["gates"]["SAFE_CLEANUP_READY"] == "FAIL" and any("not simulated" in p for p in state["gate_problems"])
+
+
+def test_a_verified_and_fully_cleaned_transition_allows_the_normal_g3b_approval(tmp_path):
+    """The same state as a real run would write (the Simulator's marker is the only difference)."""
+    path, second = verified_run(tmp_path)
+    real = json.loads(path.read_text())
+    real["simulated"] = False
+    path.write_text(json.dumps(real))
+    state = g3b_with_evidence(second, path)
     assert state["gates"]["SAFE_CLEANUP_READY"] == "PASS" and all(v == "PASS" for v in state["gates"].values())
 
 
+@pytest.mark.parametrize("fail,reason", [("--scale-pdb-guarded", "CLEANUP_STATUS COMPLETE"),
+                                         ("upgrade ewallet-edge-gateway chart.tgz -n ewallet-ingress -f", "LB released")])
+def test_verified_transition_with_incomplete_cleanup_is_refused(tmp_path, fail, reason):
+    path, second = verified_run(tmp_path)
+    real = json.loads(path.read_text())
+    assert real["DNS_TRANSITION"] == "VERIFIED"
+    real["simulated"] = False
+    path.write_text(json.dumps(real))
+    # re-run cleanup with a failing step to get an incomplete-cleanup state from the real code path
+    real.update(CLEANUP_STATUS=None, cleanup_steps={})
+    path.write_text(json.dumps(real))
+    camp.cleanup(path, Recorder(tmp_path / "c.jsonl", fail=(fail,)), "test")
+    after = json.loads(path.read_text())
+    after["simulated"] = False
+    path.write_text(json.dumps(after))
+    state = g3b_with_evidence(second, path)
+    assert state["gates"]["SAFE_CLEANUP_READY"] == "FAIL" and any(reason in p for p in state["gate_problems"])
+
+
+@pytest.mark.parametrize("change,reason", [
+    ({"simulated": True}, "not simulated"), ({"phases": {"dns-transition": "FAIL: x"}}, "dns-transition phase PASS"),
+    ({"SLEEP_STATUS": "NOT_VERIFIED"}, "SLEEP_STATUS VERIFIED"), ({"LAST_VERIFIED_NODE_COUNT": 2}, "0 nodes"),
+    ({"cleanup_steps": {"lb-release": {"ok": False}, "dns-verify-before-release": {"ok": False}}}, "LB released"),
+])
+def test_each_evidence_field_is_required(tmp_path, change, reason):
+    from tests.ops.test_dns_campaign import VERIFIED_TRANSITION
+    evidence = tmp_path / "e.json"
+    evidence.write_text(json.dumps({**VERIFIED_TRANSITION, **change, "config": {
+        "domain": "edge.example.test", "dns_offline_mode": "signoff", "dns_offline_ip": OFF4, "dns_offline_ipv6": OFF6}}))
+    _, state = ready_state(tmp_path, mode="supervised", approve_live_campaign=True, dns_transition_evidence=str(evidence))
+    assert state["gates"]["SAFE_CLEANUP_READY"] == "FAIL" and any(reason in p for p in state["gate_problems"])
+
+
 def test_a_failed_transition_run_does_not(tmp_path):
-    first = tmp_path / "first"
-    first.mkdir()
-    path, _ = transition(first)
-    camp.run(path, Recorder(first / "sim.jsonl", fail=(" online --ip",)))
-    second = tmp_path / "second"
-    second.mkdir()
-    _, state = ready_state(second, mode="supervised", approve_live_campaign=True, dns_transition_evidence=str(path))
-    assert state["gates"]["SAFE_CLEANUP_READY"] == "FAIL"
+    path, second = verified_run(tmp_path, fail=(" online --ip",))
+    real = json.loads(path.read_text())
+    real["simulated"] = False
+    path.write_text(json.dumps(real))
+    assert g3b_with_evidence(second, path)["gates"]["SAFE_CLEANUP_READY"] == "FAIL"
 
 
 def test_full_g3b_order_is_unchanged_apart_from_edge_auth(tmp_path, monkeypatch):
@@ -380,3 +440,83 @@ def test_full_g3b_order_is_unchanged_apart_from_edge_auth(tmp_path, monkeypatch)
                                      "edge-auth", "private-e2e", "open-lb", "dns-online", "internet-gates", "L4-denied",
                                      "staging-certificate", "production-certificate", "responder-off", "grafana", "public-e2e"]
     assert not any("dns-transition" in c for c, _ in ex.cmds)
+
+
+# --- cleanup: a fresh dns_check before every LB release ---------------------------------------------
+
+class Codes(Recorder):
+    """Recorder whose dns_check answers with a chosen exit code (0 OK, 1 NOT_YET, 2 CHECK_FAILED)."""
+
+    def __init__(self, log, dns_rc=0, **kw):
+        super().__init__(log, **kw)
+        self.dns_rc = dns_rc
+
+    def run(self, cmd, env=None, timeout=3600):
+        if "dns_check.py" in " ".join(cmd):
+            self.cmds.append((" ".join(cmd), []))
+            return self.dns_rc, json.dumps({"verdict": {0: "DNS_OFFLINE_OK", 1: "DNS_OFFLINE_NOT_YET"}.get(self.dns_rc, "DNS_CHECK_FAILED")})
+        return super().run(cmd, env, timeout)
+
+
+def lb_state(tmp_path, dns_state, lb_ip=LB, wake=True):
+    path, _ = ready_state(tmp_path, mode="supervised", approve_live_campaign=True)
+    state = camp.load(path)
+    state.update(PUBLIC_LB_CREATED=True, LB_IP=lb_ip, DNS_TARGET_STATE=dns_state, wake_attempted=wake, state_path=str(path))
+    camp.save(path, state)
+    return path
+
+
+def released(ex):
+    return any("upgrade ewallet-edge-gateway" in c and "public-open" not in c for c, _ in ex.cmds)
+
+
+def test_untouched_dns_proven_offline_allows_the_release_without_any_dynu_update(tmp_path):
+    path = lb_state(tmp_path, "untouched")
+    ex = Codes(tmp_path / "s.jsonl")
+    state = camp.cleanup(path, ex, "test")
+    check = ex.index("dns_check.py")
+    assert f"--expect-offline --offline-ip {OFF4} --offline-ipv6 {OFF6} --released-ip {LB}" in ex.cmds[check][0]
+    assert released(ex) and check < next(i for i, (c, _) in enumerate(ex.cmds) if "upgrade ewallet-edge-gateway" in c)
+    assert not any("dynu_dns.py" in c for c, _ in ex.cmds)
+    assert state["cleanup_steps"]["dns-verify-before-release"]["detail"] == "DNS_OFFLINE_OK"
+    assert state["CLEANUP_STATUS"] == "COMPLETE"
+
+
+@pytest.mark.parametrize("dns_state", ["untouched", "offline", "online", "unknown"])
+@pytest.mark.parametrize("rc,word", [(1, "DNS_OFFLINE_NOT_YET"), (2, "DNS_CHECK_FAILED")])
+def test_unproven_current_dns_keeps_the_lb_in_every_recorded_state(tmp_path, dns_state, rc, word):
+    """A recorded state (even "offline": DNS may have drifted) never replaces the real check."""
+    path = lb_state(tmp_path, dns_state)
+    ex = Codes(tmp_path / "s.jsonl", dns_rc=rc)
+    state = camp.cleanup(path, ex, "test")
+    assert not released(ex)
+    assert state["cleanup_steps"]["lb-release"]["detail"].startswith("LB KEPT") and word in state["cleanup_steps"]["lb-release"]["detail"]
+    assert state["CLEANUP_STATUS"] == "CLEANUP_INCOMPLETE" and state["cleanup_steps"]["sleep"]["ok"]
+    assert sum("dynu_dns.py" in c for c, _ in ex.cmds) == (0 if dns_state in ("untouched", "offline") else 1)
+    assert sum("dns_check.py" in c for c, _ in ex.cmds) == 3  # bounded retries, then kept
+
+
+def test_online_dns_is_signed_off_then_independently_checked_then_released(tmp_path):
+    path = lb_state(tmp_path, "online")
+    ex = Codes(tmp_path / "s.jsonl")
+    camp.cleanup(path, ex, "test")
+    order = [ex.index("dynu_dns.py"), ex.index("dns_check.py"),
+             next(i for i, (c, _) in enumerate(ex.cmds) if "upgrade ewallet-edge-gateway" in c)]
+    assert order == sorted(order)
+
+
+def test_resume_after_the_owner_fixes_dns_releases_the_lb(tmp_path):
+    path = lb_state(tmp_path, "offline")
+    assert camp.cleanup(path, Codes(tmp_path / "a.jsonl", dns_rc=1), "test")["CLEANUP_STATUS"] == "CLEANUP_INCOMPLETE"
+    ex = Codes(tmp_path / "b.jsonl")
+    state = camp.cleanup(path, ex, "manual cleanup")
+    assert released(ex) and state["CLEANUP_STATUS"] == "COMPLETE"
+    assert not any("--scale-pdb-guarded" in c for c, _ in ex.cmds)  # sleep already done, not repeated
+
+
+def test_unknown_lb_address_is_looked_up_before_the_check(tmp_path):
+    path = lb_state(tmp_path, "untouched", lb_ip=None)
+    ex = Codes(tmp_path / "s.jsonl")
+    state = camp.cleanup(path, ex, "test")
+    assert ex.index("loadBalancer.ingress") < ex.index("dns_check.py")
+    assert f"--released-ip {LB}" in ex.cmds[ex.index("dns_check.py")][0] and state["LB_IP"] == LB

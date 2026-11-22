@@ -175,11 +175,18 @@ approval neither replaces nor is replaced by it.
 | `VERIFIED` | offline (proven) | released | stage 3 with `--dns-offline-verified --dns-transition-evidence $EV/state.json` |
 | `ONLINE_NOT_PROVEN` (Dynu stays Offline after `myip=`) | cleanup sends signoff and proves offline | released once proven | owner decision: bring it online in the panel during stage 3 (a supervised manual step), or stop |
 | `OFFLINE_NOT_PROVEN` | names may still point at the LB | **kept** (still ours, nothing dangles); nodes still sleep; `CLEANUP_INCOMPLETE` | owner: panel *Go Offline Now*, then `g3b_campaign.py cleanup --state $EV/state.json` (proves offline, releases the LB). Signoff is not used for stage 3 |
-| `NOT_STARTED` | untouched | released | re-read OFF4/OFF6, re-run `init` |
+| `NOT_STARTED` (pre-check not `DNS_OFFLINE_OK`; no Dynu update sent) | untouched | released only if cleanup's fresh `dns_check` proves offline; otherwise **kept**, `CLEANUP_INCOMPLETE` | owner fixes DNS (panel *Go Offline Now*), `cleanup` again; re-read OFF4/OFF6, re-run `init` |
 
-`--dns-offline-verified` alone does nothing: stage 3's `SAFE_CLEANUP_READY` needs
-`--dns-transition-evidence` pointing at a `state.json` with `scope: dns-transition`,
-`DNS_TRANSITION: VERIFIED` and the same domain, offline mode, OFF4 and OFF6.
+`--dns-offline-verified` alone does nothing. Stage 3's `SAFE_CLEANUP_READY` needs
+`--dns-transition-evidence` pointing at the `state.json` of a **real** transition run. That file must show:
+- `scope: dns-transition`, `simulated: false` (`--simulate` runs are marked and always refused);
+- `DNS_TRANSITION: VERIFIED` and the `dns-transition` phase `PASS`;
+- `CLEANUP_STATUS: COMPLETE`, `SLEEP_STATUS: VERIFIED`, `LAST_VERIFIED_NODE_COUNT: 0`;
+- cleanup steps `dns-verify-before-release` and `lb-release` ok (the LB was released after DNS was proven offline);
+- the same domain, offline mode, OFF4 and OFF6.
+
+A transition whose cleanup is incomplete (LB kept, sleep not verified) is not evidence; finish
+it with `cleanup`, after which its `state.json` qualifies.
 
 ### Preconditions and owner approvals
 
@@ -277,12 +284,13 @@ never PASS. These are technical checks; the official G4 screenshots are a separa
 1. Stop new work.
 2. Let an in-flight certbot finish (at most 10 min), then end it.
 3. Disable `acmeHttp01`. By exact object identity, verify that the responder Deployment, Service, ConfigMap and HTTPRoute are gone, while every route the approved values enable (here feature-api, kagent-ui, agent-registry, grafana, plus https-redirect) and `edge-tls` are kept. The production certificate is never rolled back.
-4. Dynu offline, proven by `dns_check.py`.
-5. Release the LB (only after DNS is proven offline; otherwise the LB is kept and the result is `CLEANUP_INCOMPLETE`).
-6. Fresh recovery manifest.
-7. `plan-sleep`: only approved PDB blockers.
-8. Guarded sleep with the scoped approval variables.
-9. `verify --expect sleep` and an actual node count of 0.
+4. Dynu offline (signoff) when the recorded DNS state is `online` or `unknown`. No Dynu update is sent when DNS was never touched.
+5. Whenever a public LB was created: a fresh, read-only `dns_check.py --expect-offline --offline-ip OFF4 --offline-ipv6 OFF6 --released-ip <LB>` (step `dns-verify-before-release`, 3 attempts). The recorded state (`untouched`, `unknown`, `online`, even `offline`) never replaces it. If the LB address is not in the state, it is read from the Service first.
+6. Release the LB only on `DNS_OFFLINE_OK`. `NOT_YET` or `DNS_CHECK_FAILED` keeps the LB, records the verdict in `lb-release`, and gives `CLEANUP_INCOMPLETE`; guarded sleep still runs. After the owner fixes DNS, `cleanup` resumes (finished steps are skipped).
+7. Fresh recovery manifest.
+8. `plan-sleep`: only approved PDB blockers.
+9. Guarded sleep with the scoped approval variables.
+10. `verify --expect sleep` and an actual node count of 0.
 
 A step that fails is recorded, the following safe steps still run, and `cleanup` can be run
 again to resume.
@@ -317,8 +325,8 @@ the campaign runs; it cannot prevent power loss or a network drop.
 
 ### DNS before the LB (failure policy)
 
-The LB is released only after `dynu_dns.py offline` and `dns_check.py --expect-offline
---released-ip <LB IP>` return `DNS_OFFLINE_OK`. A `DNS_CHECK_FAILED` (timeout, SERVFAIL,
+The LB is released only after a fresh `dns_check.py --expect-offline
+--released-ip <LB IP>` (after any needed Dynu signoff, whatever state.json records) returns `DNS_OFFLINE_OK`. A `DNS_CHECK_FAILED` (timeout, SERVFAIL,
 REFUSED, malformed reply, missing `aa`) never counts as offline. If DNS cannot be proven safe
 within the bounded retries, the LB is **kept**: its address stays ours, so no record points
 to someone else's address. The nodes still go to guarded sleep, `CLEANUP_STATUS` is

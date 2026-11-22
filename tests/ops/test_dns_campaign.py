@@ -224,6 +224,13 @@ def manifest(tmp_path):
     return m
 
 
+# what a REAL, fully cleaned-up dns-transition campaign leaves in its state.json
+VERIFIED_TRANSITION = {"scope": "dns-transition", "DNS_TRANSITION": "VERIFIED", "simulated": False,
+                       "phases": {"dns-transition": "PASS"}, "CLEANUP_STATUS": "COMPLETE", "SLEEP_STATUS": "VERIFIED",
+                       "LAST_VERIFIED_NODE_COUNT": 0,
+                       "cleanup_steps": {"dns-verify-before-release": {"ok": True}, "lb-release": {"ok": True}}}
+
+
 def init_args(tmp_path, **kw):
     def secret(name, text):
         (tmp_path / name).write_text(text)
@@ -238,7 +245,7 @@ def init_args(tmp_path, **kw):
     args.update(kw)
     if "dns_transition_evidence" not in kw:  # a VERIFIED dns-transition run for exactly this configuration
         evidence = tmp_path / "transition-state.json"
-        evidence.write_text(json.dumps({"scope": "dns-transition", "DNS_TRANSITION": "VERIFIED", "config": {
+        evidence.write_text(json.dumps({**VERIFIED_TRANSITION, "config": {
             "domain": args["domain"], "dns_offline_mode": args["dns_offline_mode"], "dns_offline_ip": args["dns_offline_ip"],
             "dns_offline_ipv6": args["dns_offline_ipv6"]}}))
         args["dns_transition_evidence"] = str(evidence)

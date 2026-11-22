@@ -732,7 +732,7 @@ def cleanup(state_path: Path, ex: Executor, reason: str) -> dict:
         if gone:
             state["ACME_STATUS"] = "responder-disabled"
             save(state_path, state)
-    dns_safe = True
+    dns_safe = True  # only about the Dynu update; the LB release below always needs a fresh dns_check
     if state.get("DNS_TARGET_STATE") in ("online", "unknown") and not steps.get("dns-offline", {}).get("ok"):
         if not c.get("dns_credentials"):
             dns_safe = done("dns-offline", False, "no DNS automation configured")
@@ -745,12 +745,29 @@ def cleanup(state_path: Path, ex: Executor, reason: str) -> dict:
             if rc == 0:
                 state["DNS_TARGET_STATE"] = "offline"
     if state.get("PUBLIC_LB_CREATED") and not steps.get("lb-release", {}).get("ok"):
+        # Fail-closed, whatever state.json says (untouched, unknown, online, offline): the LB is
+        # released only when the CURRENT DNS answers are proven offline on both families and no
+        # name answers the LB address. No Dynu update is sent here; this is a read-only check.
+        if not state.get("LB_IP"):
+            rc_ip, out_ip = ex.run(k(state, "-n", "ewallet-ingress", "get", "svc", GATEWAY_DEPLOYMENT, "-o",
+                                     "jsonpath={.status.loadBalancer.ingress[0].ip}"))
+            try:
+                if rc_ip == 0 and out_ip.strip():
+                    state["LB_IP"] = str(ipaddress.ip_address(out_ip.strip()))
+                    save(state_path, state)
+            except ValueError:
+                pass
+        rc_v, _ = retry(py("dns_check.py", "--domain", c["domain"], "--expect-offline", *offline_args(c),
+                           *(["--released-ip", state["LB_IP"]] if state.get("LB_IP") else [])), attempts=3, interval=30)
+        verdict = {0: "DNS_OFFLINE_OK", 1: "DNS_OFFLINE_NOT_YET"}.get(rc_v, f"DNS_CHECK_FAILED (exit {rc_v})")
+        done("dns-verify-before-release", rc_v == 0, verdict)
+        dns_safe = dns_safe and rc_v == 0
         if dns_safe:
             rc, _ = retry(gateway_upgrade(state, False))
             rc2, _ = retry(py("ownership_preflight.py", "live", "--context", c["context"], "--kubeconfig", c["kubeconfig"]))
             done("lb-release", rc == 0 and rc2 == 0, "ClusterIP; no LoadBalancer" if rc == rc2 == 0 else f"exit {rc}/{rc2}")
         else:
-            done("lb-release", False, "LB KEPT: DNS not proven offline, its address stays ours (no dangling record)")
+            done("lb-release", False, f"LB KEPT: DNS not proven offline ({verdict}); its address stays ours (no dangling record)")
     if state.get("wake_attempted") and not steps.get("sleep", {}).get("ok"):
         manifest = c["manifest"]
         if state.get("baseline_passed") and not steps.get("record-manifest", {}).get("ok"):
@@ -815,6 +832,7 @@ def run(state_path: Path, ex: Executor) -> dict:
     signal.signal(signal.SIGINT, on_signal)
     if state.get("deadline_epoch"):
         ex.deadline = state["deadline_epoch"]
+    state["simulated"] = bool(state.get("simulated", True)) or isinstance(ex, Simulator)  # sticky
     state.update(campaign_active=True, main_pid=os.getpid(), START_TIME=state.get("START_TIME") or iso(now()),
                  heartbeat=now(), state_path=str(state_path), G3B_STATUS="RUNNING")
     save(state_path, state)
@@ -918,8 +936,9 @@ def outside_repo(path: str | None, label: str, problems: list[str], required: bo
 
 
 def transition_evidence(path: str | None, cfg: dict, problems: list[str]) -> bool:
-    """--dns-offline-verified counts only with the state.json of a dns-transition campaign that
-    proved Offline -> Online (LB) -> signoff -> Offline for this domain, mode and offline addresses."""
+    """--dns-offline-verified counts only with the state.json of a REAL (not --simulate) dns-transition
+    campaign that proved Offline -> Online (LB) -> signoff -> Offline for this domain, mode and offline
+    addresses, and then cleaned up completely (LB released after DNS was proven offline, 0 nodes)."""
     if not path:
         problems.append("--dns-offline-verified needs --dns-transition-evidence (state.json of a VERIFIED dns-transition campaign)")
         return False
@@ -928,8 +947,15 @@ def transition_evidence(path: str | None, cfg: dict, problems: list[str]) -> boo
     except (OSError, ValueError):
         problems.append("DNS transition evidence is unreadable")
         return False
-    ec = evidence.get("config", {})
+    ec, steps = evidence.get("config", {}), evidence.get("cleanup_steps", {})
     checks = {"scope": evidence.get("scope") == "dns-transition", "DNS_TRANSITION": evidence.get("DNS_TRANSITION") == "VERIFIED",
+              "not simulated": evidence.get("simulated") is False,
+              "dns-transition phase PASS": evidence.get("phases", {}).get("dns-transition") == "PASS",
+              "CLEANUP_STATUS COMPLETE": evidence.get("CLEANUP_STATUS") == "COMPLETE",
+              "SLEEP_STATUS VERIFIED": evidence.get("SLEEP_STATUS") == "VERIFIED",
+              "0 nodes": evidence.get("LAST_VERIFIED_NODE_COUNT") == 0,
+              "LB released after DNS proven offline": bool(steps.get("lb-release", {}).get("ok"))
+                                                      and bool(steps.get("dns-verify-before-release", {}).get("ok")),
               "domain": ec.get("domain") == cfg["domain"], "dns_offline_mode": ec.get("dns_offline_mode") == cfg["dns_offline_mode"],
               "dns_offline_ip": ec.get("dns_offline_ip") == cfg["dns_offline_ip"],
               "dns_offline_ipv6": ec.get("dns_offline_ipv6") == cfg["dns_offline_ipv6"]}
@@ -1047,6 +1073,7 @@ def init(args: argparse.Namespace, ex: Executor) -> dict:
                                      "DNS_TRANSITION_TEST_READY") else v)
                  for g, v in gates.items()}
     state = {"CAMPAIGN_ID": args.campaign, "CLUSTER": CLUSTER, "PROJECT": PROJECT, "mode": mode, "scope": scope,
+             "simulated": isinstance(ex, Simulator),  # a simulated state can never serve as live evidence
              "config": cfg, "approvals": approvals, "edge_auth_at_init": edge_auth_init,
              "gates": gates, "gate_problems": problems, "unattended": unattended, "START_TIME": None, "DEADLINE": None,
              "CURRENT_PHASE": "initialised", "WAKE_COMPLETED": False, "PUBLIC_LB_CREATED": False, "LB_IP": None,
