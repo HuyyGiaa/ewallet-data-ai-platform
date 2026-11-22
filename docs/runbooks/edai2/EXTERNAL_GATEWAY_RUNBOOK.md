@@ -431,6 +431,30 @@ Anything else fails closed with no retry: HTTP-01 failure, rate limit, `unauthor
 
 `state.json` records `ACME_PRODUCTION_ATTEMPTS`, `ACME_PRODUCTION_RETRY_REASON` (or `no retry: …`) and `ACME_PRODUCTION_FINAL_STATUS`, and no ACME material. A second failure fails the phase, and cleanup runs as usual.
 
+### Reusing the issued production certificate (`--reuse-existing-production-certificate`)
+
+The sixth Full G3-B run issued a trusted Let's Encrypt certificate (issuer YE1, the 4 names, valid
+until 2027-02-20) into `ewallet-ingress/edge-tls`. That Secret survives guarded sleep and wake.
+Without the flag, every campaign still does what it always did: it imports a self-signed
+certificate into `edge-tls`, then orders a new staging and production certificate. That means one
+production order per run, against Let's Encrypt's limit of 5 duplicate certificates per week.
+
+With the flag (`init`, scope `g3b`), the campaign keeps the existing certificate. Read-only, first
+in `init` (gate `TLS_REUSE_READY`, which also requires `--approve-production-certificate`) and again
+in phase `tls-reuse-verify` (in place of `temporary-certificate`), `scripts/edge/verify_edge_tls.py`
+checks that:
+- the chain is trusted by the system CA bundle;
+- all 4 names are present;
+- at least 14 days are left;
+- the private key matches the certificate (compared by public key; the key is read into memory only, never printed or written).
+
+Then:
+- **No self-signed import and no ACME responder.** `ewallet-edge` is installed with `acmeHttp01` off, and the L0 render matches.
+- **No order.** `staging-certificate` and `production-certificate` record `SKIPPED_REUSE`; `ACME_PRODUCTION_ATTEMPTS: 0`; never `ISSUED`.
+- **System trust everywhere.** The private (port-forward, with the real hostnames), Internet and L4 checks verify the real certificate against system trust instead of `--ca-file <self-signed>`, and the final public E2E (row 43) still requires a trusted handshake.
+- **Verdicts say what happened.** `TLS_MODE: REUSE_EXISTING`, `TLS_CERTIFICATE_STATUS: VERIFIED_TRUSTED`, `TLS_CERTIFICATE_SOURCE: EXISTING_EDGE_TLS`. A verified reuse satisfies the TLS part of the deployment and security verdicts.
+- **Fail closed.** A certificate that is missing, expiring, untrusted, missing a name, mismatched with its key or unreadable stops the campaign. There is no self-signed fallback and no automatic issuance; issuing a new one is a separate owner decision. Cleanup never touches `edge-tls`.
+
 ### Grafana rollout readiness
 
 What happened in the sixth Full G3-B run, `g3b-full-20261122T164612Z` (2026-11-23):

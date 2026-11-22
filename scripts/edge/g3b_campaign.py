@@ -66,6 +66,13 @@ request sent was new-acct, no new-order request was sent, no certificate was rec
 on disk), the final error is a network timeout, the log was written by this attempt, no signal
 arrived and enough time is left. Anything else fails closed.
 
+TLS reuse (init --reuse-existing-production-certificate, opt-in): the trusted certificate already in
+ewallet-ingress/edge-tls (issued by an earlier campaign) is verified read-only (verify_edge_tls.py:
+trusted chain, all four names, at least 14 days left, key matches) and kept. No self-signed import,
+no ACME responder, no staging or production order (phases record SKIPPED_REUSE, attempts 0); the
+private, Internet and L4 checks verify that certificate with system trust instead of the self-signed
+CA. A certificate that is not safe to reuse fails the campaign closed: no fallback issuance.
+
 After L4 the campaign waits (at most 15 min) until this client is back inside the approved CIDRs
 (phase approved-network); otherwise it stops and cleans up. Client addresses are looked up over
 IPv4 (dig -4), as the gateway sees them, and never recorded.
@@ -117,6 +124,7 @@ CLEANUP_RESERVE_SECONDS = 1800      # the evidence window always ends this long 
 WINDOW_POLL_SECONDS = 10
 CONTINUE_MARKER = "evidence-window-continue"
 CERTBOT_PIN = "certbot==5.10.0"     # the version issue_certificate.sh runs through uvx
+TLS_REUSE_MIN_DAYS = 14             # reuse only a certificate with at least this long left
 PORT_FORWARD = ("18443", "18080")
 GATEWAY_DEPLOYMENT = "ewallet-edge-gateway"
 COMMON_GATES = ("CLOUD_LAB_RECOVERY_MANIFEST_VALID", "PDB_APPROVAL_COMPLETE", "KEDA_SLEEP_APPROVAL_READY",
@@ -274,6 +282,11 @@ class Simulator(Executor):
             return 0, "certbot 5.10.0"
         if "{.spec.replicas} {.status.readyReplicas}" in text:
             return 0, "1 1"
+        if "verify_edge_tls.py" in text:
+            if os.environ.get("EDGE_SIM_TLS_REUSE") == "refuse":
+                return 1, json.dumps({"verdict": "TLS_REUSE_REFUSED", "reason": "simulated"})
+            return 0, json.dumps({"verdict": "TLS_REUSE_VERIFIED", "issuer": "C=US, O=Let's Encrypt, CN=YE1",
+                                  "not_after": "Feb 20 16:17:41 2027 GMT", "names": []})
         if "-o name" in text and "app.kubernetes.io/part-of=ewallet-edge" in text:
             names = ["httproute.gateway.networking.k8s.io/" + n for n in ("feature-api", "kagent-ui", "agent-registry", "grafana", "https-redirect")]
             if os.environ.get("EDGE_SIM_ACME_STAYS"):
@@ -337,6 +350,15 @@ def public_preflight(state: dict) -> list[str]:
     c = state["config"]
     return py("ownership_preflight.py", "live", "--context", c["context"], "--kubeconfig", c["kubeconfig"],
               "--allow-public-loadbalancer", "--domain", c["domain"], "--approved-cidrs-file", c["approved_cidrs"])
+
+
+def reusing_tls(cfg: dict) -> bool:
+    return cfg.get("tls_mode") == "reuse"
+
+
+def verify_tls_cmd(cfg: dict) -> list[str]:
+    return py("verify_edge_tls.py", "--domain", cfg["domain"], "--kubeconfig", cfg["kubeconfig"], "--context", cfg["context"],
+              "--min-days", str(TLS_REUSE_MIN_DAYS))
 
 
 def cert(state: dict, environment: str, *extra: str) -> list[str]:
@@ -445,6 +467,10 @@ def phases(state: dict) -> list[tuple[str, Callable]]:
     c, p = state["config"], Path(state["config"]["private"])
     ev = Path(c["campaign_dir"])
     selfsigned = str(p / "tls/self-signed/fullchain.pem")
+    reuse = reusing_tls(c)
+    # reuse: verify the real (publicly trusted) certificate with system trust; never relax verification
+    ca = [] if reuse else ["--ca-file", selfsigned]
+    edge_values = c["values_final"] if reuse else c["values_acme"]   # no ACME responder when nothing is issued
     edge_args = ["--domain", c["domain"], "--credentials-file", c["edge_credentials"]]
     grafana_args = ["--grafana-credentials-file", c["grafana_credentials"]] if c.get("grafana_credentials") else []
     path = lambda: Path(state["state_path"])
@@ -480,8 +506,9 @@ def phases(state: dict) -> list[tuple[str, Callable]]:
         return None if rc == 0 else f"wake-full exit {rc}"
 
     def edge_restricted(state, ex):
-        remember(ACME_STATUS="responder-enabled")  # before the upgrade that creates it
-        return step(edge_upgrade(state, c["values_acme"]), py("platform_checks.py", *kargs(state), "gateway"),
+        if not reuse:
+            remember(ACME_STATUS="responder-enabled")  # before the upgrade that creates it
+        return step(edge_upgrade(state, edge_values), py("platform_checks.py", *kargs(state), "gateway"),
                     py("platform_checks.py", *kargs(state), "envoy", "--restricted"),
                     py("platform_checks.py", *kargs(state), "watch"))(state, ex)
 
@@ -492,7 +519,7 @@ def phases(state: dict) -> list[tuple[str, Callable]]:
                  for x in ("-f", str(ROOT / "infra/helm/ewallet-edge" / f))]
         for out, cmd in ((gw, ["helm", "template", "ewallet-edge-gateway", c["gateway_chart"], "-n", "ewallet-ingress", *files]),
                          (edge, ["helm", "template", "ewallet-edge", str(ROOT / "infra/helm/ewallet-edge"), "-n", "ewallet-ingress",
-                                 "-f", str(PRIVATE_VALUES), "-f", c["values_acme"]])):
+                                 "-f", str(PRIVATE_VALUES), "-f", edge_values])):
             rc, text = ex.run(cmd)
             if rc != 0:
                 return f"helm template exit {rc}"
@@ -560,7 +587,7 @@ def phases(state: dict) -> list[tuple[str, Callable]]:
                                   "svc/ewallet-edge-gateway", f"{PORT_FORWARD[0]}:443", f"{PORT_FORWARD[1]}:80"))
         try:
             time.sleep(0 if isinstance(ex, Simulator) else 5)
-            local = ["--address", "127.0.0.1", "--https-port", PORT_FORWARD[0], "--http-port", PORT_FORWARD[1], "--ca-file", selfsigned]
+            local = ["--address", "127.0.0.1", "--https-port", PORT_FORWARD[0], "--http-port", PORT_FORWARD[1], *ca]
             return step(py("public_e2e.py", *local, *edge_args, *grafana_args, "--agents", "denied",
                            "--evidence-class", "GKE_PRIVATE", "--out", str(ev / "07-private-e2e.jsonl")),
                         py("negative_tests.py", *local, *edge_args, "--rate-limit-mode", "http2",
@@ -596,9 +623,9 @@ def phases(state: dict) -> list[tuple[str, Callable]]:
         if not inside:
             remember(L5="FAIL: this client is not inside the approved CIDRs" if inside is False else "FAIL: client address unknown")
             return state["L5"]
-        error = step(lambda s: py("negative_tests.py", "--address", s["LB_IP"], "--ca-file", selfsigned, "--rate-limit-mode",
+        error = step(lambda s: py("negative_tests.py", "--address", s["LB_IP"], *ca, "--rate-limit-mode",
                                   "http2", "--out", str(ev / "10-negative.jsonl"), *edge_args),
-                     lambda s: py("public_e2e.py", "--address", s["LB_IP"], "--ca-file", selfsigned, "--agents", "allowed",
+                     lambda s: py("public_e2e.py", "--address", s["LB_IP"], *ca, "--agents", "allowed",
                                   "--evidence-class", "PUBLIC_INTERNET", "--out", str(ev / "10-e2e.jsonl"), *edge_args))(state, ex)
         state["L5"] = "PASS" if error is None else f"FAIL: {error}"
         return error
@@ -617,7 +644,7 @@ def phases(state: dict) -> list[tuple[str, Callable]]:
                 break
             if client_in_allowlist(state, ex) is False:
                 result.unlink(missing_ok=True)  # only rows written by this request count
-                ex.run(py("public_e2e.py", "--address", state["LB_IP"], "--ca-file", selfsigned, "--agents", "denied",
+                ex.run(py("public_e2e.py", "--address", state["LB_IP"], *ca, "--agents", "denied",
                           "--evidence-class", "PUBLIC_INTERNET", "--out", str(result), *edge_args))
                 still_outside = client_in_allowlist(state, ex) is False
                 agents = [r for r in jsonl_rows(result) if r.get("row") == "40"]
@@ -761,6 +788,34 @@ def phases(state: dict) -> list[tuple[str, Callable]]:
             return error
         return run
 
+    def tls_reuse_verify(state, ex):
+        """Reuse: the trusted certificate in edge-tls must be safe to keep, or the campaign stops
+        (no self-signed fallback, no new order). Read-only."""
+        rc, out = ex.run(verify_tls_cmd(c), timeout=120)
+        try:
+            facts = json.loads(out.strip().splitlines()[-1]) if out.strip() else {}
+        except ValueError:
+            facts = {}
+        if rc != 0 or facts.get("verdict") != "TLS_REUSE_VERIFIED":
+            remember(TLS_MODE="REUSE_EXISTING", TLS_CERTIFICATE_STATUS=f"NOT_REUSABLE: {facts.get('reason', 'check failed')}")
+            return f"existing certificate not reusable: {facts.get('reason', 'check failed')} (no fallback issuance)"
+        remember(TLS_MODE="REUSE_EXISTING", TLS_CERTIFICATE_STATUS="VERIFIED_TRUSTED", TLS_CERTIFICATE_SOURCE="EXISTING_EDGE_TLS",
+                 TLS_CERTIFICATE_ISSUER=facts.get("issuer"), TLS_CERTIFICATE_NOT_AFTER=facts.get("not_after"))
+        return None
+
+    def skipped_issuance(environment):
+        def run(state, ex):
+            if environment == "production" and not state["approvals"].get("production_certificate"):
+                return "production certificate not approved"
+            if state.get("TLS_CERTIFICATE_STATUS") != "VERIFIED_TRUSTED":
+                return "no verified certificate to reuse"
+            if environment == "production":
+                remember(ACME_PRODUCTION="SKIPPED_REUSE", ACME_PRODUCTION_ATTEMPTS=0, ACME_PRODUCTION_FINAL_STATUS="NOT_ISSUED_REUSED")
+            else:
+                remember(ACME_STAGING="SKIPPED_REUSE")
+            return None
+        return run
+
     def responder_off(state, ex):
         error = step(edge_upgrade(state, c["values_final"]))(state, ex)
         if error:
@@ -844,7 +899,7 @@ def phases(state: dict) -> list[tuple[str, Callable]]:
         ("baseline", step(py("platform_checks.py", *kargs(state), "backends", "--snapshot-out", str(ev / "baseline.json"),
                              "--out", str(ev / "02-backends.jsonl")), retries=25)),
         ("gateway-ready", gateway_ready),
-        ("temporary-certificate", step(cert(state, "self-signed", "--import"))),
+        ("tls-reuse-verify", tls_reuse_verify) if reuse else ("temporary-certificate", step(cert(state, "self-signed", "--import"))),
         ("edge-restricted", edge_restricted),
         ("L0-render", l0_render),
         ("L0-live", step(public_preflight)),
@@ -855,9 +910,10 @@ def phases(state: dict) -> list[tuple[str, Callable]]:
         ("internet-gates", internet_gates),
         ("L4-denied", l4_denied),
         ("approved-network", approved_network),
-        ("staging-certificate", certificate("staging")),
-        ("production-certificate", certificate("production", "--confirm-production", "--import")
-         if state["approvals"].get("production_certificate") else (lambda s, e: "production certificate not approved")),
+        ("staging-certificate", skipped_issuance("staging") if reuse else certificate("staging")),
+        ("production-certificate", skipped_issuance("production") if reuse else (
+            certificate("production", "--confirm-production", "--import")
+            if state["approvals"].get("production_certificate") else (lambda s, e: "production certificate not approved"))),
         ("responder-off", responder_off),
         ("grafana", grafana),
         ("public-e2e", public_e2e),
@@ -886,9 +942,14 @@ def verdicts(state: dict) -> dict:
                 "G3B_DEPLOYMENT_STATUS": not_run, "G3B_SECURITY_STATUS": not_run, "G3B_PUBLIC_E2E_STATUS": not_run,
                 "G4_AUTOMATED_CHECKS_STATUS": not_run, "CLEANUP_STATUS": state.get("CLEANUP_STATUS"),
                 "SLEEP_STATUS": state.get("SLEEP_STATUS")}
-    status = lambda names: ("NOT_STARTED" if not any(n in ph for n in names) else
-                            "FAIL" if any(ph.get(n, "").startswith("FAIL") for n in names) else
-                            "PASS" if all(ph.get(n) == "PASS" for n in names) else "INCOMPLETE")
+    reuse = state.get("TLS_CERTIFICATE_STATUS") == "VERIFIED_TRUSTED" and reusing_tls(state.get("config", {}))
+    # A verified reused certificate stands in for issuance; it is never reported as ISSUED.
+    ok = lambda n: ph.get(n) == "PASS" or (reuse and ph.get(n) == "SKIPPED_REUSE")
+    swap = lambda names: tuple("tls-reuse-verify" if (n == "temporary-certificate" and reusing_tls(state.get("config", {}))) else n
+                               for n in names)
+    status = lambda names: ("NOT_STARTED" if not any(n in ph for n in swap(names)) else
+                            "FAIL" if any(ph.get(n, "").startswith("FAIL") for n in swap(names)) else
+                            "PASS" if all(ok(n) for n in swap(names)) else "INCOMPLETE")
     l4 = state.get("L4", "NOT_RUN")
     security = status(SECURITY_PHASES)
     if security == "PASS":
@@ -906,7 +967,9 @@ def verdicts(state: dict) -> dict:
     return {"SCOPE": "g3b", "EDGE_AUTH": state.get("EDGE_AUTH", "NOT_RUN"),
             "G3B_DEPLOYMENT_STATUS": status(DEPLOYMENT_PHASES), "G3B_SECURITY_STATUS": security,
             "G3B_PUBLIC_E2E_STATUS": e2e, "G4_AUTOMATED_CHECKS_STATUS": g4, "L4": l4, "L5": state.get("L5", "NOT_RUN"),
-            "GRAFANA": grafana, "CLEANUP_STATUS": state.get("CLEANUP_STATUS"), "SLEEP_STATUS": state.get("SLEEP_STATUS")}
+            "GRAFANA": grafana, "TLS_MODE": state.get("TLS_MODE", "ISSUE"),
+            "TLS_CERTIFICATE_STATUS": state.get("TLS_CERTIFICATE_STATUS", state.get("ACME_PRODUCTION_FINAL_STATUS", "NOT_RUN")),
+            "CLEANUP_STATUS": state.get("CLEANUP_STATUS"), "SLEEP_STATUS": state.get("SLEEP_STATUS")}
 
 
 # --- cleanup ------------------------------------------------------------------------------------
@@ -1085,6 +1148,8 @@ def run(state_path: Path, ex: Executor) -> dict:
             result = state.get("GRAFANA", "NOT_RUN")
         if name == "evidence-window":
             result = state.get("EVIDENCE_WINDOW", "NOT_RUN")  # a pause, never a gate
+        if error is None and name in ("staging-certificate", "production-certificate") and reusing_tls(state["config"]):
+            result = "SKIPPED_REUSE"  # nothing was issued: a verified certificate is reused
         state.setdefault("phases", {})[name] = result
         if name == "baseline" and error is None:
             state["baseline_passed"] = True
@@ -1208,7 +1273,8 @@ def init(args: argparse.Namespace, ex: Executor) -> dict:
            "dns_credentials": outside_repo(args.dns_credentials, "DNS credentials", problems, required=False),
            "dns_offline_mode": args.dns_offline_mode, "dns_offline_ip": args.dns_offline_ip,
            "dns_offline_ipv6": getattr(args, "dns_offline_ipv6", None),
-           "evidence_window_minutes": int(getattr(args, "evidence_window_minutes", 0) or 0)}
+           "evidence_window_minutes": int(getattr(args, "evidence_window_minutes", 0) or 0),
+           "tls_mode": "reuse" if getattr(args, "reuse_existing_production_certificate", False) else "issue"}
     for key, version in (("dns_offline_ip", 4), ("dns_offline_ipv6", 6)):
         if cfg[key]:
             try:
@@ -1280,7 +1346,11 @@ def init(args: argparse.Namespace, ex: Executor) -> dict:
     word = (out_a.split() or ["EDGE_AUTH_CHECK_FAILED"])[0].rstrip(":")
     edge_auth_init = word if word in ("EDGE_AUTH_MATCH", "EDGE_AUTH_MISMATCH", "EDGE_AUTH_MISSING") else "EDGE_AUTH_CHECK_FAILED"
     gates["EDGE_AUTH_READY"] = "PASS" if rc_a == 0 or (rc_a == 1 and approvals["edge_secret_sync"]) else "FAIL"
-    if scope == "g3b":
+    if scope == "g3b" and reusing_tls(cfg):
+        # read-only: the certificate already in edge-tls must be safe to reuse (no certbot needed)
+        rc_t, out_t = ex.run(verify_tls_cmd(cfg), timeout=120)
+        gates["TLS_REUSE_READY"] = "PASS" if rc_t == 0 and "TLS_REUSE_VERIFIED" in out_t and approvals["production_certificate"] else "FAIL"
+    elif scope == "g3b":
         # issue_certificate.sh runs certbot through uvx; prove both are reachable before any wake
         uvx = shutil.which("uvx") or ("uvx" if isinstance(ex, Simulator) else None)
         rc_c, out_c = ex.run([uvx, "--from", CERTBOT_PIN, "certbot", "--version"], timeout=300) if uvx else (127, "")
@@ -1292,7 +1362,8 @@ def init(args: argparse.Namespace, ex: Executor) -> dict:
                                                                                       "values-gateway-public-open.yaml")
                                                                           for x in ("-f", str(ROOT / "infra/helm/ewallet-edge" / f))]]),
                      (campaign / "l0-edge.yaml", ["helm", "template", "ewallet-edge", str(ROOT / "infra/helm/ewallet-edge"), "-n",
-                                                  "ewallet-ingress", "-f", str(PRIVATE_VALUES), "-f", cfg["values_acme"]])):
+                                                  "ewallet-ingress", "-f", str(PRIVATE_VALUES), "-f",
+                                                  cfg["values_final"] if reusing_tls(cfg) else cfg["values_acme"]])):
         rc_r, text = ex.run(cmd, timeout=120)
         out.write_text(text, encoding="utf-8")
         l0.append(rc_r)
@@ -1375,6 +1446,8 @@ def main(argv: list[str] | None = None) -> int:
                  "dns-offline-verified", "accept-local-only-risk", "cloud-fallback-ready"):
         i.add_argument(f"--{flag}", action="store_true")
     i.add_argument("--also-approve", action="append", default=[], metavar="NS/NAME")
+    i.add_argument("--reuse-existing-production-certificate", action="store_true",
+                   help="g3b: keep and verify the trusted certificate already in edge-tls; no self-signed import, no ACME order")
     i.add_argument("--evidence-window-minutes", type=int, default=0,
                    help="g3b + supervised: hold the public edge this long (1..60, recommended 45) after a passed public-e2e")
     for name in ("run", "cleanup", "watchdog", "status", "continue"):
