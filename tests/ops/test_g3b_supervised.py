@@ -190,7 +190,8 @@ def test_complete_security_and_g4_only_with_l4_and_grafana_verified(tmp_path):
     grafana.write_text("admin:synthetic")
     state["config"]["grafana_credentials"] = str(grafana)
     camp.save(path, state)
-    ex = Campaign(tmp_path / "sim.jsonl", ips=("203.0.113.7", "198.51.100.200"), e2e_rows=rows_for)
+    # approved network (L5), hotspot before and after the L4 request, back on the approved network
+    ex = Campaign(tmp_path / "sim.jsonl", ips=("203.0.113.7", "198.51.100.200", "198.51.100.200", "203.0.113.7"), e2e_rows=rows_for)
     result = camp.run(path, ex)
     v = result["verdicts"]
     assert v["G3B_SECURITY_STATUS"] == "G3B_SECURITY_COMPLETE" and v["G4_AUTOMATED_CHECKS_STATUS"] == "COMPLETE"

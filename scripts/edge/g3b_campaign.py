@@ -13,7 +13,8 @@ written atomically, so any process can resume or clean up.
   cleanup   idempotent, resumable, bounded retries; never bypasses Cloud Lab, PDB or KEDA guards
   watchdog  for the systemd user timer: cleans up when the deadline passed, or when the
             heartbeat is stale and the main process is gone
-  status    print the state
+  status    print the state (and the evidence window's remaining minutes)
+  continue  end the owner's evidence window early (only while it is open); cleanup follows
 
 Guarantees, honestly: commands run in their own process group with a timeout bounded by the
 deadline, so no step outlives it by more than its own kill; SIGTERM/SIGINT stops the running
@@ -44,6 +45,17 @@ unless --approve-edge-secret-sync was given; then the Secret is replaced by the 
 gateway is restarted (Envoy reads the users file at start-up) and re-checked. private-e2e then
 proves the behaviour (no / wrong credentials refused, valid accepted, agents restricted, rate
 limit) before any public LB.
+
+Supervised evidence window (g3b scope, supervised, --evidence-window-minutes N, 1..60): after a
+passed public-e2e the campaign holds the public edge, changing nothing, so the owner can take the
+G4 screenshots. It ends on `continue`, when the N minutes are over, when only the cleanup reserve
+(30 min) is left before the deadline, or on SIGTERM/SIGINT; then cleanup runs as always. A failed
+public-e2e never opens it, and it never changes a verdict. `continue` writes only a marker file
+(exclusive create), never state.json, so it cannot race the main process.
+
+After L4 the campaign waits (at most 15 min) until this client is back inside the approved CIDRs
+(phase approved-network); otherwise it stops and cleans up. Client addresses are looked up over
+IPv4 (dig -4), as the gateway sees them, and never recorded.
 
 DNS before the LB: the LB address is released only after dns_check.py proves the names no
 longer point at it. If that cannot be proven, the LB is kept (its address stays ours, so no
@@ -81,15 +93,21 @@ COMMAND_TIMEOUT = 1800              # no single command runs longer
 MIN_COMMAND_TIMEOUT = 30            # a command started just before the deadline still gets this long
 ACME_WAIT_SECONDS = 600             # cleanup lets an in-flight certbot finish this long before ending it
 L4_WAIT_SECONDS = 1200              # how long the L4 phase waits for an external vantage point
+RETURN_WAIT_SECONDS = 900           # after L4: how long to wait for this client to be back on an approved network
+EVIDENCE_WINDOW_MAX_MINUTES = 60
+CLEANUP_RESERVE_SECONDS = 1800      # the evidence window always ends this long before the deadline
+WINDOW_POLL_SECONDS = 10
+CONTINUE_MARKER = "evidence-window-continue"
+CERTBOT_PIN = "certbot==5.10.0"     # the version issue_certificate.sh runs through uvx
 PORT_FORWARD = ("18443", "18080")
 GATEWAY_DEPLOYMENT = "ewallet-edge-gateway"
 COMMON_GATES = ("CLOUD_LAB_RECOVERY_MANIFEST_VALID", "PDB_APPROVAL_COMPLETE", "KEDA_SLEEP_APPROVAL_READY",
                 "GUARDED_SLEEP_PLAN_VALID", "CLIENT_ADDRESS_APPROVED", "SAFE_CLEANUP_READY", "L0_RENDER_READY",
-                "EDGE_AUTH_READY", "OWNER_LIVE_APPROVAL")
+                "EDGE_AUTH_READY", "CERTBOT_READY", "OWNER_LIVE_APPROVAL")
 GATES = COMMON_GATES + ("UNATTENDED_CLEANUP_READY",)   # unattended mode; supervised mode uses COMMON_GATES
 # dns-transition scope: no G3-B live approval and no SAFE_CLEANUP_READY (that is what it proves);
 # instead the DNS test preconditions and the owner's approval of exactly this test.
-TRANSITION_GATES = tuple(g for g in COMMON_GATES if g not in ("SAFE_CLEANUP_READY", "OWNER_LIVE_APPROVAL")) + (
+TRANSITION_GATES = tuple(g for g in COMMON_GATES if g not in ("SAFE_CLEANUP_READY", "OWNER_LIVE_APPROVAL", "CERTBOT_READY")) + (
     "DNS_TRANSITION_TEST_READY", "OWNER_DNS_TRANSITION_APPROVAL")
 
 
@@ -157,6 +175,7 @@ class Executor:
         self.current: subprocess.Popen | None = None
         self.deadline: float | None = None
         self.on_start: Callable[[int], None] | None = None
+        self.stop_requested = False  # set by run()'s signal handler; long waits poll it
 
     def run(self, cmd: list[str], env: dict | None = None, timeout: int = COMMAND_TIMEOUT) -> tuple[int, str]:
         if self.deadline:
@@ -233,6 +252,8 @@ class Simulator(Executor):
             return 0, "EDGE_AUTH_MATCH"
         if "myip.opendns.com" in text:
             return 0, os.environ.get("EDGE_SIM_MYIP", "203.0.113.7")
+        if "certbot --version" in text:
+            return 0, "certbot 5.10.0"
         if "-o name" in text and "app.kubernetes.io/part-of=ewallet-edge" in text:
             names = ["httproute.gateway.networking.k8s.io/" + n for n in ("feature-api", "kagent-ui", "agent-registry", "grafana", "https-redirect")]
             if os.environ.get("EDGE_SIM_ACME_STAYS"):
@@ -304,10 +325,14 @@ def cert(state: dict, environment: str, *extra: str) -> list[str]:
             "--context", c["context"], "--kubeconfig", c["kubeconfig"], "--private-dir", str(Path(c["private"]) / "tls"), *extra]
 
 
+# IPv4 transport: the gateway sees the client's IPv4 address; over IPv6 OpenDNS answers no A record.
+MYIP_LOOKUP = ["dig", "-4", "+short", "myip.opendns.com", "@resolver1.opendns.com"]
+
+
 def client_in_allowlist(state: dict, ex: Executor) -> bool | None:
     """Is this machine's public address inside the approved CIDRs? (None: unknown.) The
     address itself is never written to the state."""
-    rc, out = ex.run(["dig", "+short", "myip.opendns.com", "@resolver1.opendns.com"], timeout=30)
+    rc, out = ex.run(MYIP_LOOKUP, timeout=30)
     try:
         mine = ipaddress.ip_address(out.strip().splitlines()[-1]) if rc == 0 and out.strip() else None
     except ValueError:
@@ -551,6 +576,58 @@ def phases(state: dict) -> list[tuple[str, Callable]]:
         remember(L4="L4_BLOCKED_NO_VERIFIED_EXTERNAL_SOURCE")
         return None
 
+    def approved_network(state, ex):
+        """After L4 the owner returns to an approved network; public-e2e needs it. Only a verified
+        address inside the approved CIDRs counts; unknown is not inside."""
+        polls = 3 if isinstance(ex, Simulator) else max(1, RETURN_WAIT_SECONDS // 30)
+        inside = None
+        for attempt in range(polls):
+            if ex.deadline and now() > ex.deadline:
+                return "DEADLINE_EXPIRED"
+            inside = client_in_allowlist(state, ex)
+            if inside:
+                remember(CLIENT_NETWORK="approved")
+                return None
+            if attempt + 1 < polls:
+                time.sleep(0 if isinstance(ex, Simulator) else 30)
+        remember(CLIENT_NETWORK="not approved" if inside is False else "unverified")
+        return ("client not back inside the approved CIDRs within 15 min" if inside is False
+                else "client address could not be verified within 15 min")
+
+    def evidence_window(state, ex):
+        """Hold the public edge for the owner's screenshots; nothing is changed. Ends on the
+        owner's `continue` marker, the window length, the cleanup reserve before the deadline, or
+        a signal (stop_requested). Never an error: it does not change any verdict."""
+        marker = ev / CONTINUE_MARKER
+        marker.unlink(missing_ok=True)  # a marker written before the window opened does not count
+        end = now() + int(c["evidence_window_minutes"]) * 60
+        if ex.deadline:
+            end = min(end, ex.deadline - CLEANUP_RESERVE_SECONDS)
+        if end <= now():
+            remember(EVIDENCE_WINDOW="skipped: inside the cleanup reserve before the deadline")
+            return None
+        if isinstance(ex, Simulator) and not os.environ.get("EDGE_SIM_WINDOW_WAIT"):
+            remember(EVIDENCE_WINDOW="closed: simulated (no wait)")
+            return None
+        remember(EVIDENCE_WINDOW="open", evidence_window_until=end, EVIDENCE_WINDOW_UNTIL=iso(end))
+        reason = "window expired"
+        while True:
+            if marker.exists():
+                reason = "owner continue"
+                break
+            if ex.stop_requested:
+                reason = "signal"
+                break
+            left = end - now()
+            if left <= 0:
+                reason = "window expired" if end < (ex.deadline or float("inf")) - CLEANUP_RESERVE_SECONDS else "deadline cleanup reserve"
+                break
+            state["heartbeat"] = now()
+            save(path(), state)
+            time.sleep(min(WINDOW_POLL_SECONDS, left))
+        remember(EVIDENCE_WINDOW=f"closed: {reason}", EVIDENCE_WINDOW_CLOSED=iso(now()))
+        return None
+
     def certificate(environment, *extra):
         def run(state, ex):
             remember(ACME_STATUS=f"issuing-{environment}")
@@ -632,6 +709,7 @@ def phases(state: dict) -> list[tuple[str, Callable]]:
         ("dns-online", dns_online),
         ("internet-gates", internet_gates),
         ("L4-denied", l4_denied),
+        ("approved-network", approved_network),
         ("staging-certificate", certificate("staging")),
         ("production-certificate", certificate("production", "--confirm-production", "--import")
          if state["approvals"].get("production_certificate") else (lambda s, e: "production certificate not approved")),
@@ -639,6 +717,8 @@ def phases(state: dict) -> list[tuple[str, Callable]]:
         ("grafana", grafana),
         ("public-e2e", public_e2e),
     ]
+    if int(c.get("evidence_window_minutes") or 0) > 0:
+        full.append(("evidence-window", evidence_window))  # only reached after a passed public-e2e
     if state.get("scope") == "dns-transition":
         names = [n for n, _ in full]
         return full[:names.index("open-lb") + 1] + [("dns-transition", dns_transition)]
@@ -827,6 +907,7 @@ def run(state_path: Path, ex: Executor) -> dict:
 
     def on_signal(signum, _frame):
         stop["signal"] = signal.Signals(signum).name
+        ex.stop_requested = True
         ex.terminate_current()  # the running command (and its children) stops now; cleanup follows
     signal.signal(signal.SIGTERM, on_signal)
     signal.signal(signal.SIGINT, on_signal)
@@ -857,6 +938,8 @@ def run(state_path: Path, ex: Executor) -> dict:
             result = state.get("L4", "NOT_RUN")
         if error is None and name == "grafana" and state.get("GRAFANA") != "ROOT_URL_APPLIED":
             result = state.get("GRAFANA", "NOT_RUN")
+        if name == "evidence-window":
+            result = state.get("EVIDENCE_WINDOW", "NOT_RUN")  # a pause, never a gate
         state.setdefault("phases", {})[name] = result
         if name == "baseline" and error is None:
             state["baseline_passed"] = True
@@ -979,7 +1062,8 @@ def init(args: argparse.Namespace, ex: Executor) -> dict:
            "grafana_credentials": outside_repo(args.grafana_credentials, "Grafana credentials", problems, required=False),
            "dns_credentials": outside_repo(args.dns_credentials, "DNS credentials", problems, required=False),
            "dns_offline_mode": args.dns_offline_mode, "dns_offline_ip": args.dns_offline_ip,
-           "dns_offline_ipv6": getattr(args, "dns_offline_ipv6", None)}
+           "dns_offline_ipv6": getattr(args, "dns_offline_ipv6", None),
+           "evidence_window_minutes": int(getattr(args, "evidence_window_minutes", 0) or 0)}
     for key, version in (("dns_offline_ip", 4), ("dns_offline_ipv6", 6)):
         if cfg[key]:
             try:
@@ -993,6 +1077,11 @@ def init(args: argparse.Namespace, ex: Executor) -> dict:
     mode = getattr(args, "mode", "unattended")
     if scope == "dns-transition" and mode != "supervised":
         problems.append("the dns-transition scope runs supervised only (--mode supervised)")
+    window = cfg["evidence_window_minutes"]
+    if window and (scope != "g3b" or mode != "supervised"):
+        problems.append("--evidence-window-minutes needs --scope g3b --mode supervised")
+    if not 0 <= window <= EVIDENCE_WINDOW_MAX_MINUTES:
+        problems.append(f"--evidence-window-minutes must be 0..{EVIDENCE_WINDOW_MAX_MINUTES}")
     if cfg["dns_offline_mode"] == "signoff" and not (cfg["dns_offline_ip"] and cfg["dns_offline_ipv6"]):
         problems.append("signoff needs --dns-offline-ip and --dns-offline-ipv6 (Dynu answers its offline server on both families)")
     cidrs = [l.split("#")[0].strip() for l in Path(cfg["approved_cidrs"]).read_text().splitlines()] if cfg["approved_cidrs"] and Path(cfg["approved_cidrs"]).exists() else []
@@ -1046,6 +1135,11 @@ def init(args: argparse.Namespace, ex: Executor) -> dict:
     word = (out_a.split() or ["EDGE_AUTH_CHECK_FAILED"])[0].rstrip(":")
     edge_auth_init = word if word in ("EDGE_AUTH_MATCH", "EDGE_AUTH_MISMATCH", "EDGE_AUTH_MISSING") else "EDGE_AUTH_CHECK_FAILED"
     gates["EDGE_AUTH_READY"] = "PASS" if rc_a == 0 or (rc_a == 1 and approvals["edge_secret_sync"]) else "FAIL"
+    if scope == "g3b":
+        # issue_certificate.sh runs certbot through uvx; prove both are reachable before any wake
+        uvx = shutil.which("uvx") or ("uvx" if isinstance(ex, Simulator) else None)
+        rc_c, out_c = ex.run([uvx, "--from", CERTBOT_PIN, "certbot", "--version"], timeout=300) if uvx else (127, "")
+        gates["CERTBOT_READY"] = "PASS" if rc_c == 0 and CERTBOT_PIN.replace("==", " ") in out_c else "FAIL"
     # L0 render, offline: the exact public render must already pass the strict preflight.
     l0 = []
     for out, cmd in ((campaign / "l0-gateway.yaml", ["helm", "template", "ewallet-edge-gateway", cfg["gateway_chart"], "-n",
@@ -1061,7 +1155,7 @@ def init(args: argparse.Namespace, ex: Executor) -> dict:
                         "--approved-cidrs-file", cfg["approved_cidrs"] or "/nonexistent",
                         str(campaign / "l0-gateway.yaml"), str(campaign / "l0-edge.yaml")), timeout=120)
     gates["L0_RENDER_READY"] = "PASS" if l0 == [0, 0] and rc_p == 0 else "FAIL"
-    rc_ip, ip = ex.run(["dig", "+short", "myip.opendns.com", "@resolver1.opendns.com"])
+    rc_ip, ip = ex.run(MYIP_LOOKUP)
     try:
         mine = ipaddress.ip_address(ip.strip().splitlines()[-1]) if rc_ip == 0 and ip.strip() else None
         inside = mine is not None and any(mine in ipaddress.ip_network(x) for x in cidrs)
@@ -1081,6 +1175,30 @@ def init(args: argparse.Namespace, ex: Executor) -> dict:
              "CLEANUP_STATUS": None, "SLEEP_STATUS": None, "LAST_VERIFIED_NODE_COUNT": None, "campaign_active": False}
     save(campaign / "state.json", state)
     return state
+
+
+def request_continue(state_path: Path) -> tuple[int, str]:
+    """Owner: end the evidence window early. Reads state.json only; writes one marker file with an
+    exclusive create, so it never races the main process's state writes."""
+    state = load(state_path)
+    until = state.get("evidence_window_until")
+    if state.get("CURRENT_PHASE") != "evidence-window" or state.get("EVIDENCE_WINDOW") != "open" or not until or now() >= until:
+        return 1, f"CONTINUE_REJECTED: no evidence window is open (phase {state.get('CURRENT_PHASE')}, window {state.get('EVIDENCE_WINDOW')})"
+    marker = Path(state["config"]["campaign_dir"]) / CONTINUE_MARKER
+    try:
+        fd = os.open(marker, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError:
+        return 0, "CONTINUE_ALREADY_REQUESTED"
+    with os.fdopen(fd, "w") as handle:
+        handle.write(f"{iso(now())} owner continue\n")
+    return 0, "CONTINUE_ACCEPTED: the window closes within 10 s, then cleanup runs"
+
+
+def window_status(state: dict) -> dict:
+    until = state.get("evidence_window_until")
+    open_ = state.get("EVIDENCE_WINDOW") == "open" and until
+    return {"EVIDENCE_WINDOW": state.get("EVIDENCE_WINDOW", "NOT_CONFIGURED" if not state.get("config", {}).get("evidence_window_minutes") else "NOT_OPEN"),
+            "EVIDENCE_WINDOW_REMAINING_MIN": round(max(0.0, until - now()) / 60, 1) if open_ else None}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -1112,7 +1230,9 @@ def main(argv: list[str] | None = None) -> int:
                  "dns-offline-verified", "accept-local-only-risk", "cloud-fallback-ready"):
         i.add_argument(f"--{flag}", action="store_true")
     i.add_argument("--also-approve", action="append", default=[], metavar="NS/NAME")
-    for name in ("run", "cleanup", "watchdog", "status"):
+    i.add_argument("--evidence-window-minutes", type=int, default=0,
+                   help="g3b + supervised: hold the public edge this long (1..60, recommended 45) after a passed public-e2e")
+    for name in ("run", "cleanup", "watchdog", "status", "continue"):
         sub.add_parser(name).add_argument("--state", required=True)
     args = parser.parse_args(argv)
     state_path = Path(getattr(args, "state", "") or (Path(getattr(args, "campaign_dir", ".")).expanduser() / "state.json"))
@@ -1123,8 +1243,12 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if all(v == "PASS" for v in state["gates"].values()) else 1
     if args.command == "status":
         state = load(state_path)
-        print(json.dumps({**state, "verdicts": verdicts(state)}, indent=2, sort_keys=True))
+        print(json.dumps({**state, "verdicts": verdicts(state), **window_status(state)}, indent=2, sort_keys=True))
         return 0
+    if args.command == "continue":
+        rc, message = request_continue(state_path)
+        print(message)
+        return rc
     if args.command == "watchdog":
         print(watchdog(state_path, ex) if state_path.exists() else "IDLE (no active campaign)")
         return 0

@@ -213,6 +213,24 @@ it with `cleanup`, after which its `state.json` qualifies.
 
 ### Preconditions and owner approvals
 
+**Environment preflight (before `init`; no cloud change).** `issue_certificate.sh` runs certbot
+through `uvx`, which on the owner's laptop lives only in the `fintech` conda env. Append it to
+`PATH` (appending keeps the system `python3` first) in the terminal that runs `init` and `run`:
+
+```bash
+export PATH="$PATH:$HOME/miniconda3/envs/fintech/bin"
+command -v python3                                   # /usr/bin/python3
+uvx --from certbot==5.10.0 certbot --version         # certbot 5.10.0
+cat /sys/class/power_supply/AC*/online               # 1 (on AC power)
+D=ewallet-hg.gleeze.com; PRIV=~/ewallet-evidence/gateway/private
+M0=~/ewallet-evidence/gateway/g3a1-20261121T175830Z/11-sleep/recovery-manifest
+TRANSITION=~/ewallet-evidence/gateway/g3b-dns-transition-ipv4-20261122T054437Z/state.json
+CID=g3b-full-$(date -u +%Y%m%dT%H%M%SZ); EV=~/ewallet-evidence/gateway/$CID
+python3 scripts/edge/dns_check.py --domain $D --expect-offline --offline-ip 162.216.242.207 --offline-ipv6 2602:ff23:0:8888::207   # DNS_OFFLINE_OK
+```
+
+`init` checks it again (gate `CERTBOT_READY`). Dynu IPv6 must stay disabled (*First DNS transition*).
+
 | Input | Where |
 |---|---|
 | Approved client CIDRs (must include this machine's current public address, for L5) | `$PRIV/approved-cidrs.txt` |
@@ -223,14 +241,17 @@ it with `cleanup`, after which its `state.json` qualifies.
 | PDB exception for this campaign | `--also-approve ewallet-mcp/feature-rag-mcp` |
 | Guarded sleep, KEDA pause, production certificate, Grafana root URL | `--approve-guarded-sleep --approve-keda-pause --approve-production-certificate [--approve-grafana-root-url]` |
 | The live run itself | `--approve-live-campaign` |
+| Screenshot window after a passed public-e2e (supervised g3b only, 1–60 min) | `--evidence-window-minutes 45` |
 
 ```bash
 python3 scripts/edge/g3b_campaign.py init --mode supervised --campaign $CID --campaign-dir $EV --manifest $M0 \
   --approved-cidrs $PRIV/approved-cidrs.txt --edge-credentials $PRIV/edge-cred --grafana-credentials $PRIV/grafana-cred \
   --dns-credentials $PRIV/dynu.json --dns-offline-mode signoff --dns-offline-ip <OFF4> --dns-offline-ipv6 <OFF6> \
-  --dns-offline-verified --dns-transition-evidence <stage 2 state.json> --approve-live-campaign --approve-guarded-sleep --approve-keda-pause --also-approve ewallet-mcp/feature-rag-mcp \
-  --approve-production-certificate --approve-grafana-root-url
+  --dns-offline-verified --dns-transition-evidence $TRANSITION --approve-live-campaign --approve-guarded-sleep --approve-keda-pause --also-approve ewallet-mcp/feature-rag-mcp \
+  --approve-production-certificate --approve-grafana-root-url --evidence-window-minutes 45
 ```
+
+(`<OFF4>`/`<OFF6>`: `162.216.242.207` / `2602:ff23:0:8888::207`, re-read before the campaign.)
 
 `init` must print every gate as PASS:
 - `CLOUD_LAB_RECOVERY_MANIFEST_VALID`, `PDB_APPROVAL_COMPLETE`, `KEDA_SLEEP_APPROVAL_READY`, `GUARDED_SLEEP_PLAN_VALID`;
@@ -238,6 +259,7 @@ python3 scripts/edge/g3b_campaign.py init --mode supervised --campaign $CID --ca
 - `SAFE_CLEANUP_READY` (DNS automation);
 - `L0_RENDER_READY` (the exact public render passes the strict preflight, offline);
 - `EDGE_AUTH_READY` (Secret = `edge-cred`, or a mismatch with `--approve-edge-secret-sync`);
+- `CERTBOT_READY` (`uvx --from certbot==5.10.0 certbot --version` answers `certbot 5.10.0`);
 - `OWNER_LIVE_APPROVAL`.
 
 Supervised mode does not require the watchdog, linger or laptop-risk acceptance. Everything
@@ -248,11 +270,12 @@ that protects security and data is still required.
 ```bash
 systemd-inhibit --what=sleep:idle python3 scripts/edge/g3b_campaign.py run --state $EV/state.json
 python3 scripts/edge/g3b_campaign.py status --state $EV/state.json      # in another terminal
+watch -n 30 "python3 scripts/edge/g3b_campaign.py status --state $EV/state.json | grep -E '\"(CURRENT_PHASE|L4|L5|CLIENT_NETWORK|GRAFANA|EVIDENCE_WINDOW|EVIDENCE_WINDOW_REMAINING_MIN|CLEANUP_STATUS|SLEEP_STATUS)\"'"
 ```
 
 | Behaviour | What happens |
 |---|---|
-| Deadline | 3 h from the wake; no step starts after it |
+| Deadline | 3 h from the wake; no step starts after it. Expected use: about 1 h to the end of public-e2e (live DNS-transition runs reached the open LB 12 min after wake; L4 can take up to 20 min), then the 45-min window, then cleanup (about 18 min, never cut short by the deadline) |
 | Commands | each runs in its own process group with a timeout bounded by the deadline (max 30 min); a timeout ends the whole group |
 | Stop safely | Ctrl-C or `kill -TERM <main pid>` (shown in `status`): the running command is ended, then cleanup runs. A second signal does not interrupt cleanup |
 | Main process hung | `kill -9 <main pid>`, then `g3b_campaign.py cleanup --state $EV/state.json` (resumable). The optional watchdog does the same after a stale heartbeat, and sends SIGTERM to a main process still running 15 min past the deadline. It never cleans up while the main process holds the campaign lock |
@@ -268,9 +291,11 @@ python3 scripts/edge/g3b_campaign.py status --state $EV/state.json      # in ano
 | L2/L3/L6 | `internet-gates` | PUBLIC_INTERNET | `negative_tests.py --rate-limit-mode http2` |
 | L5 | `internet-gates` | PUBLIC_INTERNET | this machine must be inside the approved CIDRs (checked first) |
 | L4 | `L4-denied` | PUBLIC_INTERNET, **only from a non-approved address** | this laptop on another network; otherwise `L4_BLOCKED_NO_VERIFIED_EXTERNAL_SOURCE` |
+| Back on an approved network | `approved-network` | client address (IPv4, not recorded) | waits up to 15 min for this laptop to be inside the approved CIDRs again; outside or unverifiable means FAIL and cleanup (public-e2e needs an approved client) |
 | L1 | `production-certificate` + `public-e2e` (row 43) | PUBLIC_INTERNET | system trust, 4 SANs, TLS 1.1 refused |
 | L7/L8 | `public-e2e` | GKE_PRIVATE / PUBLIC_INTERNET | ownership preflight live; regression against the baseline |
 | L9 / rows 37–39 | `grafana` + `public-e2e` | PUBLIC_INTERNET | `release_diff.py` must be clean before the one-line upgrade; rows 37–39 must pass, else `GRAFANA_VERIFICATION_*` |
+| Owner evidence window | `evidence-window` | none (a pause) | only after a passed public-e2e; see *Evidence window and screenshots* |
 
 **L4 needs a real request from outside the approved CIDRs.** No mocks, forged headers,
 port-forward, kind run or result file from elsewhere counts. When `status` shows
@@ -283,6 +308,17 @@ laptop** to another network (for example a phone hotspot). It then:
 
 Then the owner switches back. The client-side address check only decides whether the test may
 run; the acceptance is the gateway's 403 to that real request.
+
+**Hotspot steps (owner).** kubectl keeps working on any network (the kubeconfig uses the GKE DNS
+endpoint, IAM-authenticated), so the orchestrator keeps running while the laptop moves.
+1. Stay on the approved network until `CURRENT_PHASE: L4-denied` (L5 has passed by then).
+2. Move this laptop to the phone hotspot. Do not stop the campaign.
+3. Wait for `L4: PASS (this client, outside the approved CIDRs before and after)`, about one minute.
+4. Move back to the approved network at once. `approved-network` waits at most 15 minutes and shows `CLIENT_NETWORK: approved`.
+5. If the hotspot address happens to be inside the allowlist, L4 ends `L4_BLOCKED_NO_VERIFIED_EXTERNAL_SOURCE`. The run continues safely, but security is INCOMPLETE.
+
+Client addresses are looked up with `dig -4` (the gateway sees IPv4) and never written to the
+state or evidence.
 
 `l4-external.jsonl` from a second machine is **not accepted**: nothing in such a file proves its
 source address, its age or its campaign. Without a verified source, L4 is
@@ -318,9 +354,58 @@ never PASS. These are technical checks; the official G4 screenshots are a separa
 A step that fails is recorded, the following safe steps still run, and `cleanup` can be run
 again to resume.
 
+### Evidence window and screenshots (rows 37–43)
+
+With `--evidence-window-minutes 45`, the campaign stops after a **passed** `public-e2e` and holds
+the public edge unchanged: trusted certificate, Grafana root URL, Basic Auth, source restriction
+and rate limit all in place. `status` shows `EVIDENCE_WINDOW: open` and
+`EVIDENCE_WINDOW_REMAINING_MIN`.
+
+- The window closes on `python3 scripts/edge/g3b_campaign.py continue --state $EV/state.json` (accepted only while it is open), when the minutes run out, or when only 30 minutes remain before the deadline. Cleanup then starts by itself.
+- Ctrl-C also ends it, with cleanup; the run is then recorded as stopped.
+- A failed `public-e2e` never opens the window. The window changes no verdict and runs no command.
+
+Screenshots, taken by the owner during the window (`~/Pictures/Screenshots/GW-<row>-<subject>.png`):
+
+| ID | Row | Screenshot | Required |
+|---|---|---|---|
+| GW-43-padlock | 43 | padlock and certificate details on `https://features.$D/` (Let's Encrypt, 4 names) | yes |
+| GW-43-api | 43 | terminal: authenticated Feature API lookup over HTTPS (422/424 = application reached) | yes |
+| GW-42-dialog | 42 | the browser's Basic Auth dialog | yes |
+| GW-42-401 | 42 | terminal: `curl -sI https://features.$D/` → 401 with `www-authenticate: Basic realm="e-wallet"` | yes |
+| GW-37-metrics | 37 | `https://observe.$D/` dashboard with live panels (edge auth, then Grafana login) | yes |
+| GW-38-logs | 38 | Grafana Explore → Loki `{namespace="ewallet-agents"}` with recent lines | yes |
+| GW-39-traces | 39 | Grafana Explore → Tempo, one trace with spans | yes |
+| GW-40-agents | 40 | `https://agents.$D/`, one short synthetic prompt answered | yes |
+| GW-41-registry | 41 | `https://registry.$D/` listing an agent | yes |
+
+These can be taken after cleanup, from the evidence files or with 0 nodes:
+- GW-42-429: the `14-negative.jsonl` burst line (required);
+- GW-L4-403: `11-l4-denied.jsonl` (optional);
+- GW-routes: `kubectl get gateway,httproute -n ewallet-ingress` (optional);
+- GW-verdict: `g3b_campaign.py status` (optional);
+- GW-sleep: `cloud_lab.py verify --expect sleep` plus `dns_check.py --expect-offline` (optional).
+
+Record `sha256sum ~/Pictures/Screenshots/GW-*.png` in the campaign evidence.
+
+**Automated PASS is not screenshot evidence.** `G4_AUTOMATED_CHECKS_STATUS: COMPLETE` means the
+repository checks passed. Rows 37–43 are `EVIDENCE_COMPLETE` only when the owner's required
+screenshots exist from the same campaign.
+
+**Grafana root URL after cleanup.** The approved upgrade sets `GF_SERVER_ROOT_URL` to
+`https://observe.$D/`, and cleanup does not revert it. After the campaign, Grafana opened through
+a local port-forward may redirect to that (offline) public URL. A revert is a separate,
+owner-approved `helm upgrade llm-agent` without the `--set`.
+
+**Incomplete cleanup.** `status` lists `cleanup_failed_steps`, and `$EV/ALERT.txt` explains them.
+A kept LB means DNS could not be proven offline: the owner uses the Dynu panel *Go Offline Now*,
+runs `dns_check.py --expect-offline …` until `DNS_OFFLINE_OK`, then runs
+`g3b_campaign.py cleanup --state $EV/state.json`. It resumes and skips finished steps. Never two
+cleanups at once (the campaign lock refuses a second).
+
 ### Owner G4 replay (separate session)
 
-Claude does not take the official screenshots. After the G3-B campaign has ended and GKE is asleep, the owner:
+Only if a screenshot was missed: Claude does not take the official screenshots. After the G3-B campaign has ended and GKE is asleep, the owner:
 1. Wakes the cluster under control.
 2. Re-runs the repository scripts (table *G4 evidence replay* above: `public_e2e.py`, `negative_tests.py`).
 3. Uses the real UIs and takes the screenshots.

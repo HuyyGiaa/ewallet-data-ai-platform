@@ -438,7 +438,7 @@ def test_full_g3b_order_is_unchanged_apart_from_edge_auth(tmp_path, monkeypatch)
     assert set(state["phases"]) == set(n for n, _ in camp.phases(state))
     assert [n for n, _ in camp.phases(state)] == ["wake", "baseline", "temporary-certificate", "edge-restricted", "L0-render", "L0-live",
                                      "edge-auth", "private-e2e", "open-lb", "dns-online", "internet-gates", "L4-denied",
-                                     "staging-certificate", "production-certificate", "responder-off", "grafana", "public-e2e"]
+                                     "approved-network", "staging-certificate", "production-certificate", "responder-off", "grafana", "public-e2e"]
     assert not any("dns-transition" in c for c, _ in ex.cmds)
 
 
