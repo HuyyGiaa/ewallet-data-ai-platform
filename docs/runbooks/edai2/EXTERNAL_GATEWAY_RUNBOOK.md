@@ -333,7 +333,7 @@ watch -n 30 "python3 scripts/edge/g3b_campaign.py status --state $EV/state.json 
 | Back on an approved network | `approved-network` | client address (IPv4, not recorded) | waits up to 15 min for this laptop to be inside the approved CIDRs again; outside or unverifiable means FAIL and cleanup (public-e2e needs an approved client) |
 | L1 | `production-certificate` + `public-e2e` (row 43) | PUBLIC_INTERNET | system trust, 4 SANs, TLS 1.1 refused |
 | L7/L8 | `public-e2e` | GKE_PRIVATE / PUBLIC_INTERNET | ownership preflight live; regression against the baseline |
-| L9 / rows 37–39 | `grafana` + `public-e2e` | PUBLIC_INTERNET | `release_diff.py` must be clean before the one-line upgrade; rows 37–39 must pass, else `GRAFANA_VERIFICATION_*` |
+| L9 / rows 37–39 | `grafana` + `public-e2e` | PUBLIC_INTERNET | `release_diff.py` must be clean before the one-line upgrade; after the upgrade the new Grafana pod must be Ready (*Grafana rollout readiness*); rows 37–39 must pass, else `GRAFANA_VERIFICATION_*` |
 | Owner evidence window | `evidence-window` | none (a pause) | only after a passed public-e2e; see *Evidence window and screenshots* |
 
 **L4 needs a real request from outside the approved CIDRs.** No mocks, forged headers,
@@ -430,6 +430,23 @@ In addition, no signal may have arrived, the first certbot process group must be
 Anything else fails closed with no retry: HTTP-01 failure, rate limit, `unauthorized`, ambiguous or stale logs, a received certificate that failed to import, a staging failure. There are at most two production attempts, run one after the other with the same certbot configuration and directories.
 
 `state.json` records `ACME_PRODUCTION_ATTEMPTS`, `ACME_PRODUCTION_RETRY_REASON` (or `no retry: …`) and `ACME_PRODUCTION_FINAL_STATUS`, and no ACME material. A second failure fails the phase, and cleanup runs as usual.
+
+### Grafana rollout readiness
+
+What happened in the sixth Full G3-B run, `g3b-full-20261122T164612Z` (2026-11-23):
+- 18 of 19 phases passed: the Let's Encrypt production certificate was issued and trusted, and the root URL was applied (`llm-agent` revision 61).
+- `public-e2e` then got **HTTP 503** for rows 37–39. The successful `helm upgrade` had changed Grafana's environment, which replaced its pod. `public-e2e` started while the old pod was stopping and the new one was not yet Ready, so the gateway had no healthy Grafana backend.
+- About 55 s later the new pod was Ready, with `GF_SERVER_ROOT_URL` set.
+
+A successful `helm upgrade` only means the new Deployment spec was accepted, not that the new pod serves. So the `grafana` phase now continues only after a read-only check:
+1. `kubectl -n <namespace.name of the release> rollout status deployment/grafana --timeout=<budget>s`;
+2. at least one ready replica (`.status.readyReplicas`).
+
+The budget is at most 300 s and never more than the time left before the campaign deadline. `ROOT_URL_APPLIED` is recorded only after the check passes.
+
+If the rollout does not complete or no replica is Ready, the phase **fails** (`GRAFANA_VERIFICATION_FAILED: Grafana not Ready …`). `public-e2e` does not run, and cleanup and guarded sleep run as usual. Nothing is restarted, scaled or deleted.
+
+A failed `helm upgrade` is unchanged: no wait, `GRAFANA_VERIFICATION_FAILED: upgrade exit N`. The two `release_diff` checks and the upgrade command are unchanged.
 
 ### Evidence window and screenshots (rows 37–43)
 

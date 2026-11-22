@@ -109,6 +109,7 @@ ACME_WAIT_SECONDS = 600             # cleanup lets an in-flight certbot finish t
 L4_WAIT_SECONDS = 1200              # how long the L4 phase waits for an external vantage point
 GATEWAY_READY_SECONDS = 1500       # total wait for the gateway Deployment after wake (one budget, no nested retries)
 RETURN_WAIT_SECONDS = 900
+GRAFANA_READY_SECONDS = 300         # after the root URL upgrade: wait for the new Grafana pod (read-only)
 ACME_RETRY_DELAY_SECONDS = 60       # production only: one retry after an account-registration timeout
 ACME_RETRY_MIN_REMAINING = 1200     # retry only with at least this long before the deadline           # after L4: how long to wait for this client to be back on an approved network
 EVIDENCE_WINDOW_MAX_MINUTES = 60
@@ -798,7 +799,30 @@ def phases(state: dict) -> list[tuple[str, Callable]]:
             remember(GRAFANA="GRAFANA_VERIFICATION_BLOCKED: release_diff not clean (no upgrade; owner review)")
             return None
         rc, _ = ex.run(helm(state, "upgrade", "llm-agent", chart, "-n", "default", "-f", str(vals), "--set", f"grafanaExternal.rootUrl={url}"))
-        remember(GRAFANA="ROOT_URL_APPLIED" if rc == 0 else f"GRAFANA_VERIFICATION_FAILED: upgrade exit {rc}")
+        if rc != 0:
+            remember(GRAFANA=f"GRAFANA_VERIFICATION_FAILED: upgrade exit {rc}")
+            return None
+        # The upgrade replaces the Grafana pod (new env); public-e2e must not run until the new pod is Ready
+        # (sixth Full G3-B run, 2026-11-23: rows 37-39 got 503 while the pod was being replaced). Read-only.
+        try:
+            namespace = ((yaml.safe_load(vals.read_text()) or {}).get("namespace") or {}).get("name") or "ewallet-agents"
+        except (OSError, yaml.YAMLError):
+            namespace = "ewallet-agents"
+        budget = GRAFANA_READY_SECONDS
+        if ex.deadline:
+            budget = min(budget, int(ex.deadline - now()))
+        if budget <= 0 or ex.stop_requested:
+            remember(GRAFANA="GRAFANA_VERIFICATION_FAILED: no time left to wait for the Grafana rollout")
+            return "Grafana rollout not verified (deadline or signal)"
+        rc_r, _ = ex.run(k(state, "-n", namespace, "rollout", "status", "deployment/grafana", f"--timeout={budget}s"), timeout=budget + 30)
+        rc_c, counts = ex.run(k(state, "-n", namespace, "get", "deployment", "grafana",
+                                "-o", "jsonpath={.spec.replicas} {.status.readyReplicas}"), timeout=60)
+        parts = (counts.split() + ["", ""])[:2] if rc_c == 0 else ["", ""]
+        ready = int(parts[1]) if parts[1].isdigit() else 0
+        if rc_r != 0 or ready < 1:
+            remember(GRAFANA=f"GRAFANA_VERIFICATION_FAILED: Grafana not Ready within {budget} s after the upgrade")
+            return f"Grafana rollout not Ready within {budget} s (no public-e2e)"
+        remember(GRAFANA="ROOT_URL_APPLIED", GRAFANA_READY=f"rollout complete, {ready} ready")
         return None
 
     def public_e2e(state, ex):
