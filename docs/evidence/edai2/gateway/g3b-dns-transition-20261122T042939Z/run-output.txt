@@ -1,0 +1,2 @@
+{"SCOPE": "dns-transition", "DNS_TRANSITION": "NOT_RUN", "EDGE_AUTH": "EDGE_AUTH_SYNCED", "PRIVATE_E2E": "FAIL: negative_tests.py exit 1", "G3B_DEPLOYMENT_STATUS": "NOT_RUN (dns-transition scope)", "G3B_SECURITY_STATUS": "NOT_RUN (dns-transition scope)", "G3B_PUBLIC_E2E_STATUS": "NOT_RUN (dns-transition scope)", "G4_AUTOMATED_CHECKS_STATUS": "NOT_RUN (dns-transition scope)", "CLEANUP_STATUS": "COMPLETE", "SLEEP_STATUS": "VERIFIED", "G3B_STATUS": "FAIL at private-e2e: negative_tests.py exit 1", "LAST_VERIFIED_NODE_COUNT": 0}
+python3 failed with exit status 1.

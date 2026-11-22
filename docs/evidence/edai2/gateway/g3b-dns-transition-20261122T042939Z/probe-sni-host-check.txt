@@ -1,0 +1,5 @@
+host=a2a sni=features anonymous=401 authenticated=404
+host=unknown sni=features anonymous=401 authenticated=404
+host=vault sni=features anonymous=401 authenticated=404
+control: registry own SNI/Host authenticated=200
+original probe a2a SNI (cert check) = 000

@@ -1,0 +1,4 @@
+ docs/runbooks/edai2/EXTERNAL_GATEWAY_RUNBOOK.md |  8 +++++++
+ scripts/edge/negative_tests.py                  | 18 ++++++++++++--
+ tests/ops/test_edge_negative_checks.py          | 31 +++++++++++++++++++++++++
+ 3 files changed, 55 insertions(+), 2 deletions(-)

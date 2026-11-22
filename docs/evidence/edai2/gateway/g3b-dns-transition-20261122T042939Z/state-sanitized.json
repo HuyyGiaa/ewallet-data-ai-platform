@@ -1,0 +1,101 @@
+{
+  "ACME_STATUS": "responder-disabled",
+  "CAMPAIGN_ID": "g3b-dns-transition-20261122T042939Z",
+  "CLEANUP_STARTED": "2026-11-22T04:42:13Z",
+  "CLEANUP_STATUS": "COMPLETE",
+  "CLUSTER": "ewallet-dev",
+  "DEADLINE": "2026-11-22T07:29:59Z",
+  "DNS_TARGET_STATE": "untouched",
+  "DNS_TRANSITION": null,
+  "EDGE_AUTH": "EDGE_AUTH_SYNCED",
+  "G3B_STATUS": "FAIL at private-e2e: negative_tests.py exit 1",
+  "LAST_VERIFIED_NODE_COUNT": 0,
+  "LB_IP": null,
+  "PROJECT": "ewallet-data-ai-platform-hg26",
+  "PUBLIC_LB_CREATED": false,
+  "SLEEP_STATUS": "VERIFIED",
+  "START_TIME": "2026-11-22T04:29:59Z",
+  "approvals": {
+    "also_approve": [
+      "ewallet-mcp/feature-rag-mcp"
+    ],
+    "cloud_fallback": false,
+    "dns_offline_verified": false,
+    "dns_transition_test": true,
+    "edge_secret_sync": true,
+    "grafana_root_url": false,
+    "guarded_sleep": true,
+    "keda_pause": true,
+    "live_campaign": false,
+    "local_only_risk_accepted": false,
+    "production_certificate": false
+  },
+  "cleanup_reason": "FAIL at private-e2e: negative_tests.py exit 1",
+  "cleanup_steps": {
+    "acme-responder-off": {
+      "at": "2026-11-22T04:42:51Z",
+      "detail": "ACME objects gone; routes ['agent-registry', 'feature-api', 'grafana', 'https-redirect', 'kagent-ui'] and edge-tls kept",
+      "ok": true
+    },
+    "record-manifest": {
+      "at": "2026-11-22T04:43:02Z",
+      "detail": "~/ewallet-evidence/gateway/g3b-dns-transition-20261122T042939Z/recovery-manifest",
+      "ok": true
+    },
+    "sleep": {
+      "at": "2026-11-22T04:46:50Z",
+      "detail": "guarded sleep exit 0",
+      "ok": true
+    },
+    "verify-sleep": {
+      "at": "2026-11-22T04:46:56Z",
+      "detail": "verify exit 0; nodes=0",
+      "ok": true
+    }
+  },
+  "config": {
+    "dns_offline_ip": "162.216.242.207",
+    "dns_offline_ipv6": "2602:ff23:0:8888::207",
+    "dns_offline_mode": "signoff",
+    "domain": "ewallet-hg.gleeze.com"
+  },
+  "edge_auth_at_init": "EDGE_AUTH_MISMATCH",
+  "gate_problems": [],
+  "gates": {
+    "CLIENT_ADDRESS_APPROVED": "PASS",
+    "CLOUD_LAB_RECOVERY_MANIFEST_VALID": "PASS",
+    "DNS_TRANSITION_TEST_READY": "PASS",
+    "EDGE_AUTH_READY": "PASS",
+    "GUARDED_SLEEP_PLAN_VALID": "PASS",
+    "KEDA_SLEEP_APPROVAL_READY": "PASS",
+    "L0_RENDER_READY": "PASS",
+    "OWNER_DNS_TRANSITION_APPROVAL": "PASS",
+    "PDB_APPROVAL_COMPLETE": "PASS"
+  },
+  "mode": "supervised",
+  "note": "sanitized copy: file paths and private values removed; the original stays in the private campaign directory",
+  "phases": {
+    "L0-live": "PASS",
+    "L0-render": "PASS",
+    "baseline": "PASS",
+    "edge-auth": "PASS",
+    "edge-restricted": "PASS",
+    "private-e2e": "FAIL: negative_tests.py exit 1",
+    "temporary-certificate": "PASS",
+    "wake": "PASS"
+  },
+  "scope": "dns-transition",
+  "simulated": false,
+  "verdicts": {
+    "CLEANUP_STATUS": "COMPLETE",
+    "DNS_TRANSITION": "NOT_RUN",
+    "EDGE_AUTH": "EDGE_AUTH_SYNCED",
+    "G3B_DEPLOYMENT_STATUS": "NOT_RUN (dns-transition scope)",
+    "G3B_PUBLIC_E2E_STATUS": "NOT_RUN (dns-transition scope)",
+    "G3B_SECURITY_STATUS": "NOT_RUN (dns-transition scope)",
+    "G4_AUTOMATED_CHECKS_STATUS": "NOT_RUN (dns-transition scope)",
+    "PRIVATE_E2E": "FAIL: negative_tests.py exit 1",
+    "SCOPE": "dns-transition",
+    "SLEEP_STATUS": "VERIFIED"
+  }
+}
