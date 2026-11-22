@@ -51,6 +51,10 @@ class Reply:
     location: str  # where a redirect points, resolved by curl; empty otherwise
 
 
+# The names on the edge certificate (temporary self-signed and Let's Encrypt alike).
+CERTIFICATE_HOSTS = ("features", "agents", "registry", "observe")
+
+
 class Edge:
     """Send requests to one gateway address."""
 
@@ -61,11 +65,21 @@ class Edge:
         self.config = curl_user_config(Path(args.credentials_file).read_text(encoding="utf-8").rstrip("\r\n"))
 
     def request(self, host: str, path: str, *extra: str, scheme: str = "https", authed: bool = False) -> Reply:
-        """One request with the route's SNI and Host; credentials go through stdin."""
+        """One request with the route's SNI and Host; credentials go through stdin.
+
+        The certificate names only the four served hosts, so an HTTPS probe of any other host
+        (a2a, vault, unknown, ...) connects with a certificate name (features) as SNI, keeps
+        full certificate verification, and sends the probed host as Host / :authority. The
+        edge routes by Host behind its single *.domain listener, so this is what decides
+        whether that host is served (G3-B DNS transition 2026-11-22: probing with the host's
+        own SNI failed the TLS check before any HTTP answer)."""
         port = self.https if scheme == "https" else self.http
         name = f"{host}.{self.domain}"
+        connect = name if scheme != "https" or host in CERTIFICATE_HOSTS else f"features.{self.domain}"
         command = ["curl", "-sS", "-m", "20", "-o", "-", "-w", "\n%{redirect_url}\n%{http_code}",
-                   "--resolve", f"{name}:{port}:{self.address}", f"{scheme}://{name}:{port}{path}"]
+                   "--resolve", f"{connect}:{port}:{self.address}", f"{scheme}://{connect}:{port}{path}"]
+        if connect != name:
+            command += ["-H", f"Host: {name}:{port}"]
         if self.ca and scheme == "https":
             command += ["--cacert", self.ca]
         if authed:

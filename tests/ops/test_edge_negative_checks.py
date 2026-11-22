@@ -233,3 +233,34 @@ def test_http2_burst_parses_every_transfer(monkeypatch, tmp_path):
     assert nt.stub_echo(replies[0].status, replies[0].body) is not None
     assert "--http2" in seen["command"] and "-K" in seen["command"] and "pw-synthetic-7f3a" not in " ".join(seen["command"])
     assert seen["stdin"] == 'user = "edge:pw-synthetic-7f3a"\n'
+
+
+@pytest.mark.parametrize("host,served", [("a2a", False), ("unknown", False), ("vault", False),
+                                         ("features", True), ("registry", True), ("agents", True), ("observe", True)])
+def test_hosts_outside_the_certificate_use_a_certificate_sni_and_their_own_host_header(monkeypatch, tmp_path, host, served):
+    """G3-B DNS transition (2026-11-22): probing a2a/unknown/... with their own SNI failed TLS
+    verification against the 4-name certificate (status 0). The probe keeps verification by
+    connecting to a certificate name and sends the probed host as Host."""
+    import argparse
+    credentials = tmp_path / "c"
+    credentials.write_text("edge:pw-synthetic-7f3a\n")
+    edge = nt.Edge(argparse.Namespace(address="127.0.0.1", https_port=18443, http_port=18080, domain=DOMAIN, ca_file="ca.pem",
+                                      stub=False, foundation=False, rate_limit_mode="http2", credentials_file=str(credentials)))
+    seen = {}
+
+    def fake_run(command, input, capture_output, text):
+        seen["command"] = command
+        return argparse.Namespace(stdout="\n\n404", returncode=0)
+    monkeypatch.setattr(nt.subprocess, "run", fake_run)
+    assert edge.request(host, "/", authed=True).status == 404
+    command = seen["command"]
+    assert "--cacert" in command and "-k" not in command and "--insecure" not in command
+    if served:
+        assert f"https://{host}.{DOMAIN}:18443/" in command and "-H" not in command
+    else:
+        assert f"--resolve" in command and f"features.{DOMAIN}:18443:127.0.0.1" in command
+        assert f"https://features.{DOMAIN}:18443/" in command
+        assert command[command.index("-H") + 1] == f"Host: {host}.{DOMAIN}:18443"
+    # plain HTTP has no certificate: always the host's own name
+    edge.request(host, "/", scheme="http")
+    assert f"http://{host}.{DOMAIN}:18080/" in seen["command"] and "-H" not in seen["command"]

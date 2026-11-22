@@ -177,6 +177,14 @@ approval neither replaces nor is replaced by it.
 | `OFFLINE_NOT_PROVEN` | names may still point at the LB | **kept** (still ours, nothing dangles); nodes still sleep; `CLEANUP_INCOMPLETE` | owner: panel *Go Offline Now*, then `g3b_campaign.py cleanup --state $EV/state.json` (proves offline, releases the LB). Signoff is not used for stage 3 |
 | `NOT_STARTED` (pre-check not `DNS_OFFLINE_OK`; no Dynu update sent) | untouched | released only if cleanup's fresh `dns_check` proves offline; otherwise **kept**, `CLEANUP_INCOMPLETE` | owner fixes DNS (panel *Go Offline Now*), `cleanup` again; re-read OFF4/OFF6, re-run `init` |
 
+Observed, first live attempt `g3b-dns-transition-20261122T042939Z` (2026-11-22):
+- All gates and phases passed up to `private-e2e`: wake (5 nodes), baseline, self-signed certificate, edge, L0 render/live, and edge-auth (Secret synced, gateway restarted, re-check MATCH).
+- In `private-e2e`, the 8 `public_e2e` rows passed (TLS, Feature API 422, agents 403, registry), and so did 23 of 35 `negative_tests` checks (Basic Auth, routing, HTTP/2 burst with 64 × 429).
+- The 12 "host … is not served" probes failed with status 0. They used the probed host as SNI, so curl rejected the 4-name certificate before any HTTP answer.
+- As designed, no LB was opened and no Dynu update was sent; cleanup COMPLETE, sleep VERIFIED, 0 nodes.
+- A read-only check on the live gateway confirmed the corrected probe (SNI `features`, `Host: <host>`): anonymous 401, authenticated 404. It is now in `negative_tests.py`.
+- Left on the cluster: `edge-basic-auth` matches `edge-cred`; `ewallet-edge` is at rev 3 (campaign values, ACME off, ClusterIP).
+
 `--dns-offline-verified` alone does nothing. Stage 3's `SAFE_CLEANUP_READY` needs
 `--dns-transition-evidence` pointing at the `state.json` of a **real** transition run. That file must show:
 - `scope: dns-transition`, `simulated: false` (`--simulate` runs are marked and always refused);
