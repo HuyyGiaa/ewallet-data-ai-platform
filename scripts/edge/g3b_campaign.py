@@ -59,6 +59,13 @@ and report a ready replica, within one 25-minute budget (capped by the deadline)
 can be rejected while istiod's injection webhook is still starting; the ReplicaSet retries with
 back-off (first Full G3-B attempt, 2026-11-22). Read-only: nothing is restarted or bypassed.
 
+Let's Encrypt production, one bounded retry: the third Full G3-B attempt (2026-11-22) timed out
+while registering the ACME account (POST /acme/new-acct), before any order. The production step is
+tried once more, after 60 s, only when that attempt's own certbot log proves exactly this: the last
+request sent was new-acct, no new-order request was sent, no certificate was received (and none is
+on disk), the final error is a network timeout, the log was written by this attempt, no signal
+arrived and enough time is left. Anything else fails closed.
+
 After L4 the campaign waits (at most 15 min) until this client is back inside the approved CIDRs
 (phase approved-network); otherwise it stops and cleans up. Client addresses are looked up over
 IPv4 (dig -4), as the gateway sees them, and never recorded.
@@ -77,6 +84,7 @@ import ipaddress
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import signal
 import subprocess
@@ -100,7 +108,9 @@ MIN_COMMAND_TIMEOUT = 30            # a command started just before the deadline
 ACME_WAIT_SECONDS = 600             # cleanup lets an in-flight certbot finish this long before ending it
 L4_WAIT_SECONDS = 1200              # how long the L4 phase waits for an external vantage point
 GATEWAY_READY_SECONDS = 1500       # total wait for the gateway Deployment after wake (one budget, no nested retries)
-RETURN_WAIT_SECONDS = 900           # after L4: how long to wait for this client to be back on an approved network
+RETURN_WAIT_SECONDS = 900
+ACME_RETRY_DELAY_SECONDS = 60       # production only: one retry after an account-registration timeout
+ACME_RETRY_MIN_REMAINING = 1200     # retry only with at least this long before the deadline           # after L4: how long to wait for this client to be back on an approved network
 EVIDENCE_WINDOW_MAX_MINUTES = 60
 CLEANUP_RESERVE_SECONDS = 1800      # the evidence window always ends this long before the deadline
 WINDOW_POLL_SECONDS = 10
@@ -336,6 +346,39 @@ def cert(state: dict, environment: str, *extra: str) -> list[str]:
 
 # IPv4 transport: the gateway sees the client's IPv4 address; over IPv6 OpenDNS answers no A record.
 MYIP_LOOKUP = ["dig", "-4", "+short", "myip.opendns.com", "@resolver1.opendns.com"]
+
+
+_REQUEST = re.compile(r"Sending (?:GET|POST|HEAD) request to (https?://\S+?)[.:]?\s*$")
+_TIMEOUT = re.compile(r"requests\.exceptions\.(?:ReadTimeout|ConnectTimeout)\b|urllib3\.exceptions\.(?:ReadTimeoutError|ConnectTimeoutError)\b")
+
+
+def acme_retry_safe(log: Path, started: float, live: Path) -> tuple[bool, str]:
+    """Is one more production attempt safe? Only when this attempt's certbot log proves an
+    account-registration timeout before any order. Any doubt answers (False, reason)."""
+    if live.exists():
+        return False, "a production certificate exists on disk (no repeated issuance)"
+    try:
+        text = log.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False, "no certbot log for this attempt"
+    first = text.split("\n", 1)[0][:19]
+    try:
+        written = time.mktime(time.strptime(first, "%Y-%m-%d %H:%M:%S"))
+    except ValueError:
+        return False, "certbot log has no start time"
+    if written < started - 5:
+        return False, "certbot log predates this attempt (certbot may not have run)"
+    if re.search(r"Successfully received certificate|Certificate is saved at", text):
+        return False, "a certificate was received (no repeated issuance)"
+    requests = [m.group(1) for line in text.splitlines() if (m := _REQUEST.search(line))]
+    if any(re.search(r"new-?order|newOrder|/finalize|/order/", r, re.I) for r in requests):
+        return False, "a certificate order was sent"
+    if not requests or not re.search(r"/new-acct$|/newAccount$", requests[-1]):
+        return False, "the last ACME request was not account registration"
+    errors = [line for line in text.splitlines() if ":ERROR:" in line]
+    if not errors or not _TIMEOUT.search(errors[-1]):
+        return False, "the failure is not a network timeout"
+    return True, "network timeout during ACME account registration (POST new-acct), before any order"
 
 
 def client_in_allowlist(state: dict, ex: Executor) -> bool | None:
@@ -677,14 +720,43 @@ def phases(state: dict) -> list[tuple[str, Callable]]:
         return None
 
     def certificate(environment, *extra):
-        def run(state, ex):
+        def attempt(state, ex):
             remember(ACME_STATUS=f"issuing-{environment}")
             ex.on_start = lambda pid: remember(acme_pgid=pid)
             try:
-                error = step(cert(state, environment, *extra))(state, ex)
+                return step(cert(state, environment, *extra))(state, ex)
             finally:
                 ex.on_start = None
-            remember(ACME_STATUS=f"{environment}-{'issued' if error is None else 'failed'}", acme_pgid=None)
+
+        def run(state, ex):
+            if environment != "production":
+                error = attempt(state, ex)
+                remember(ACME_STATUS=f"{environment}-{'issued' if error is None else 'failed'}", acme_pgid=None)
+                return error
+            tls = Path(c["private"]) / "tls"
+            started = now()
+            remember(ACME_PRODUCTION_ATTEMPTS=1, ACME_PRODUCTION_RETRY_REASON=None)
+            error = attempt(state, ex)
+            if error is not None:
+                safe, reason = acme_retry_safe(tls / "logs/letsencrypt.log", started, tls / "config/live/edge")
+                if safe and ex.stop_requested:
+                    safe, reason = False, "stopped by a signal"
+                if safe and ex.deadline and ex.deadline - now() < ACME_RETRY_MIN_REMAINING:
+                    safe, reason = False, "not enough time before the deadline"
+                prior = state.get("acme_pgid")
+                if safe and prior and pid_alive(prior):
+                    safe, reason = False, "the first certbot process group is still alive"
+                remember(ACME_PRODUCTION_RETRY_REASON=reason if safe else f"no retry: {reason}", acme_pgid=None)
+                if safe:
+                    waited = 0
+                    while waited < (0 if isinstance(ex, Simulator) else ACME_RETRY_DELAY_SECONDS) and not ex.stop_requested:
+                        time.sleep(1)
+                        waited += 1
+                    if not ex.stop_requested:
+                        remember(ACME_PRODUCTION_ATTEMPTS=2)
+                        error = attempt(state, ex)
+            status = "issued" if error is None else "failed"
+            remember(ACME_STATUS=f"production-{status}", ACME_PRODUCTION_FINAL_STATUS=status.upper(), acme_pgid=None)
             return error
         return run
 

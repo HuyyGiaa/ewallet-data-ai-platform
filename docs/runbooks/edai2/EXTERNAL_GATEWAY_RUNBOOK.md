@@ -410,6 +410,27 @@ It restarts, deletes or bypasses nothing: no istiod restart, no injection-policy
 
 The next wake keeps the G3-A1 recovery manifest. The manifest recorded by that failed run shows the gateway with 0 ready pods and must not replace it.
 
+### Let's Encrypt production: one bounded retry
+
+What happened in the third Full G3-B attempt, `g3b-full-20261122T083830Z` (2026-11-22):
+- Every phase up to and including Let's Encrypt staging passed.
+- The production step then failed. certbot read the directory, then timed out (45 s, `requests.exceptions.ReadTimeout`) on `POST /acme/new-acct`, the account registration.
+- No `new-order` request had been sent, and no certificate was received.
+- Cleanup was COMPLETE: signoff, fresh DNS check, LB released, 0 nodes.
+
+The production phase now tries **once more, after 60 s**, only when that attempt's own certbot log (`private/tls/logs/letsencrypt.log`) proves all of the following:
+- it was written by this attempt;
+- the last request was `new-acct`;
+- no order, finalize or challenge request was sent;
+- no certificate was received, and none exists in `config/live/edge`;
+- the final error is a network timeout.
+
+In addition, no signal may have arrived, the first certbot process group must be gone, and at least 20 minutes must remain before the deadline.
+
+Anything else fails closed with no retry: HTTP-01 failure, rate limit, `unauthorized`, ambiguous or stale logs, a received certificate that failed to import, a staging failure. There are at most two production attempts, run one after the other with the same certbot configuration and directories.
+
+`state.json` records `ACME_PRODUCTION_ATTEMPTS`, `ACME_PRODUCTION_RETRY_REASON` (or `no retry: …`) and `ACME_PRODUCTION_FINAL_STATUS`, and no ACME material. A second failure fails the phase, and cleanup runs as usual.
+
 ### Evidence window and screenshots (rows 37–43)
 
 With `--evidence-window-minutes 45`, the campaign stops after a **passed** `public-e2e` and holds
