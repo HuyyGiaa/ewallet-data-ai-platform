@@ -6,6 +6,8 @@ public_e2e.py, release_diff.py, helm). State lives in <campaign dir>/state.json 
 written atomically, so any process can resume or clean up.
 
   init      record the owner's inputs and approvals, evaluate the pre-wake gates
+            (--mode supervised: the owner watches; no watchdog/linger/laptop-risk gate,
+            everything that protects security and data still required)
   run       execute the phases; a failure, the deadline (3 h after wake) or SIGTERM/SIGINT
             stops new work and runs cleanup
   cleanup   idempotent, resumable, bounded retries; never bypasses Cloud Lab, PDB or KEDA guards
@@ -13,9 +15,15 @@ written atomically, so any process can resume or clean up.
             heartbeat is stale and the main process is gone
   status    print the state
 
-Guarantees, honestly: cleanup in ``run`` covers failures and signals; the watchdog covers a
-dead main process (Claude, terminal, crash) while the laptop is on and online; neither helps if
-the laptop suspends, loses power or network. That needs a cloud-side fallback (see runbook).
+Guarantees, honestly: commands run in their own process group with a timeout bounded by the
+deadline, so no step outlives it by more than its own kill; SIGTERM/SIGINT stops the running
+command and runs cleanup (cleanup itself is not interrupted by a second signal). Only one
+process changes the cluster at a time (the campaign lock): the watchdog never cleans up while
+the main process holds it; past the deadline plus a grace period it sends the main process
+SIGTERM, so the main process cleans up. The watchdog cannot stop a main process that ignores
+SIGTERM (it does not) or a hung kernel call; the owner then uses ``kill -9`` and
+``g3b_campaign.py cleanup`` (resumable). Nothing here helps if the laptop suspends, loses power
+or network.
 
 DNS before the LB: the LB address is released only after dns_check.py proves the names no
 longer point at it. If that cannot be proven, the LB is kept (its address stays ours, so no
@@ -46,8 +54,16 @@ PRIVATE_VALUES = ROOT / "docs/evidence/edai2/gateway/g3a0_closure_20261121T17265
 GATEWAY_CHART_SHA = "f8b350a2136ece7a103e479cb67ca9f71e2162ab7bc05100922fe65e681e125f"
 DEADLINE_HOURS = 3
 STALE_SECONDS = 600
-GATES = ("CLOUD_LAB_RECOVERY_MANIFEST_VALID", "PDB_APPROVAL_COMPLETE", "KEDA_SLEEP_APPROVAL_READY",
-         "GUARDED_SLEEP_PLAN_VALID", "UNATTENDED_CLEANUP_READY", "CLIENT_ADDRESS_APPROVED")
+DEADLINE_GRACE_SECONDS = 900        # watchdog: SIGTERM to a main process still running this long after the deadline
+COMMAND_TIMEOUT = 1800              # no single command runs longer
+MIN_COMMAND_TIMEOUT = 30            # a command started just before the deadline still gets this long
+ACME_WAIT_SECONDS = 600             # cleanup lets an in-flight certbot finish this long before ending it
+L4_WAIT_SECONDS = 1200              # how long the L4 phase waits for an external vantage point
+PORT_FORWARD = ("18443", "18080")
+COMMON_GATES = ("CLOUD_LAB_RECOVERY_MANIFEST_VALID", "PDB_APPROVAL_COMPLETE", "KEDA_SLEEP_APPROVAL_READY",
+                "GUARDED_SLEEP_PLAN_VALID", "CLIENT_ADDRESS_APPROVED", "SAFE_CLEANUP_READY", "L0_RENDER_READY",
+                "OWNER_LIVE_APPROVAL")
+GATES = COMMON_GATES + ("UNATTENDED_CLEANUP_READY",)   # unattended mode; supervised mode uses COMMON_GATES
 
 
 # --- state --------------------------------------------------------------------------------------
@@ -86,6 +102,7 @@ class Locked:
 
     def __init__(self, path: Path):
         self.handle = open(path.with_suffix(".lock"), "a+")
+        self.acquired = False
 
     def __enter__(self):
         try:
@@ -93,24 +110,65 @@ class Locked:
         except BlockingIOError:
             self.handle.close()
             return None
+        self.acquired = True
         return self
 
     def __exit__(self, *exc):
-        fcntl.flock(self.handle, fcntl.LOCK_UN)
-        self.handle.close()
+        if self.acquired:  # a lock someone else holds was never ours to release
+            fcntl.flock(self.handle, fcntl.LOCK_UN)
+            self.handle.close()
 
 
 # --- command execution --------------------------------------------------------------------------
 
 class Executor:
-    """Runs a command; ``env`` adds variables for that command only. Output is not logged."""
+    """Runs commands in their own process group. ``deadline`` (epoch) bounds every command's
+    timeout during the campaign phases; on a timeout or ``terminate_current()`` the whole group
+    (kubectl, certbot, hooks...) gets SIGTERM, then SIGKILL. Output is not logged."""
 
-    def run(self, cmd: list[str], env: dict | None = None, timeout: int = 3600) -> tuple[int, str]:
+    def __init__(self):
+        self.current: subprocess.Popen | None = None
+        self.deadline: float | None = None
+        self.on_start: Callable[[int], None] | None = None
+
+    def run(self, cmd: list[str], env: dict | None = None, timeout: int = COMMAND_TIMEOUT) -> tuple[int, str]:
+        if self.deadline:
+            timeout = max(MIN_COMMAND_TIMEOUT, min(timeout, int(self.deadline - now())))
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
+                                env={**os.environ, **(env or {})}, start_new_session=True)
+        self.current = proc
+        if self.on_start:
+            self.on_start(proc.pid)
         try:
-            done = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env={**os.environ, **(env or {})})
+            out, _ = proc.communicate(timeout=timeout)
+            return proc.returncode, out or ""
         except subprocess.TimeoutExpired:
+            self.kill(proc)
             return 124, ""
-        return done.returncode, done.stdout
+        finally:
+            self.current = None
+
+    @staticmethod
+    def kill(proc: subprocess.Popen) -> None:
+        try:
+            os.killpg(proc.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            return
+        try:
+            proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            proc.wait()
+
+    def terminate_current(self) -> None:
+        if self.current is not None:
+            self.kill(self.current)
+
+    def background(self, cmd: list[str]):
+        return subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
 
 
 class Simulator(Executor):
@@ -118,9 +176,14 @@ class Simulator(Executor):
     matching commands fail; EDGE_SIM_SLEEP=<seconds> slows every command (kill tests)."""
 
     def __init__(self, log: Path):
+        super().__init__()
         self.log = log
 
-    def run(self, cmd, env=None, timeout=3600):
+    def background(self, cmd):
+        self.run(cmd)
+        return None
+
+    def run(self, cmd, env=None, timeout=COMMAND_TIMEOUT):
         text = " ".join(cmd)
         with open(self.log, "a", encoding="utf-8") as handle:
             handle.write(json.dumps({"cmd": cmd, "env": sorted((env or {}).keys())}) + "\n")
@@ -129,7 +192,14 @@ class Simulator(Executor):
         if fail and fail in text:
             return 1, ""
         if "myip.opendns.com" in text:
-            return 0, "203.0.113.7"
+            return 0, os.environ.get("EDGE_SIM_MYIP", "203.0.113.7")
+        if "-o name" in text and "app.kubernetes.io/part-of=ewallet-edge" in text:
+            names = ["httproute.gateway.networking.k8s.io/" + n for n in ("feature-api", "kagent-ui", "agent-registry", "grafana", "https-redirect")]
+            if os.environ.get("EDGE_SIM_ACME_STAYS"):
+                names.append("httproute.gateway.networking.k8s.io/acme-http01")
+            return 0, "\n".join(names)
+        if "get secret edge-tls" in text:
+            return 0, "secret/edge-tls"
         if "loadBalancer.ingress" in text:
             return 0, "203.0.113.10"
         if "get nodes" in text:
@@ -183,15 +253,63 @@ def cert(state: dict, environment: str, *extra: str) -> list[str]:
             "--context", c["context"], "--kubeconfig", c["kubeconfig"], "--private-dir", str(Path(c["private"]) / "tls"), *extra]
 
 
+def client_in_allowlist(state: dict, ex: Executor) -> bool | None:
+    """Is this machine's public address inside the approved CIDRs? (None: unknown.) The
+    address itself is never written to the state."""
+    rc, out = ex.run(["dig", "+short", "myip.opendns.com", "@resolver1.opendns.com"], timeout=30)
+    try:
+        mine = ipaddress.ip_address(out.strip().splitlines()[-1]) if rc == 0 and out.strip() else None
+    except ValueError:
+        return None
+    if mine is None:
+        return None
+    cidrs = [l.split("#")[0].strip() for l in Path(state["config"]["approved_cidrs"]).read_text().splitlines()]
+    return any(mine in ipaddress.ip_network(x) for x in cidrs if x)
+
+
+def jsonl_rows(path: Path) -> list[dict]:
+    try:
+        return [json.loads(l) for l in path.read_text(encoding="utf-8").splitlines() if l.strip()]
+    except (OSError, ValueError):
+        return []
+
+
+def acme_objects_gone(state: dict, ex: Executor) -> tuple[bool, str]:
+    """The temporary ACME objects are gone, the application routes and edge-tls are still there."""
+    rc, names = ex.run(k(state, "-n", "ewallet-ingress", "get", "httproute,deploy,svc,configmap", "-l",
+                         "app.kubernetes.io/part-of=ewallet-edge", "-o", "name"))
+    rc_s, secret = ex.run(k(state, "-n", "ewallet-ingress", "get", "secret", "edge-tls", "-o", "name"))
+    if rc != 0 or rc_s != 0:
+        return False, f"cannot read ewallet-ingress (exit {rc}/{rc_s})"
+    lines = names.split()
+    apps = {n.rsplit("/", 1)[-1] for n in lines if n.startswith("httproute")}
+    if any("acme" in n for n in lines):
+        return False, "ACME objects still present"
+    if not {"feature-api", "agent-registry", "https-redirect"} <= apps:
+        return False, f"application routes missing: {sorted(apps)}"
+    return "edge-tls" in secret, "ACME objects gone; application routes and edge-tls kept"
+
+
 def phases(state: dict) -> list[tuple[str, Callable]]:
-    """(name, function(state, ex) -> error or None), in runbook order."""
+    """(name, function(state, ex) -> error or None), in runbook order. A phase that returns an
+    error stops new work; gates that are only blocked (L4 without an external client, Grafana
+    not verifiable) record their status and let the campaign continue to a non-COMPLETE verdict."""
     c, p = state["config"], Path(state["config"]["private"])
+    ev = Path(c["campaign_dir"])
     selfsigned = str(p / "tls/self-signed/fullchain.pem")
     edge_args = ["--domain", c["domain"], "--credentials-file", c["edge_credentials"]]
+    grafana_args = ["--grafana-credentials-file", c["grafana_credentials"]] if c.get("grafana_credentials") else []
+    path = lambda: Path(state["state_path"])
+
+    def remember(**fields):
+        state.update(fields)
+        save(path(), state)
 
     def step(*cmds, env=None, retries=1, interval=60):
         def run(state, ex):
             for cmd in cmds:
+                if ex.deadline and now() > ex.deadline:
+                    return "DEADLINE_EXPIRED"
                 cmd = cmd(state) if callable(cmd) else cmd
                 for attempt in range(retries):
                     rc, _ = ex.run(cmd, env)
@@ -205,18 +323,53 @@ def phases(state: dict) -> list[tuple[str, Callable]]:
         return run
 
     def wake(state, ex):
-        state["DEADLINE"] = iso(now() + DEADLINE_HOURS * 3600)
-        state["deadline_epoch"] = now() + DEADLINE_HOURS * 3600
-        state["wake_attempted"] = True  # persisted BEFORE the wake: a crash mid-wake must still lead to sleep
-        save(Path(state["state_path"]), state)
+        remember(DEADLINE=iso(now() + DEADLINE_HOURS * 3600), deadline_epoch=now() + DEADLINE_HOURS * 3600,
+                 wake_attempted=True)  # persisted BEFORE the wake: a crash mid-wake must still lead to sleep
+        ex.deadline = state["deadline_epoch"]
         rc, _ = ex.run([sys.executable, str(ROOT / "ops/gcp/cloud_lab.py"), "wake-full", "--manifest", c["manifest"],
                         "--nodes", "5", "--execute", "--confirm-cluster", CLUSTER], {"CLOUD_LAB_APPROVED": "yes"})
         state["WAKE_COMPLETED"] = rc == 0
         return None if rc == 0 else f"wake-full exit {rc}"
 
+    def edge_restricted(state, ex):
+        remember(ACME_STATUS="responder-enabled")  # before the upgrade that creates it
+        return step(edge_upgrade(state, c["values_acme"]), py("platform_checks.py", *kargs(state), "gateway"),
+                    py("platform_checks.py", *kargs(state), "envoy", "--restricted"),
+                    py("platform_checks.py", *kargs(state), "watch"))(state, ex)
+
+    def l0_render(state, ex):
+        """Render exactly what the public rollout applies and prove it with ownership_preflight."""
+        gw, edge = ev / "l0-gateway.yaml", ev / "l0-edge.yaml"
+        files = [x for f in ("values-gateway.yaml", "values-gateway-public.yaml", "values-gateway-public-open.yaml")
+                 for x in ("-f", str(ROOT / "infra/helm/ewallet-edge" / f))]
+        for out, cmd in ((gw, ["helm", "template", "ewallet-edge-gateway", c["gateway_chart"], "-n", "ewallet-ingress", *files]),
+                         (edge, ["helm", "template", "ewallet-edge", str(ROOT / "infra/helm/ewallet-edge"), "-n", "ewallet-ingress",
+                                 "-f", str(PRIVATE_VALUES), "-f", c["values_acme"]])):
+            rc, text = ex.run(cmd)
+            if rc != 0:
+                return f"helm template exit {rc}"
+            out.write_text(text, encoding="utf-8")
+        return step(py("ownership_preflight.py", "render", "--allow-public-loadbalancer", "--domain", c["domain"],
+                       "--approved-cidrs-file", c["approved_cidrs"], str(gw), str(edge)))(state, ex)
+
+    def private_e2e(state, ex):
+        """GKE_PRIVATE: the real backends through the private gateway (port-forward). The
+        port-forward peer is never an approved address, so agents must answer 403 here."""
+        forward = ex.background(k(state, "-n", "ewallet-ingress", "port-forward", "--address", "127.0.0.1",
+                                  "svc/ewallet-edge-gateway", f"{PORT_FORWARD[0]}:443", f"{PORT_FORWARD[1]}:80"))
+        try:
+            time.sleep(0 if isinstance(ex, Simulator) else 5)
+            local = ["--address", "127.0.0.1", "--https-port", PORT_FORWARD[0], "--http-port", PORT_FORWARD[1], "--ca-file", selfsigned]
+            return step(py("public_e2e.py", *local, *edge_args, *grafana_args, "--agents", "denied",
+                           "--evidence-class", "GKE_PRIVATE", "--out", str(ev / "07-private-e2e.jsonl")),
+                        py("negative_tests.py", *local, *edge_args, "--rate-limit-mode", "http2",
+                           "--out", str(ev / "07-private-negative.jsonl")))(state, ex)
+        finally:
+            if forward is not None:
+                Executor.kill(forward)
+
     def open_lb(state, ex):
-        state["PUBLIC_LB_CREATED"] = True  # persisted BEFORE the upgrade: cleanup must always look
-        save(Path(state["state_path"]), state)
+        remember(PUBLIC_LB_CREATED=True)  # persisted BEFORE the upgrade: cleanup must always look
         rc, _ = ex.run(gateway_upgrade(state, True))
         if rc != 0:
             return f"gateway upgrade exit {rc}"
@@ -224,76 +377,177 @@ def phases(state: dict) -> list[tuple[str, Callable]]:
             rc, out = ex.run(k(state, "-n", "ewallet-ingress", "get", "svc", "ewallet-edge-gateway", "-o",
                                "jsonpath={.status.loadBalancer.ingress[0].ip}"))
             if rc == 0 and out.strip():
-                state["LB_IP"] = str(ipaddress.ip_address(out.strip()))
-                save(Path(state["state_path"]), state)
+                remember(LB_IP=str(ipaddress.ip_address(out.strip())))
                 return step(public_preflight)(state, ex)
             time.sleep(0 if isinstance(ex, Simulator) else 20)
         return "no LB address within 10 minutes"
 
     def dns_online(state, ex):
-        state["DNS_TARGET_STATE"] = "unknown"  # persisted BEFORE the update: cleanup takes DNS offline
-        save(Path(state["state_path"]), state)
+        remember(DNS_TARGET_STATE="unknown")  # persisted BEFORE the update: cleanup takes DNS offline
         rc, _ = ex.run(py("dynu_dns.py", "--credentials", c["dns_credentials"], "--execute", "online", "--ip", state["LB_IP"]))
         state["DNS_TARGET_STATE"] = "online" if rc == 0 else "unknown"
         return None if rc == 0 else f"DNS online exit {rc}"
 
+    def internet_gates(state, ex):
+        """L2/L3/L6 (negative_tests) and L5 (agents allowed) from this client, which must be an
+        approved address; otherwise L5 cannot be judged here."""
+        inside = client_in_allowlist(state, ex)
+        if not inside:
+            remember(L5="FAIL: this client is not inside the approved CIDRs" if inside is False else "FAIL: client address unknown")
+            return state["L5"]
+        error = step(lambda s: py("negative_tests.py", "--address", s["LB_IP"], "--ca-file", selfsigned, "--rate-limit-mode",
+                                  "http2", "--out", str(ev / "10-negative.jsonl"), *edge_args),
+                     lambda s: py("public_e2e.py", "--address", s["LB_IP"], "--ca-file", selfsigned, "--agents", "allowed",
+                                  "--evidence-class", "PUBLIC_INTERNET", "--out", str(ev / "10-e2e.jsonl"), *edge_args))(state, ex)
+        state["L5"] = "PASS" if error is None else f"FAIL: {error}"
+        return error
+
+    def l4_denied(state, ex):
+        """L4 needs a real request from OUTSIDE the approved CIDRs. Either this machine moves to
+        another network (checked by its public address, never recorded), or the owner runs
+        public_e2e.py --agents denied on a second machine and drops the JSONL at
+        <campaign>/l4-external.jsonl. Mocks, headers or port-forward never count."""
+        external = ev / "l4-external.jsonl"
+        polls = 3 if isinstance(ex, Simulator) else max(1, L4_WAIT_SECONDS // 30)
+        for _ in range(polls):
+            if ex.deadline and now() > ex.deadline:
+                break
+            rows = jsonl_rows(external)
+            denied = [r for r in rows if r.get("row") == "40" and "refused" in r.get("check", "")]
+            if denied:
+                ok = all(r.get("passed") for r in denied) and all(r.get("evidence_class") == "PUBLIC_INTERNET" for r in rows)
+                remember(L4="PASS (external client file)" if ok else "FAIL (external client file)")
+                return None if ok else "L4 FAIL: agents reachable from a non-approved address"
+            if client_in_allowlist(state, ex) is False:
+                rc, _ = ex.run(py("public_e2e.py", "--address", state["LB_IP"], "--ca-file", selfsigned, "--agents", "denied",
+                                  "--evidence-class", "PUBLIC_INTERNET", "--out", str(ev / "11-l4-denied.jsonl"), *edge_args))
+                rows = jsonl_rows(ev / "11-l4-denied.jsonl")
+                agents = [r for r in rows if r.get("row") == "40"]
+                ok = bool(agents) and all(r["passed"] for r in agents)
+                remember(L4="PASS (this client, outside the approved CIDRs)" if ok else "FAIL")
+                return None if ok else "L4 FAIL: agents reachable from a non-approved address"
+            time.sleep(0 if isinstance(ex, Simulator) else 30)
+        remember(L4="L4_BLOCKED_NO_EXTERNAL_CLIENT")
+        return None
+
+    def certificate(environment, *extra):
+        def run(state, ex):
+            remember(ACME_STATUS=f"issuing-{environment}")
+            ex.on_start = lambda pid: remember(acme_pgid=pid)
+            try:
+                error = step(cert(state, environment, *extra))(state, ex)
+            finally:
+                ex.on_start = None
+            remember(ACME_STATUS=f"{environment}-{'issued' if error is None else 'failed'}", acme_pgid=None)
+            return error
+        return run
+
+    def responder_off(state, ex):
+        error = step(edge_upgrade(state, c["values_final"]))(state, ex)
+        if error:
+            return error
+        gone, detail = acme_objects_gone(state, ex)
+        if gone:
+            remember(ACME_STATUS="responder-disabled")
+        return None if gone else f"ACME responder not removed: {detail}"
+
     def grafana(state, ex):
         if not state["approvals"].get("grafana_root_url"):
-            state["GRAFANA"] = "NOT_APPROVED"
+            remember(GRAFANA="GRAFANA_NOT_APPROVED")
+            return None
+        if not c.get("grafana_credentials"):
+            remember(GRAFANA="GRAFANA_VERIFICATION_BLOCKED: no Grafana credentials")
             return None
         url, live, vals = f"https://observe.{c['domain']}/", p / "llm-live.yaml", p / "llm-values.yaml"
         chart = str(ROOT / "infra/helm/llm-agent-platform")
-        cmds = [(helm(state, "get", "manifest", "llm-agent", "-n", "default"), live),
-                (helm(state, "get", "values", "llm-agent", "-n", "default", "-a", "-o", "yaml"), vals)]
-        for cmd, out in cmds:
+        for cmd, out in ((helm(state, "get", "manifest", "llm-agent", "-n", "default"), live),
+                         (helm(state, "get", "values", "llm-agent", "-n", "default", "-a", "-o", "yaml"), vals)):
             rc, text = ex.run(cmd)
             if rc != 0:
-                state["GRAFANA"] = "SKIPPED (cannot read the release)"
+                remember(GRAFANA="GRAFANA_VERIFICATION_BLOCKED: cannot read the llm-agent release")
                 return None
             out.write_text(text, encoding="utf-8")
         for name, extra in (("llm-current.yaml", []), ("llm-proposed.yaml", ["--set", f"grafanaExternal.rootUrl={url}"])):
             rc, text = ex.run(helm(state, "template", "llm-agent", chart, "-n", "default", "-f", str(vals), *extra))
+            if rc != 0:
+                remember(GRAFANA=f"GRAFANA_VERIFICATION_BLOCKED: helm template exit {rc}")
+                return None
             (p / name).write_text(text, encoding="utf-8")
         drift, _ = ex.run(py("release_diff.py", "--before", str(live), "--after", str(p / "llm-current.yaml")))
         only, _ = ex.run(py("release_diff.py", "--before", str(p / "llm-current.yaml"), "--after", str(p / "llm-proposed.yaml"),
                             "--allow-grafana-root-url", url))
         if drift or only:
-            state["GRAFANA"] = "SKIPPED (release_diff not clean: owner review)"
+            remember(GRAFANA="GRAFANA_VERIFICATION_BLOCKED: release_diff not clean (no upgrade; owner review)")
             return None
         rc, _ = ex.run(helm(state, "upgrade", "llm-agent", chart, "-n", "default", "-f", str(vals), "--set", f"grafanaExternal.rootUrl={url}"))
-        state["GRAFANA"] = "APPLIED" if rc == 0 else f"UPGRADE_FAILED exit {rc}"
-        return None if rc == 0 else "Grafana upgrade failed"
+        remember(GRAFANA="ROOT_URL_APPLIED" if rc == 0 else f"GRAFANA_VERIFICATION_FAILED: upgrade exit {rc}")
+        return None
 
-    ev = Path(c["campaign_dir"])
+    def public_e2e(state, ex):
+        root_url = ["--grafana-root-url", f"https://observe.{c['domain']}/"] if state.get("GRAFANA") == "ROOT_URL_APPLIED" else []
+        error = step(lambda s: py("public_e2e.py", "--address", s["LB_IP"], "--agents", "allowed", "--evidence-class",
+                                  "PUBLIC_INTERNET", "--out", str(ev / "14-e2e.jsonl"), *edge_args, *grafana_args, *root_url),
+                     lambda s: py("negative_tests.py", "--address", s["LB_IP"], "--rate-limit-mode", "http2",
+                                  "--out", str(ev / "14-negative.jsonl"), *edge_args),
+                     py("platform_checks.py", *kargs(state), "compare", "--baseline", str(ev / "baseline.json")),
+                     public_preflight)(state, ex)
+        if state.get("GRAFANA") == "ROOT_URL_APPLIED":
+            rows = [r for r in jsonl_rows(ev / "14-e2e.jsonl") if r.get("row") in ("37", "38", "39")]
+            ok = bool(rows) and all(r["passed"] for r in rows) and any("appUrl" in r["check"] for r in rows)
+            remember(GRAFANA="PASS" if ok else "GRAFANA_VERIFICATION_FAILED: rows 37-39")
+        return error
+
     return [
         ("wake", wake),
         ("baseline", step(py("platform_checks.py", *kargs(state), "backends", "--snapshot-out", str(ev / "baseline.json"),
                              "--out", str(ev / "02-backends.jsonl")), retries=25)),
         ("temporary-certificate", step(cert(state, "self-signed", "--import"))),
-        ("edge-restricted", step(edge_upgrade(state, c["values_acme"]), py("platform_checks.py", *kargs(state), "gateway"),
-                                 py("platform_checks.py", *kargs(state), "envoy", "--restricted"),
-                                 py("platform_checks.py", *kargs(state), "watch"))),
+        ("edge-restricted", edge_restricted),
+        ("L0-render", l0_render),
         ("L0-live", step(public_preflight)),
+        ("private-e2e", private_e2e),
         ("open-lb", open_lb),
         ("dns-online", dns_online),
-        ("internet-gates", step(lambda s: py("negative_tests.py", "--address", s["LB_IP"], "--ca-file", selfsigned,
-                                             "--rate-limit-mode", "http2", "--out", str(ev / "10-negative.jsonl"), *edge_args),
-                                lambda s: py("public_e2e.py", "--address", s["LB_IP"], "--ca-file", selfsigned, "--agents", "allowed",
-                                             "--evidence-class", "PUBLIC_INTERNET", "--out", str(ev / "10-e2e.jsonl"), *edge_args))),
-        ("staging-certificate", step(cert(state, "staging"))),
-        ("production-certificate", step(cert(state, "production", "--confirm-production", "--import"))
+        ("internet-gates", internet_gates),
+        ("L4-denied", l4_denied),
+        ("staging-certificate", certificate("staging")),
+        ("production-certificate", certificate("production", "--confirm-production", "--import")
          if state["approvals"].get("production_certificate") else (lambda s, e: "production certificate not approved")),
-        ("responder-off", step(edge_upgrade(state, c["values_final"]))),
+        ("responder-off", responder_off),
         ("grafana", grafana),
-        ("public-e2e", step(lambda s: py("public_e2e.py", "--address", s["LB_IP"], "--agents", "allowed", "--evidence-class",
-                                         "PUBLIC_INTERNET", "--out", str(ev / "14-e2e.jsonl"), *edge_args, *(
-                                             ["--grafana-credentials-file", c["grafana_credentials"], "--grafana-root-url",
-                                              f"https://observe.{c['domain']}/"] if c.get("grafana_credentials") else [])),
-                            lambda s: py("negative_tests.py", "--address", s["LB_IP"], "--rate-limit-mode", "http2",
-                                         "--out", str(ev / "14-negative.jsonl"), *edge_args),
-                            py("platform_checks.py", *kargs(state), "compare", "--baseline", str(ev / "baseline.json")),
-                            public_preflight)),
+        ("public-e2e", public_e2e),
     ]
+
+
+SECURITY_PHASES = ("L0-render", "L0-live", "private-e2e", "internet-gates", "production-certificate", "public-e2e")
+DEPLOYMENT_PHASES = ("wake", "baseline", "temporary-certificate", "edge-restricted", "open-lb", "dns-online",
+                     "staging-certificate", "production-certificate", "responder-off")
+
+
+def verdicts(state: dict) -> dict:
+    """Summary statuses from what was actually observed. G3B_SECURITY_COMPLETE needs every
+    security gate, including L4 from a real non-approved address."""
+    ph = state.get("phases", {})
+    status = lambda names: ("NOT_STARTED" if not any(n in ph for n in names) else
+                            "FAIL" if any(ph.get(n, "").startswith("FAIL") for n in names) else
+                            "PASS" if all(ph.get(n) == "PASS" for n in names) else "INCOMPLETE")
+    l4 = state.get("L4", "NOT_RUN")
+    security = status(SECURITY_PHASES)
+    if security == "PASS":
+        security = "G3B_SECURITY_COMPLETE" if l4.startswith("PASS") else "INCOMPLETE (L4: " + l4 + ")"
+    elif l4.startswith("FAIL"):
+        security = "FAIL"
+    e2e = "NOT_STARTED" if "public-e2e" not in ph else ("PASS" if ph["public-e2e"] == "PASS" else "FAIL")
+    grafana = state.get("GRAFANA", "NOT_RUN")
+    if e2e == "NOT_STARTED":
+        g4 = "BLOCKED" if any(v.startswith("FAIL") for v in ph.values()) else "NOT_STARTED"
+    elif e2e == "PASS" and grafana == "PASS" and l4.startswith("PASS"):
+        g4 = "COMPLETE"
+    else:
+        g4 = "PARTIAL"
+    return {"G3B_DEPLOYMENT_STATUS": status(DEPLOYMENT_PHASES), "G3B_SECURITY_STATUS": security,
+            "G3B_PUBLIC_E2E_STATUS": e2e, "G4_AUTOMATED_CHECKS_STATUS": g4, "L4": l4, "L5": state.get("L5", "NOT_RUN"),
+            "GRAFANA": grafana, "CLEANUP_STATUS": state.get("CLEANUP_STATUS"), "SLEEP_STATUS": state.get("SLEEP_STATUS")}
 
 
 # --- cleanup ------------------------------------------------------------------------------------
@@ -305,6 +559,7 @@ def cleanup(state_path: Path, ex: Executor, reason: str) -> dict:
     state.update(CLEANUP_STARTED=state.get("CLEANUP_STARTED") or iso(now()), cleanup_reason=state.get("cleanup_reason") or reason)
     save(state_path, state)
     sim = isinstance(ex, Simulator)
+    ex.deadline = None  # cleanup is never cut short by the campaign deadline; each command keeps its own timeout
 
     def done(name, ok, detail=""):
         steps[name] = {"ok": ok, "detail": detail, "at": iso(now())}
@@ -321,6 +576,28 @@ def cleanup(state_path: Path, ex: Executor, reason: str) -> dict:
                 time.sleep(0 if sim else interval)
         return rc, ""
 
+    # 1. ACME: let an in-flight certbot finish (bounded), then remove the temporary responder and
+    #    its port-80 route. edge-tls (possibly the new production certificate) and the
+    #    application routes are kept and checked.
+    if state.get("ACME_STATUS") not in (None, "responder-disabled") and not steps.get("acme-responder-off", {}).get("ok"):
+        pgid = state.get("acme_pgid")
+        if pgid and pid_alive(pgid):
+            waited = 0
+            while pid_alive(pgid) and waited < (0 if sim else ACME_WAIT_SECONDS):
+                time.sleep(5)
+                waited += 5
+            if pid_alive(pgid):
+                try:
+                    os.killpg(pgid, signal.SIGTERM)
+                except ProcessLookupError:
+                    pass
+        state["acme_pgid"] = None
+        rc, _ = retry(edge_upgrade(state, c["values_final"]))
+        gone, detail = acme_objects_gone(state, ex) if rc == 0 else (False, f"helm upgrade exit {rc}")
+        done("acme-responder-off", gone, detail)
+        if gone:
+            state["ACME_STATUS"] = "responder-disabled"
+            save(state_path, state)
     dns_safe = True
     if state.get("DNS_TARGET_STATE") in ("online", "unknown") and not steps.get("dns-offline", {}).get("ok"):
         if not c.get("dns_credentials"):
@@ -392,11 +669,18 @@ def cleanup(state_path: Path, ex: Executor, reason: str) -> dict:
 
 def run(state_path: Path, ex: Executor) -> dict:
     state = load(state_path)
-    if not all(state["gates"].get(g) == "PASS" for g in GATES) and not isinstance(ex, Simulator):
+    gates_pass = bool(state["gates"]) and all(v == "PASS" for v in state["gates"].values())
+    if not gates_pass and not isinstance(ex, Simulator):
         raise SystemExit(f"pre-wake gates not all PASS: {state['gates']}; not waking")
     stop = {"signal": None}
-    signal.signal(signal.SIGTERM, lambda *_: stop.update(signal="SIGTERM"))
-    signal.signal(signal.SIGINT, lambda *_: stop.update(signal="SIGINT"))
+
+    def on_signal(signum, _frame):
+        stop["signal"] = signal.Signals(signum).name
+        ex.terminate_current()  # the running command (and its children) stops now; cleanup follows
+    signal.signal(signal.SIGTERM, on_signal)
+    signal.signal(signal.SIGINT, on_signal)
+    if state.get("deadline_epoch"):
+        ex.deadline = state["deadline_epoch"]
     state.update(campaign_active=True, main_pid=os.getpid(), START_TIME=state.get("START_TIME") or iso(now()),
                  heartbeat=now(), state_path=str(state_path), G3B_STATUS="RUNNING")
     save(state_path, state)
@@ -413,18 +697,37 @@ def run(state_path: Path, ex: Executor) -> dict:
         state.update(CURRENT_PHASE=name, heartbeat=now())
         save(state_path, state)
         error = function(state, ex)
-        state.setdefault("phases", {})[name] = "PASS" if error is None else f"FAIL: {error}"
+        if stop["signal"] and error is None:
+            error = f"stopped by {stop['signal']}"
+        result = "PASS" if error is None else f"FAIL: {error}"
+        # Gates that can end blocked record what they observed, never a bare PASS.
+        if error is None and name == "L4-denied" and not state.get("L4", "").startswith("PASS"):
+            result = state.get("L4", "NOT_RUN")
+        if error is None and name == "grafana" and state.get("GRAFANA") != "ROOT_URL_APPLIED":
+            result = state.get("GRAFANA", "NOT_RUN")
+        state.setdefault("phases", {})[name] = result
         if name == "baseline" and error is None:
             state["baseline_passed"] = True
         state["heartbeat"] = now()
         save(state_path, state)
         if error:
-            reason = f"FAIL at {name}: {error}"
+            reason = f"stopped by {stop['signal']}" if stop["signal"] else (
+                "DEADLINE_EXPIRED" if error == "DEADLINE_EXPIRED" else f"FAIL at {name}: {error}")
             break
+    if stop["signal"] and not reason.startswith("stopped"):
+        reason = f"stopped by {stop['signal']}"
     state["G3B_STATUS"] = "PASS" if reason == "PASS" else reason
     state["CURRENT_PHASE"] = "cleanup"
     save(state_path, state)
-    return cleanup(state_path, ex, reason)
+    # Cleanup runs to its end: a second SIGTERM/SIGINT is recorded, not obeyed (kill -9 and a
+    # later `cleanup` or the watchdog resume it).
+    ignored = lambda signum, _frame: None
+    signal.signal(signal.SIGTERM, ignored)
+    signal.signal(signal.SIGINT, ignored)
+    final = cleanup(state_path, ex, reason)
+    final["verdicts"] = verdicts(final)
+    save(state_path, final)
+    return final
 
 
 def pid_alive(pid: int | None) -> bool:
@@ -451,6 +754,15 @@ def watchdog(state_path: Path, ex: Executor, max_attempts: int = 3) -> str:
         return "GAVE_UP (see ALERT.txt)"
     with Locked(state_path) as lock:
         if lock is None:
+            # The main process holds the campaign. If it overran the deadline, ask it to stop:
+            # it then cleans up itself, so only one process ever changes the cluster.
+            pid = state.get("main_pid")
+            if expired and pid_alive(pid) and now() > state["deadline_epoch"] + DEADLINE_GRACE_SECONDS \
+                    and not state.get("watchdog_sigterm_sent"):
+                os.kill(pid, signal.SIGTERM)
+                state["watchdog_sigterm_sent"] = iso(now())
+                save(state_path, state)
+                return "SIGTERM_SENT_TO_MAIN"
             return "CLEANUP_ALREADY_RUNNING"
         state["watchdog_attempts"] = state.get("watchdog_attempts", 0) + 1
         save(state_path, state)
@@ -493,7 +805,9 @@ def init(args: argparse.Namespace, ex: Executor) -> dict:
                                                                                  "allowedCidrs": cidrs},
                                     "acmeHttp01": {"enabled": acme}}, indent=2) + "\n", encoding="utf-8")
         cfg[name] = str(path)
-    approvals = {"guarded_sleep": args.approve_guarded_sleep, "keda_pause": args.approve_keda_pause,
+    mode = getattr(args, "mode", "unattended")
+    approvals = {"live_campaign": getattr(args, "approve_live_campaign", False),
+                 "guarded_sleep": args.approve_guarded_sleep, "keda_pause": args.approve_keda_pause,
                  "also_approve": args.also_approve, "production_certificate": args.approve_production_certificate,
                  "grafana_root_url": args.approve_grafana_root_url, "dns_offline_verified": args.dns_offline_verified,
                  "local_only_risk_accepted": args.accept_local_only_risk, "cloud_fallback": args.cloud_fallback_ready}
@@ -515,7 +829,25 @@ def init(args: argparse.Namespace, ex: Executor) -> dict:
     unattended = {"dns_automation": bool(cfg["dns_credentials"]) and args.dns_offline_verified,
                   "watchdog_timer_active": rc_t == 0, "linger": linger.strip() == "yes" or isinstance(ex, Simulator),
                   "laptop_risk_covered": args.cloud_fallback_ready or args.accept_local_only_risk}
-    gates["UNATTENDED_CLEANUP_READY"] = "PASS" if all(unattended.values()) else "FAIL"
+    gates["SAFE_CLEANUP_READY"] = "PASS" if unattended["dns_automation"] and not problems else "FAIL"
+    if mode == "unattended":
+        gates["UNATTENDED_CLEANUP_READY"] = "PASS" if all(unattended.values()) else "FAIL"
+    gates["OWNER_LIVE_APPROVAL"] = "PASS" if approvals["live_campaign"] else "FAIL"
+    # L0 render, offline: the exact public render must already pass the strict preflight.
+    l0 = []
+    for out, cmd in ((campaign / "l0-gateway.yaml", ["helm", "template", "ewallet-edge-gateway", cfg["gateway_chart"], "-n",
+                                                     "ewallet-ingress", *[x for f in ("values-gateway.yaml", "values-gateway-public.yaml",
+                                                                                      "values-gateway-public-open.yaml")
+                                                                          for x in ("-f", str(ROOT / "infra/helm/ewallet-edge" / f))]]),
+                     (campaign / "l0-edge.yaml", ["helm", "template", "ewallet-edge", str(ROOT / "infra/helm/ewallet-edge"), "-n",
+                                                  "ewallet-ingress", "-f", str(PRIVATE_VALUES), "-f", cfg["values_acme"]])):
+        rc_r, text = ex.run(cmd, timeout=120)
+        out.write_text(text, encoding="utf-8")
+        l0.append(rc_r)
+    rc_p, _ = ex.run(py("ownership_preflight.py", "render", "--allow-public-loadbalancer", "--domain", args.domain,
+                        "--approved-cidrs-file", cfg["approved_cidrs"] or "/nonexistent",
+                        str(campaign / "l0-gateway.yaml"), str(campaign / "l0-edge.yaml")), timeout=120)
+    gates["L0_RENDER_READY"] = "PASS" if l0 == [0, 0] and rc_p == 0 else "FAIL"
     rc_ip, ip = ex.run(["dig", "+short", "myip.opendns.com", "@resolver1.opendns.com"])
     try:
         mine = ipaddress.ip_address(ip.strip().splitlines()[-1]) if rc_ip == 0 and ip.strip() else None
@@ -524,8 +856,9 @@ def init(args: argparse.Namespace, ex: Executor) -> dict:
         inside = False
     gates["CLIENT_ADDRESS_APPROVED"] = "PASS" if inside else "FAIL"  # the address itself is not recorded
     if problems:
-        gates = {g: ("FAIL" if g in ("CLOUD_LAB_RECOVERY_MANIFEST_VALID", "UNATTENDED_CLEANUP_READY") else v) for g, v in gates.items()}
-    state = {"CAMPAIGN_ID": args.campaign, "CLUSTER": CLUSTER, "PROJECT": PROJECT, "config": cfg, "approvals": approvals,
+        gates = {g: ("FAIL" if g in ("CLOUD_LAB_RECOVERY_MANIFEST_VALID", "UNATTENDED_CLEANUP_READY", "SAFE_CLEANUP_READY") else v)
+                 for g, v in gates.items()}
+    state = {"CAMPAIGN_ID": args.campaign, "CLUSTER": CLUSTER, "PROJECT": PROJECT, "mode": mode, "config": cfg, "approvals": approvals,
              "gates": gates, "gate_problems": problems, "unattended": unattended, "START_TIME": None, "DEADLINE": None,
              "CURRENT_PHASE": "initialised", "WAKE_COMPLETED": False, "PUBLIC_LB_CREATED": False, "LB_IP": None,
              "DNS_TARGET_STATE": "untouched", "ACME_STATUS": None, "G3B_STATUS": "NOT_STARTED", "CLEANUP_STARTED": None,
@@ -552,7 +885,9 @@ def main(argv: list[str] | None = None) -> int:
     i.add_argument("--dns-credentials")
     i.add_argument("--dns-offline-mode", choices=["no-ipv4", "signoff"], default="no-ipv4")
     i.add_argument("--dns-offline-ip")
-    for flag in ("approve-guarded-sleep", "approve-keda-pause", "approve-production-certificate", "approve-grafana-root-url",
+    i.add_argument("--mode", choices=["supervised", "unattended"], default="unattended",
+                   help="supervised: the owner watches the run (no watchdog/linger/laptop-risk gate)")
+    for flag in ("approve-live-campaign", "approve-guarded-sleep", "approve-keda-pause", "approve-production-certificate", "approve-grafana-root-url",
                  "dns-offline-verified", "accept-local-only-risk", "cloud-fallback-ready"):
         i.add_argument(f"--{flag}", action="store_true")
     i.add_argument("--also-approve", action="append", default=[], metavar="NS/NAME")
@@ -566,7 +901,8 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps({"gates": state["gates"], "problems": state["gate_problems"], "unattended": state["unattended"]}, indent=2))
         return 0 if all(v == "PASS" for v in state["gates"].values()) else 1
     if args.command == "status":
-        print(json.dumps(load(state_path), indent=2, sort_keys=True))
+        state = load(state_path)
+        print(json.dumps({**state, "verdicts": verdicts(state)}, indent=2, sort_keys=True))
         return 0
     if args.command == "watchdog":
         print(watchdog(state_path, ex) if state_path.exists() else "IDLE (no active campaign)")
@@ -584,8 +920,11 @@ def main(argv: list[str] | None = None) -> int:
             print("ANOTHER_PROCESS_HOLDS_THE_CAMPAIGN")
             return 1
         state = run(state_path, ex)
-    print(json.dumps({k: state.get(k) for k in ("G3B_STATUS", "CLEANUP_STATUS", "SLEEP_STATUS", "LAST_VERIFIED_NODE_COUNT")}))
-    return 0 if state["G3B_STATUS"] == "PASS" and state["CLEANUP_STATUS"] == "COMPLETE" else 1
+    print(json.dumps({**state["verdicts"], "G3B_STATUS": state.get("G3B_STATUS"),
+                      "LAST_VERIFIED_NODE_COUNT": state.get("LAST_VERIFIED_NODE_COUNT")}))
+    ok = state["verdicts"]["G3B_SECURITY_STATUS"] == "G3B_SECURITY_COMPLETE" and state["CLEANUP_STATUS"] == "COMPLETE" \
+        and state.get("SLEEP_STATUS") == "VERIFIED"
+    return 0 if ok else 1
 
 
 if __name__ == "__main__":

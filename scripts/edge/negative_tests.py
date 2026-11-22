@@ -182,7 +182,10 @@ def run_auth(edge: Edge, results: list[Result]) -> None:
     check(results, "a bearer token is not a credential", status == 401, status)
     for host, path in (("unknown", "/"), ("features", "/metrics"), ("agents", "/api/agents")):
         status, _ = edge.curl(host, path)
-        check(results, f"unauthenticated {host}{path} is rejected before routing", status == 401, status)
+        # The agents host may also be refused by the source restriction (403, which runs before
+        # Basic Auth) when this client is not an approved address, e.g. through a port-forward.
+        refused = {401, 403} if host == "agents" else {401}
+        check(results, f"unauthenticated {host}{path} is rejected before routing", status in refused, status)
     status, _ = edge.curl("features", LOOKUP, "-H", "x-edge-user: admin", "-H", "x-forwarded-user: admin",
                           "-H", "x-user-id: admin", *POST_JSON)
     check(results, "identity headers cannot replace credentials", status == 401, status)
