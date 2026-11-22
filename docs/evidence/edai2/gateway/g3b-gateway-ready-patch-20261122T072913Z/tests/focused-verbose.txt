@@ -1,0 +1,19 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.7, pytest-8.3.5, pluggy-1.5.0 -- /usr/bin/python3
+rootdir: ~/Develop/ewallet-data-ai-platform
+plugins: typeguard-4.4.2
+collecting ... collected 11 items
+
+tests/ops/test_g3b_gateway_ready.py::test_runs_after_wake_and_baseline_and_before_any_edge_change PASSED [  9%]
+tests/ops/test_g3b_gateway_ready.py::test_backend_checks_are_kept_and_the_gate_is_read_only PASSED [ 18%]
+tests/ops/test_g3b_gateway_ready.py::test_ready_after_an_initial_delay PASSED [ 27%]
+tests/ops/test_g3b_gateway_ready.py::test_never_ready_fails_within_the_budget_opens_no_lb_and_cleans_up PASSED [ 36%]
+tests/ops/test_g3b_gateway_ready.py::test_budget_is_capped_by_the_campaign_deadline PASSED [ 45%]
+tests/ops/test_g3b_gateway_ready.py::test_zero_or_unknown_desired_replicas_never_pass[0] PASSED [ 54%]
+tests/ops/test_g3b_gateway_ready.py::test_zero_or_unknown_desired_replicas_never_pass[] PASSED [ 63%]
+tests/ops/test_g3b_gateway_ready.py::test_zero_or_unknown_desired_replicas_never_pass[x] PASSED [ 72%]
+tests/ops/test_g3b_gateway_ready.py::test_rollout_complete_but_no_ready_replica_does_not_pass PASSED [ 81%]
+tests/ops/test_g3b_gateway_ready.py::test_simulation_without_a_clock_is_bounded_to_three_attempts PASSED [ 90%]
+tests/ops/test_g3b_gateway_ready.py::test_cleanup_after_a_gateway_failure_releases_nothing_it_did_not_open PASSED [100%]
+
+============================== 11 passed in 0.08s ==============================
