@@ -1,0 +1,376 @@
+diff --git a/docs/runbooks/edai2/EXTERNAL_GATEWAY_RUNBOOK.md b/docs/runbooks/edai2/EXTERNAL_GATEWAY_RUNBOOK.md
+index 1b56220b..3af8aeaf 100644
+--- a/docs/runbooks/edai2/EXTERNAL_GATEWAY_RUNBOOK.md
++++ b/docs/runbooks/edai2/EXTERNAL_GATEWAY_RUNBOOK.md
+@@ -175,11 +175,18 @@ approval neither replaces nor is replaced by it.
+ | `VERIFIED` | offline (proven) | released | stage 3 with `--dns-offline-verified --dns-transition-evidence $EV/state.json` |
+ | `ONLINE_NOT_PROVEN` (Dynu stays Offline after `myip=`) | cleanup sends signoff and proves offline | released once proven | owner decision: bring it online in the panel during stage 3 (a supervised manual step), or stop |
+ | `OFFLINE_NOT_PROVEN` | names may still point at the LB | **kept** (still ours, nothing dangles); nodes still sleep; `CLEANUP_INCOMPLETE` | owner: panel *Go Offline Now*, then `g3b_campaign.py cleanup --state $EV/state.json` (proves offline, releases the LB). Signoff is not used for stage 3 |
+-| `NOT_STARTED` | untouched | released | re-read OFF4/OFF6, re-run `init` |
++| `NOT_STARTED` (pre-check not `DNS_OFFLINE_OK`; no Dynu update sent) | untouched | released only if cleanup's fresh `dns_check` proves offline; otherwise **kept**, `CLEANUP_INCOMPLETE` | owner fixes DNS (panel *Go Offline Now*), `cleanup` again; re-read OFF4/OFF6, re-run `init` |
+ 
+-`--dns-offline-verified` alone does nothing: stage 3's `SAFE_CLEANUP_READY` needs
+-`--dns-transition-evidence` pointing at a `state.json` with `scope: dns-transition`,
+-`DNS_TRANSITION: VERIFIED` and the same domain, offline mode, OFF4 and OFF6.
++`--dns-offline-verified` alone does nothing. Stage 3's `SAFE_CLEANUP_READY` needs
++`--dns-transition-evidence` pointing at the `state.json` of a **real** transition run. That file must show:
++- `scope: dns-transition`, `simulated: false` (`--simulate` runs are marked and always refused);
++- `DNS_TRANSITION: VERIFIED` and the `dns-transition` phase `PASS`;
++- `CLEANUP_STATUS: COMPLETE`, `SLEEP_STATUS: VERIFIED`, `LAST_VERIFIED_NODE_COUNT: 0`;
++- cleanup steps `dns-verify-before-release` and `lb-release` ok (the LB was released after DNS was proven offline);
++- the same domain, offline mode, OFF4 and OFF6.
++
++A transition whose cleanup is incomplete (LB kept, sleep not verified) is not evidence; finish
++it with `cleanup`, after which its `state.json` qualifies.
+ 
+ ### Preconditions and owner approvals
+ 
+@@ -277,12 +284,13 @@ never PASS. These are technical checks; the official G4 screenshots are a separa
+ 1. Stop new work.
+ 2. Let an in-flight certbot finish (at most 10 min), then end it.
+ 3. Disable `acmeHttp01`. By exact object identity, verify that the responder Deployment, Service, ConfigMap and HTTPRoute are gone, while every route the approved values enable (here feature-api, kagent-ui, agent-registry, grafana, plus https-redirect) and `edge-tls` are kept. The production certificate is never rolled back.
+-4. Dynu offline, proven by `dns_check.py`.
+-5. Release the LB (only after DNS is proven offline; otherwise the LB is kept and the result is `CLEANUP_INCOMPLETE`).
+-6. Fresh recovery manifest.
+-7. `plan-sleep`: only approved PDB blockers.
+-8. Guarded sleep with the scoped approval variables.
+-9. `verify --expect sleep` and an actual node count of 0.
++4. Dynu offline (signoff) when the recorded DNS state is `online` or `unknown`. No Dynu update is sent when DNS was never touched.
++5. Whenever a public LB was created: a fresh, read-only `dns_check.py --expect-offline --offline-ip OFF4 --offline-ipv6 OFF6 --released-ip <LB>` (step `dns-verify-before-release`, 3 attempts). The recorded state (`untouched`, `unknown`, `online`, even `offline`) never replaces it. If the LB address is not in the state, it is read from the Service first.
++6. Release the LB only on `DNS_OFFLINE_OK`. `NOT_YET` or `DNS_CHECK_FAILED` keeps the LB, records the verdict in `lb-release`, and gives `CLEANUP_INCOMPLETE`; guarded sleep still runs. After the owner fixes DNS, `cleanup` resumes (finished steps are skipped).
++7. Fresh recovery manifest.
++8. `plan-sleep`: only approved PDB blockers.
++9. Guarded sleep with the scoped approval variables.
++10. `verify --expect sleep` and an actual node count of 0.
+ 
+ A step that fails is recorded, the following safe steps still run, and `cleanup` can be run
+ again to resume.
+@@ -317,8 +325,8 @@ the campaign runs; it cannot prevent power loss or a network drop.
+ 
+ ### DNS before the LB (failure policy)
+ 
+-The LB is released only after `dynu_dns.py offline` and `dns_check.py --expect-offline
+---released-ip <LB IP>` return `DNS_OFFLINE_OK`. A `DNS_CHECK_FAILED` (timeout, SERVFAIL,
++The LB is released only after a fresh `dns_check.py --expect-offline
++--released-ip <LB IP>` (after any needed Dynu signoff, whatever state.json records) returns `DNS_OFFLINE_OK`. A `DNS_CHECK_FAILED` (timeout, SERVFAIL,
+ REFUSED, malformed reply, missing `aa`) never counts as offline. If DNS cannot be proven safe
+ within the bounded retries, the LB is **kept**: its address stays ours, so no record points
+ to someone else's address. The nodes still go to guarded sleep, `CLEANUP_STATUS` is
+diff --git a/scripts/edge/g3b_campaign.py b/scripts/edge/g3b_campaign.py
+index 5b31b5a2..6f1f5621 100644
+--- a/scripts/edge/g3b_campaign.py
++++ b/scripts/edge/g3b_campaign.py
+@@ -732,7 +732,7 @@ def cleanup(state_path: Path, ex: Executor, reason: str) -> dict:
+         if gone:
+             state["ACME_STATUS"] = "responder-disabled"
+             save(state_path, state)
+-    dns_safe = True
++    dns_safe = True  # only about the Dynu update; the LB release below always needs a fresh dns_check
+     if state.get("DNS_TARGET_STATE") in ("online", "unknown") and not steps.get("dns-offline", {}).get("ok"):
+         if not c.get("dns_credentials"):
+             dns_safe = done("dns-offline", False, "no DNS automation configured")
+@@ -745,12 +745,29 @@ def cleanup(state_path: Path, ex: Executor, reason: str) -> dict:
+             if rc == 0:
+                 state["DNS_TARGET_STATE"] = "offline"
+     if state.get("PUBLIC_LB_CREATED") and not steps.get("lb-release", {}).get("ok"):
++        # Fail-closed, whatever state.json says (untouched, unknown, online, offline): the LB is
++        # released only when the CURRENT DNS answers are proven offline on both families and no
++        # name answers the LB address. No Dynu update is sent here; this is a read-only check.
++        if not state.get("LB_IP"):
++            rc_ip, out_ip = ex.run(k(state, "-n", "ewallet-ingress", "get", "svc", GATEWAY_DEPLOYMENT, "-o",
++                                     "jsonpath={.status.loadBalancer.ingress[0].ip}"))
++            try:
++                if rc_ip == 0 and out_ip.strip():
++                    state["LB_IP"] = str(ipaddress.ip_address(out_ip.strip()))
++                    save(state_path, state)
++            except ValueError:
++                pass
++        rc_v, _ = retry(py("dns_check.py", "--domain", c["domain"], "--expect-offline", *offline_args(c),
++                           *(["--released-ip", state["LB_IP"]] if state.get("LB_IP") else [])), attempts=3, interval=30)
++        verdict = {0: "DNS_OFFLINE_OK", 1: "DNS_OFFLINE_NOT_YET"}.get(rc_v, f"DNS_CHECK_FAILED (exit {rc_v})")
++        done("dns-verify-before-release", rc_v == 0, verdict)
++        dns_safe = dns_safe and rc_v == 0
+         if dns_safe:
+             rc, _ = retry(gateway_upgrade(state, False))
+             rc2, _ = retry(py("ownership_preflight.py", "live", "--context", c["context"], "--kubeconfig", c["kubeconfig"]))
+             done("lb-release", rc == 0 and rc2 == 0, "ClusterIP; no LoadBalancer" if rc == rc2 == 0 else f"exit {rc}/{rc2}")
+         else:
+-            done("lb-release", False, "LB KEPT: DNS not proven offline, its address stays ours (no dangling record)")
++            done("lb-release", False, f"LB KEPT: DNS not proven offline ({verdict}); its address stays ours (no dangling record)")
+     if state.get("wake_attempted") and not steps.get("sleep", {}).get("ok"):
+         manifest = c["manifest"]
+         if state.get("baseline_passed") and not steps.get("record-manifest", {}).get("ok"):
+@@ -815,6 +832,7 @@ def run(state_path: Path, ex: Executor) -> dict:
+     signal.signal(signal.SIGINT, on_signal)
+     if state.get("deadline_epoch"):
+         ex.deadline = state["deadline_epoch"]
++    state["simulated"] = bool(state.get("simulated", True)) or isinstance(ex, Simulator)  # sticky
+     state.update(campaign_active=True, main_pid=os.getpid(), START_TIME=state.get("START_TIME") or iso(now()),
+                  heartbeat=now(), state_path=str(state_path), G3B_STATUS="RUNNING")
+     save(state_path, state)
+@@ -918,8 +936,9 @@ def outside_repo(path: str | None, label: str, problems: list[str], required: bo
+ 
+ 
+ def transition_evidence(path: str | None, cfg: dict, problems: list[str]) -> bool:
+-    """--dns-offline-verified counts only with the state.json of a dns-transition campaign that
+-    proved Offline -> Online (LB) -> signoff -> Offline for this domain, mode and offline addresses."""
++    """--dns-offline-verified counts only with the state.json of a REAL (not --simulate) dns-transition
++    campaign that proved Offline -> Online (LB) -> signoff -> Offline for this domain, mode and offline
++    addresses, and then cleaned up completely (LB released after DNS was proven offline, 0 nodes)."""
+     if not path:
+         problems.append("--dns-offline-verified needs --dns-transition-evidence (state.json of a VERIFIED dns-transition campaign)")
+         return False
+@@ -928,8 +947,15 @@ def transition_evidence(path: str | None, cfg: dict, problems: list[str]) -> boo
+     except (OSError, ValueError):
+         problems.append("DNS transition evidence is unreadable")
+         return False
+-    ec = evidence.get("config", {})
++    ec, steps = evidence.get("config", {}), evidence.get("cleanup_steps", {})
+     checks = {"scope": evidence.get("scope") == "dns-transition", "DNS_TRANSITION": evidence.get("DNS_TRANSITION") == "VERIFIED",
++              "not simulated": evidence.get("simulated") is False,
++              "dns-transition phase PASS": evidence.get("phases", {}).get("dns-transition") == "PASS",
++              "CLEANUP_STATUS COMPLETE": evidence.get("CLEANUP_STATUS") == "COMPLETE",
++              "SLEEP_STATUS VERIFIED": evidence.get("SLEEP_STATUS") == "VERIFIED",
++              "0 nodes": evidence.get("LAST_VERIFIED_NODE_COUNT") == 0,
++              "LB released after DNS proven offline": bool(steps.get("lb-release", {}).get("ok"))
++                                                      and bool(steps.get("dns-verify-before-release", {}).get("ok")),
+               "domain": ec.get("domain") == cfg["domain"], "dns_offline_mode": ec.get("dns_offline_mode") == cfg["dns_offline_mode"],
+               "dns_offline_ip": ec.get("dns_offline_ip") == cfg["dns_offline_ip"],
+               "dns_offline_ipv6": ec.get("dns_offline_ipv6") == cfg["dns_offline_ipv6"]}
+@@ -1047,6 +1073,7 @@ def init(args: argparse.Namespace, ex: Executor) -> dict:
+                                      "DNS_TRANSITION_TEST_READY") else v)
+                  for g, v in gates.items()}
+     state = {"CAMPAIGN_ID": args.campaign, "CLUSTER": CLUSTER, "PROJECT": PROJECT, "mode": mode, "scope": scope,
++             "simulated": isinstance(ex, Simulator),  # a simulated state can never serve as live evidence
+              "config": cfg, "approvals": approvals, "edge_auth_at_init": edge_auth_init,
+              "gates": gates, "gate_problems": problems, "unattended": unattended, "START_TIME": None, "DEADLINE": None,
+              "CURRENT_PHASE": "initialised", "WAKE_COMPLETED": False, "PUBLIC_LB_CREATED": False, "LB_IP": None,
+diff --git a/tests/ops/test_dns_campaign.py b/tests/ops/test_dns_campaign.py
+index 3ac5b3de..adb2e4f3 100644
+--- a/tests/ops/test_dns_campaign.py
++++ b/tests/ops/test_dns_campaign.py
+@@ -224,6 +224,13 @@ def manifest(tmp_path):
+     return m
+ 
+ 
++# what a REAL, fully cleaned-up dns-transition campaign leaves in its state.json
++VERIFIED_TRANSITION = {"scope": "dns-transition", "DNS_TRANSITION": "VERIFIED", "simulated": False,
++                       "phases": {"dns-transition": "PASS"}, "CLEANUP_STATUS": "COMPLETE", "SLEEP_STATUS": "VERIFIED",
++                       "LAST_VERIFIED_NODE_COUNT": 0,
++                       "cleanup_steps": {"dns-verify-before-release": {"ok": True}, "lb-release": {"ok": True}}}
++
++
+ def init_args(tmp_path, **kw):
+     def secret(name, text):
+         (tmp_path / name).write_text(text)
+@@ -238,7 +245,7 @@ def init_args(tmp_path, **kw):
+     args.update(kw)
+     if "dns_transition_evidence" not in kw:  # a VERIFIED dns-transition run for exactly this configuration
+         evidence = tmp_path / "transition-state.json"
+-        evidence.write_text(json.dumps({"scope": "dns-transition", "DNS_TRANSITION": "VERIFIED", "config": {
++        evidence.write_text(json.dumps({**VERIFIED_TRANSITION, "config": {
+             "domain": args["domain"], "dns_offline_mode": args["dns_offline_mode"], "dns_offline_ip": args["dns_offline_ip"],
+             "dns_offline_ipv6": args["dns_offline_ipv6"]}}))
+         args["dns_transition_evidence"] = str(evidence)
+diff --git a/tests/ops/test_g3b_prelive.py b/tests/ops/test_g3b_prelive.py
+index 874b7e0c..a99b2bae 100644
+--- a/tests/ops/test_g3b_prelive.py
++++ b/tests/ops/test_g3b_prelive.py
+@@ -279,13 +279,22 @@ def test_successful_transition_cycles_dns_on_the_lb_then_cleans_up(tmp_path):
+     assert state["CLEANUP_STATUS"] == "COMPLETE" and state["SLEEP_STATUS"] == "VERIFIED"
+ 
+ 
+-def test_dns_not_offline_at_the_start_sends_no_update(tmp_path):
++def test_dns_not_offline_at_the_start_sends_no_update_and_keeps_the_lb(tmp_path):
++    """Pre-check fails: no Dynu update, and the LB (already public) is released only after a fresh
++    dns_check proves offline, which here it cannot. Resume once DNS is fixed."""
+     path, _ = transition(tmp_path)
+     ex = Recorder(tmp_path / "sim.jsonl", fail=("dns_check.py",))
+     state = camp.run(path, ex)
+-    assert state["DNS_TRANSITION"].startswith("DNS_TRANSITION_NOT_STARTED")
++    assert state["DNS_TRANSITION"].startswith("DNS_TRANSITION_NOT_STARTED") and state["DNS_TARGET_STATE"] == "untouched"
+     assert not any("dynu_dns.py" in c for c, _ in ex.cmds)
+-    assert state["cleanup_steps"]["lb-release"]["ok"]
++    steps = state["cleanup_steps"]
++    assert not steps["dns-verify-before-release"]["ok"] and steps["lb-release"]["detail"].startswith("LB KEPT")
++    assert not any("upgrade ewallet-edge-gateway" in c and "public-open" not in c for c, _ in ex.cmds)
++    assert steps["sleep"]["ok"] and state["CLEANUP_STATUS"] == "CLEANUP_INCOMPLETE"
++    later_ex = Recorder(tmp_path / "sim2.jsonl")
++    later = camp.cleanup(path, later_ex, "manual cleanup")
++    assert later["CLEANUP_STATUS"] == "COMPLETE" and later["cleanup_steps"]["lb-release"]["ok"]
++    assert not any("dynu_dns.py" in c for c, _ in later_ex.cmds)
+ 
+ 
+ def test_online_not_proven_is_taken_offline_by_cleanup_before_the_lb_is_released(tmp_path):
+@@ -351,26 +360,77 @@ def test_evidence_must_prove_this_exact_configuration(tmp_path, change):
+     assert state["gates"]["SAFE_CLEANUP_READY"] == "FAIL"
+ 
+ 
+-def test_a_real_verified_transition_run_allows_the_normal_g3b_approval(tmp_path):
++def verified_run(tmp_path, fail=()):
+     first = tmp_path / "first"
+     first.mkdir()
+     path, _ = transition(first)
+-    assert camp.run(path, Recorder(first / "sim.jsonl"))["DNS_TRANSITION"] == "VERIFIED"
++    camp.run(path, Recorder(first / "sim.jsonl", fail=fail))
+     second = tmp_path / "second"
+     second.mkdir()
++    return path, second
++
++
++def g3b_with_evidence(second, path):
+     _, state = ready_state(second, mode="supervised", approve_live_campaign=True, dns_transition_evidence=str(path))
++    return state
++
++
++def test_a_simulated_transition_can_never_open_the_live_gate(tmp_path):
++    path, second = verified_run(tmp_path)
++    assert json.loads(path.read_text())["DNS_TRANSITION"] == "VERIFIED"
++    state = g3b_with_evidence(second, path)
++    assert state["gates"]["SAFE_CLEANUP_READY"] == "FAIL" and any("not simulated" in p for p in state["gate_problems"])
++
++
++def test_a_verified_and_fully_cleaned_transition_allows_the_normal_g3b_approval(tmp_path):
++    """The same state as a real run would write (the Simulator's marker is the only difference)."""
++    path, second = verified_run(tmp_path)
++    real = json.loads(path.read_text())
++    real["simulated"] = False
++    path.write_text(json.dumps(real))
++    state = g3b_with_evidence(second, path)
+     assert state["gates"]["SAFE_CLEANUP_READY"] == "PASS" and all(v == "PASS" for v in state["gates"].values())
+ 
+ 
++@pytest.mark.parametrize("fail,reason", [("--scale-pdb-guarded", "CLEANUP_STATUS COMPLETE"),
++                                         ("upgrade ewallet-edge-gateway chart.tgz -n ewallet-ingress -f", "LB released")])
++def test_verified_transition_with_incomplete_cleanup_is_refused(tmp_path, fail, reason):
++    path, second = verified_run(tmp_path)
++    real = json.loads(path.read_text())
++    assert real["DNS_TRANSITION"] == "VERIFIED"
++    real["simulated"] = False
++    path.write_text(json.dumps(real))
++    # re-run cleanup with a failing step to get an incomplete-cleanup state from the real code path
++    real.update(CLEANUP_STATUS=None, cleanup_steps={})
++    path.write_text(json.dumps(real))
++    camp.cleanup(path, Recorder(tmp_path / "c.jsonl", fail=(fail,)), "test")
++    after = json.loads(path.read_text())
++    after["simulated"] = False
++    path.write_text(json.dumps(after))
++    state = g3b_with_evidence(second, path)
++    assert state["gates"]["SAFE_CLEANUP_READY"] == "FAIL" and any(reason in p for p in state["gate_problems"])
++
++
++@pytest.mark.parametrize("change,reason", [
++    ({"simulated": True}, "not simulated"), ({"phases": {"dns-transition": "FAIL: x"}}, "dns-transition phase PASS"),
++    ({"SLEEP_STATUS": "NOT_VERIFIED"}, "SLEEP_STATUS VERIFIED"), ({"LAST_VERIFIED_NODE_COUNT": 2}, "0 nodes"),
++    ({"cleanup_steps": {"lb-release": {"ok": False}, "dns-verify-before-release": {"ok": False}}}, "LB released"),
++])
++def test_each_evidence_field_is_required(tmp_path, change, reason):
++    from tests.ops.test_dns_campaign import VERIFIED_TRANSITION
++    evidence = tmp_path / "e.json"
++    evidence.write_text(json.dumps({**VERIFIED_TRANSITION, **change, "config": {
++        "domain": "edge.example.test", "dns_offline_mode": "signoff", "dns_offline_ip": OFF4, "dns_offline_ipv6": OFF6}}))
++    _, state = ready_state(tmp_path, mode="supervised", approve_live_campaign=True, dns_transition_evidence=str(evidence))
++    assert state["gates"]["SAFE_CLEANUP_READY"] == "FAIL" and any(reason in p for p in state["gate_problems"])
++
++
+ def test_a_failed_transition_run_does_not(tmp_path):
+-    first = tmp_path / "first"
+-    first.mkdir()
+-    path, _ = transition(first)
+-    camp.run(path, Recorder(first / "sim.jsonl", fail=(" online --ip",)))
+-    second = tmp_path / "second"
+-    second.mkdir()
+-    _, state = ready_state(second, mode="supervised", approve_live_campaign=True, dns_transition_evidence=str(path))
+-    assert state["gates"]["SAFE_CLEANUP_READY"] == "FAIL"
++    path, second = verified_run(tmp_path, fail=(" online --ip",))
++    real = json.loads(path.read_text())
++    real["simulated"] = False
++    path.write_text(json.dumps(real))
++    assert g3b_with_evidence(second, path)["gates"]["SAFE_CLEANUP_READY"] == "FAIL"
+ 
+ 
+ def test_full_g3b_order_is_unchanged_apart_from_edge_auth(tmp_path, monkeypatch):
+@@ -380,3 +440,83 @@ def test_full_g3b_order_is_unchanged_apart_from_edge_auth(tmp_path, monkeypatch)
+                                      "edge-auth", "private-e2e", "open-lb", "dns-online", "internet-gates", "L4-denied",
+                                      "staging-certificate", "production-certificate", "responder-off", "grafana", "public-e2e"]
+     assert not any("dns-transition" in c for c, _ in ex.cmds)
++
++
++# --- cleanup: a fresh dns_check before every LB release ---------------------------------------------
++
++class Codes(Recorder):
++    """Recorder whose dns_check answers with a chosen exit code (0 OK, 1 NOT_YET, 2 CHECK_FAILED)."""
++
++    def __init__(self, log, dns_rc=0, **kw):
++        super().__init__(log, **kw)
++        self.dns_rc = dns_rc
++
++    def run(self, cmd, env=None, timeout=3600):
++        if "dns_check.py" in " ".join(cmd):
++            self.cmds.append((" ".join(cmd), []))
++            return self.dns_rc, json.dumps({"verdict": {0: "DNS_OFFLINE_OK", 1: "DNS_OFFLINE_NOT_YET"}.get(self.dns_rc, "DNS_CHECK_FAILED")})
++        return super().run(cmd, env, timeout)
++
++
++def lb_state(tmp_path, dns_state, lb_ip=LB, wake=True):
++    path, _ = ready_state(tmp_path, mode="supervised", approve_live_campaign=True)
++    state = camp.load(path)
++    state.update(PUBLIC_LB_CREATED=True, LB_IP=lb_ip, DNS_TARGET_STATE=dns_state, wake_attempted=wake, state_path=str(path))
++    camp.save(path, state)
++    return path
++
++
++def released(ex):
++    return any("upgrade ewallet-edge-gateway" in c and "public-open" not in c for c, _ in ex.cmds)
++
++
++def test_untouched_dns_proven_offline_allows_the_release_without_any_dynu_update(tmp_path):
++    path = lb_state(tmp_path, "untouched")
++    ex = Codes(tmp_path / "s.jsonl")
++    state = camp.cleanup(path, ex, "test")
++    check = ex.index("dns_check.py")
++    assert f"--expect-offline --offline-ip {OFF4} --offline-ipv6 {OFF6} --released-ip {LB}" in ex.cmds[check][0]
++    assert released(ex) and check < next(i for i, (c, _) in enumerate(ex.cmds) if "upgrade ewallet-edge-gateway" in c)
++    assert not any("dynu_dns.py" in c for c, _ in ex.cmds)
++    assert state["cleanup_steps"]["dns-verify-before-release"]["detail"] == "DNS_OFFLINE_OK"
++    assert state["CLEANUP_STATUS"] == "COMPLETE"
++
++
++@pytest.mark.parametrize("dns_state", ["untouched", "offline", "online", "unknown"])
++@pytest.mark.parametrize("rc,word", [(1, "DNS_OFFLINE_NOT_YET"), (2, "DNS_CHECK_FAILED")])
++def test_unproven_current_dns_keeps_the_lb_in_every_recorded_state(tmp_path, dns_state, rc, word):
++    """A recorded state (even "offline": DNS may have drifted) never replaces the real check."""
++    path = lb_state(tmp_path, dns_state)
++    ex = Codes(tmp_path / "s.jsonl", dns_rc=rc)
++    state = camp.cleanup(path, ex, "test")
++    assert not released(ex)
++    assert state["cleanup_steps"]["lb-release"]["detail"].startswith("LB KEPT") and word in state["cleanup_steps"]["lb-release"]["detail"]
++    assert state["CLEANUP_STATUS"] == "CLEANUP_INCOMPLETE" and state["cleanup_steps"]["sleep"]["ok"]
++    assert sum("dynu_dns.py" in c for c, _ in ex.cmds) == (0 if dns_state in ("untouched", "offline") else 1)
++    assert sum("dns_check.py" in c for c, _ in ex.cmds) == 3  # bounded retries, then kept
++
++
++def test_online_dns_is_signed_off_then_independently_checked_then_released(tmp_path):
++    path = lb_state(tmp_path, "online")
++    ex = Codes(tmp_path / "s.jsonl")
++    camp.cleanup(path, ex, "test")
++    order = [ex.index("dynu_dns.py"), ex.index("dns_check.py"),
++             next(i for i, (c, _) in enumerate(ex.cmds) if "upgrade ewallet-edge-gateway" in c)]
++    assert order == sorted(order)
++
++
++def test_resume_after_the_owner_fixes_dns_releases_the_lb(tmp_path):
++    path = lb_state(tmp_path, "offline")
++    assert camp.cleanup(path, Codes(tmp_path / "a.jsonl", dns_rc=1), "test")["CLEANUP_STATUS"] == "CLEANUP_INCOMPLETE"
++    ex = Codes(tmp_path / "b.jsonl")
++    state = camp.cleanup(path, ex, "manual cleanup")
++    assert released(ex) and state["CLEANUP_STATUS"] == "COMPLETE"
++    assert not any("--scale-pdb-guarded" in c for c, _ in ex.cmds)  # sleep already done, not repeated
++
++
++def test_unknown_lb_address_is_looked_up_before_the_check(tmp_path):
++    path = lb_state(tmp_path, "untouched", lb_ip=None)
++    ex = Codes(tmp_path / "s.jsonl")
++    state = camp.cleanup(path, ex, "test")
++    assert ex.index("loadBalancer.ingress") < ex.index("dns_check.py")
++    assert f"--released-ip {LB}" in ex.cmds[ex.index("dns_check.py")][0] and state["LB_IP"] == LB
