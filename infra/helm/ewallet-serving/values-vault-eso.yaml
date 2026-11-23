@@ -1,0 +1,14 @@
+# Opt-in consumer switch: the Feature API reads its Redis connection string from the
+# Secret that External Secrets Operator syncs from Vault (ml-platform/feature-api-redis-vault,
+# infra/kubernetes/external-secrets/ml-platform.yaml). Same secretKeyRef mechanism as
+# before, so no application change and no Vault client in the pod.
+#
+# The direct loader (featureApi.vault) stays off: the pod never talks to Vault here.
+# Rollback: helm rollback to the previous revision, or --reuse-values with
+# --set featureApi.redisSecret.name=feast-online-redis (the release is upgraded with
+# --reuse-values, so simply leaving this file out keeps the switch). feast-online-redis
+# itself is never modified.
+featureApi:
+  vault:
+    enabled: false
+  redisSecret: {name: feature-api-redis-vault, key: connection_string}

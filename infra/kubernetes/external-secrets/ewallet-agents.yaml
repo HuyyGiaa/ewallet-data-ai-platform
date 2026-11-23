@@ -1,0 +1,52 @@
+# STAGED, OPT-IN: the same pattern for namespace ewallet-agents, with its own identity,
+# Vault role (eso-ewallet-agents) and policy. It shows a second namespace cannot read
+# ml-platform's paths and vice versa.
+#
+# It writes a shadow Secret, agentgateway-client-key-vault, that no workload reads. The
+# live agentgateway-client-key, vllm-api-key, ModelConfig reference and the versioned MCP
+# credential Secrets are unchanged; moving a consumer is a separate, coordinated change
+# (client and gateway must switch together).
+# Prerequisite: ConfigMap vault-ca (ca.crt) in this namespace, see the runbook.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: eso-vault-reader
+  namespace: ewallet-agents
+  labels: {app.kubernetes.io/part-of: ewallet-platform}
+automountServiceAccountToken: false
+---
+apiVersion: external-secrets.io/v1
+kind: SecretStore
+metadata:
+  name: vault
+  namespace: ewallet-agents
+spec:
+  provider:
+    vault:
+      server: https://vault.ewallet-vault.svc.cluster.local:8200
+      path: ewallet
+      version: v2
+      caProvider: {type: ConfigMap, name: vault-ca, key: ca.crt}
+      auth:
+        kubernetes:
+          mountPath: kubernetes
+          role: eso-ewallet-agents
+          serviceAccountRef:
+            name: eso-vault-reader
+            audiences: [vault]
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: agentgateway-client-key-vault
+  namespace: ewallet-agents
+spec:
+  refreshInterval: 1h
+  secretStoreRef: {kind: SecretStore, name: vault}
+  target:
+    name: agentgateway-client-key-vault
+    creationPolicy: Owner
+    deletionPolicy: Retain
+  data:
+    - secretKey: api-key
+      remoteRef: {key: agent-platform/agentgateway-client-key, property: api-key}

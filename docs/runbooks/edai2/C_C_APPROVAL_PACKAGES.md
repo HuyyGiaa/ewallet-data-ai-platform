@@ -12,6 +12,8 @@ Before any package:
 
 ## P7: Vault
 
+> **Superseded (2026-11-24).** Deploy Vault with External Secrets Operator using [VAULT_ESO_RUNBOOK.md](VAULT_ESO_RUNBOOK.md). Its steps 2–4 replace the Vault part below. The direct Fraud API loader patch stays available, but it is no longer the planned first consumer.
+
 | Item | Detail |
 |---|---|
 | Objective | Deploy Vault and move one Fraud API secret to it (row 54) |

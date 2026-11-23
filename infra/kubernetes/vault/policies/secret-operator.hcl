@@ -11,3 +11,9 @@ path "ewallet/data/feature-api/*" {
 path "ewallet/metadata/feature-api/*" {
   capabilities = ["read", "list"]
 }
+path "ewallet/data/agent-platform/*" {
+  capabilities = ["create", "update"]
+}
+path "ewallet/metadata/agent-platform/*" {
+  capabilities = ["read", "list"]
+}

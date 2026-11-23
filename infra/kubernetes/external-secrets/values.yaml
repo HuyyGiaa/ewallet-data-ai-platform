@@ -1,0 +1,30 @@
+# Official chart external-secrets 2.14.0 (sha256 0a6d9e91...5e34), ESO v2.14.0, from
+# https://charts.external-secrets.io. One installation serves every namespace.
+#
+# Only namespaced SecretStores are processed: each namespace authenticates to Vault with
+# its own ServiceAccount and Vault role, so no single store can read every path.
+# ClusterSecretStore, ClusterExternalSecret and PushSecret objects are ignored even if
+# someone creates them (ESO never writes back to Vault).
+installCRDs: true
+processClusterStore: false
+processClusterExternalSecret: false
+processPushSecret: false
+processClusterPushSecret: false
+image: &image
+  repository: ghcr.io/external-secrets/external-secrets
+  tag: v2.14.0@sha256:10608eb53e636e744903d5f3657a4d9c44e28d9d9c181b73e07bc7dd2e6884dc
+resources:
+  requests: {cpu: 20m, memory: 64Mi}
+  limits: {cpu: 200m, memory: 256Mi}
+# The webhook rejects malformed SecretStore/ExternalSecret objects at apply time; the
+# cert-controller rotates the webhook's own certificate. Neither talks to Vault.
+webhook:
+  image: *image
+  resources:
+    requests: {cpu: 10m, memory: 32Mi}
+    limits: {cpu: 100m, memory: 128Mi}
+certController:
+  image: *image
+  resources:
+    requests: {cpu: 10m, memory: 32Mi}
+    limits: {cpu: 100m, memory: 128Mi}

@@ -123,8 +123,8 @@ def test_feature_api_secret_mode_is_unchanged_without_vault():
 
 
 def test_each_vault_role_binds_exactly_one_serving_account():
-    roles = BOOTSTRAP["roles"]
-    assert set(roles) == {"fraud-api", "feature-api"}
+    roles = {name: role for name, role in BOOTSTRAP["roles"].items() if not name.startswith("eso-")}
+    assert set(roles) == {"fraud-api", "feature-api"}   # ESO reader roles: tests/ops/test_vault_eso.py
     for name, role in roles.items():
         assert role["bound_service_account_names"] == [name]
         assert role["bound_service_account_namespaces"] == ["ml-platform"]
@@ -145,14 +145,13 @@ def test_vault_policies_never_overlap():
     assert not readable["fraud-api"] & readable["feature-api"]
 
 
-def test_vault_network_policy_admits_only_the_two_serving_pods():
+def test_vault_network_policy_admits_only_the_two_serving_pods_and_the_eso_controller():
     policy = yaml.safe_load((VAULT / "network-policy.yaml").read_text(encoding="utf-8"))
     sources = [peer for rule in policy["spec"]["ingress"] for peer in rule["from"]]
-    assert sorted(peer["podSelector"]["matchLabels"]["app.kubernetes.io/name"] for peer in sources) == [
-        "feature-api", "fraud-api",
-    ]
-    for peer in sources:
-        assert peer["namespaceSelector"]["matchLabels"] == {"kubernetes.io/metadata.name": "ml-platform"}
+    peers = sorted((peer["namespaceSelector"]["matchLabels"]["kubernetes.io/metadata.name"],
+                    peer["podSelector"]["matchLabels"]["app.kubernetes.io/name"]) for peer in sources)
+    assert peers == [("external-secrets", "external-secrets"), ("ml-platform", "feature-api"), ("ml-platform", "fraud-api")]
+    assert all(set(peer) == {"namespaceSelector", "podSelector"} for peer in sources)
 
 
 def test_no_rbac_binding_grants_the_serving_accounts_api_access():

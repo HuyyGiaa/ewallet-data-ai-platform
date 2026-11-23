@@ -1,4 +1,5 @@
-# Default deny, then only the integrated serving workloads may reach Vault. Egress
+# Default deny, then only the Vault clients may reach port 8200: the External Secrets
+# controller, plus the two serving pods that can still use the direct loader. Egress
 # stays open to the API server for TokenReview; its address differs per cluster.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -12,6 +13,13 @@ spec:
   policyTypes: ["Ingress"]
   ingress:
     - from:
+        # ESO controller only; its webhook and cert-controller never call Vault.
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: external-secrets
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: external-secrets
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: ml-platform

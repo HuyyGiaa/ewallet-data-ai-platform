@@ -1,0 +1,11 @@
+# The External Secrets Operator runs apart from the workloads whose Secrets it writes.
+# Restricted Pod Security (the chart's pods comply) and no mesh enrolment: the controller
+# talks TLS to Vault and to the Kubernetes API only.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: external-secrets
+  labels:
+    app.kubernetes.io/part-of: ewallet-platform
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/warn: restricted
