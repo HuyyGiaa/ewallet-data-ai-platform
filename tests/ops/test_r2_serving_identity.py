@@ -123,8 +123,8 @@ def test_feature_api_secret_mode_is_unchanged_without_vault():
 
 
 def test_each_vault_role_binds_exactly_one_serving_account():
-    roles = {name: role for name, role in BOOTSTRAP["roles"].items() if not name.startswith("eso-")}
-    assert set(roles) == {"fraud-api", "feature-api"}   # ESO reader roles: tests/ops/test_vault_eso.py
+    roles = {name: role for name, role in BOOTSTRAP["roles"].items() if not name.startswith("eso-") and name != "vault-admin"}
+    assert set(roles) == {"fraud-api", "feature-api"}   # ESO readers: test_vault_eso.py; vault-admin: test_vault_tools.py
     for name, role in roles.items():
         assert role["bound_service_account_names"] == [name]
         assert role["bound_service_account_namespaces"] == ["ml-platform"]

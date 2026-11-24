@@ -6,8 +6,9 @@ outside the Git work tree. Token lifecycle:
 - the initial root token (``--keys-file``) applies the bootstrap and creates an
   orphan ``secret-operator`` token (``operator-token``), then is revoked (``retire-root``);
 - day-to-day writes and metadata reads use that token (``--token-file``);
-- policy or role changes use a short-lived root token from ``generate-root`` (unseal
-  shares), which is revoked again right after (``retire-root --token-file``).
+- policy or role changes use a short-lived root token from ``generate-root``: the owner
+  logs in as Kubernetes role ``vault-admin`` (``login``, policy root-generation only), then
+  feeds the unseal shares; the root token is revoked right after (``retire-root --token-file``).
 
 Token files are mode 0600, outside the repository, created exclusively. ``VAULT_TOKEN``
 is the fallback. Reach Vault through a port-forward and pass ``--ca-file``. Every
@@ -160,14 +161,33 @@ def cmd_operator_token(args: argparse.Namespace) -> int:
     return 0
 
 
+def _new_token_file(path: Path) -> None:
+    """Refuse an existing file or a repository path before any Vault call."""
+    if path.exists():
+        raise VaultError("vault_token_file_exists", "token file already exists")
+    write_keys_file(path, {})
+    path.unlink()
+
+
+def cmd_login(args: argparse.Namespace) -> int:
+    """Log in with a ServiceAccount token read from stdin; store the Vault token in a new file."""
+    _new_token_file(args.token_out)
+    jwt = sys.stdin.read().strip()
+    if not jwt:
+        raise VaultError("vault_empty_jwt", "no ServiceAccount token on stdin")
+    token = admin_for(args, token=None).login_kubernetes(args.auth_mount, args.role, jwt)
+    write_keys_file(args.token_out, {"token": token, "role": args.role})
+    print(json.dumps({"logged_in": True, "role": args.role}))
+    return 0
+
+
 def cmd_generate_root(args: argparse.Namespace) -> int:
     """Generate a temporary root token from the unseal shares, for policy or role changes."""
-    if args.token_out.exists():
-        raise VaultError("vault_token_file_exists", "token file already exists")
-    write_keys_file(args.token_out, {})
-    args.token_out.unlink()
+    _new_token_file(args.token_out)
+    if not args.token_file:
+        raise VaultError("vault_admin_login_required", "pass --token-file from 'login --role vault-admin'")
     keys = [str(key) for key in read_keys_file(args.keys_file)["keys_base64"]]
-    token = admin_for(args, token=None).generate_root(keys)
+    token = admin_for(args, token=read_token_file(args.token_file)).generate_root(keys)
     write_keys_file(args.token_out, {"token": token})
     print(json.dumps({"root_token_generated": True, "revoke_with": "retire-root --token-file"}))
     return 0
@@ -223,8 +243,14 @@ def build_parser() -> argparse.ArgumentParser:
     operator.set_defaults(run=cmd_operator_token)
     generate = sub.add_parser("generate-root")
     generate.add_argument("--keys-file", type=Path, required=True)
+    generate.add_argument("--token-file", type=Path, help="vault-admin login token")
     generate.add_argument("--token-out", type=Path, required=True)
     generate.set_defaults(run=cmd_generate_root)
+    login = sub.add_parser("login")
+    login.add_argument("--auth-mount", default="kubernetes")
+    login.add_argument("--role", default="vault-admin")
+    login.add_argument("--token-out", type=Path, required=True)
+    login.set_defaults(run=cmd_login)
     return parser
 
 

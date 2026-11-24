@@ -108,6 +108,7 @@ ESO never holds a long-lived Vault token. For each sync it:
 | `eso-ewallet-agents` | `ewallet-agents/eso-vault-reader` | `eso-ewallet-agents` | `ewallet/data/agent-platform/agentgateway-client-key` |
 | `feature-api`, `fraud-api` | the serving accounts (direct loader) | same names | each its own `…/feast-redis` |
 | none: orphan operator token (*Vault tokens*) | — | `secret-operator` | writes values and reads metadata, never reads values |
+| `vault-admin` | `ewallet-vault/vault-admin` (owner's admin login) | `root-generation` | nothing; may only run the root-generation ceremony |
 
 Each reader policy grants `read` on exactly the paths its namespace's ExternalSecrets map,
 plus `lookup-self` and `revoke-self` for its own token. There is no `list` and no metadata
@@ -215,22 +216,34 @@ need one immutable ExternalSecret per release version, as in the reference proje
 
 ### Vault tokens
 
-Nobody keeps using the initial root token:
+Nobody keeps using the initial root token, and root generation stays authenticated. That is the
+Vault 2.0 default, introduced "to prevent attackers from sending key-update requests with bogus
+key fragments" (HashiCorp, *Important changes*). The server config has no `enable_unauthenticated_access`.
 
-| Token | Purpose | Lifetime |
+| Credential | Purpose | Lifetime |
 |---|---|---|
 | Initial root | applies the bootstrap and creates the operator token, once | revoked right after (`retire-root`) |
 | Operator token (`operator-token`) | writes and rotates values, reads metadata; policy `secret-operator` only | orphan, non-renewable, 720 h; it survives the root token's revocation |
-| Temporary root (`generate-root`) | later policy or role changes (`configure`, `revoke-role`) and a new operator token | made from 2 unseal shares, revoked right after use |
+| Admin login (`login --role vault-admin`) | starts and feeds a root-generation ceremony; policy `root-generation` only | 15 min; obtained from a `kubectl create token` for `ewallet-vault/vault-admin` |
+| Temporary root (`generate-root`) | later policy or role changes and a new operator token | needs the admin login **and** 2 unseal shares; revoked right after use |
 | ESO tokens | one sync each | 5 min, revoked after use |
 
-So routine work never needs root, and administration needs the unseal shares, which only the
-owner holds. Vault 2.x protects root generation with a token by default, so the server config enables
-exactly that one endpoint without a token (`enable_unauthenticated_access = ["generate-root"]`).
-Otherwise, once root is retired, policies could never be changed again. Completing a generation
-still needs two shares. Token files are mode 0600, outside the repository, never overwritten, and never
-printed. The local run checks each step: the retired root is rejected, the operator token cannot
-change a role, and a generated root works once and is then rejected.
+So routine work never needs root. Administration needs two things: the owner's cluster-admin
+access (to obtain the admin login) and two unseal shares. Neither of them expires, so an
+expired operator token or a long GKE sleep never locks the owner out. ESO readers and
+applications have no `sys/` capability.
+
+If Vault's Kubernetes auth itself breaks, no admin login is possible. The runbook then
+describes an owner-approved break-glass step: temporarily allow unauthenticated root
+generation, repair, and restore the secure configuration at once.
+
+Token files are mode 0600, outside the repository, never overwritten, and never printed. The
+local run checks every step:
+- root generation without a token is rejected (403), and so is the operator token;
+- an ESO reader cannot log in as `vault-admin`, and the admin login can do nothing but root generation;
+- one share cannot finish a ceremony; the authenticated ceremony with two shares succeeds;
+- the generated root re-applies the bootstrap and issues a replacement operator token, then is retired and rejected;
+- a short-lived operator token expires and is rejected.
 
 ### Shamir unseal and recovery material
 
@@ -251,7 +264,7 @@ is never migrated: Shamir stays, and KMS auto-unseal is out of scope.
 
 | Control | Where |
 |---|---|
-| Only root generation answers without a token, and it needs two unseal shares to finish | `values-gke.yaml` (`enable_unauthenticated_access`) |
+| Root generation is authenticated (admin login, policy `root-generation`) and needs two unseal shares; no endpoint is opened without a token | `values-gke.yaml`, `policies/root-generation.hcl`, role `vault-admin` |
 | No public endpoint; `ui: false`; ClusterIP only | `values-gke.yaml`; no HTTPRoute or VirtualService names Vault (test) |
 | TLS 1.2+ with a pinned CA; ESO verifies it; an untrusted CA is refused (tested) | `certificate.yaml`, SecretStore `caProvider` |
 | NetworkPolicy: port 8200 only from the ESO controller and the two serving pods | `network-policy.yaml` |
@@ -284,15 +297,17 @@ bootstrap, NetworkPolicy and manifests, a password-protected Redis, and the real
 image rendered from the serving chart with the overlay. All values are synthetic, and only
 SHA-256 prefixes are recorded.
 
-Run [`eso_local_20261124T044834Z`](../../evidence/edai2/vault/eso_local_20261124T044834Z/results.jsonl)
-(kind `kind-llm-agent-local`, Vault 2.0.4, ESO v2.14.0): **53 of 53 steps passed**. Afterwards, the
+Run [`eso_local_20261124T051306Z`](../../evidence/edai2/vault/eso_local_20261124T051306Z/results.jsonl)
+(kind `kind-llm-agent-local`, Vault 2.0.4, ESO v2.14.0): **63 of 63 steps passed**. Afterwards, the
 pre-existing `ewallet-agents` namespace and the cluster's namespace list were identical to a
 snapshot taken before the run (same objects, same resourceVersions).
 
 | Area | Result |
 |---|---|
 | Vault | Uninitialised → `init` (3/2) → unsealed (`initialized true, sealed false`); bootstrap applied; HTTPS verifies with the CA; an untrusted CA is refused |
-| Token lifecycle | Orphan `secret-operator` token created; initial root retired and then rejected; the operator token cannot change a role; all seeding and rotation used the operator token; later, a root token generated from 2 shares re-applied the bootstrap, was retired and was rejected, while the operator token stayed valid |
+| Token lifecycle | Orphan `secret-operator` token created; initial root retired and then rejected; the operator token cannot change a role; all seeding and rotation used the operator token |
+| Root generation (authenticated) | Without a token: HTTP 403; with the operator token: denied; an ESO reader cannot log in as `vault-admin`; the admin login can neither configure nor read metadata; 1 share cannot finish (attempt cancelled); admin login plus 2 shares produced a root that re-applied the bootstrap and issued a replacement operator token, then was retired and rejected |
+| Operator-token expiry | A 20 s operator token was rejected after expiry; the replacement and the original operator token kept working |
 | ESO | 3 deployments Ready; SecretStore `Valid`; ExternalSecret `SecretSynced`; target holds only `connection_string`, owned by the ExternalSecret, hash equal to Vault; `feast-online-redis` unchanged |
 | Shadow gate | `shadow_compare.sh`: `SHADOW_MATCH` for the equal pair, `SHADOW_SHADOW_SECRET_MISSING` for an absent Secret, `SHADOW_MISMATCH` after rotation (the old Secret was not rotated) |
 | Feature API | Real image from the chart with the overlay (no `EWALLET_VAULT_*`); Feast materialized through the synced Secret; readiness and a real lookup: HTTP 200, 3 features |
@@ -304,13 +319,14 @@ snapshot taken before the run (same objects, same resourceVersions).
 | Rotation | KV version 2 → ESO synced the new value → rollout restart → lookup HTTP 200 on the rotated (synthetic) Redis password |
 | Vault unavailable | Scaled to 0: ExternalSecret `Ready False` with cause *unreachable*; Secret retained; the Feature API restarted on it and served HTTP 200 |
 | Seal and persistence | Restart → sealed; sync fails with cause *sealed*; manual unseal → version 2 and the operator token still present from the PVC → sync resumed |
-| Audit | 484 lines, 126 Kubernetes logins, 0 plaintext matches of any synthetic value |
+| Audit | 528 lines, 132 Kubernetes logins, 0 plaintext matches of any synthetic value |
 
 Each negative step passes only if ESO reported the expected cause. The cause comes from the
 controller log, because ESO's events are generic. An unreachable Vault, or any other unrelated
-failure, therefore fails the step instead of passing as an authorization test. The earlier
-run `eso_local_20261123T210316Z` (42 steps, before the token lifecycle and these assertions) is
-kept for history.
+failure, therefore fails the step instead of passing as an authorization test. Earlier runs are
+kept for history: `eso_local_20261123T210316Z` (42 steps, before the token lifecycle and these
+assertions), and `eso_local_20261124T044834Z` (53 steps, which still used the since-removed
+unauthenticated root generation).
 
 Local means local: kind's CNI (kindnet) enforced the NetworkPolicy, the Redis was a
 disposable in-namespace instance rather than `feature-store/redis`, and the run used a

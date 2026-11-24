@@ -278,6 +278,7 @@ k -n "$APP" create configmap vault-ca-untrusted --from-file=ca.crt="$work/untrus
 h install vault "$vault_chart" -n "$VNS" \
   -f "$root/infra/kubernetes/vault/values-gke.yaml" -f "$root/infra/kubernetes/vault/values-local.yaml" >/dev/null
 create < "$root/infra/kubernetes/vault/network-policy.yaml"
+create < "$root/infra/kubernetes/vault/admin-serviceaccount.yaml"
 k -n "$VNS" wait --for=jsonpath='{.status.phase}'=Running pod/vault-0 --timeout=240s >/dev/null
 forward_vault
 record vault-status-uninitialised "$(vault status)"
@@ -568,14 +569,57 @@ record eso-sync-resumed "$(jq -cn --arg c "$(es_condition "$APP" feature-api-red
   --arg w "$(sha "$(conn "$redis_v2")")" '{externalsecret: $c, matches_version_2: ($g == $w)}')"
 
 # ---------------------------------------------------------------- later administration
-# Policy/role changes after root retirement: a temporary root token from the unseal shares,
-# used for one configure, then revoked. The operator token stays valid throughout.
-record admin-generate-root "$(vault generate-root --keys-file "$keys" --token-out "$admin")"
+# Vault 2.x authenticates root generation (no enable_unauthenticated_access). The owner logs in
+# as Kubernetes role vault-admin (policy root-generation only), then feeds 2 unseal shares.
+admin_jwt() { k -n "$VNS" create token vault-admin --audience vault --duration 10m; }
+code=$(python3 -c '
+import sys, urllib.request, urllib.error, ssl
+ctx = ssl.create_default_context(cafile=sys.argv[2])
+req = urllib.request.Request(sys.argv[1] + "/v1/sys/generate-root/attempt", data=b"{}", method="POST")
+try:
+    print(urllib.request.urlopen(req, context=ctx, timeout=10).status)
+except urllib.error.HTTPError as error:
+    print(error.code)' "https://127.0.0.1:$PORT" "$work/ca.crt")   # no X-Vault-Token header
+[ "$code" = 403 ] || fail generate-root-unauthenticated "expected 403 without a token, got $code"
+record generate-root-unauthenticated-rejected "$(jq -cn --argjson c "$code" '{result: "denied", http_status: $c}')"
+if vault generate-root --keys-file "$keys" --token-file "$operator" --token-out "$work/x2.json" >/dev/null 2>&1; then
+  fail generate-root-operator-token "the operator token started root generation"
+fi
+record generate-root-operator-token-rejected '{"result": "denied"}'
+if k -n "$APP" create token eso-vault-reader --audience vault --duration 10m \
+   | vault login --role vault-admin --token-out "$work/x3.json" >/dev/null 2>&1; then
+  fail admin-login-wrong-account "an ESO reader logged in as vault-admin"
+fi
+record admin-login-wrong-account-rejected '{"result": "denied", "account": "ml-platform/eso-vault-reader"}'
+record admin-login "$(admin_jwt | vault login --role vault-admin --token-out "$work/admin-login.json")"
+if vault configure --token-file "$work/admin-login.json" >/dev/null 2>&1 \
+   || vault versions --token-file "$work/admin-login.json" --path feature-api/feast-redis >/dev/null 2>&1; then
+  fail admin-login-scope "the admin login did more than root generation"
+fi
+record admin-login-limited-to-root-generation '{"configure": "denied", "secret_metadata": "denied"}'
+python3 -c 'import json,sys; k=json.load(open(sys.argv[1])); json.dump({"keys_base64": k["keys_base64"][:1]}, open(sys.argv[2], "w"))' "$keys" "$work/one-share.json"
+chmod 600 "$work/one-share.json"
+if vault generate-root --keys-file "$work/one-share.json" --token-file "$work/admin-login.json" --token-out "$work/x4.json" >/dev/null 2>"$work/one-share.err"; then
+  fail generate-root-one-share "one share produced a root token"
+fi
+grep -q vault_generate_root_incomplete "$work/one-share.err" || fail generate-root-one-share "$(cut -c1-120 "$work/one-share.err")"
+[ ! -e "$work/x4.json" ] || fail generate-root-one-share "a token file was written"
+record generate-root-below-threshold-rejected '{"result": "incomplete", "shares": 1, "threshold": 2, "attempt": "cancelled"}'
+record admin-generate-root "$(vault generate-root --keys-file "$keys" --token-file "$work/admin-login.json" --token-out "$admin")"
 record admin-reconfigure "$(vault configure --token-file "$admin")"
+# Operator token expiry: a short-lived token expires; the admin path issues a replacement.
+record operator-token-short-ttl "$(vault operator-token --token-file "$admin" --ttl 20s --token-out "$work/operator-short.json")"
+record operator-token-replacement "$(vault operator-token --token-file "$admin" --token-out "$work/operator-new.json")"
 record admin-root-retired "$(vault retire-root --token-file "$admin")"
 [ -f "$admin" ] || fail admin-root-rejected "no generated root token to test"
 if vault configure --token-file "$admin" >/dev/null 2>&1; then fail admin-root-rejected "generated root still works"; fi
 record admin-root-rejected '{"result": "denied"}'
+sleep 25
+if vault versions --token-file "$work/operator-short.json" --path feature-api/feast-redis >/dev/null 2>&1; then
+  fail operator-token-expired "an expired operator token still works"
+fi
+record operator-token-expired-rejected '{"result": "denied", "ttl": "20s"}'
+record operator-token-replacement-works "$(vault versions --token-file "$work/operator-new.json" --path feature-api/feast-redis | jq -c '{current_version}')"
 record operator-token-still-valid "$(vault versions --token-file "$operator" --path feature-api/feast-redis | jq -c '{current_version}')"
 
 # ---------------------------------------------------------------- audit

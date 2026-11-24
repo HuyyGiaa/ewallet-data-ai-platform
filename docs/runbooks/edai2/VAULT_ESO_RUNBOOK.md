@@ -52,7 +52,7 @@ OP=$KEYDIR/operator-token.json               # secret-operator token, created in
 kubectl --context $CTX apply -f infra/kubernetes/vault/namespace.yaml -f infra/kubernetes/vault/certificate.yaml
 kubectl --context $CTX -n ewallet-vault wait --for=condition=Ready certificate/vault-server-tls --timeout=120s
 helm --kube-context $CTX install vault $CHARTS/vault-0.34.1.tgz -n ewallet-vault -f infra/kubernetes/vault/values-gke.yaml
-kubectl --context $CTX apply -f infra/kubernetes/vault/network-policy.yaml
+kubectl --context $CTX apply -f infra/kubernetes/vault/network-policy.yaml -f infra/kubernetes/vault/admin-serviceaccount.yaml
 kubectl --context $CTX -n ewallet-vault wait --for=jsonpath='{.status.phase}'=Running pod/vault-0 --timeout=240s
 kubectl --context $CTX -n ewallet-vault port-forward pod/vault-0 8200:8200 &   # keep open; restart it after a Vault restart
 kubectl --context $CTX -n ewallet-vault get secret vault-ca -o jsonpath='{.data.ca\.crt}' | base64 -d > $KEYDIR/ca.crt
@@ -104,6 +104,7 @@ $V versions --keys-file $KEYDIR/vault-keys.json --path feature-api/feast-redis  
 | `eso-ml-platform` | `ml-platform/eso-vault-reader`, audience `vault` | `ewallet/data/feature-api/feast-redis` |
 | `eso-ewallet-agents` (staged) | `ewallet-agents/eso-vault-reader`, audience `vault` | `ewallet/data/agent-platform/agentgateway-client-key` |
 | `feature-api`, `fraud-api` | direct-loader roles, kept, not used by ESO | their own path |
+| `vault-admin` | `ewallet-vault/vault-admin` (the owner's admin login), 15 min | nothing: policy `root-generation` only |
 
 ## 5. Seed Vault from the existing Secret (MUTATING, Vault)
 
@@ -217,33 +218,76 @@ then restarts). This runbook does not rotate it.
 
 ## Token lifecycle and later administration
 
-| Token | Created by | Used for | Ends |
+Vault 2.0 requires authentication for root generation, to stop key-update requests with bogus
+key fragments (HashiCorp, *Important changes*: "Previously unauthenticated endpoints require
+authentication"). This deployment keeps that default: `values-gke.yaml` has **no** `enable_unauthenticated_access`.
+
+| Credential | Created by | Used for | Ends |
 |---|---|---|---|
-| Initial root (in `vault-keys.json`) | `init` | step 4 only: `configure`, `operator-token` | `retire-root --keys-file` at the end of step 4 |
-| Operator (`$OP`) | `operator-token` | `put` (create or rotate), `versions` (metadata) | TTL 720 h; not renewable |
-| Temporary root (`$KEYDIR/admin-token.json`) | `generate-root` from the unseal shares | policy and role changes: `configure`, `revoke-role`, a new `operator-token` | `retire-root --token-file` right after use |
+| Unseal shares (in `vault-keys.json`) | `init` | unseal after every restart; completing a root-generation ceremony (2 of 3) | never; offline copies |
+| Initial root token (in `vault-keys.json`) | `init` | step 4 only: `configure`, `operator-token` | `retire-root --keys-file` at the end of step 4 |
+| Operator token (`$OP`) | `operator-token` | `put` (create or rotate), `versions` (metadata) | TTL 720 h, not renewable |
+| Admin login (`$KEYDIR/admin-login.json`) | `login --role vault-admin` with a ServiceAccount token from `kubectl create token` | starting and feeding a root-generation ceremony, nothing else | 15 min |
+| Temporary root (`$KEYDIR/admin-token.json`) | `generate-root` (admin login + 2 shares) | policy and role changes, a new operator token | `retire-root --token-file` right after use |
 
-- The operator token is an **orphan** with only the `secret-operator` policy: it can write
-  values and read metadata under `feature-api/`, `fraud-api/` and `agent-platform/`. It cannot
-  read values, change policies, roles or auth methods, or unseal. Because it is an orphan,
-  revoking the root token that created it does not revoke it.
-- **Policy or role change** (for example, after editing `bootstrap.json` or a policy file):
+Who can do what:
 
-  ```bash
-  $V generate-root --keys-file $KEYDIR/vault-keys.json --token-out $KEYDIR/admin-token.json   # needs 2 shares; Vault unsealed
-  $V configure --token-file $KEYDIR/admin-token.json
-  $V retire-root --token-file $KEYDIR/admin-token.json && rm $KEYDIR/admin-token.json
-  ```
+- The operator token (orphan, `secret-operator` only) writes values and reads metadata under
+  `feature-api/`, `fraud-api/` and `agent-platform/`. It cannot read values, change policies,
+  roles or auth methods, or generate a root token.
+- The admin login can only run the root-generation ceremony (`policies/root-generation.hcl`).
+  Finishing it needs 2 unseal shares. Getting the login needs permission to create tokens for
+  `ewallet-vault/vault-admin`, which cluster administrators have. That identity never expires,
+  so there is no dependency cycle.
+- ESO reader roles and application roles have no `sys/` path at all (tested).
 
-- **Operator token expired** (after 30 days): generate a temporary root as above, then run
-  `$V operator-token --token-file $KEYDIR/admin-token.json --token-out $KEYDIR/operator-token-<date>.json`,
-  then retire the temporary root. Token files are never overwritten, so each new token goes to a new file name.
-- Root generation from shares works without a token because `values-gke.yaml` sets
-  `enable_unauthenticated_access = ["generate-root"]`. Vault 2.x otherwise demands a token, and
-  after root retirement that would leave no way to administer policies. A caller without two
-  shares can only start or cancel an attempt.
-- Token files live only in `$KEYDIR` (mode 0600; the CLI refuses a path inside the repository).
-  No command prints a token. `generate-root` cancels any unfinished root-generation attempt first.
+**Policy or role change** (for example, after editing `bootstrap.json` or a policy file). Needs Vault unsealed:
+
+```bash
+kubectl --context $CTX -n ewallet-vault create token vault-admin --audience vault --duration 10m \
+  | $V login --role vault-admin --token-out $KEYDIR/admin-login.json
+$V generate-root --keys-file $KEYDIR/vault-keys.json --token-file $KEYDIR/admin-login.json --token-out $KEYDIR/admin-token.json
+$V configure --token-file $KEYDIR/admin-token.json
+$V retire-root --token-file $KEYDIR/admin-token.json
+rm $KEYDIR/admin-login.json $KEYDIR/admin-token.json
+```
+
+`generate-root` cancels any unfinished attempt first. If the shares run out it cancels its own
+attempt and fails, and every API error stops it.
+
+**Operator token expired or lost:** run the first two commands above, then
+`$V operator-token --token-file $KEYDIR/admin-token.json --token-out $KEYDIR/operator-token-<date>.json`,
+then `retire-root --token-file` and the `rm`. Token files are never overwritten, so each new
+token gets a new file name. A lost token stays valid until its TTL ends, unless an operator
+revokes it through the Vault API (`auth/token/revoke`) with the temporary root. This CLI has no command for that.
+
+**After a long GKE sleep:** tokens expire by wall-clock time, so the operator token may have
+expired while the cluster slept. Unseal (step 12), then replace the operator token as above.
+The admin login does not depend on any stored token. ESO is unaffected: it logs in afresh for every sync.
+
+**Break-glass (owner approval required; not part of normal operation).** Use this only if the
+admin login itself cannot work, for example if Vault's Kubernetes auth configuration is broken
+or the `vault-admin` role was deleted. In that case no authenticated identity can start root generation:
+
+1. Record the approval and the reason in the campaign evidence.
+2. Temporarily allow unauthenticated root generation:
+   `helm --kube-context $CTX upgrade vault $CHARTS/vault-0.34.1.tgz -n ewallet-vault -f infra/kubernetes/vault/values-gke.yaml -f <break-glass.yaml>`.
+   `<break-glass.yaml>` is a local, uncommitted copy of the `server.ha.raft.config` block with
+   `enable_unauthenticated_access = ["generate-root"]` added. Then restart the pod
+   (`kubectl --context $CTX -n ewallet-vault delete pod vault-0`), and unseal.
+3. Generate a root token with the shares. The direct Vault API (`sys/generate-root/attempt`
+   and `sys/generate-root/update`) is used here, because this CLI always requires an admin
+   login. Repair Kubernetes auth or the role with `configure --token-file`, then `retire-root`.
+4. **Restore the secure configuration at once:** `helm upgrade` with `values-gke.yaml` only,
+   restart `vault-0`, unseal, and confirm that `sys/generate-root/attempt` without a token
+   answers 403.
+
+This path has not been exercised on kind. The behaviour of the setting itself was checked on
+a disposable Vault 2.0.4 container: without a token, 403 when the setting is absent; started
+when it is present.
+
+Token files live only in `$KEYDIR` (mode 0600; the CLI refuses a path inside the repository).
+No command prints a token.
 
 ## 12. GKE sleep and wake
 
@@ -263,10 +307,27 @@ Only on a separate decision; the order matters:
 
 1. Roll the consumer back (step 9).
 2. `kubectl --context $CTX delete -f infra/kubernetes/external-secrets/ml-platform.yaml` (deletes `feature-api-redis-vault`).
-3. `helm --kube-context $CTX uninstall external-secrets -n external-secrets` (removes the ESO CRDs, and with them any remaining ExternalSecret objects).
+3. `helm --kube-context $CTX uninstall external-secrets -n external-secrets`. The chart owns the
+   ESO CRDs (`installCRDs: true`), so uninstalling deletes them, and with them **every**
+   SecretStore and ExternalSecret in every namespace. Kubernetes then garbage-collects every
+   Secret those ExternalSecrets own (`creationPolicy: Owner`). Never uninstall ESO while a
+   workload still reads an ESO-owned Secret. `helm upgrade` keeps the CRDs and the objects.
 4. `helm --kube-context $CTX uninstall vault -n ewallet-vault`. **The PVCs remain.** Deleting
    them, or the namespace, destroys all Vault data: that needs its own owner decision, after a
    Raft snapshot.
+
+## Recovery from an incomplete installation
+
+| Where it stopped | State | Recovery |
+|---|---|---|
+| Step 2: Vault install or Certificate | No data yet | Fix the cause; `helm uninstall vault -n ewallet-vault`; delete the empty PVCs only if `$V status` never showed `initialized: true`; retry |
+| Step 3: `init` failed | `$V status` shows `initialized: false` and no keys file was written | Retry `init` |
+| Step 3: Vault initialised but the keys file is missing | Data sealed, no shares | Unrecoverable by design. Vault holds no secrets yet, so the owner may decide to uninstall, delete the PVCs and start again |
+| Step 4: `configure` stopped part-way | Some policies or roles applied | Re-run `configure`: every step is idempotent. If root is already retired, use the admin path (*Token lifecycle*) |
+| Step 4: root retired before the operator token was created | No routine token | Admin path, then `operator-token` |
+| Step 6: ESO install failed | Partial release | `helm uninstall external-secrets -n external-secrets` (nothing depends on it yet), then retry |
+| Step 7: ExternalSecret not `SecretSynced` | No target Secret; Feature API unchanged | Read the cause in `kubectl -n external-secrets logs deploy/external-secrets` (ESO events are generic); fix the store, policy or value; force a sync. Do not switch the consumer |
+| Step 8: Feature API not Ready after the switch | Old pods still serve, or the rollout is stuck | Rollback (step 9) |
 
 ## Local validation
 

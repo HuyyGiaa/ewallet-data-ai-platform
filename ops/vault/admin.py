@@ -121,19 +121,27 @@ class VaultAdmin:
         })
         return str(body["auth"]["client_token"])
 
+    def login_kubernetes(self, mount: str, role: str, jwt: str) -> str:
+        """Exchange a ServiceAccount token for a Vault token of ``role``."""
+        body = self._require("POST", f"auth/{mount}/login", {"role": role, "jwt": jwt})
+        return str(body["auth"]["client_token"])
+
     def generate_root(self, keys: list[str]) -> str:
         """Generate a new root token from unseal shares (one-time-password flow).
 
-        Cancels any unfinished attempt first, then submits shares until Vault reports
-        completion, and returns the decoded token. Used only for policy and role changes.
+        Vault 2.x requires an authenticated caller (policy root-generation). Cancels any
+        unfinished attempt first, submits shares until Vault reports completion and returns
+        the decoded token. If the shares run out, the attempt is cancelled and the call fails.
+        Every API error raises; none is ignored.
         """
-        self._call("DELETE", "sys/generate-root/attempt")
+        self._require("DELETE", "sys/generate-root/attempt")
         attempt = self._require("POST", "sys/generate-root/attempt", {})
         otp, nonce = str(attempt["otp"]), str(attempt["nonce"])
         for key in keys:
             progress = self._require("POST", "sys/generate-root/update", {"key": key, "nonce": nonce})
             if progress.get("complete"):
                 return decode_root_token(str(progress["encoded_token"]), otp)
+        self._require("DELETE", "sys/generate-root/attempt")
         raise VaultError("vault_generate_root_incomplete", "not enough unseal shares to generate a root token")
 
     def snapshot_path(self) -> str:

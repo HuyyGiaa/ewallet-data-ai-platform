@@ -8,6 +8,7 @@
     "eso-ml-platform": "infra/kubernetes/vault/policies/eso-ml-platform.hcl",
     "feature-api": "infra/kubernetes/vault/policies/feature-api.hcl",
     "fraud-api": "infra/kubernetes/vault/policies/fraud-api.hcl",
+    "root-generation": "infra/kubernetes/vault/policies/root-generation.hcl",
     "secret-operator": "infra/kubernetes/vault/policies/secret-operator.hcl"
   },
   "roles": {
@@ -45,6 +46,15 @@
       "token_policies": ["fraud-api"],
       "token_ttl": "5m",
       "token_max_ttl": "15m",
+      "token_no_default_policy": true
+    },
+    "vault-admin": {
+      "bound_service_account_names": ["vault-admin"],
+      "bound_service_account_namespaces": ["ewallet-vault"],
+      "audience": "vault",
+      "token_policies": ["root-generation"],
+      "token_ttl": "15m",
+      "token_max_ttl": "30m",
       "token_no_default_policy": true
     }
   }

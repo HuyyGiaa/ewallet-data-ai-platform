@@ -146,23 +146,77 @@ def test_a_retired_root_token_fails_closed_with_a_safe_message(tmp_path, monkeyp
     assert code == 2 and "REFUSED vault_admin_failed" in printed.err and "root-token-value" not in printed.err
 
 
-def test_generate_root_decodes_the_one_time_password_flow_and_stores_the_token(tmp_path, monkeypatch, capsys):
+def ceremony(otp="O" * 29, root="hvs.generated-root-token-0123", complete_after=2):
+    """A fake root-generation ceremony that completes after ``complete_after`` shares."""
     import base64
-    new_root, otp = "hvs.generated-root-token-0123", "O" * 29
-    encoded = base64.b64encode(bytes(a ^ b for a, b in zip(new_root.encode(), otp.encode()))).decode().rstrip("=")
-    shares = iter([{"complete": False, "progress": 1}, {"complete": True, "encoded_token": encoded}])
-    fake = Fake({
+    encoded = base64.b64encode(bytes(a ^ b for a, b in zip(root.encode(), otp.encode()))).decode().rstrip("=")
+    progress = iter([{"complete": False}] * (complete_after - 1) + [{"complete": True, "encoded_token": encoded}])
+    return {
         ("DELETE", "sys/generate-root/attempt"): (204, {}),
         ("POST", "sys/generate-root/attempt"): (200, {"otp": otp, "nonce": "n-1", "started": True}),
-        ("POST", "sys/generate-root/update"): lambda payload: (200, next(shares)),
-    })
+        ("POST", "sys/generate-root/update"): lambda payload: (200, next(progress, {"complete": False})),
+    }
+
+
+def admin_login_file(tmp_path, token="admin-login-token"):
+    path = tmp_path / "admin-login.json"
+    cli.write_keys_file(path, {"token": token, "role": "vault-admin"})
+    return path
+
+
+def test_an_authorized_ceremony_uses_the_admin_login_and_stops_at_the_threshold(tmp_path, monkeypatch, capsys):
+    fake = Fake(ceremony())
     out = tmp_path / "admin-token.json"
-    code, printed = run_cli(monkeypatch, capsys, fake, "generate-root", "--keys-file", str(keys_file(tmp_path)), "--token-out", str(out))
-    assert code == 0 and cli.read_token_file(out) == new_root
+    code, printed = run_cli(monkeypatch, capsys, fake, "generate-root", "--keys-file", str(keys_file(tmp_path)),
+                            "--token-file", str(admin_login_file(tmp_path)), "--token-out", str(out))
+    assert code == 0 and cli.read_token_file(out) == "hvs.generated-root-token-0123"
+    assert all(token == "admin-login-token" for _, _, token, _ in fake.calls)   # authenticated, never anonymous
     updates = [payload for method, path, _, payload in fake.calls if path == "sys/generate-root/update"]
-    assert updates == [{"key": "share-1", "nonce": "n-1"}, {"key": "share-2", "nonce": "n-1"}]   # threshold 2: stops early
-    assert all(token is None for _, _, token, _ in fake.calls)          # needs shares, not a token
-    assert new_root not in printed.out and otp not in printed.out
+    assert updates == [{"key": "share-1", "nonce": "n-1"}, {"key": "share-2", "nonce": "n-1"}]
+    assert "hvs.generated-root-token-0123" not in printed.out + printed.err and "O" * 29 not in printed.out
+
+
+def test_generate_root_refuses_to_run_without_an_admin_login(tmp_path, monkeypatch, capsys):
+    fake = Fake(ceremony())
+    code, printed = run_cli(monkeypatch, capsys, fake, "generate-root", "--keys-file", str(keys_file(tmp_path)),
+                            "--token-out", str(tmp_path / "admin-token.json"))
+    assert code == 2 and "vault_admin_login_required" in printed.err and fake.calls == []
+
+
+def test_an_unauthorized_token_is_rejected_and_nothing_is_written(tmp_path, monkeypatch, capsys):
+    answers = {("DELETE", "sys/generate-root/attempt"): (403, {"errors": ["permission denied"]})}
+    fake = Fake(answers)
+    out = tmp_path / "admin-token.json"
+    code, printed = run_cli(monkeypatch, capsys, fake, "generate-root", "--keys-file", str(keys_file(tmp_path)),
+                            "--token-file", str(admin_login_file(tmp_path, "operator-token-value")), "--token-out", str(out))
+    assert code == 2 and "returned 403" in printed.err and not out.exists()
+    assert [(m, p) for m, p, _, _ in fake.calls] == [("DELETE", "sys/generate-root/attempt")]   # stops at the first error
+
+
+def test_fewer_shares_than_the_threshold_cannot_complete_and_the_attempt_is_cancelled(tmp_path, monkeypatch, capsys):
+    fake = Fake(ceremony(complete_after=2))
+    one_share = tmp_path / "one-share.json"
+    cli.write_keys_file(one_share, {"keys_base64": ["share-1"]})
+    out = tmp_path / "admin-token.json"
+    code, printed = run_cli(monkeypatch, capsys, fake, "generate-root", "--keys-file", str(one_share),
+                            "--token-file", str(admin_login_file(tmp_path)), "--token-out", str(out))
+    assert code == 2 and "vault_generate_root_incomplete" in printed.err and not out.exists()
+    assert [(m, p) for m, p, _, _ in fake.calls][-1] == ("DELETE", "sys/generate-root/attempt")
+
+
+def test_login_exchanges_a_service_account_token_from_stdin(tmp_path, monkeypatch, capsys):
+    import io
+    fake = Fake({("POST", "auth/kubernetes/login"): (200, {"auth": {"client_token": "admin-login-token"}})})
+    out = tmp_path / "admin-login.json"
+    monkeypatch.setattr("sys.stdin", io.StringIO("eyJ.service-account.jwt\n"))
+    code, printed = run_cli(monkeypatch, capsys, fake, "login", "--role", "vault-admin", "--token-out", str(out))
+    assert code == 0 and cli.read_token_file(out) == "admin-login-token"
+    (method, path, token, payload), = fake.calls
+    assert (method, path, token, payload) == ("POST", "auth/kubernetes/login", None, {"role": "vault-admin", "jwt": "eyJ.service-account.jwt"})
+    assert "admin-login-token" not in printed.out and "eyJ" not in printed.out
+    monkeypatch.setattr("sys.stdin", io.StringIO(""))
+    code, printed = run_cli(monkeypatch, capsys, fake, "login", "--token-out", str(tmp_path / "again.json"))
+    assert code == 2 and "vault_empty_jwt" in printed.err
 
 
 def test_token_files_are_never_written_inside_the_repository_or_over_an_existing_file(tmp_path, monkeypatch, capsys):
@@ -188,8 +242,21 @@ def test_operator_policy_writes_and_reads_metadata_but_never_reads_values_or_adm
     assert not any(p.startswith(("sys/", "auth/")) for p in grants)
 
 
-def test_only_root_generation_is_reachable_without_a_token():
-    """Vault 2.x needs this for shares-only root generation after the initial root token is revoked."""
+def test_root_generation_is_authenticated_and_only_the_admin_login_may_run_it():
     import re
-    text = (ROOT / "infra/kubernetes/vault/values-gke.yaml").read_text()
-    assert re.findall(r"enable_unauthenticated_access\s*=\s*(\[[^\]]*\])", text) == ['["generate-root"]']
+    values = (ROOT / "infra/kubernetes/vault/values-gke.yaml").read_text()
+    assert "enable_unauthenticated_access" not in values      # keep the Vault 2.0 authenticated default
+    grants = dict(re.findall(r'path "([^"]+)"\s*\{\s*capabilities\s*=\s*\[([^\]]*)\]',
+                             (ROOT / CONFIG["policies"]["root-generation"]).read_text()))
+    assert set(grants) == {"sys/generate-root/attempt", "sys/generate-root/update"}
+    assert "sudo" not in "".join(grants.values())
+    holders = [name for name, role in CONFIG["roles"].items() if "root-generation" in role["token_policies"]]
+    assert holders == ["vault-admin"]
+    admin = CONFIG["roles"]["vault-admin"]
+    assert admin["bound_service_account_names"] == ["vault-admin"]
+    assert admin["bound_service_account_namespaces"] == ["ewallet-vault"]
+    assert admin["token_policies"] == ["root-generation"] and admin["token_no_default_policy"] is True
+    assert admin["token_ttl"] == "15m"
+    for name, path in CONFIG["policies"].items():
+        if name != "root-generation":
+            assert "sys/" not in (ROOT / path).read_text(), name

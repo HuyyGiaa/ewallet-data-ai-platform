@@ -54,11 +54,6 @@ server:
       config: |
         ui = false
         disable_mlock = true
-        # Vault 2.x requires a token for root generation unless the endpoint is listed here.
-        # Root generation from the unseal shares is the only way to administer policies and
-        # roles after the initial root token is revoked; a caller without 2 shares can start
-        # or cancel an attempt, never finish one. Nothing else is unauthenticated.
-        enable_unauthenticated_access = ["generate-root"]
         listener "tcp" {
           address         = "[::]:8200"
           cluster_address = "[::]:8201"
