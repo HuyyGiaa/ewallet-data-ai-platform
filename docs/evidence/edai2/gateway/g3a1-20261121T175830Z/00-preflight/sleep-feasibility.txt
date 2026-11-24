@@ -1,7 +1,0 @@
-approved guarded record: docs/evidence/edai2/cloud_lab/sleep_20261106T163042Z/pdb-after-scale.txt -> ['ewallet-agents/drift-mcp', 'ewallet-agents/drift-specialist', 'ewallet-agents/feature-rag-specialist', 'ewallet-agents/fraud-coordinator', 'ewallet-mcp/drift-mcp']
-PDB ewallet-agents/fraud-coordinator                 minAvailable=1 maxUnavailable=None targets=['ewallet-agents/fraud-coordinator'] replicas-after-wake=2 -> blocker=True covered=True
-PDB ewallet-mcp/drift-mcp                            minAvailable=1 maxUnavailable=None targets=['ewallet-mcp/drift-mcp'] replicas-after-wake=2 -> blocker=True covered=True
-PDB ewallet-mcp/feature-rag-mcp                      minAvailable=1 maxUnavailable=None targets=['ewallet-mcp/feature-rag-mcp'] replicas-after-wake=2 -> blocker=True covered=False
-PDB kube-system/filestore-lock-release-controller-pdb minAvailable=None maxUnavailable=1 targets=['kube-system/filestore-lock-release-controller'] replicas-after-wake=1 -> blocker=False covered=False
-predicted post-wake blockers: ['ewallet-agents/fraud-coordinator', 'ewallet-mcp/drift-mcp', 'ewallet-mcp/feature-rag-mcp']
-NOT covered by the approved record: ['ewallet-mcp/feature-rag-mcp']

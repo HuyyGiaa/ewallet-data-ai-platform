@@ -1,0 +1,35 @@
+{
+  "backends": {
+    "ml-platform/feature-api": {
+      "ready_replicas": 1,
+      "restarts": 0,
+      "ready_endpoints": 1
+    },
+    "kagent/kagent-ui": {
+      "ready_replicas": 1,
+      "restarts": 6,
+      "ready_endpoints": 1
+    },
+    "kagent/kagent-controller": {
+      "ready_replicas": 1,
+      "restarts": 5,
+      "ready_endpoints": 1
+    },
+    "ewallet-prompts/prompt-registry-agentregistry": {
+      "ready_replicas": 1,
+      "restarts": 5,
+      "ready_endpoints": 1
+    },
+    "ewallet-agents/grafana": {
+      "ready_replicas": 1,
+      "restarts": 0,
+      "ready_endpoints": 1
+    }
+  },
+  "callers": {
+    "jenkins->registry": "HTTP/1.0 200 OK",
+    "grafana->prometheus": "Prometheus Server is Ready.",
+    "grafana->loki": "ready",
+    "grafana->tempo": "ready"
+  }
+}

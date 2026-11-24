@@ -1,7 +1,0 @@
-== 2026-11-21T18:12:13Z stage 6.1
-NAME                                   READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS    IMAGES   SELECTOR
-deployment.apps/ewallet-edge-gateway   0/0     0            0           2s    istio-proxy   auto     app=ewallet-edge-gateway,istio=ewallet-edge-gateway
-
-NAME                           TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)                    AGE   SELECTOR
-service/ewallet-edge-gateway   ClusterIP   34.118.226.203   <none>        15021/TCP,80/TCP,443/TCP   2s    app=ewallet-edge-gateway,istio=ewallet-edge-gateway
-LB in cluster: 0

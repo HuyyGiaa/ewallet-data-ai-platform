@@ -1,0 +1,10 @@
+{"row": "43", "check": "certificate verifies", "passed": true, "observed": "Verify return code: 0 (ok)", "evidence_class": "PUBLIC_INTERNET"}
+{"row": "43", "check": "certificate names the four hosts", "passed": true, "observed": "['agents.ewallet-hg.gleeze.com', 'features.ewallet-hg.gleeze.com', 'observe.ewallet-hg.gleeze.com', 'registry.ewallet-hg.gleeze.com']", "evidence_class": "PUBLIC_INTERNET"}
+{"row": "43", "check": "TLS 1.1 refused", "passed": true, "observed": "New, (NONE), Cipher is (NONE)", "evidence_class": "PUBLIC_INTERNET"}
+{"row": "43", "check": "Feature API reached over HTTPS (APPLICATION_REACHED)", "passed": true, "observed": "422", "evidence_class": "PUBLIC_INTERNET"}
+{"row": "40", "check": "agents: UI page", "passed": true, "observed": "200", "evidence_class": "PUBLIC_INTERNET"}
+{"row": "40", "check": "agents: static asset", "passed": true, "observed": "/_next/static/chunks/05mxfast42uxf.css 200", "evidence_class": "PUBLIC_INTERNET"}
+{"row": "40", "check": "agents: read-only API /api/agents", "passed": true, "observed": "status=200 items=4", "evidence_class": "PUBLIC_INTERNET"}
+{"row": "41", "check": "registry: UI page", "passed": true, "observed": "200", "evidence_class": "PUBLIC_INTERNET"}
+{"row": "41", "check": "registry: static asset", "passed": true, "observed": "/_next/static/chunks/0w2fq37ncbovf.css 200", "evidence_class": "PUBLIC_INTERNET"}
+{"row": "41", "check": "registry: read-only API /v0/agents", "passed": true, "observed": "status=200 items=1", "evidence_class": "PUBLIC_INTERNET"}

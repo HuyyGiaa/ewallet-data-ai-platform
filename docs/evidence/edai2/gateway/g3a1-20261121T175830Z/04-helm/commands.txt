@@ -1,3 +1,0 @@
-helm install ewallet-edge-gateway gateway-1.30.7.tgz -n ewallet-ingress -f infra/helm/ewallet-edge/values-gateway.yaml --set replicaCount=0 --wait
-helm install ewallet-edge infra/helm/ewallet-edge -n ewallet-ingress -f g3a-private-values.yaml (source 94f28422)
-helm upgrade ewallet-edge-gateway gateway-1.30.7.tgz -n ewallet-ingress -f infra/helm/ewallet-edge/values-gateway.yaml (replicaCount 1)

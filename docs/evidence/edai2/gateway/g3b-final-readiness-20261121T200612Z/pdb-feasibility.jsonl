@@ -1,1 +1,0 @@
-{"check": "every predicted PDB blocker is covered by an approval", "passed": false, "observed": {"predicted_blockers": ["ewallet-agents/fraud-coordinator", "ewallet-mcp/drift-mcp", "ewallet-mcp/feature-rag-mcp"], "not_covered": ["ewallet-mcp/feature-rag-mcp"]}}

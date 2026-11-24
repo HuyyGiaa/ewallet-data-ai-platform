@@ -1,1 +1,0 @@
-GKE nodes: 0

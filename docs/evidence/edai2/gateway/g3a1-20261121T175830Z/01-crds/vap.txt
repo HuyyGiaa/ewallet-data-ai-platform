@@ -1,5 +1,0 @@
-NAME                                                                                             VALIDATIONS   PARAMKIND   AGE
-validatingadmissionpolicy.admissionregistration.k8s.io/safe-upgrades.gateway.networking.k8s.io   2             <unset>     4s
-
-NAME                                                                                                    POLICYNAME                                PARAMREF   AGE
-validatingadmissionpolicybinding.admissionregistration.k8s.io/safe-upgrades.gateway.networking.k8s.io   safe-upgrades.gateway.networking.k8s.io   <unset>    4s

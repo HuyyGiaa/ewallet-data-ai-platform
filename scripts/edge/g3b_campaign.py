@@ -1098,7 +1098,7 @@ def cleanup(state_path: Path, ex: Executor, reason: str) -> dict:
     if failed:
         alert = Path(c["campaign_dir"]) / "ALERT.txt"
         alert.write_text(f"{iso(now())} CLEANUP_INCOMPLETE {failed}: see state.json cleanup_steps; "
-                         f"docs/runbooks/edai2/EXTERNAL_GATEWAY_RUNBOOK.md 'Recovery'.\n", encoding="utf-8")
+                         f"docs/edai2/gateway/EXTERNAL_GATEWAY_OPERATIONS.md §7 'Cleanup and recovery'.\n", encoding="utf-8")
         if shutil.which("notify-send") and not sim:
             subprocess.run(["notify-send", "-u", "critical", "G3-B cleanup incomplete", ", ".join(failed)], check=False)
     return state

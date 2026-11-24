@@ -1,3 +1,0 @@
-wake_start 2026-11-21T18:03:05Z nodes=5 machine=e2-standard-4 est_usd_h_nodes=0.827 est_usd_h_total_excl_fee=0.999 (cloud_lab list prices 2026-11-06)
-sleep_start 2026-11-21T18:24:07Z
-awake 18:03:00Z -> 18:28:52Z

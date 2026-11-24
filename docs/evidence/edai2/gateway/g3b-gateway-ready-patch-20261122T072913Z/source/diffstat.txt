@@ -1,5 +1,0 @@
- docs/runbooks/edai2/EXTERNAL_GATEWAY_RUNBOOK.md |  18 +++
- scripts/edge/g3b_campaign.py                    |  51 +++++++-
- tests/ops/test_g3b_gateway_ready.py             | 153 ++++++++++++++++++++++++
- tests/ops/test_g3b_prelive.py                   |   9 +-
- 4 files changed, 226 insertions(+), 5 deletions(-)

@@ -1,3 +1,0 @@
-bash -n OK
-py_compile OK
-infra/, ops/, dns_check, dynu_dns, create_basic_auth unchanged since fc3233fe

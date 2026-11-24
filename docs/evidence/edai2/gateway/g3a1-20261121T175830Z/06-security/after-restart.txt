@@ -1,5 +1,0 @@
-== 2026-11-21T18:22:07Z after controlled restart: pod ewallet-edge-gateway-7b6c6b9667-58vlj
-443: ['metadata_exchange', 'grpc_stats', 'alpn', 'fault', 'cors', 'stats', 'local_ratelimit', 'basic_auth', 'router']
-80: ['metadata_exchange', 'grpc_stats', 'alpn', 'fault', 'cors', 'stats', 'router']
-anonymous lookup -> 401
-valid credentials lookup {} -> 422

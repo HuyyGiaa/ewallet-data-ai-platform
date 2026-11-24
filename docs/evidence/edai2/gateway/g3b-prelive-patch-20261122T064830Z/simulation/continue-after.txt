@@ -1,1 +1,0 @@
-CONTINUE_REJECTED: no evidence window is open (phase cleanup, window closed: owner continue)
