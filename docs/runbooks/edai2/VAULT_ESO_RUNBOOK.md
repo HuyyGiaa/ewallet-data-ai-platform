@@ -231,7 +231,7 @@ kubectl --context $CTX -n ml-platform get deploy feature-api \
 
 The readiness probe (`/health/ready`) reads the Feast registry and Redis, so Ready already
 shows the credential works. Then run one real lookup through the edge or a port-forward
-(the Feature API section of [EXTERNAL_GATEWAY_RUNBOOK.md](EXTERNAL_GATEWAY_RUNBOOK.md)).
+(the public Feature API endpoint is described in [EXTERNAL_GATEWAY_ARCHITECTURE.md §5.6](../../edai2/gateway/EXTERNAL_GATEWAY_ARCHITECTURE.md#56-minimal-public-exposure-of-the-feature-api)).
 The overlay keeps `featureApi.vault.enabled=false`: the pod never talks to Vault.
 
 ## 9. Rollback (MUTATING, Kubernetes)
