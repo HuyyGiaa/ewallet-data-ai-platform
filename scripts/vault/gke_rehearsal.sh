@@ -619,7 +619,7 @@ phase_cleanup() {  # MUTATING, destructive for rehearsal objects only: synthetic
     done
   fi
   rm -rf "$PRIV"
-  record cleanup "$(jq -cn --arg d "$([ -z "$KIND" ] && echo 'confirmed absent (gcloud disks list: no match)' || echo 'kind local-path: removed')" \
+  record cleanup "$(jq -cn --arg d "$([ -z "$KIND" ] && echo 'confirmed absent (gcloud compute disks describe: HTTP 404 naming each recorded disk)' || echo 'kind local-path: removed')" \
     '{result: "PASS", namespaces_deleted: ["vault-rehearsal", "external-secrets", "ewallet-vault"], releases_uninstalled: ["external-secrets", "vault"],
       vault_volumes: "deleted", disks: $d, synthetic_private_material: "removed"}')"
 }

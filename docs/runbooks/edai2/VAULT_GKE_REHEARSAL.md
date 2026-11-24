@@ -6,8 +6,9 @@ approves it. Its job is to find GKE-specific problems before the owner's officia
 ([VAULT_GKE_ACCEPTANCE_CAMPAIGN.md](VAULT_GKE_ACCEPTANCE_CAMPAIGN.md), Campaign B). It ends with
 everything removed and the cluster asleep.
 
-**Status: prepared and dry-run on kind; not executed on GKE.** Nothing on this page runs
-without the owner's explicit approval, and the approval names one rehearsal ID.
+**Status: executed on GKE on 2026-11-24 as `vault-rehearsal-20261124T173156Z`: `VAULT_GKE_REHEARSAL_COMPLETE`**
+([report](../../evidence/edai2/vault/gke_rehearsal_vault-rehearsal-20261124T173156Z/README.md)). Nothing on this page runs without the owner's
+explicit approval, and the approval names one rehearsal ID.
 
 | | Campaign A: technical rehearsal (this page) | Campaign B: official acceptance |
 |---|---|---|

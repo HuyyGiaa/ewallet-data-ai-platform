@@ -1,0 +1,16 @@
+{"gate": "cluster-reachable", "expected": "API server answers on the pinned context", "observed": "v1.36.4-gke.2377000", "status": "PASS"}
+{"gate": "node-pool", "expected": "known size (0 = asleep)", "observed": "0 nodes", "status": "PASS"}
+{"gate": "no-prior-vault-eso-namespaces", "expected": "ewallet-vault, external-secrets and vault-rehearsal absent", "observed": "confirmed absent", "status": "PASS"}
+{"gate": "no-prior-eso-crds", "expected": "no external-secrets.io CRDs", "observed": "confirmed absent", "status": "PASS"}
+{"gate": "no-prior-vault-eso-releases", "expected": "no vault or external-secrets release", "observed": "confirmed absent", "status": "PASS"}
+{"gate": "no-prior-vault-data", "expected": "no Vault PVC (no Raft data to adopt)", "observed": "confirmed absent", "status": "PASS"}
+{"gate": "no-prior-vault-volumes", "expected": "no PersistentVolume claimed from ewallet-vault or vault-rehearsal, any phase", "observed": "confirmed absent", "status": "PASS"}
+{"gate": "no-prior-chart-cluster-objects", "expected": "no ClusterRole, binding or webhook from a vault or external-secrets release", "observed": "confirmed absent", "status": "PASS"}
+{"gate": "cert-manager-crds", "expected": "Certificate and Issuer CRDs", "observed": "present", "status": "PASS"}
+{"gate": "cert-manager-ready", "expected": "3 deployments available", "observed": "RUNTIME_CHECK_PENDING_APPROVED_WAKE", "status": "NOT_CHECKED"}
+{"gate": "storage-class", "expected": "standard-rwo, pd.csi, WaitForFirstConsumer", "observed": "pd.csi.storage.gke.io, WaitForFirstConsumer, reclaim Delete", "status": "PASS"}
+{"gate": "redis-secret", "expected": "ml-platform/feast-online-redis with a non-empty connection_string (value never printed)", "observed": "keys ['connection_string']", "status": "PASS"}
+{"gate": "serving-release", "expected": "ewallet-serving deployed in ml-platform", "observed": "revision 3, deployed", "status": "PASS"}
+{"gate": "serving-no-drift", "expected": "live release == repository chart with the release's values", "observed": "0 differing lines", "status": "PASS"}
+{"gate": "serving-overlay-scope", "expected": "overlay changes only the Feature API Secret name", "observed": "('Deployment', 'ml-platform', 'feature-api') -name: feast-online-redis; ('Deployment', 'ml-platform', 'feature-api') +name: feature-api-redis-vault", "status": "PASS"}
+{"mode": "preinstall", "verdict": "VAULT_GKE_PREFLIGHT_READY", "blocking": [], "not_checked": ["cert-manager-ready"]}

@@ -355,6 +355,14 @@ was dry-run end to end on kind with its own driver, [`gke_rehearsal.sh`](../../.
 recorded two Vault 2.0.4 defaults seen with the new `describe` command: an `agent-registry/`
 mount and a `default-ceiling` policy, neither used here.
 
+The same rehearsal then ran on GKE `ewallet-dev` with synthetic values only
+([`gke_rehearsal_vault-rehearsal-20261124T173156Z`](../../evidence/edai2/vault/gke_rehearsal_vault-rehearsal-20261124T173156Z/README.md)): Vault on Persistent Disks with cert-manager TLS,
+Kubernetes auth through GKE's TokenReview, ESO sync, a consumer authenticating with the synced
+Secret, six denials with their expected causes, Calico enforcing the Vault NetworkPolicy, versioning
+and a sealed restart with manual unseal. Everything was then removed (disks proven deleted), the
+production configuration was unchanged, and the cluster went back to 0 nodes. It is a rehearsal,
+not the owner's row 54 evidence.
+
 Static contract tests: [`tests/ops/test_vault_eso.py`](../../../tests/ops/test_vault_eso.py).
 The earlier direct-loader runs remain in `docs/evidence/edai2/vault/local_20261106T183340Z` and `local_r2_20261107T101251Z`.
 

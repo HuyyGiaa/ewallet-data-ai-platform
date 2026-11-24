@@ -10,8 +10,9 @@ the owner's explicit approval of the campaign. Every **[OWNER]** step is perform
 personally. Nothing in this page wakes GKE.
 
 **Order:** the technical rehearsal ([VAULT_GKE_REHEARSAL.md](VAULT_GKE_REHEARSAL.md), Campaign A,
-synthetic, removed afterwards) runs first. This official campaign (Campaign B) starts only after the
-owner has reviewed the rehearsal report, with any correction it found applied here.
+synthetic, removed afterwards) runs first. It ran on 2026-11-24 and passed
+([report](../../evidence/edai2/vault/gke_rehearsal_vault-rehearsal-20261124T173156Z/README.md)); its corrections are applied here. This
+official campaign (Campaign B) starts after the owner has reviewed that report.
 
 ## 1. Baseline (2026-11-24)
 
@@ -21,7 +22,7 @@ owner has reviewed the rehearsal report, with any correction it found applied he
 | Cluster | `ewallet-dev`, `asia-southeast1-b`, GKE 1.36.4-gke.2377000, REGULAR channel, Calico NetworkPolicy enforced, not a private-node cluster |
 | Node pool | `cpu-pool`, e2-standard-4, single zone b, no autoscaling, **0 nodes (asleep)** |
 | Access | `KUBECONFIG=~/.cache/ewallet-cloud-lab/kubeconfig` (DNS endpoint); context `gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev` |
-| Wake manifest | `~/ewallet-evidence/gateway/g3b-owner-evidence-20261124T083106Z/recovery-manifest`: the newest under `~/ewallet-evidence`, written by `cloud_lab record-manifest` at 2026-11-24T09:52:55Z before the G3-B owner campaign's guarded sleep. A later campaign (the rehearsal) writes a newer one: **always use the newest** (`$MANIFEST`, §3) |
+| Wake manifest | `~/ewallet-evidence/vault/vault-rehearsal-20261124T173156Z/recovery-manifest`: the newest under `~/ewallet-evidence`, written by `cloud_lab record-manifest` at 2026-11-24T18:04:36Z before the rehearsal's guarded sleep (83 workloads). **Always use the newest** (`$MANIFEST`, §3) |
 | Read-only preflight | `--mode preinstall`, [`gke_preflight_20261124T165422Z`](../../evidence/edai2/vault/gke_preflight_20261124T165422Z/gates-preinstall.jsonl): `VAULT_GKE_PREFLIGHT_READY`, including the new gates for leftover Vault volumes (any phase, also `Released`), leftover chart cluster objects and the rehearsal namespace; `cert-manager-ready` NOT_CHECKED (asleep) |
 
 ### Preflight modes
@@ -75,7 +76,7 @@ Campaign ID `vault-gke-<UTC timestamp>` (`$CID`). Working directory `~/ewallet-e
 
 | Gate | Owner approval | Actions (RB = runbook step) | Pass when | Stop / rollback |
 |---|---|---|---|---|
-| **G1 Wake and baseline** | **[OWNER] approve the wake** | `CLOUD_LAB_APPROVED=yes python3 ops/gcp/cloud_lab.py wake-full --manifest $MANIFEST --nodes 5 --confirm-cluster ewallet-dev --execute`; `cloud_lab.py verify --expect awake --manifest $MANIFEST`; `$P --mode preinstall`; record the `feast-online-redis` resourceVersion, `helm -n ml-platform history ewallet-serving`, the Feature API `secretKeyRef`, and the Gateway release revisions (`ewallet-edge` 21, `ewallet-edge-gateway` 16); baseline lookup (§4) | preinstall READY with `cert-manager-ready` PASS; workloads healthy; baseline lookup recorded | Unhealthy platform or preflight BLOCKED/FAIL: stop, then sleep (§6) |
+| **G1 Wake and baseline** | **[OWNER] approve the wake** | `CLOUD_LAB_APPROVED=yes python3 ops/gcp/cloud_lab.py wake-full --manifest $MANIFEST --nodes 5 --confirm-cluster ewallet-dev --execute`; `cloud_lab.py verify --expect awake --manifest $MANIFEST`; `$P --mode preinstall`; record the `feast-online-redis` resourceVersion, `helm -n ml-platform history ewallet-serving`, the Feature API `secretKeyRef`, and the Gateway release revisions (`ewallet-edge` 21, `ewallet-edge-gateway` 16); baseline lookup (§4). `verify --expect awake` passes before cert-manager is available (≈3 min after the wake, seen in the rehearsal): rerun the preflight until `cert-manager-ready` is PASS | preinstall READY with `cert-manager-ready` PASS; workloads healthy; baseline lookup recorded | Unhealthy platform or preflight BLOCKED/FAIL: stop, then sleep (§6) |
 | **G2 Vault infrastructure** | **[OWNER] approve Stage B mutations, and the PV `Retain` patch** | RB 2: namespace, certificate (wait Ready), `helm install vault … -f infra/kubernetes/vault/values-gke.yaml` (only that file; it carries the disabled PDB), NetworkPolicy, `vault-admin` SA; PVCs Bound; **`Retain` on both PVs before G3** | pod Running; PVCs Bound; PVs `Retain`; `kubectl -n ewallet-vault get pdb` returns none; Services ClusterIP only; `$V status` over HTTPS with the published CA: `initialized: false` | Certificate or TLS error: `helm uninstall vault` (no data yet), fix, retry |
 | **G3 Initialise** | **[OWNER-ONLY]** | RB 3: `$V init --keys-out $KEYDIR/vault-keys.json`; copy the file to the two offline media | `initialized: true`; key file 0600 outside the repo | Already initialised: **stop**, never initialise again |
 | **G4 Auth and policies** | **[OWNER] unseal** | RB 4: `unseal`, `status`, `configure --keys-file`, **`describe --keys-file` (capture E3 now: it needs the initial root)**, `operator-token`, `retire-root`, then the root probe `configure --keys-file` | `sealed: false`; `configure` lists `audit, kv, kubernetes-auth`, the policies (`eso-ewallet-agents, eso-ml-platform, feature-api, fraud-api, root-generation, secret-operator`) and roles (`eso-*`, `feature-api`, `fraud-api`, `vault-admin`); `operator_token_created: true, orphan: true`; `root_token_revoked: true`; the root probe fails with `returned 403`. No secret is read or written in G4 | Partial `configure`: re-run it (idempotent) before retiring root |
