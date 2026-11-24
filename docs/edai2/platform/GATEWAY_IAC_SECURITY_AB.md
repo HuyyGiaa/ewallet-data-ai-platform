@@ -7,7 +7,7 @@ This report covers:
 - how secrets are handled;
 - how traffic inside the cluster is restricted.
 
-It closes with the parts of the external-access and release-experimentation design that are not yet built.
+Public access through the external gateway is described in its own reports ([External Gateway](../gateway/EXTERNAL_GATEWAY_ARCHITECTURE.md)). This report closes with the parts of the design that are not yet built.
 
 ## 1. Infrastructure as code (Terraform)
 
@@ -46,7 +46,7 @@ Neither the plan binary nor any credentials are stored. The runbook is [`docs/cl
 | Layer | Mechanism |
 |---|---|
 | Cluster control plane | Master authorized networks: two `/32` operator addresses |
-| Operator access to UIs (Grafana, kagent, Agent Registry, Jenkins, Kubeflow, MLflow) | `kubectl port-forward` from an authorized network; nothing is exposed through a public load balancer. See the [UI runbook](../../runbooks/edai2/UI_REPLAY.md) |
+| Operator access to UIs (Grafana, kagent, Agent Registry, Jenkins, Kubeflow, MLflow) | `kubectl port-forward` from an authorized network ([UI runbook](../../runbooks/edai2/UI_REPLAY.md)). Grafana, kagent UI, Agent Registry and the Feature API lookup can also be published temporarily through the [external gateway](../gateway/EXTERNAL_GATEWAY_ARCHITECTURE.md) (Istio, Basic Auth, rate limits, HTTPS), only during supervised campaigns; it is private and offline otherwise |
 | Workload identity to GCP | Workload Identity: pods use Kubernetes service accounts mapped to GCP service accounts, so no key files exist |
 | CI/CD | The Jenkins service account may write only to its target namespace ([CI/CD architecture §11](../cicd/CICD_ARCHITECTURE.md#11-identities-isolation-and-least-privilege)) |
 | LLM, MCP and A2A traffic | agentgateway with client keys, per-agent tool authorization and rate limits ([LLM Platform §3.2](../llm/LLM_PLATFORM.md#4-agentgateway), [Agent operations §11](../agents/AGENT_PLATFORM_OPERATIONS.md#11-gateway-security-policies)) |
@@ -88,7 +88,7 @@ See [Testing §3.4](../testing/TESTING.md#34-chart-and-security-contracts).
 
 ## 5. Limitations and future work
 
-- **External gateway.** No NGINX (or other) ingress publishes the UIs or the Fraud API. There is therefore no domain, HTTPS certificate, basic authentication or edge rate limiting. All UI access goes through authorized port-forwards. An ingress with per-route authentication, rate limits and cert-manager certificates is future work.
+- **External gateway.** Implemented with an Istio gateway and Gateway API, not NGINX, and accepted on GKE on 2026-11-24 ([architecture](../gateway/EXTERNAL_GATEWAY_ARCHITECTURE.md), [evidence](../gateway/EXTERNAL_GATEWAY_EVIDENCE.md)). It is public only during supervised campaigns; the Fraud API is not published.
 - **Centralised secrets.** Vault is implemented and validated locally but not deployed. See [Vault](VAULT.md).
 - **Configuration management.** No Ansible playbooks exist. The only VM-oriented module (`jenkins_vm`) is unused, because Jenkins runs on GKE.
 - **A/B experimentation.** Model, agent and LLM A/B are implemented and tested locally. None has run on GKE. See [ML](../mlops/ML_AB_DESIGN.md), Agent and [LLM](LLM_AB_DESIGN.md).

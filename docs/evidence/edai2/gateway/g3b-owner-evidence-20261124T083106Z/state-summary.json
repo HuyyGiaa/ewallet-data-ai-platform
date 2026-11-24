@@ -1,0 +1,143 @@
+{
+  "_note": "Derived from the campaign's private state.json. Configuration paths, approved client CIDRs, credentials file locations and process fields are omitted; every kept value is copied unchanged.",
+  "scope": "g3b",
+  "mode": "supervised",
+  "simulated": false,
+  "tls_mode_config": "reuse",
+  "domain": "ewallet-hg.gleeze.com",
+  "evidence_window_minutes": 45,
+  "dns_offline_mode": "signoff",
+  "approvals": {
+    "also_approve": [
+      "ewallet-mcp/feature-rag-mcp"
+    ],
+    "cloud_fallback": false,
+    "dns_offline_verified": true,
+    "dns_transition_test": false,
+    "edge_secret_sync": false,
+    "grafana_root_url": true,
+    "guarded_sleep": true,
+    "keda_pause": true,
+    "live_campaign": true,
+    "local_only_risk_accepted": false,
+    "production_certificate": true
+  },
+  "CAMPAIGN_ID": "g3b-owner-evidence-20261124T083106Z",
+  "CLUSTER": "ewallet-dev",
+  "PROJECT": "ewallet-data-ai-platform-hg26",
+  "START_TIME": "2026-11-24T08:43:06Z",
+  "DEADLINE": "2026-11-24T11:43:06Z",
+  "CURRENT_PHASE": "cleanup",
+  "G3B_STATUS": "PASS",
+  "GATEWAY_READY": "READY (1/1, rollout status attempt 1)",
+  "TLS_MODE": "REUSE_EXISTING",
+  "TLS_CERTIFICATE_SOURCE": "EXISTING_EDGE_TLS",
+  "TLS_CERTIFICATE_STATUS": "VERIFIED_TRUSTED",
+  "TLS_CERTIFICATE_ISSUER": "C=US, O=Let's Encrypt, CN=YE1",
+  "TLS_CERTIFICATE_NOT_AFTER": "Feb 20 16:17:41 2027 GMT",
+  "ACME_STAGING": "SKIPPED_REUSE",
+  "ACME_PRODUCTION": "SKIPPED_REUSE",
+  "ACME_PRODUCTION_ATTEMPTS": 0,
+  "ACME_PRODUCTION_FINAL_STATUS": "NOT_ISSUED_REUSED",
+  "ACME_STATUS": "responder-disabled",
+  "EDGE_AUTH": "EDGE_AUTH_MATCH",
+  "PUBLIC_LB_CREATED": true,
+  "LB_IP": "136.85.20.207",
+  "DNS_TARGET_STATE": "offline",
+  "L4": "PASS (this client, outside the approved CIDRs before and after)",
+  "L5": "PASS",
+  "CLIENT_NETWORK": "approved",
+  "GRAFANA": "PASS",
+  "GRAFANA_READY": "rollout complete, 1 ready",
+  "EVIDENCE_WINDOW": "closed: owner continue",
+  "EVIDENCE_WINDOW_UNTIL": "2026-11-24T09:54:15Z",
+  "EVIDENCE_WINDOW_CLOSED": "2026-11-24T09:49:34Z",
+  "CLEANUP_STARTED": "2026-11-24T09:49:34Z",
+  "CLEANUP_STATUS": "COMPLETE",
+  "SLEEP_STATUS": "VERIFIED",
+  "LAST_VERIFIED_NODE_COUNT": 0,
+  "WAKE_COMPLETED": true,
+  "gates": {
+    "CLIENT_ADDRESS_APPROVED": "PASS",
+    "CLOUD_LAB_RECOVERY_MANIFEST_VALID": "PASS",
+    "EDGE_AUTH_READY": "PASS",
+    "GUARDED_SLEEP_PLAN_VALID": "PASS",
+    "KEDA_SLEEP_APPROVAL_READY": "PASS",
+    "L0_RENDER_READY": "PASS",
+    "OWNER_LIVE_APPROVAL": "PASS",
+    "PDB_APPROVAL_COMPLETE": "PASS",
+    "SAFE_CLEANUP_READY": "PASS",
+    "TLS_REUSE_READY": "PASS"
+  },
+  "phases": {
+    "L0-live": "PASS",
+    "L0-render": "PASS",
+    "L4-denied": "PASS",
+    "approved-network": "PASS",
+    "baseline": "PASS",
+    "dns-online": "PASS",
+    "edge-auth": "PASS",
+    "edge-restricted": "PASS",
+    "evidence-window": "closed: owner continue",
+    "gateway-ready": "PASS",
+    "grafana": "PASS",
+    "internet-gates": "PASS",
+    "open-lb": "PASS",
+    "private-e2e": "PASS",
+    "production-certificate": "SKIPPED_REUSE",
+    "public-e2e": "PASS",
+    "responder-off": "PASS",
+    "staging-certificate": "SKIPPED_REUSE",
+    "tls-reuse-verify": "PASS",
+    "wake": "PASS"
+  },
+  "verdicts": {
+    "CLEANUP_STATUS": "COMPLETE",
+    "EDGE_AUTH": "EDGE_AUTH_MATCH",
+    "G3B_DEPLOYMENT_STATUS": "PASS",
+    "G3B_PUBLIC_E2E_STATUS": "PASS",
+    "G3B_SECURITY_STATUS": "G3B_SECURITY_COMPLETE",
+    "G4_AUTOMATED_CHECKS_STATUS": "COMPLETE",
+    "GRAFANA": "PASS",
+    "L4": "PASS (this client, outside the approved CIDRs before and after)",
+    "L5": "PASS",
+    "SCOPE": "g3b",
+    "SLEEP_STATUS": "VERIFIED",
+    "TLS_CERTIFICATE_STATUS": "VERIFIED_TRUSTED",
+    "TLS_MODE": "REUSE_EXISTING"
+  },
+  "cleanup_steps": {
+    "dns-offline": {
+      "ok": true,
+      "at": "2026-11-24T09:52:21Z",
+      "detail": "DNS_OFFLINE_OK verified"
+    },
+    "dns-verify-before-release": {
+      "ok": true,
+      "at": "2026-11-24T09:52:23Z",
+      "detail": "DNS_OFFLINE_OK"
+    },
+    "lb-release": {
+      "ok": true,
+      "at": "2026-11-24T09:52:42Z",
+      "detail": "ClusterIP; no LoadBalancer"
+    },
+    "record-manifest": {
+      "ok": true,
+      "at": "2026-11-24T09:52:55Z",
+      "detail": "recovery manifest written (local path omitted)"
+    },
+    "sleep": {
+      "ok": true,
+      "at": "2026-11-24T09:56:40Z",
+      "detail": "guarded sleep exit 0"
+    },
+    "verify-sleep": {
+      "ok": true,
+      "at": "2026-11-24T09:56:46Z",
+      "detail": "verify exit 0; nodes=0"
+    }
+  },
+  "cleanup_reason": "PASS",
+  "cleanup_failed_steps": []
+}

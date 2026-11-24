@@ -28,6 +28,7 @@ The overall architecture, with numbered data and investigation flows, is in the 
 | KEDA autoscaling of the Feature and Fraud APIs (G5-B) | [Serving Autoscaling with KEDA](mlops/SERVING_AUTOSCALING_KEDA.md) |
 | Jenkins pipelines and continuous delivery | [CI/CD architecture](cicd/CICD_ARCHITECTURE.md), [operations](cicd/CICD_OPERATIONS.md), [release evidence](cicd/CICD_RELEASE_EVIDENCE.md) |
 | Metrics, logs, traces, LLM and agent telemetry | [Observability](observability/OBSERVABILITY.md) |
+| External routing: Istio gateway, Gateway API routes, TLS, Basic Auth, rate limits, public campaign lifecycle | [External Gateway architecture](gateway/EXTERNAL_GATEWAY_ARCHITECTURE.md), [operations](gateway/EXTERNAL_GATEWAY_OPERATIONS.md), [evidence (campaign `g3b-owner-evidence-20261124T083106Z`)](gateway/EXTERNAL_GATEWAY_EVIDENCE.md) |
 | Terraform, access control, network security, secrets | [Platform Infrastructure and Security](platform/GATEWAY_IAC_SECURITY_AB.md) |
 | Novel ideas | [Grounded Agent Intake and Exact Agent Telemetry](novel_ideas/NOVEL_IDEAS.md) |
 

@@ -1,0 +1,14 @@
+{"row": "43", "check": "certificate verifies", "passed": true, "observed": "Verify return code: 0 (ok)", "evidence_class": "GKE_PRIVATE"}
+{"row": "43", "check": "certificate names the four hosts", "passed": true, "observed": "['agents.ewallet-hg.gleeze.com', 'features.ewallet-hg.gleeze.com', 'observe.ewallet-hg.gleeze.com', 'registry.ewallet-hg.gleeze.com']", "evidence_class": "GKE_PRIVATE"}
+{"row": "43", "check": "TLS 1.1 refused", "passed": true, "observed": "New, (NONE), Cipher is (NONE)", "evidence_class": "GKE_PRIVATE"}
+{"row": "43", "check": "Feature API reached over HTTPS (APPLICATION_REACHED)", "passed": true, "observed": "422", "evidence_class": "GKE_PRIVATE"}
+{"row": "40", "check": "agents: refused from a non-allowed address", "passed": true, "observed": "403", "evidence_class": "GKE_PRIVATE"}
+{"row": "41", "check": "registry: UI page", "passed": true, "observed": "200", "evidence_class": "GKE_PRIVATE"}
+{"row": "41", "check": "registry: static asset", "passed": true, "observed": "/_next/static/chunks/0w2fq37ncbovf.css 200", "evidence_class": "GKE_PRIVATE"}
+{"row": "41", "check": "registry: read-only API /v0/agents", "passed": true, "observed": "status=200 items=1", "evidence_class": "GKE_PRIVATE"}
+{"row": "37", "check": "Grafana redirects to its login on the same host", "passed": true, "observed": "302 https://observe.ewallet-hg.gleeze.com:18443/login", "evidence_class": "GKE_PRIVATE"}
+{"row": "37", "check": "Grafana login", "passed": true, "observed": "200", "evidence_class": "GKE_PRIVATE"}
+{"row": "37", "check": "Grafana dashboards listed", "passed": true, "observed": "status=200 dashboards=9", "evidence_class": "GKE_PRIVATE"}
+{"row": "37", "check": "metrics: Prometheus returns 'up' samples", "passed": true, "observed": "status=200 series=18", "evidence_class": "GKE_PRIVATE"}
+{"row": "38", "check": "logs: Loki returns log lines", "passed": true, "observed": "status=200 lines=20 query={k8s_namespace_name=\"ewallet-agents\"}", "evidence_class": "GKE_PRIVATE"}
+{"row": "39", "check": "traces: Tempo returns traces", "passed": true, "observed": "status=200 traces=5", "evidence_class": "GKE_PRIVATE"}
