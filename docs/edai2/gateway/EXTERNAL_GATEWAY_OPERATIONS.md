@@ -20,8 +20,18 @@ Several independent states combine. The campaign moves them in a fixed order:
 | Certificate | Secret `edge-tls` kept through sleep | the same Secret served on 443 |
 
 The safe resting state is: asleep, `ClusterIP`, DNS offline, certificate kept. A campaign moves
-to the public state only after private checks pass, and always returns to the resting state,
-whether it succeeds, fails or is interrupted.
+to the public state only after private checks pass. Cleanup back to the resting state is
+**attempted** after every ending: success, a failed phase, the deadline or SIGTERM/SIGINT. A
+`kill -9` skips it until the owner runs `cleanup` or the watchdog does. The attempt does not
+always succeed:
+
+- **Fail-closed.** The load balancer is released only after DNS is proven offline. Otherwise it is
+  kept on purpose, so that no public name is left pointing at an address the project no longer owns.
+- **Complete.** All cleanup steps pass. `status` then reports `CLEANUP_STATUS COMPLETE` and
+  `SLEEP_STATUS VERIFIED` with zero nodes.
+- **Incomplete.** Any step fails (DNS not proven offline, load balancer kept, sleep blocked or not
+  verified). The state is then `CLEANUP_INCOMPLETE`, `ALERT.txt` is written, and the owner fixes the
+  cause and resumes cleanup (§7). Until then the cluster may still have nodes, or a public address.
 
 The whole sequence is driven by one orchestrator,
 [`scripts/edge/g3b_campaign.py`](../../../scripts/edge/g3b_campaign.py), so that ordering,
@@ -92,7 +102,10 @@ Notes on the flags:
 ## 4. Lifecycle
 
 `run` executes the phases in a fixed order
-([`phases`, L897](../../../scripts/edge/g3b_campaign.py#L897)). For `--scope g3b` in reuse mode:
+([`phases`, L897](../../../scripts/edge/g3b_campaign.py#L897)). For `--scope g3b` in reuse mode,
+the orchestrator records **20 phases**: 19 fixed ones plus `evidence-window`, which is appended
+when an evidence window is configured. The table groups them into **18 entries**: rows 6 and 14
+each cover two phases that are recorded separately in `state.json`.
 
 | # | Phase | What it does | Changes |
 |---|---|---|---|
@@ -114,7 +127,7 @@ Notes on the flags:
 | 16 | `grafana` | upgrade `llm-agent` with Grafana's public root URL, then wait for the Grafana rollout | **MUTATING** (approved separately) |
 | 17 | `public-e2e` | the final public end-to-end and negative checks | read-only |
 | 18 | `evidence-window` | holds the public state unchanged for owner screenshots (§6) | none |
-| — | cleanup | always runs after the last phase, a failure, the deadline or a signal (§7) | **MUTATING** |
+| — | cleanup | attempted after the last phase, a failure, the deadline or a signal; may end `CLEANUP_INCOMPLETE` (§7) | **MUTATING** |
 
 A failed phase stops the sequence, and cleanup follows immediately. SIGTERM and SIGINT are
 handled: the current phase ends, and cleanup runs to its end. A second signal during cleanup is

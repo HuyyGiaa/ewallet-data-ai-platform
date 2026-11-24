@@ -128,8 +128,9 @@ orchestrator's `L4-denied` phase does. It ran from the same outside network with
 credentials, and verified that the client address was outside the allowlist both before and after
 the request. It recorded `agents: refused from a non-allowed address → 403`, while the
 `features` and `registry` checks from that network still succeeded (`results/11-l4-denied.jsonl`,
-`L4: PASS`). The restriction therefore applies to the `agents` host only, after Basic Auth, and is
-based on the real client address. From the approved network, the same host served its UI
+`L4: PASS`). The restriction therefore applies to the `agents` host only, still refuses a client
+that holds valid credentials, and is based on the real client address. These results show
+behaviour; they do not show where the RBAC filter sits in Envoy's chain. From the approved network, the same host served its UI
 (`L5: PASS`).
 
 The public surface is as narrow as designed (`results/14-negative.jsonl`):
