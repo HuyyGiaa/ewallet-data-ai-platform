@@ -135,3 +135,72 @@ def test_overlay_switches_the_feature_api_to_the_synced_secret_without_the_direc
     synced = objects(ESO / "ml-platform.yaml")["ExternalSecret"]["spec"]
     assert synced["target"]["name"] == "feature-api-redis-vault"
     assert [item["secretKey"] for item in synced["data"]] == ["connection_string"]
+
+
+# ---- Campaign B gate G10: the committed negative-test template and the documents that use it
+
+def _negative_objects(cid="vault-gke-20261201T000000Z"):
+    import yaml
+    text = (ROOT / "infra/kubernetes/external-secrets/negative-tests.yaml").read_text().replace("__CID__", cid)
+    return [d for d in yaml.safe_load_all(text) if d]
+
+
+def test_negative_tests_are_isolated_labelled_throwaway_objects_in_ml_platform():
+    cid = "vault-gke-20261201T000000Z"
+    objects = _negative_objects(cid)
+    assert sorted((o["kind"], o["metadata"]["name"]) for o in objects) == [
+        ("ExternalSecret", "vault-neg-agent-path"), ("ExternalSecret", "vault-neg-wrong-aud"), ("ExternalSecret", "vault-neg-wrong-sa"),
+        ("SecretStore", "vault-neg-wrong-aud"), ("SecretStore", "vault-neg-wrong-sa"), ("ServiceAccount", "vault-neg-intruder")]
+    for o in objects:
+        assert o["metadata"]["namespace"] == "ml-platform" and o["metadata"]["name"].startswith("vault-neg-")
+        assert o["metadata"]["labels"] == {"ewallet.io/vault-campaign": cid}
+    assert "__CID__" not in str(objects) and "kind: Secret\n" not in str(objects)
+
+
+def test_negative_stores_differ_from_the_real_store_only_in_the_tested_property():
+    import yaml
+    real = next(d for d in yaml.safe_load_all((ROOT / "infra/kubernetes/external-secrets/ml-platform.yaml").read_text())
+                if d and d["kind"] == "SecretStore")["spec"]["provider"]["vault"]
+    stores = {o["metadata"]["name"]: o["spec"]["provider"]["vault"] for o in _negative_objects() if o["kind"] == "SecretStore"}
+    for name, store in stores.items():
+        for key in ("server", "path", "version", "caProvider"):
+            assert store[key] == real[key], (name, key)
+        assert store["auth"]["kubernetes"]["role"] == "eso-ml-platform"
+    assert stores["vault-neg-wrong-sa"]["auth"]["kubernetes"]["serviceAccountRef"] == {"name": "vault-neg-intruder", "audiences": ["vault"]}
+    assert stores["vault-neg-wrong-aud"]["auth"]["kubernetes"]["serviceAccountRef"] == {"name": "eso-vault-reader", "audiences": ["kubernetes"]}
+    assert "feature-api" not in [s["auth"]["kubernetes"]["serviceAccountRef"]["name"] for s in stores.values()]
+
+
+def test_negative_external_secrets_target_their_own_name_and_a_denied_or_unreachable_login():
+    secrets = {o["metadata"]["name"]: o["spec"] for o in _negative_objects() if o["kind"] == "ExternalSecret"}
+    for name, spec in secrets.items():
+        assert spec["target"] == {"name": name, "creationPolicy": "Owner"}
+    assert secrets["vault-neg-agent-path"]["secretStoreRef"]["name"] == "vault"      # the real store, a path its policy lacks
+    policy = (ROOT / "infra/kubernetes/vault/policies/eso-ml-platform.hcl").read_text()
+    assert secrets["vault-neg-agent-path"]["data"][0]["remoteRef"]["key"] not in policy
+    assert secrets["vault-neg-wrong-sa"]["secretStoreRef"]["name"] == "vault-neg-wrong-sa"
+    assert secrets["vault-neg-wrong-aud"]["secretStoreRef"]["name"] == "vault-neg-wrong-aud"
+
+
+def test_campaign_documents_use_only_objects_the_template_creates():
+    import re
+    names = {o["metadata"]["name"] for o in _negative_objects()}
+    plan = (ROOT / "docs/runbooks/edai2/VAULT_GKE_ACCEPTANCE_CAMPAIGN.md").read_text()
+    runbook = (ROOT / "docs/runbooks/edai2/VAULT_ESO_RUNBOOK.md").read_text()
+    for text in (plan, runbook):
+        assert set(re.findall(r"vault-neg-[a-z-]*[a-z]", text)) <= names
+    assert "-l ewallet.io/vault-campaign=$CID" in plan and "kubectl apply" not in plan.split("## 5.")[1].split("## 6.")[0]
+    for cause in ("permission denied", "service account name not authorized", "invalid audience"):
+        assert cause in plan.split("## 5.")[1].split("## 6.")[0]
+    assert "neg-fraud" not in runbook
+
+
+def test_business_lookup_never_passes_on_a_timeout_5xx_or_424():
+    plan = (ROOT / "docs/runbooks/edai2/VAULT_GKE_ACCEPTANCE_CAMPAIGN.md").read_text()
+    lookup = plan.split("## 4.")[1].split("## 5.")[0]
+    assert "--max-time 30" in lookup and "curl_exit" in lookup
+    for verdict in ("BASELINE_OK", "BASELINE_DATA_UNAVAILABLE", "BASELINE_UNHEALTHY", "BUSINESS_LOOKUP_PASS",
+                    "SECRET_INTEGRATION_PASS_BUSINESS_LOOKUP_UNAVAILABLE", "REGRESSION_AFTER_MIGRATION", "CAMPAIGN_B_FAILED_AT_G11"):
+        assert verdict in lookup
+    assert "HTTP 424 is never a business success" in lookup
+    assert "`ewallet-edge` 21" not in plan and "`ewallet-edge-gateway` 16" not in plan

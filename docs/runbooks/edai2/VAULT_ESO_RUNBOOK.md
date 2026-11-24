@@ -272,7 +272,7 @@ or it stops being a valid rollback target.
 | Store | `kubectl -n ml-platform get secretstore vault` | `Valid`, Ready `True` |
 | Sync | `kubectl -n ml-platform get externalsecret feature-api-redis` | `SecretSynced`, Ready `True` |
 | Consumer | `secretKeyRef` of `deployment/feature-api`, one lookup | `feature-api-redis-vault`, HTTP 200 |
-| Denied access | apply a labelled ExternalSecret `neg-fraud` in `ml-platform` with key `fraud-api/feast-redis`, then `kubectl -n ml-platform get events --field-selector involvedObject.name=neg-fraud` | Ready `False`, `permission denied`, no target Secret; delete it afterwards |
+| Denied access | create the three labelled test objects from [`negative-tests.yaml`](../../../infra/kubernetes/external-secrets/negative-tests.yaml) (`sed "s/__CID__/$CID/g" … \| kubectl create -f -`), then read each cause in `kubectl -n external-secrets logs deploy/external-secrets` (ESO events are generic); procedure in [VAULT_GKE_ACCEPTANCE_CAMPAIGN.md §5](VAULT_GKE_ACCEPTANCE_CAMPAIGN.md#5-g10-negative-tests-three-cases-created-and-removed-by-label) | `vault-neg-agent-path` `permission denied`, `vault-neg-wrong-sa` `service account name not authorized`, `vault-neg-wrong-aud` `invalid audience`; Ready `False`; no target Secret; afterwards `delete … -l ewallet.io/vault-campaign=$CID` leaves nothing |
 
 ## 11. Rotation (MUTATING, Vault and Kubernetes)
 

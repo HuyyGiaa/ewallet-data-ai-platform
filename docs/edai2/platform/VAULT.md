@@ -211,8 +211,15 @@ need one immutable ExternalSecret per release version, as in the reference proje
   ExternalSecret reports `Ready False`), but the synced Secrets remain, so the Feature API
   restarts and serves normally. **A retained Secret is not proof that ESO is syncing**:
   always check the ExternalSecret condition. After a manual unseal, the next sync succeeds.
-- **Persistence:** Raft data lives on the PVC. A restart or the node pool scaling to 0 loses
-  nothing. Deleting the namespace or the PVCs destroys all secrets.
+- **Persistence:** Raft data lives on two Persistent Disks (PVCs `data-vault-0`, `audit-vault-0`).
+  A Vault restart or the node pool scaling to 0 loses nothing: the disks stay and reattach in zone b.
+  What deletion does depends on the PV reclaim policy:
+  - `Delete` (the `standard-rwo` default; used by the rehearsal on purpose): deleting a PVC or the
+    namespace deletes the disk, and every secret on it.
+  - `Retain` (set on both PVs before `init` in the official campaign): the PV becomes `Released`
+    and the disk stays; it can be bound again (runbook step 2). It does **not** protect against
+    deleting the disk itself, deleting data inside Vault, or corruption. It is not a backup.
+  - Without 2 of the 3 unseal shares, a retained disk is unreadable: there is no other recovery path.
 
 ### Vault tokens
 
@@ -296,7 +303,7 @@ is never migrated: Shamir stays, and KMS auto-unseal is out of scope.
   tokens and write Secrets in every namespace. A namespaced store can only use a
   ServiceAccount in its own namespace, so the isolation above also relies on Kubernetes RBAC:
   only platform operators may create `SecretStore` and `ExternalSecret` objects.
-- Vault, the ESO pods and the PVCs add about 140m CPU and 450 MiB memory in requests, plus
+- Vault and the three ESO pods add about 140m CPU and 384 MiB memory in requests, plus
   6 GiB of Persistent Disk.
 
 ## Validation and evidence

@@ -1,0 +1,105 @@
+# Campaign B gate G10: three negative tests in ml-platform (docs/runbooks/edai2/VAULT_GKE_ACCEPTANCE_CAMPAIGN.md §5).
+# Template: replace __CID__ with the campaign ID and create, never apply:
+#   sed "s/__CID__/$CID/g" infra/kubernetes/external-secrets/negative-tests.yaml | kubectl --context $CTX create -f -
+# Every object carries ewallet.io/vault-campaign=<CID>; cleanup deletes by that label only.
+# No existing object is used except the campaign's own SecretStore `vault` and its reader
+# eso-vault-reader (created at G7); the production feature-api ServiceAccount is never used.
+#
+# | Case                 | Object (ExternalSecret = SecretStore name) | Expected cause in the ESO controller log |
+# | unauthorized path    | vault-neg-agent-path (store `vault`)       | permission denied                        |
+# | wrong ServiceAccount | vault-neg-wrong-sa                         | service account name not authorized      |
+# | wrong JWT audience   | vault-neg-wrong-aud                        | invalid audience                         |
+#
+# Each target Secret has the ExternalSecret's name and must never exist. The two login cases
+# request the real feature-api/feast-redis path on purpose: if a login wrongly succeeded, the
+# test would fail visibly (a target Secret appears), and deleting the ExternalSecret removes it.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vault-neg-intruder
+  namespace: ml-platform
+  labels: {ewallet.io/vault-campaign: __CID__}
+automountServiceAccountToken: false
+---
+# A reader that is not bound to role eso-ml-platform.
+apiVersion: external-secrets.io/v1
+kind: SecretStore
+metadata:
+  name: vault-neg-wrong-sa
+  namespace: ml-platform
+  labels: {ewallet.io/vault-campaign: __CID__}
+spec:
+  provider:
+    vault:
+      server: https://vault.ewallet-vault.svc.cluster.local:8200
+      path: ewallet
+      version: v2
+      caProvider: {type: ConfigMap, name: vault-ca, key: ca.crt}
+      auth:
+        kubernetes:
+          mountPath: kubernetes
+          role: eso-ml-platform
+          serviceAccountRef: {name: vault-neg-intruder, audiences: [vault]}
+---
+# The right reader, but a token minted for another audience.
+apiVersion: external-secrets.io/v1
+kind: SecretStore
+metadata:
+  name: vault-neg-wrong-aud
+  namespace: ml-platform
+  labels: {ewallet.io/vault-campaign: __CID__}
+spec:
+  provider:
+    vault:
+      server: https://vault.ewallet-vault.svc.cluster.local:8200
+      path: ewallet
+      version: v2
+      caProvider: {type: ConfigMap, name: vault-ca, key: ca.crt}
+      auth:
+        kubernetes:
+          mountPath: kubernetes
+          role: eso-ml-platform
+          serviceAccountRef: {name: eso-vault-reader, audiences: [kubernetes]}
+---
+# The campaign's valid store, asking for a path its policy does not grant.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: vault-neg-agent-path
+  namespace: ml-platform
+  labels: {ewallet.io/vault-campaign: __CID__}
+spec:
+  refreshInterval: 1h
+  secretStoreRef: {kind: SecretStore, name: vault}
+  target: {name: vault-neg-agent-path, creationPolicy: Owner}
+  data:
+    - secretKey: api-key
+      remoteRef: {key: agent-platform/agentgateway-client-key, property: api-key}
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: vault-neg-wrong-sa
+  namespace: ml-platform
+  labels: {ewallet.io/vault-campaign: __CID__}
+spec:
+  refreshInterval: 1h
+  secretStoreRef: {kind: SecretStore, name: vault-neg-wrong-sa}
+  target: {name: vault-neg-wrong-sa, creationPolicy: Owner}
+  data:
+    - secretKey: connection_string
+      remoteRef: {key: feature-api/feast-redis, property: connection_string}
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: vault-neg-wrong-aud
+  namespace: ml-platform
+  labels: {ewallet.io/vault-campaign: __CID__}
+spec:
+  refreshInterval: 1h
+  secretStoreRef: {kind: SecretStore, name: vault-neg-wrong-aud}
+  target: {name: vault-neg-wrong-aud, creationPolicy: Owner}
+  data:
+    - secretKey: connection_string
+      remoteRef: {key: feature-api/feast-redis, property: connection_string}

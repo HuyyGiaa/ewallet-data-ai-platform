@@ -76,7 +76,7 @@ Campaign ID `vault-gke-<UTC timestamp>` (`$CID`). Working directory `~/ewallet-e
 
 | Gate | Owner approval | Actions (RB = runbook step) | Pass when | Stop / rollback |
 |---|---|---|---|---|
-| **G1 Wake and baseline** | **[OWNER] approve the wake** | `CLOUD_LAB_APPROVED=yes python3 ops/gcp/cloud_lab.py wake-full --manifest $MANIFEST --nodes 5 --confirm-cluster ewallet-dev --execute`; `cloud_lab.py verify --expect awake --manifest $MANIFEST`; `$P --mode preinstall`; record the `feast-online-redis` resourceVersion, `helm -n ml-platform history ewallet-serving`, the Feature API `secretKeyRef`, and the Gateway release revisions (`ewallet-edge` 21, `ewallet-edge-gateway` 16); baseline lookup (§4). `verify --expect awake` passes before cert-manager is available (≈3 min after the wake, seen in the rehearsal): rerun the preflight until `cert-manager-ready` is PASS | preinstall READY with `cert-manager-ready` PASS; workloads healthy; baseline lookup recorded | Unhealthy platform or preflight BLOCKED/FAIL: stop, then sleep (§6) |
+| **G1 Wake and baseline** | **[OWNER] approve the wake** | `CLOUD_LAB_APPROVED=yes python3 ops/gcp/cloud_lab.py wake-full --manifest $MANIFEST --nodes 5 --confirm-cluster ewallet-dev --execute`; `cloud_lab.py verify --expect awake --manifest $MANIFEST`; `$P --mode preinstall`; record the `feast-online-redis` resourceVersion, `helm -n ml-platform history ewallet-serving`, the Feature API `secretKeyRef`, and every live release revision (`helm --kube-context $CTX list -A -a -o json > ~/ewallet-evidence/vault/$CID/helm-g1.json`; no expected numbers: they change between campaigns); baseline lookup and its G1 class (§4). `verify --expect awake` passes before cert-manager is available (≈3 min after the wake, seen in the rehearsal): rerun the preflight until `cert-manager-ready` is PASS | preinstall READY with `cert-manager-ready` PASS; G1 class `BASELINE_OK` or `BASELINE_DATA_UNAVAILABLE`; workloads healthy; baseline lookup recorded | Unhealthy platform or preflight BLOCKED/FAIL: stop, then sleep (§6) |
 | **G2 Vault infrastructure** | **[OWNER] approve Stage B mutations, and the PV `Retain` patch** | RB 2: namespace, certificate (wait Ready), `helm install vault … -f infra/kubernetes/vault/values-gke.yaml` (only that file; it carries the disabled PDB), NetworkPolicy, `vault-admin` SA; PVCs Bound; **`Retain` on both PVs before G3** | pod Running; PVCs Bound; PVs `Retain`; `kubectl -n ewallet-vault get pdb` returns none; Services ClusterIP only; `$V status` over HTTPS with the published CA: `initialized: false` | Certificate or TLS error: `helm uninstall vault` (no data yet), fix, retry |
 | **G3 Initialise** | **[OWNER-ONLY]** | RB 3: `$V init --keys-out $KEYDIR/vault-keys.json`; copy the file to the two offline media | `initialized: true`; key file 0600 outside the repo | Already initialised: **stop**, never initialise again |
 | **G4 Auth and policies** | **[OWNER] unseal** | RB 4: `unseal`, `status`, `configure --keys-file`, **`describe --keys-file` (capture E3 now: it needs the initial root)**, `operator-token`, `retire-root`, then the root probe `configure --keys-file` | `sealed: false`; `configure` lists `audit, kv, kubernetes-auth`, the policies (`eso-ewallet-agents, eso-ml-platform, feature-api, fraud-api, root-generation, secret-operator`) and roles (`eso-*`, `feature-api`, `fraud-api`, `vault-admin`); `operator_token_created: true, orphan: true`; `root_token_revoked: true`; the root probe fails with `returned 403`. No secret is read or written in G4 | Partial `configure`: re-run it (idempotent) before retiring root |
@@ -84,9 +84,9 @@ Campaign ID `vault-gke-<UTC timestamp>` (`$CID`). Working directory `~/ewallet-e
 | **G6 ESO** | included in G2 | RB 6: `vault-ca` ConfigMap (create, never apply over an existing one), ESO namespace, `helm install external-secrets … --wait`; `kubectl get clustersecretstore,clusterexternalsecret,pushsecret -A` | 3 deployments Ready; CRDs installed; none of those cluster-scoped objects | Install failed: `helm uninstall external-secrets` (nothing depends on it yet) |
 | **G7 Shadow sync** | included | RB 7: `kubectl create -f infra/kubernetes/external-secrets/ml-platform.yaml`; wait SecretStore and ExternalSecret Ready; `shadow_compare.sh` | `SHADOW_MATCH`, exit 0; `feast-online-redis` resourceVersion unchanged | Any other status: stop; the consumer is unchanged |
 | **G8 Consumer switch** | **[OWNER] approve the production release change** | `$P --mode consumer-switch` (must be READY); record the release revision; RB 8 `helm upgrade ewallet-serving … --reuse-values -f values-vault-eso.yaml` | rollout complete; Deployment references `feature-api-redis-vault`; no `EWALLET_VAULT_*` | Preflight not READY: do not upgrade. Readiness fails: RB 9 |
-| **G9 Business E2E** | included | the §4 lookup again, same fixture | verdict class per §4 | `REGRESSION_AFTER_MIGRATION`: RB 9 rollback, then stop |
-| **G10 Negative tests** | **[OWNER] approve the test objects** | §5 procedure | expected rejection reasons; no target Secret; no existing object touched | Any path readable that should not be: **stop**, RB 9, investigate |
-| **G11 Rollback drill** | **[OWNER] approve** | RB 9 rollback → lookup → RB 8 again → lookup | both lookups in the G1 class; Vault PVCs untouched | — |
+| **G9 Business E2E** | included | the §4 call with `GATE=g9`, same fixture | a §4 G9 class other than `REGRESSION_AFTER_MIGRATION` | 503/504/timeout: one retry after 30 s; then `REGRESSION_AFTER_MIGRATION`: RB 9 rollback, confirm the G1 class, stop |
+| **G10 Negative tests** | **[OWNER] approve the test objects** | §5: precheck, `create` from `negative-tests.yaml`, causes, E8a/E8b, label cleanup | three expected causes; three target Secrets NotFound; nothing left with the label; `feature-api-redis` still `SecretSynced` | A target Secret appears or a cause differs: **stop**, delete the test objects, RB 9, investigate |
+| **G11 Rollback drill** | **[OWNER] approve** | §4 *G11 rollback drill*: RB 9 → `g11-rollback` call → RB 8 → `g11-reupgrade` call; then §4 *Final state after G11* | rollback call in the G1 class, re-upgrade call in the G9 class; every final-state check holds; Vault PVCs untouched | re-upgrade fails: RB 9, confirm the G1 class, **`CAMPAIGN_B_FAILED_AT_G11`**, go to G12 |
 | **G12 Sleep** | **[OWNER] approve the guarded sleep, KEDA pause, and each `--also-approve` target for this `$CID`** | §6 sequence | `verify --expect sleep` passes; 0 VMs; Vault and ESO still installed; both PVCs Bound, PVs `Retain`; no LoadBalancer created | `SLEEP_BLOCKED`: report it; never add flags or targets without approval |
 
 An approved restart test (sealed → manual unseal → sync resumes) is optional evidence (O2). It
@@ -123,54 +123,127 @@ feature names. A lookup only reads Redis; it never writes. Assessment:
   so the materialized rows should survive sleeps.
 - **It cannot be confirmed while the cluster is asleep.** No materialization or other write is part of this campaign.
 
-**Call (G1, G9, G11)**, through a local port-forward, with the body saved in the campaign directory:
+**What the codes mean** ([`feast_online.py`](../../../ai_platform/inference/feast_online.py)): HTTP 424
+(`missing_feature`, `stale_feature`, `invalid_feature_timestamp`) only follows a successful Redis read
+that returned no or old values. Any Redis connection or authentication failure is 503
+(`feature_backend_error`), a timeout 504 (`feature_timeout`). `/health/ready` runs a real Redis read
+per feature view, so a wrong credential fails readiness. A credential problem therefore never
+appears as a 424.
+
+**Call (G1, G9, G11)**, the same fixture each time, through a local port-forward. `$GATE` is
+`g1`, `g9`, `g11-rollback` or `g11-reupgrade`. The body holds feature values from the synthetic
+dataset and error codes, never a credential:
 
 ```bash
-kubectl --context $CTX -n ml-platform port-forward svc/feature-api 18080:80 &
-curl -s -o lookup.json -w '%{http_code}\n' -H 'content-type: application/json' \
+kubectl --context $CTX -n ml-platform port-forward svc/feature-api 18080:80 >/dev/null 2>&1 &
+code=$(curl -sS --max-time 30 -o ~/ewallet-evidence/vault/$CID/lookup-$GATE.json -w '%{http_code}' \
+  -H 'content-type: application/json' \
   --data-binary @docs/evidence/edai2/keda/g5b_20261107T204930Z/validation/smoke/lookup-request.json \
-  http://127.0.0.1:18080/v1/features/lookup
-jq -c '{features: (.features | keys), oldest_feature_timestamp, error}' lookup.json
+  http://127.0.0.1:18080/v1/features/lookup); rc=$?
+ready=$(curl -sS --max-time 30 -o /dev/null -w '%{http_code}' http://127.0.0.1:18080/health/ready); rrc=$?
+jq -cn --arg g "$GATE" --arg c "$code" --argjson e "$rc" --arg r "$ready" --argjson re "$rrc" \
+  --slurpfile b ~/ewallet-evidence/vault/$CID/lookup-$GATE.json \
+  '{gate: $g, http: $c, curl_exit: $e, ready_http: $r, ready_curl_exit: $re,
+    features: (($b[0].features // {}) | keys), error_code: $b[0].error.code}' \
+  | tee -a ~/ewallet-evidence/vault/$CID/lookup-results.jsonl
 ```
 
-**G9 verdict classes** (exactly one; HTTP 424 is never a business success):
+(`--slurpfile` fails on an empty body; then record `curl_exit` and `http` by hand: that case is
+never a pass.)
+
+**G1 baseline class** (decides whether the campaign may continue):
+
+| G1 class | Condition | Next |
+|---|---|---|
+| `BASELINE_OK` | `curl_exit 0`, `http 200`, the 5 fixture feature names, `ready_http 200` | continue |
+| `BASELINE_DATA_UNAVAILABLE` | `curl_exit 0`, `http 424` with `error_code` `missing_feature`, `stale_feature` or `invalid_feature_timestamp`, and `ready_http 200` | continue; G9 can at most prove the Secret integration |
+| `BASELINE_UNHEALTHY` | anything else: 503, 504, another 5xx, 422, `curl_exit` ≠ 0 (timeout, no connection), `http 000`, or readiness ≠ 200 | **stop before G2**; nothing has changed yet; go to G12 |
+
+**G9 verdict classes** (exactly one; HTTP 424 is never a business success). A 503, 504, timeout or
+no response is retried once after 30 s; if it persists it is a regression, never a pass:
 
 | Class | Condition |
 |---|---|
-| `BUSINESS_LOOKUP_PASS` | G1 and G9 both return 200 with the same 5 feature names and a valid body (`features`, `oldest_feature_timestamp`, `correlation_id`) |
-| `SECRET_INTEGRATION_PASS_BUSINESS_LOOKUP_UNAVAILABLE` | G1 already returned 424, or another non-200 caused by data rather than credentials. G9 returns the same code, and `/health/ready` (which opens Redis with the credential) passes on the switched pod. The Secret integration is proven; a business lookup is not claimed |
-| `REGRESSION_AFTER_MIGRATION` | G9 differs from G1 for the worse (for example 200 → 424/500, readiness fails, Redis auth errors). Roll back (RB 9) and stop |
+| `BUSINESS_LOOKUP_PASS` | G1 `BASELINE_OK`, and G9 `curl_exit 0`, `http 200`, the same 5 feature names, `ready_http 200` |
+| `SECRET_INTEGRATION_PASS_BUSINESS_LOOKUP_UNAVAILABLE` | G1 `BASELINE_DATA_UNAVAILABLE`, and G9 the same 424 `error_code` with `ready_http 200` on the switched pod (readiness opens Redis with the new Secret). The Secret integration is proven; a business lookup is not claimed |
+| `REGRESSION_AFTER_MIGRATION` | anything else: worse than G1 (200 → 424), any 5xx, `curl_exit` ≠ 0, readiness ≠ 200. Roll back (RB 9), confirm the G1 class is back, then stop |
 
-## 5. G10 negative tests: no overwrite, no residue
+**G11 rollback drill.** Record the revision, roll back (RB 9), wait for the rollout, run the call
+with `GATE=g11-rollback`; it must give the G1 class. Then run RB 8 again (including
+`$P --mode consumer-switch`), wait for the rollout, and run the call with `GATE=g11-reupgrade`;
+it must give the G9 class. If the re-upgrade does not reach the G9 class: RB 9 again, confirm the
+G1 class on `feast-online-redis` (the safe state), record **`CAMPAIGN_B_FAILED_AT_G11`**, leave
+Vault and ESO installed, and go to G12. Never retry the switch without a diagnosis.
 
-All test objects are created, never applied, with label `ewallet.io/vault-campaign=$CID`, names
-prefixed `vault-neg-`, and synthetic values only. Each run deletes its objects by label afterwards.
+### Final state after G11 (READ-ONLY; must all hold before G12)
 
-1. **Precheck (READ-ONLY)** that none of these names exist:
-   - in `ml-platform`: `externalsecret/vault-neg-agent-path`, `secretstore/vault-neg-wrong-sa`,
-     `secretstore/vault-neg-wrong-aud`, and the Secrets with the same names;
-   - in `ewallet-agents`: `serviceaccount/eso-vault-reader`, `configmap/vault-ca`, `secretstore/vault`,
-     `externalsecret/agentgateway-client-key-vault`, `externalsecret/vault-neg-feature-path`,
-     `secret/agentgateway-client-key-vault`, `secret/vault-neg-feature-path`.
-   Any hit: stop. Existing Agent resources are never changed.
-2. Seed the staged agent path with a **new synthetic** key (RB 5, `openssl rand`), never the live
-   gateway key. Then create `ewallet-agents.yaml` and the `vault-ca` ConfigMap in `ewallet-agents`
-   with `kubectl create`, adding the campaign label.
-3. Cases and expected causes (`kubectl -n external-secrets logs deploy/external-secrets`):
+| Check | Command | Expected |
+|---|---|---|
+| Consumer | `kubectl --context $CTX -n ml-platform get deploy feature-api -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="EWALLET_REDIS_CONNECTION_STRING")].valueFrom.secretKeyRef.name}'` | `feature-api-redis-vault` |
+| Store and sync | `kubectl --context $CTX -n ml-platform get secretstore/vault externalsecret/feature-api-redis` | `Valid` / `SecretSynced`, Ready `True` |
+| Readiness and lookup | the §4 call with `GATE=final` | `ready_http 200`; the G9 class |
+| Existing Secret | `kubectl --context $CTX -n ml-platform get secret feast-online-redis -o jsonpath='{.metadata.resourceVersion}'` | equal to G1 |
+| No test objects | `kubectl --context $CTX -n ml-platform get externalsecret,secretstore,serviceaccount -l ewallet.io/vault-campaign=$CID` | `No resources found` |
+| Other releases | the command below | only `ml-platform/ewallet-serving` (three new revisions: G8, G11 rollback, G11 re-upgrade), `ewallet-vault/vault` and `external-secrets/external-secrets` |
 
-   | Case | Expected cause |
-   |---|---|
-   | `ml-platform` ExternalSecret for `agent-platform/agentgateway-client-key` | `permission denied` |
-   | `ewallet-agents` ExternalSecret for `feature-api/feast-redis` | `permission denied` |
-   | store in `ml-platform` with the `feature-api` SA | `service account name not authorized` |
-   | store in `ml-platform` with audience `kubernetes` | `invalid audience` |
-   | `kubectl -n ewallet-vault get svc` | ClusterIP only |
+```bash
+cd ~/ewallet-evidence/vault/$CID && helm --kube-context $CTX list -A -a -o json > helm-final.json
+jq -n --slurpfile a helm-g1.json --slurpfile b helm-final.json \
+  '[$a[0][], $b[0][]] | group_by(.namespace + "/" + .name)
+   | map(select(length != 2 or .[0].revision != .[1].revision)) | map(.[0].namespace + "/" + .[0].name)'
+```
 
-   Each must leave no target Secret.
-4. Cleanup:
-   `kubectl -n ml-platform delete externalsecret,secretstore -l ewallet.io/vault-campaign=$CID`,
-   then the same in `ewallet-agents`, plus its `serviceaccount,configmap`. Keep the staged
-   `ewallet-agents` store only if the owner wants it as evidence; it is opt-in.
+Any difference from the expected list or table: stop, record it, and explain it before G12.
+
+## 5. G10 negative tests: three cases, created and removed by label
+
+Campaign A proved six denial classes on GKE with synthetic values
+([report](../../evidence/edai2/vault/gke_rehearsal_vault-rehearsal-20261124T173156Z/README.md)). G10 repeats the
+three that matter for the real store, in `ml-platform`, with the committed template
+[`negative-tests.yaml`](../../../infra/kubernetes/external-secrets/negative-tests.yaml): a throwaway
+ServiceAccount `vault-neg-intruder`, SecretStores `vault-neg-wrong-sa` and `vault-neg-wrong-aud`,
+and ExternalSecrets `vault-neg-agent-path`, `vault-neg-wrong-sa` and `vault-neg-wrong-aud`. Every
+object carries `ewallet.io/vault-campaign=$CID`. Nothing is created in `ewallet-agents`; no existing
+object is changed; the production `feature-api` ServiceAccount is not used.
+
+| Case | ExternalSecret | Expected cause (ESO controller log) | Target Secret |
+|---|---|---|---|
+| Unauthorized path: the valid store `vault` asks for `agent-platform/agentgateway-client-key` | `vault-neg-agent-path` | `permission denied` | must not exist |
+| Wrong ServiceAccount: `vault-neg-intruder` logs in to role `eso-ml-platform` | `vault-neg-wrong-sa` | `service account name not authorized` | must not exist |
+| Wrong JWT audience: `eso-vault-reader` with audience `kubernetes` | `vault-neg-wrong-aud` | `invalid audience` | must not exist |
+
+```bash
+N="vault-neg-agent-path vault-neg-wrong-sa vault-neg-wrong-aud"
+# 1. Precheck (READ-ONLY): must print nothing
+for o in serviceaccount/vault-neg-intruder secretstore/vault-neg-wrong-sa secretstore/vault-neg-wrong-aud \
+         $(for n in $N; do echo externalsecret/$n secret/$n; done); do
+  kubectl --context $CTX -n ml-platform get $o -o name --ignore-not-found
+done
+# 2. Create (MUTATING, test objects only)
+sed "s/__CID__/$CID/g" infra/kubernetes/external-secrets/negative-tests.yaml | kubectl --context $CTX create -f -
+# 3. Each must fail, with its own cause, and leave no Secret
+for n in $N; do kubectl --context $CTX -n ml-platform wait --for=condition=Ready=False externalsecret/$n --timeout=120s; done
+logs=$(kubectl --context $CTX -n external-secrets logs deploy/external-secrets --since=15m)
+for pair in "vault-neg-agent-path:permission denied" "vault-neg-wrong-sa:service account name not authorized" \
+            "vault-neg-wrong-aud:invalid audience"; do
+  n=${pair%%:*}; want=${pair#*:}
+  got=$(grep -F "\"$n\"" <<<"$logs" | grep -oE 'permission denied|service account name not authorized|invalid audience' | sort -u | paste -sd,)
+  [ "$got" = "$want" ] && echo "$n: $want" || echo "$n: MISSING or WRONG cause (got: ${got:-none})"
+done
+kubectl --context $CTX -n ml-platform get secret $N          # three times NotFound
+# -> pause: E8a, E8b
+# 4. Cleanup (MUTATING): only this campaign's objects, then prove nothing is left
+kubectl --context $CTX -n ml-platform delete externalsecret,secretstore,serviceaccount -l ewallet.io/vault-campaign=$CID --wait=true
+kubectl --context $CTX -n ml-platform get externalsecret,secretstore,serviceaccount,secret -l ewallet.io/vault-campaign=$CID   # No resources found
+kubectl --context $CTX -n ml-platform get secret $N --ignore-not-found                                                         # nothing
+```
+
+PASS: the precheck prints nothing; each ExternalSecret reaches Ready `False`; the loop prints
+each name with exactly its expected cause (the log lines naming it contain no other cause); all three target Secrets are NotFound; cleanup
+leaves nothing with the label. **Any target Secret that appears, or a missing or different
+cause, is a failure:** capture it, delete the test objects, roll the consumer back (RB 9) and
+stop. An unrelated failure (for example Vault unreachable or sealed) never counts as a denial.
+The real `ExternalSecret/feature-api-redis` stays `SecretSynced` throughout; check it after cleanup.
 
 ## 6. Sleep (G12) and early stop
 
@@ -306,16 +379,17 @@ secret (entity IDs come from the synthetic dataset). Doc: VAULT.md *Feature API 
 
 **E8a Unauthorized access denied, from the controller log.** Before deleting the G10 objects:
 Console → Logging → *Logs Explorer*, last 30 minutes, query
-`resource.type="k8s_container" resource.labels.cluster_name="ewallet-dev" resource.labels.namespace_name="external-secrets" "vault-neg-agent-path"`.
-Expected: an ESO error line for `vault-neg-agent-path` with `permission denied` from Vault. The
-log names the path and role, never a token. PASS: the denial line for the case. Doc: VAULT.md
+`resource.type="k8s_container" resource.labels.cluster_name="ewallet-dev" resource.labels.namespace_name="external-secrets" "vault-neg-"`.
+Expected: ESO error lines for `vault-neg-agent-path` (`permission denied`), `vault-neg-wrong-sa`
+(`service account name not authorized`) and `vault-neg-wrong-aud` (`invalid audience`). The log
+names the path and role, never a token. PASS: each name with its own cause. Doc: VAULT.md
 *Namespace isolation*.
 
 **E8b Denied status and no target Secret.** Terminal:
 `kubectl --context $CTX -n ml-platform get externalsecret vault-neg-agent-path` (Ready `False`,
 `SecretSyncedError`) and `kubectl --context $CTX -n ml-platform get secret vault-neg-agent-path`
-(`NotFound`); optionally the same pair for `vault-neg-wrong-sa` and `vault-neg-wrong-aud`. PASS:
-failure status and NotFound. Doc: VAULT.md *Namespace isolation*.
+(`NotFound`), and the same pair for `vault-neg-wrong-sa` and `vault-neg-wrong-aud` (the objects
+of §5). PASS: three failure statuses and three NotFound. Doc: VAULT.md *Namespace isolation*.
 
 **E9a Back to zero nodes.** After G12: Console → Kubernetes Engine → Clusters → `ewallet-dev` →
 *Nodes*: node pool `cpu-pool`, 0 nodes. Optionally the terminal `cloud_lab.py verify --expect sleep`
