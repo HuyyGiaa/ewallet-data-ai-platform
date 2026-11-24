@@ -264,9 +264,6 @@ in the evidence report.
   30-minute cleanup reserve.
 - **DNS depends on Dynu.** Offline mode is proven by resolution, not by the provider's reply.
   Resolver caches may still hold the old address for the record's TTL after cleanup.
-- **Dangling-alert path.** The orchestrator's `ALERT.txt` text still names the removed runbook
-  path `docs/runbooks/edai2/EXTERNAL_GATEWAY_RUNBOOK.md` (`g3b_campaign.py`, cleanup alert). The
-  recovery steps are now in §7 of this report.
 - **Credential rotation.** Rotating the Basic Auth credential is a separate, approved Secret update
   followed by a gateway restart.
 - **Certificate renewal.** It needs issuance mode, and therefore a public port 80 during the
