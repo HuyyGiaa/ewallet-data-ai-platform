@@ -268,3 +268,93 @@ def test_single_replica_vault_has_no_disruption_budget():
     values = yaml.safe_load((ROOT / "infra/kubernetes/vault/values-gke.yaml").read_text())
     assert values["server"]["ha"]["replicas"] == 1
     assert values["server"]["ha"]["disruptionBudget"] == {"enabled": False}
+
+
+# ---- init: the key file exists before Vault initialises; unrecoverable windows are named, never hidden
+
+INIT_MATERIAL = {"keys_base64": ["share-1", "share-2", "share-3"], "root_token": "root-token-value"}
+
+
+def init_fake(tmp_path, *, initialise, after=False):
+    """sys/init answers with ``initialise``; seal-status reports ``after`` once init was attempted."""
+    state = {"attempted": False}
+    out = tmp_path / "vault-keys.json"
+
+    def seal(_):
+        return 200, {"initialized": after if state["attempted"] else False, "sealed": True}
+
+    def init(_):
+        state["attempted"] = True
+        assert out.exists() and out.stat().st_mode & 0o777 == 0o600   # created before Vault is asked
+        return initialise()
+    return Fake({("GET", "sys/seal-status"): seal, ("POST", "sys/init"): init}), out
+
+
+def test_init_stores_the_material_in_a_file_created_before_vault_initialises(tmp_path, monkeypatch, capsys):
+    fake, out = init_fake(tmp_path, initialise=lambda: (200, INIT_MATERIAL))
+    code, printed = run_cli(monkeypatch, capsys, fake, "init", "--keys-out", str(out))
+    assert code == 0 and json.loads(out.read_text()) == INIT_MATERIAL
+    assert "share-1" not in printed.out + printed.err and "root-token-value" not in printed.out + printed.err
+
+
+def test_init_refuses_an_existing_key_file_before_calling_vault(tmp_path, monkeypatch, capsys):
+    fake, out = init_fake(tmp_path, initialise=lambda: (200, INIT_MATERIAL))
+    out.write_text("{}")
+    with pytest.raises(FileExistsError):
+        run_cli(monkeypatch, capsys, fake, "init", "--keys-out", str(out))
+    assert ("POST", "sys/init") not in [(m, p) for m, p, _, _ in fake.calls]
+
+
+def test_init_rejected_by_an_uninitialised_vault_can_be_retried(tmp_path, monkeypatch, capsys):
+    fake, out = init_fake(tmp_path, initialise=lambda: (500, {"errors": ["boom"]}), after=False)
+    code, printed = run_cli(monkeypatch, capsys, fake, "init", "--keys-out", str(out))
+    assert code == 2 and "REFUSED vault_admin_failed" in printed.err and not out.exists()
+
+
+def test_a_lost_answer_after_vault_initialised_says_stop(tmp_path, monkeypatch, capsys):
+    def lost():
+        raise VaultError("vault_unreachable", "connection reset")
+    fake, out = init_fake(tmp_path, initialise=lost, after=True)
+    code, printed = run_cli(monkeypatch, capsys, fake, "init", "--keys-out", str(out))
+    assert code == 2 and "REFUSED vault_initialised_keys_not_stored" in printed.err
+    assert "never run init again" in printed.err and not out.exists()
+
+
+def test_a_failed_key_write_after_vault_answered_says_stop(tmp_path, monkeypatch, capsys):
+    fake, out = init_fake(tmp_path, initialise=lambda: (200, INIT_MATERIAL), after=True)
+
+    def disk_full(handle, material):
+        handle.close()
+        raise OSError(28, "No space left on device")
+    monkeypatch.setattr(cli, "_store", disk_full)
+    code, printed = run_cli(monkeypatch, capsys, fake, "init", "--keys-out", str(out))
+    assert code == 2 and "REFUSED vault_initialised_keys_not_stored" in printed.err
+    assert "share-1" not in printed.err and "root-token-value" not in printed.err
+
+
+# ---- describe: live configuration for evidence, read-only, no secret data
+
+def test_describe_reads_configuration_only(tmp_path, monkeypatch, capsys):
+    role = {"bound_service_account_names": ["eso-vault-reader"], "bound_service_account_namespaces": ["ml-platform"],
+            "audience": "vault", "token_policies": ["eso-ml-platform"], "token_ttl": 300, "token_max_ttl": 900,
+            "token_no_default_policy": True, "alias_name_source": "serviceaccount_uid"}
+    fake = Fake({
+        ("GET", "sys/mounts"): (200, {"data": {"ewallet/": {"type": "kv", "options": {"version": "2"}},
+                                               "sys/": {"type": "system"}, "cubbyhole/": {"type": "cubbyhole"}}}),
+        ("GET", "sys/auth"): (200, {"data": {"kubernetes/": {"type": "kubernetes"}, "token/": {"type": "token"}}}),
+        ("GET", "sys/audit"): (200, {"data": {"file/": {"type": "file"}}}),
+        ("GET", "auth/kubernetes/role?list=true"): (200, {"data": {"keys": ["eso-ml-platform"]}}),
+        ("GET", "auth/kubernetes/role/eso-ml-platform"): (200, {"data": role}),
+        ("GET", "sys/policies/acl?list=true"): (200, {"data": {"keys": ["default", "eso-ml-platform", "root"]}}),
+        ("GET", "sys/policies/acl/eso-ml-platform"): (200, {"data": {"policy": 'path "ewallet/data/feature-api/feast-redis" {}'}}),
+    })
+    code, printed = run_cli(monkeypatch, capsys, fake, "describe", "--keys-file", str(keys_file(tmp_path)))
+    shown = json.loads(printed.out)
+    assert code == 0
+    assert shown["secret_engines"] == {"ewallet/": {"type": "kv", "version": "2"}}
+    assert shown["kubernetes_roles"]["eso-ml-platform"]["audience"] == "vault"
+    assert "alias_name_source" not in shown["kubernetes_roles"]["eso-ml-platform"]
+    assert list(shown["acl_policies"]) == ["eso-ml-platform"]
+    assert {m for m, _, _, _ in fake.calls} == {"GET"}
+    assert not any(p.startswith("ewallet/") for _, p, _, _ in fake.calls)       # no secret path is read
+    assert "root-token-value" not in printed.out + printed.err

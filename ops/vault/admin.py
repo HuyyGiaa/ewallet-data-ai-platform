@@ -144,6 +144,37 @@ class VaultAdmin:
         self._require("DELETE", "sys/generate-root/attempt")
         raise VaultError("vault_generate_root_incomplete", "not enough unseal shares to generate a root token")
 
+    def describe(self, auth_mount: str) -> dict[str, Any]:
+        """Read the live configuration for evidence: engine types, auth methods, audit devices,
+        Kubernetes roles (bindings, audience, TTLs, policies) and ACL policy text.
+
+        Read-only, and no secret data: mounts, roles and policies hold configuration only, and
+        no secret path is requested. Needs a token that may read sys/ and the role endpoints
+        (the initial or a generated root token, before it is retired).
+        """
+        mounts = self._require("GET", "sys/mounts").get("data", {})
+        auths = self._require("GET", "sys/auth").get("data", {})
+        audits = self._require("GET", "sys/audit").get("data", {})
+        role_names = self._require("GET", f"auth/{auth_mount}/role?list=true").get("data", {}).get("keys", [])
+        policy_names = self._require("GET", "sys/policies/acl?list=true").get("data", {}).get("keys", [])
+        fields = ("bound_service_account_names", "bound_service_account_namespaces", "audience",
+                  "token_policies", "token_ttl", "token_max_ttl", "token_no_default_policy")
+        roles = {}
+        for name in sorted(role_names):
+            role = self._require("GET", f"auth/{auth_mount}/role/{name}").get("data", {})
+            roles[name] = {field: role.get(field) for field in fields}
+        policies = {name: self._require("GET", f"sys/policies/acl/{name}").get("data", {}).get("policy")
+                    for name in sorted(policy_names) if name not in ("root", "default")}
+        return {
+            "secret_engines": {path: {"type": m.get("type"), "version": (m.get("options") or {}).get("version")}
+                               for path, m in sorted(mounts.items())
+                               if m.get("type") not in ("system", "identity", "cubbyhole")},
+            "auth_methods": {path: a.get("type") for path, a in sorted(auths.items())},
+            "audit_devices": {path: a.get("type") for path, a in sorted(audits.items())},
+            "kubernetes_roles": roles,
+            "acl_policies": policies,
+        }
+
     def snapshot_path(self) -> str:
         """Return the Raft snapshot endpoint used for backups."""
         return f"{self._address}/v1/sys/storage/raft/snapshot"

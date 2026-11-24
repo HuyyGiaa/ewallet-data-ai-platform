@@ -37,11 +37,12 @@ class Cluster:
 
     def __init__(self, *, nodes=0, namespaces=("ml-platform",), crds=("certificates.cert-manager.io", "issuers.cert-manager.io"),
                  releases=None, live=LIVE, head=LIVE, overlay=DEPLOY % "feature-api-redis-vault", objects=None,
-                 shadow=(0, "SHADOW_MATCH\n"), fail=(), invalid=()):
+                 shadow=(0, "SHADOW_MATCH\n"), fail=(), invalid=(), pvs=(), cluster_objects=()):
         self.calls, self.nodes, self.namespaces, self.crds = [], nodes, namespaces, crds
         self.releases = releases if releases is not None else [
             {"name": "ewallet-serving", "namespace": "ml-platform", "revision": "3", "status": "deployed"}]
         self.live, self.head, self.overlay, self.shadow, self.fail, self.invalid = live, head, overlay, shadow, fail, invalid
+        self.pvs, self.cluster_objects = pvs, cluster_objects
         self.objects = objects if objects is not None else {"secret feast-online-redis": secret("feast-online-redis")}
 
     def __call__(self, argv):
@@ -64,6 +65,10 @@ class Cluster:
             return 0, json.dumps(self.releases)
         if "get pvc" in text:
             return items([])
+        if "get pv " in f"{text} ":
+            return items(list(self.pvs))
+        if "get clusterrole," in text:
+            return items(list(self.cluster_objects))
         if "get deploy -n cert-manager" in text or "get deploy -n external-secrets" in text:
             return items([{"metadata": {"name": f"d{i}"}, "status": {"availableReplicas": 1}} for i in range(3)])
         if "get storageclass" in text:
@@ -90,6 +95,11 @@ def run(tmp_path, cluster, mode="preinstall"):
     output = json.dumps(gates)
     assert VALUE not in output and B64 not in output
     return {g["gate"]: g for g in gates}, pf.verdict(gates)
+
+
+# A Retained Vault disk left after its PVC and namespace were deleted.
+RELEASED_PV = {"metadata": {"name": "pvc-0123"}, "status": {"phase": "Released"},
+               "spec": {"claimRef": {"namespace": "ewallet-vault", "name": "data-vault-0"}}}
 
 
 def switch_ready(**changes):
@@ -126,7 +136,12 @@ def test_preinstall_on_the_asleep_clean_cluster_is_ready_with_pod_checks_not_che
     (Cluster(head=DEPLOY % "something-else"), "serving-no-drift"),
     (Cluster(overlay=(DEPLOY % "feature-api-redis-vault").replace("connection_string", "other_key")), "serving-overlay-scope"),
     (Cluster(releases=[]), "serving-release"),
-], ids=["prior-namespace", "prior-crds", "chart-drift", "overlay-too-wide", "no-release"])
+    (Cluster(namespaces=("ml-platform", "vault-rehearsal")), "no-prior-vault-eso-namespaces"),
+    (Cluster(pvs=[RELEASED_PV]), "no-prior-vault-volumes"),
+    (Cluster(cluster_objects=[{"kind": "ClusterRoleBinding", "metadata": {"name": "vault-server-binding"}}]),
+     "no-prior-chart-cluster-objects"),
+], ids=["prior-namespace", "prior-crds", "chart-drift", "overlay-too-wide", "no-release",
+        "rehearsal-namespace-left", "retained-vault-pv", "chart-cluster-object-left"])
 def test_preinstall_blocking_conditions(tmp_path, cluster, gate):
     gates, result = run(tmp_path, cluster)
     assert gates[gate]["status"] == "BLOCKED" and result["verdict"] == "VAULT_GKE_PREFLIGHT_BLOCKED"
@@ -137,6 +152,8 @@ def test_preinstall_blocking_conditions(tmp_path, cluster, gate):
     ("get namespaces", ["no-prior-vault-eso-namespaces"]),
     ("get crd", ["no-prior-eso-crds", "cert-manager-crds"]),
     ("get pvc", ["no-prior-vault-data"]),
+    ("get pv -o", ["no-prior-vault-volumes"]),
+    ("get clusterrole,", ["no-prior-chart-cluster-objects"]),
     (" list -A", ["no-prior-vault-eso-releases", "serving-release"]),
     ("get manifest", ["serving-no-drift", "serving-overlay-scope"]),
     ("get values", ["serving-no-drift", "serving-overlay-scope"]),
@@ -218,3 +235,12 @@ def test_every_command_is_read_only_and_pinned(tmp_path, mode, cluster):
         assert verb in ("version", "get", "list", "template"), argv
         if verb != "template":
             assert "gke_ctx" in argv and "/kubeconfig" in argv, argv
+
+
+def test_unrelated_volumes_and_cluster_objects_do_not_block(tmp_path):
+    other = {"metadata": {"name": "pvc-redis"}, "status": {"phase": "Bound"},
+             "spec": {"claimRef": {"namespace": "feature-store", "name": "data-redis-0"}}}
+    unclaimed = {"metadata": {"name": "pv-static"}, "status": {"phase": "Available"}, "spec": {}}
+    gates, result = run(tmp_path, Cluster(pvs=[other, unclaimed]))
+    assert gates["no-prior-vault-volumes"]["status"] == "PASS" and gates["no-prior-chart-cluster-objects"]["status"] == "PASS"
+    assert result["verdict"] == "VAULT_GKE_PREFLIGHT_READY"

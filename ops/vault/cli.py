@@ -32,14 +32,29 @@ DEFAULT_CONFIG = REPO_ROOT / "infra/kubernetes/vault/bootstrap.json"
 IN_CLUSTER_API = "https://kubernetes.default.svc"
 
 
-def write_keys_file(path: Path, material: dict[str, object]) -> None:
-    """Create the key file exclusively, refusing any path inside the repository."""
+def open_keys_file(path: Path):
+    """Create the key file exclusively (mode 0600) and return it open for writing.
+
+    Refuses any path inside the repository and any existing file.
+    """
     resolved = path.resolve()
     if resolved.is_relative_to(REPO_ROOT):
         raise VaultError("vault_keys_location", "key file must be outside the repository")
     descriptor = os.open(resolved, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+    return os.fdopen(descriptor, "w", encoding="utf-8")
+
+
+def _store(handle, material: dict[str, object]) -> None:
+    """Write JSON to an open key file and force it to disk before returning."""
+    with handle:
         json.dump(material, handle)
+        handle.flush()
+        os.fsync(handle.fileno())
+
+
+def write_keys_file(path: Path, material: dict[str, object]) -> None:
+    """Create the key file exclusively, refusing any path inside the repository."""
+    _store(open_keys_file(path), material)
 
 
 def read_keys_file(path: Path) -> dict[str, object]:
@@ -79,16 +94,51 @@ def cmd_status(args: argparse.Namespace) -> int:
     return 0
 
 
+STOP_NEVER_REINIT = "STOP: never run init again over this Raft data (runbook step 3, recovery)"
+
+
 def cmd_init(args: argparse.Namespace) -> int:
-    """Initialise Vault and store the material in the key file."""
+    """Initialise Vault and store the material in the key file.
+
+    The key file is created (exclusive, 0600, outside the repository) and held open before
+    Vault is asked to initialise, so the shares go into a file that already exists and are
+    forced to disk before success is reported. Two cases cannot be repaired by any client and
+    are reported as such: the write fails after Vault answered, or the answer is lost after
+    Vault initialised. Both leave an initialised Vault without usable shares.
+    """
     admin = admin_for(args)
     if admin.seal_status().get("initialized"):
         raise VaultError("vault_already_initialized", "Vault is already initialised")
-    write_keys_file(args.keys_out, {})
-    args.keys_out.unlink()
-    material = admin.initialise(shares=args.shares, threshold=args.threshold)
-    write_keys_file(args.keys_out, material)
+    handle = open_keys_file(args.keys_out)
+    try:
+        material = admin.initialise(shares=args.shares, threshold=args.threshold)
+    except Exception as error:
+        handle.close()
+        args.keys_out.unlink()          # empty placeholder: no material was received
+        try:
+            initialised = admin.seal_status().get("initialized")
+        except Exception:
+            raise VaultError("vault_init_outcome_unknown",
+                             f"init failed ({error}) and the seal status is unreadable: "
+                             "check `status` before any retry") from error
+        if initialised:
+            raise VaultError("vault_initialised_keys_not_stored",
+                             f"Vault IS initialised but no key material was received ({error}). "
+                             f"{STOP_NEVER_REINIT}") from error
+        raise
+    try:
+        _store(handle, material)
+    except OSError as error:
+        raise VaultError("vault_initialised_keys_not_stored",
+                         f"Vault IS initialised but the key file could not be written "
+                         f"({error.strerror}). {STOP_NEVER_REINIT}") from error
     print(json.dumps({"initialized": True, "shares": args.shares, "threshold": args.threshold}))
+    return 0
+
+
+def cmd_describe(args: argparse.Namespace) -> int:
+    """Print the live engines, auth methods, audit devices, roles and policies (no secret data)."""
+    print(json.dumps(admin_for(args, token=_root_token(args)).describe(args.auth_mount), indent=1))
     return 0
 
 
@@ -224,6 +274,11 @@ def build_parser() -> argparse.ArgumentParser:
             command.add_argument("--key", required=True)
             command.add_argument("--stdin", action="store_true")
         command.set_defaults(run=handler)
+    describe = sub.add_parser("describe")
+    describe.add_argument("--keys-file", type=Path)
+    describe.add_argument("--token-file", type=Path)
+    describe.add_argument("--auth-mount", default="kubernetes")
+    describe.set_defaults(run=cmd_describe)
     revoke = sub.add_parser("revoke-role")
     revoke.add_argument("--keys-file", type=Path)
     revoke.add_argument("--token-file", type=Path)

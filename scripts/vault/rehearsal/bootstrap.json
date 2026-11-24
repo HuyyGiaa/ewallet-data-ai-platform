@@ -1,0 +1,20 @@
+{
+  "kv_mount": "ewallet",
+  "audit_file": "/vault/audit/audit.log",
+  "kubernetes_auth_mount": "kubernetes",
+  "token_audience": "vault",
+  "policies": {
+    "eso-vault-rehearsal": "scripts/vault/rehearsal/eso-vault-rehearsal.hcl"
+  },
+  "roles": {
+    "eso-vault-rehearsal": {
+      "bound_service_account_names": ["eso-vault-reader"],
+      "bound_service_account_namespaces": ["vault-rehearsal"],
+      "audience": "vault",
+      "token_policies": ["eso-vault-rehearsal"],
+      "token_ttl": "5m",
+      "token_max_ttl": "15m",
+      "token_no_default_policy": true
+    }
+  }
+}

@@ -37,6 +37,10 @@ OVERLAY = CHART / "values-vault-eso.yaml"
 SHADOW = ROOT / "scripts/vault/shadow_compare.sh"
 PENDING = "RUNTIME_CHECK_PENDING_APPROVED_WAKE"
 QUERY_FAILED, INVALID = "QUERY_FAILED", "DATA_INVALID"
+# ewallet-vault holds Vault itself; vault-rehearsal is the technical rehearsal's consumer namespace
+# (docs/runbooks/edai2/VAULT_GKE_REHEARSAL.md). Anything left in either blocks a fresh install.
+VAULT_NAMESPACES = ("ewallet-vault", "vault-rehearsal")
+CLUSTER_KINDS = "clusterrole,clusterrolebinding,validatingwebhookconfiguration,mutatingwebhookconfiguration"
 Runner = Callable[[list[str]], tuple[int, str]]
 
 
@@ -175,9 +179,9 @@ class Preflight:
     def preinstall(self) -> None:
         def namespaces():
             clash = sorted({n["metadata"]["name"] for n in self.items("namespaces", "get", "namespaces")}
-                           & {"ewallet-vault", "external-secrets"})
+                           & {*VAULT_NAMESPACES, "external-secrets"})
             return (", ".join(clash) + " present") if clash else "confirmed absent", "BLOCKED" if clash else "PASS"
-        self.guarded("no-prior-vault-eso-namespaces", "ewallet-vault and external-secrets absent", namespaces)
+        self.guarded("no-prior-vault-eso-namespaces", "ewallet-vault, external-secrets and vault-rehearsal absent", namespaces)
 
         def crds():
             names = {c["metadata"]["name"] for c in self.items("CRDs", "get", "crd")}
@@ -196,6 +200,21 @@ class Preflight:
                            if "vault" in p["metadata"]["name"] or p["metadata"]["namespace"] == "ewallet-vault")
             return (", ".join(found) + " present") if found else "confirmed absent", "BLOCKED" if found else "PASS"
         self.guarded("no-prior-vault-data", "no Vault PVC (no Raft data to adopt)", pvcs)
+
+        def volumes():
+            # A Retained PV outlives its PVC and namespace (phase Released): still a disk with data.
+            found = sorted(f"{p['metadata']['name']} ({p['spec']['claimRef']['namespace']}, {p.get('status', {}).get('phase')})"
+                           for p in self.items("PVs", "get", "pv")
+                           if (p["spec"].get("claimRef") or {}).get("namespace") in VAULT_NAMESPACES)
+            return (", ".join(found) + " present") if found else "confirmed absent", "BLOCKED" if found else "PASS"
+        self.guarded("no-prior-vault-volumes", "no PersistentVolume claimed from ewallet-vault or vault-rehearsal, any phase", volumes)
+
+        def chart_cluster_objects():
+            found = sorted(f"{o['kind']}/{o['metadata']['name']}" for o in self.items(
+                "chart cluster objects", "get", CLUSTER_KINDS, "-l", "app.kubernetes.io/instance in (vault,external-secrets)"))
+            return (f"{len(found)} present: " + ", ".join(found[:4])) if found else "confirmed absent", "BLOCKED" if found else "PASS"
+        self.guarded("no-prior-chart-cluster-objects", "no ClusterRole, binding or webhook from a vault or external-secrets release",
+                     chart_cluster_objects)
 
         def cert_manager_crds():
             names = getattr(self, "crd_names", None)
