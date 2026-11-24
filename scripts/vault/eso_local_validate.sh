@@ -318,8 +318,11 @@ record vault-configure "$(cat "$work/configure.json")"
 # Token lifecycle: orphan secret-operator token, then the initial root token is revoked.
 record operator-token-created "$(vault operator-token --keys-file "$keys" --token-out "$operator")"
 record root-token-retired "$(vault retire-root --keys-file "$keys")"
-if vault versions --keys-file "$keys" --path feature-api/feast-redis >/dev/null 2>&1; then fail root-token-rejected "root token still works"; fi
-record root-token-rejected '{"result": "denied"}'
+# Probe with an idempotent admin call: a valid root would succeed; only a revoked one gets 403.
+# (A metadata read of a not-yet-written path would fail with 404 even for a valid token.)
+if vault configure --keys-file "$keys" >/dev/null 2>"$work/root-probe.err"; then fail root-token-rejected "root token still works"; fi
+grep -q 'returned 403' "$work/root-probe.err" || fail root-token-rejected "unexpected error: $(cut -c1-120 "$work/root-probe.err")"
+record root-token-rejected '{"result": "denied", "http_status": 403, "probe": "configure"}'
 if vault revoke-role --token-file "$operator" --role fraud-api >/dev/null 2>&1; then fail operator-cannot-administer "operator changed a role"; fi
 record operator-token-cannot-administer '{"result": "denied", "attempt": "delete auth role"}'
 record vault-tls-verifies "$(curl -s --cacert "$work/ca.crt" -o /dev/null -w '{"https_status": %{http_code}, "ssl_verify_result": %{ssl_verify_result}}' "https://127.0.0.1:$PORT/v1/sys/health")"
@@ -639,8 +642,9 @@ record operator-token-short-ttl "$(vault operator-token --token-file "$admin" --
 record operator-token-replacement "$(vault operator-token --token-file "$admin" --token-out "$work/operator-new.json")"
 record admin-root-retired "$(vault retire-root --token-file "$admin")"
 [ -f "$admin" ] || fail admin-root-rejected "no generated root token to test"
-if vault configure --token-file "$admin" >/dev/null 2>&1; then fail admin-root-rejected "generated root still works"; fi
-record admin-root-rejected '{"result": "denied"}'
+if vault configure --token-file "$admin" >/dev/null 2>"$work/admin-probe.err"; then fail admin-root-rejected "generated root still works"; fi
+grep -q 'returned 403' "$work/admin-probe.err" || fail admin-root-rejected "unexpected error: $(cut -c1-120 "$work/admin-probe.err")"
+record admin-root-rejected '{"result": "denied", "http_status": 403, "probe": "configure"}'
 sleep 25
 if vault versions --token-file "$work/operator-short.json" --path feature-api/feast-redis >/dev/null 2>&1; then
   fail operator-token-expired "an expired operator token still works"

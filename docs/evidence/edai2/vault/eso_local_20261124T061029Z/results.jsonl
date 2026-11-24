@@ -1,0 +1,64 @@
+{"step":"vault-no-disruption-budget","pdbs_in_vault_namespace":0}
+{"step":"vault-status-uninitialised","initialized":false,"sealed":true,"t":0,"n":0,"version":"2.0.4"}
+{"step":"vault-init","initialized":true,"shares":3,"threshold":2}
+{"step":"vault-unseal","sealed":false}
+{"step":"vault-initialised-and-unsealed","initialized":true,"sealed":false,"t":2,"n":3,"version":"2.0.4"}
+{"step":"vault-configure","applied":["audit","kv","kubernetes-auth","eso-ewallet-agents","eso-ml-platform","feature-api","fraud-api","root-generation","secret-operator","eso-ewallet-agents","eso-ml-platform","feature-api","fraud-api","vault-admin"]}
+{"step":"operator-token-created","operator_token_created":true,"policies":["secret-operator"],"ttl":"720h","orphan":true}
+{"step":"root-token-retired","root_token_revoked":true}
+{"step":"root-token-rejected","result":"denied","http_status":403,"probe":"configure"}
+{"step":"operator-token-cannot-administer","result":"denied","attempt":"delete auth role"}
+{"step":"vault-tls-verifies","https_status":200,"ssl_verify_result":0}
+{"step":"vault-tls-wrong-ca-rejected","result":"denied"}
+{"step":"vault-kv-seeded","current_version":1,"updated_time":"2026-11-24T06:10:57.347240888Z"}
+{"step":"eso-ready","deployments":[{"name":"external-secrets","ready":1},{"name":"external-secrets-cert-controller","ready":1},{"name":"external-secrets-webhook","ready":1}],"image":"ghcr.io/external-secrets/external-secrets:v2.14.0@sha256:10608eb53e636e744903d5f3657a4d9c44e28d9d9c181b73e07bc7dd2e6884dc"}
+{"step":"secretstore-ready","store":"vault","ready":"True","reason":"Valid"}
+{"step":"externalsecret-synced","condition":"True SecretSynced","target":"feature-api-redis-vault","keys":["connection_string"],"owner":"ExternalSecret/feature-api-redis","value_sha256_prefix":"5879b2e13530","matches_vault":true}
+{"step":"legacy-secret-untouched","secret":"feast-online-redis","resource_version_unchanged":true,"owner":"none"}
+{"step":"shadow-compare","equal_values":"SHADOW_MATCH","absent_shadow":"SHADOW_SHADOW_SECRET_MISSING"}
+{"step":"feast-materialized-through-eso-secret","result":"materialized","feature_names":["user_behavior__user_tx_count_5m","user_behavior__user_tx_count_1h","user_behavior__user_tx_count_24h"]}
+{"step":"feature-api-rendered-with-overlay","secret_ref":{"key":"connection_string","name":"feature-api-redis-vault"},"direct_vault_env":[]}
+{"step":"feature-api-lookup-eso-secret","http_status":200,"features_returned":3,"readiness":"ready (Feast registry and Redis reached)"}
+{"step":"rollback-to-existing-secret","secret_ref":"feast-online-redis","http_status":200}
+{"step":"switch-forward-again","secret_ref":"feature-api-redis-vault","http_status":200}
+{"step":"neg-missing-vault-secret","result":"denied","condition":"False SecretSyncedError","error_class":"vault-secret-missing","expected":true,"target_secret":"absent"}
+{"step":"agents-shadow-secret-synced","namespace":"ewallet-agents","target":"agentgateway-client-key-vault","consumers":0,"matches_vault":true}
+{"step":"neg-ml-platform-reads-fraud-api-path","result":"denied","condition":"False SecretSyncedError","error_class":"vault-permission-denied","expected":true,"target_secret":"absent"}
+{"step":"neg-ml-platform-reads-agent-path","result":"denied","condition":"False SecretSyncedError","error_class":"vault-permission-denied","expected":true,"target_secret":"absent"}
+{"step":"neg-agents-reads-feature-api-path","result":"denied","condition":"False SecretSyncedError","error_class":"vault-permission-denied","expected":true,"target_secret":"absent"}
+{"step":"neg-agents-reader-uses-ml-platform-role","result":"denied","condition":"False SecretSyncedError","error_class":"role-bound-to-other-namespace","expected":true,"target_secret":"absent"}
+{"step":"neg-application-service-account","result":"denied","condition":"False SecretSyncedError","error_class":"service-account-not-bound-to-role","expected":true,"target_secret":"absent"}
+{"step":"neg-wrong-token-audience","result":"denied","condition":"False SecretSyncedError","error_class":"token-audience-rejected","expected":true,"target_secret":"absent"}
+{"step":"neg-untrusted-ca","result":"denied","condition":"False SecretSyncedError","error_class":"tls-untrusted-ca","expected":true,"target_secret":"absent"}
+{"step":"neg-wrong-auth-mount","result":"denied","condition":"False SecretSyncedError","error_class":"vault-login-denied","expected":true,"target_secret":"absent"}
+{"step":"neg-missing-property","result":"denied","condition":"False SecretSyncedError","error_class":"vault-key-missing","expected":true,"target_secret":"absent"}
+{"step":"neg-invalid-secretstore-rejected","result":"rejected at admission","error":"Unsupported value: \"v3\": supported values: \"v1\""}
+{"step":"neg-consumer-missing-target-secret","result":"not started","reason":"CreateContainerConfigError"}
+{"step":"vault-network-policy","listed_pod_exit":0,"unlisted_pod_exit":1,"enforced":true}
+{"step":"rotate-vault","path":"feature-api/feast-redis","version":2}
+{"step":"rotate-eso-synced","vault_version":2,"target_value_sha256_prefix":"ad3fabfb60a7","matches_new_version":true}
+{"step":"shadow-compare-after-rotation","status":"SHADOW_MISMATCH","note":"feast-online-redis was not rotated"}
+{"step":"rotate-consumer-uses-new-credential","restart":"rollout restart","http_status":200}
+{"step":"vault-unavailable","externalsecret":"False SecretSyncedError","error_class":"vault-unreachable","retained_secret_sha256_prefix":"ad3fabfb60a7","note":"Secret retained; ESO is NOT syncing"}
+{"step":"vault-unavailable-consumer-restart","http_status":200,"secret_source":"retained Kubernetes Secret"}
+{"step":"vault-restart-is-sealed","initialized":true,"sealed":true,"t":2,"n":3,"version":"2.0.4"}
+{"step":"sync-while-sealed","externalsecret":"False SecretSyncedError","error_class":"vault-sealed"}
+{"step":"vault-manual-unseal","sealed":false}
+{"step":"vault-data-persisted","current_version":2}
+{"step":"eso-sync-resumed","externalsecret":"True SecretSynced","matches_version_2":true}
+{"step":"generate-root-unauthenticated-rejected","result":"denied","http_status":403}
+{"step":"generate-root-operator-token-rejected","result":"denied"}
+{"step":"admin-login-wrong-account-rejected","result":"denied","account":"ml-platform/eso-vault-reader"}
+{"step":"admin-login","logged_in":true,"role":"vault-admin"}
+{"step":"admin-login-limited-to-root-generation","configure":"denied","secret_metadata":"denied"}
+{"step":"generate-root-below-threshold-rejected","result":"incomplete","shares":1,"threshold":2,"attempt":"cancelled"}
+{"step":"admin-generate-root","root_token_generated":true,"revoke_with":"retire-root --token-file"}
+{"step":"admin-reconfigure","applied":["audit","kv","kubernetes-auth","eso-ewallet-agents","eso-ml-platform","feature-api","fraud-api","root-generation","secret-operator","eso-ewallet-agents","eso-ml-platform","feature-api","fraud-api","vault-admin"]}
+{"step":"operator-token-short-ttl","operator_token_created":true,"policies":["secret-operator"],"ttl":"20s","orphan":true}
+{"step":"operator-token-replacement","operator_token_created":true,"policies":["secret-operator"],"ttl":"720h","orphan":true}
+{"step":"admin-root-retired","root_token_revoked":true}
+{"step":"admin-root-rejected","result":"denied","http_status":403,"probe":"configure"}
+{"step":"operator-token-expired-rejected","result":"denied","ttl":"20s"}
+{"step":"operator-token-replacement-works","current_version":2}
+{"step":"operator-token-still-valid","current_version":2}
+{"step":"vault-audit-log","lines":512,"kubernetes_login_entries":128,"plaintext_secret_matches":0}

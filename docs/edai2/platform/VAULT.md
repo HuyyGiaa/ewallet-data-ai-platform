@@ -326,6 +326,11 @@ removed afterwards.
 | Seal and persistence | Restart → sealed; sync fails with cause *sealed*; manual unseal → version 2 and the operator token still present from the PVC → sync resumed |
 | Audit | 528 lines, 132 Kubernetes logins, 0 plaintext matches of any synthetic value |
 
+A follow-up run, [`eso_local_20261124T061029Z`](../../evidence/edai2/vault/eso_local_20261124T061029Z/results.jsonl)
+(64/64, OpenSSL CA), checks the retired root tokens with an idempotent `configure` that must fail with
+HTTP 403. The earlier probe, a metadata read of a path not yet written, could not tell a revoked token from
+a missing path.
+
 Each negative step passes only if ESO reported the expected cause. The cause comes from the
 controller log, because ESO's events are generic. An unreachable Vault, or any other unrelated
 failure, therefore fails the step instead of passing as an authorization test. Earlier runs are

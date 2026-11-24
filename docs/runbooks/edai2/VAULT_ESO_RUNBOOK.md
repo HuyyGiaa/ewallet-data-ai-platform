@@ -31,12 +31,17 @@ OP=$KEYDIR/operator-token.json               # secret-operator token, created in
 
 ## 1. Prerequisites (READ-ONLY)
 
-Run the committed preflight first. It checks every item below that can be checked, and runs only read-only commands:
+Run the committed preflight first. It checks every item below that can be checked, and runs
+only read-only commands. A query that fails or returns unreadable data is FAIL, never PASS:
 
 ```bash
-python3 scripts/vault/gke_preflight.py --kubeconfig $KUBECONFIG --context $CTX --out <campaign-dir>/preflight
-# last line: {"verdict": "VAULT_GKE_PREFLIGHT_READY", "blocking": [], "not_checked": [...]}
+python3 scripts/vault/gke_preflight.py --mode preinstall --kubeconfig $KUBECONFIG --context $CTX --out <campaign-dir>/preflight
+# last line: {"mode": "preinstall", "verdict": "VAULT_GKE_PREFLIGHT_READY", "blocking": [], "not_checked": [...]}
 ```
+
+Before the consumer switch (step 8), run `--mode consumer-switch` instead. That mode expects Vault
+and ESO to exist, and checks the synced ExternalSecret, its ESO-owned target, `SHADOW_MATCH`, the
+current Feature API, and the release drift and overlay scope.
 
 It refuses (BLOCKED) if an earlier Vault or ESO namespace, CRD, release or PVC exists, or if
 the `ewallet-serving` release differs from the repository chart. It also refuses if the overlay
@@ -75,15 +80,39 @@ kubectl --context $CTX -n ewallet-vault get secret vault-ca -o jsonpath='{.data.
 $V status        # READ-ONLY: {"initialized": false, "sealed": true, ...}
 ```
 
-`standard-rwo` deletes a disk when its PVC is deleted (`reclaimPolicy: Delete`). Recommended,
-with owner approval: keep the two Vault disks even if their PVCs are deleted by mistake
+**PersistentVolume retention (recommended, owner approval, before step 3).** `standard-rwo` has
+`reclaimPolicy: Delete`: deleting a Vault PVC, or the `ewallet-vault` namespace, deletes the
+Persistent Disk and every secret on it. Set both Vault PVs to `Retain` while they are still empty
 (**MUTATING**, reversible):
 
 ```bash
+kubectl --context $CTX -n ewallet-vault get pvc -o custom-columns=PVC:.metadata.name,PV:.spec.volumeName   # READ-ONLY: record both PV names
 for pv in $(kubectl --context $CTX -n ewallet-vault get pvc -o jsonpath='{.items[*].spec.volumeName}'); do
   kubectl --context $CTX patch pv "$pv" -p '{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}'
 done
+kubectl --context $CTX get pv -o custom-columns=PV:.metadata.name,RECLAIM:.spec.persistentVolumeReclaimPolicy,CLAIM:.spec.claimRef.name | grep vault-0   # Retain, Retain
 ```
+
+- **Protects against:** deleting a Vault PVC or the namespace (including `kubectl delete ns` and
+  StatefulSet PVC cleanup). The PV becomes `Released` and the disk stays.
+- **Does not protect against:**
+  - deleting the disk itself (`gcloud compute disks delete`, the console, project deletion or the
+    end of the free trial);
+  - deleting the PV object; the disk still remains then, but must be re-imported;
+  - data loss inside Vault (`kv delete`/`destroy`, a wrong `put`);
+  - corruption;
+  - losing the unseal shares: the disk is useless without 2 of them.
+- **Cost:** a retained disk keeps costing money until it is deleted on purpose.
+- **Recovery of a Released PV** (owner approval). Make it bindable again, then recreate the PVC with
+  the same name and `volumeName`, so `vault-0` attaches it:
+  `kubectl --context $CTX patch pv <pv> --type json -p '[{"op":"remove","path":"/spec/claimRef"}]'`,
+  then apply a PVC `data-vault-0` (or `audit-vault-0`) in `ewallet-vault` with `storageClassName:
+  standard-rwo`, the original size and `volumeName: <pv>`. If the PV object itself was deleted,
+  create a static PV whose `csi.volumeHandle` is the disk's
+  `projects/<project>/zones/asia-southeast1-b/disks/<disk>`, recorded with the PV names above.
+- **Permanent deletion** needs its own owner decision, after a Raft snapshot: delete the PV, then
+  the disk (`gcloud compute disks delete <disk> --zone asia-southeast1-b`). Never as part of a
+  sleep or a rollback.
 
 The readiness probe treats sealed and uninitialised as Ready (`sealedcode=204&uninitcode=204`).
 Without that, the port-forward needed for `init` could never open. **Pod Ready therefore does
@@ -120,7 +149,7 @@ Then replace the root token with the scoped operator token, and revoke root:
 ```bash
 $V operator-token --keys-file $KEYDIR/vault-keys.json --token-out $OP   # orphan, policy secret-operator, TTL 720h
 $V retire-root --keys-file $KEYDIR/vault-keys.json                      # {"root_token_revoked": true}
-$V versions --keys-file $KEYDIR/vault-keys.json --path feature-api/feast-redis   # must now fail: REFUSED vault_admin_failed
+$V configure --keys-file $KEYDIR/vault-keys.json    # must now fail with "returned 403" (idempotent if root were still valid)
 ```
 
 `configure` applies [bootstrap.json](../../../infra/kubernetes/vault/bootstrap.json) idempotently:
@@ -166,7 +195,7 @@ ESO processes only namespaced `SecretStore`s. Cluster-wide stores and PushSecret
 ESO creates a **new** Secret. The Feature API still reads `feast-online-redis`.
 
 ```bash
-kubectl --context $CTX apply -f infra/kubernetes/external-secrets/ml-platform.yaml
+kubectl --context $CTX create -f infra/kubernetes/external-secrets/ml-platform.yaml   # create: fails rather than overwrites
 kubectl --context $CTX -n ml-platform wait --for=condition=Ready secretstore/vault --timeout=120s
 kubectl --context $CTX -n ml-platform wait --for=condition=Ready externalsecret/feature-api-redis --timeout=120s
 ```
@@ -190,6 +219,7 @@ exits 1: `SHADOW_MISMATCH`, `SHADOW_<EXISTING|SHADOW>_SECRET_MISSING`, `…_KEY_
 ## 8. Consumer switch (MUTATING, Kubernetes; production release)
 
 ```bash
+python3 scripts/vault/gke_preflight.py --mode consumer-switch --kubeconfig $KUBECONFIG --context $CTX   # must end READY
 helm --kube-context $CTX -n ml-platform history ewallet-serving --max 1      # note the revision for rollback
 helm upgrade ewallet-serving infra/helm/ewallet-serving --kube-context $CTX -n ml-platform --reuse-values \
   -f infra/helm/ewallet-serving/values-vault-eso.yaml
