@@ -7,10 +7,11 @@ Operating procedure for [VAULT.md](../../edai2/platform/VAULT.md). Each step is 
 - **MUTATING (Vault):** changes Vault state or secret data.
 - **OWNER-ONLY:** handles recovery material; the owner runs it personally, at the laptop.
 
-**Nothing in this runbook has run on GKE.** It was validated end to end on kind with
-`scripts/vault/eso_local_validate.sh` (*Local validation*). A GKE run needs a separately
-approved campaign: GKE is woken and put back to sleep only by that campaign's approved
-cloud-lab procedure, never by a command from this page.
+**Status:** implemented in Git and verified end to end on kind with
+`scripts/vault/eso_local_validate.sh` (*Local validation*). **Not deployed on GKE, and not
+yet accepted as row 54 evidence.** A GKE run needs a separately approved campaign: GKE is woken
+and put back to sleep only by that campaign's approved cloud-lab procedure, never by a command
+from this page.
 
 Never print, paste or commit a Vault token, an unseal share, a private key or a secret value.
 Do not use `set -x`. Values go into Vault on stdin (`put --stdin`) or a hidden prompt, never as an argument.
@@ -22,6 +23,7 @@ CTX=gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev   # pin ever
 KEYDIR=~/ewallet-evidence/vault/private      # outside the repository, mode 700; ops/vault refuses a path inside it
 CHARTS=~/ewallet-evidence/vault/charts       # pulled charts, digests checked below
 V="python3 -m ops.vault.cli --ca-file $KEYDIR/ca.crt"   # talks to https://127.0.0.1:8200 (port-forward)
+OP=$KEYDIR/operator-token.json               # secret-operator token, created in step 4
 ```
 
 ## 1. Prerequisites (READ-ONLY)
@@ -71,8 +73,7 @@ $V init --keys-out $KEYDIR/vault-keys.json     # 3 shares, threshold 2; refuses 
 It is the most sensitive file in the project:
 
 1. Copy it at once to the two offline encrypted media. Never to cloud sync, chat, Git or evidence.
-2. After step 6 is verified, retire the root token: `$V retire-root --keys-file $KEYDIR/vault-keys.json`.
-   A new root token can be generated from the unseal shares (`vault operator generate-root`) only when needed.
+2. The root token inside it is used only for step 4, then revoked (*Token lifecycle*).
 3. Optional: give each share to a different holder. With one owner, the shares sit together,
    so Shamir protects against loss of the cluster, not against loss of that file. This is a
    known limitation of the single-owner lab (*Recovery material* in VAULT.md).
@@ -86,6 +87,14 @@ again over existing data: `init` refuses an initialised Vault.
 $V unseal --keys-file $KEYDIR/vault-keys.json       # {"sealed": false}
 $V status                                           # gate: initialized true, sealed false
 $V configure --keys-file $KEYDIR/vault-keys.json    # audit, KV v2 "ewallet", Kubernetes auth, policies, roles
+```
+
+Then replace the root token with the scoped operator token, and revoke root:
+
+```bash
+$V operator-token --keys-file $KEYDIR/vault-keys.json --token-out $OP   # orphan, policy secret-operator, TTL 720h
+$V retire-root --keys-file $KEYDIR/vault-keys.json                      # {"root_token_revoked": true}
+$V versions --keys-file $KEYDIR/vault-keys.json --path feature-api/feast-redis   # must now fail: REFUSED vault_admin_failed
 ```
 
 `configure` applies [bootstrap.json](../../../infra/kubernetes/vault/bootstrap.json) idempotently:
@@ -102,14 +111,14 @@ The value goes from the existing Secret straight into Vault on stdin, without be
 
 ```bash
 kubectl --context $CTX -n ml-platform get secret feast-online-redis -o jsonpath='{.data.connection_string}' | base64 -d \
-  | $V put --keys-file $KEYDIR/vault-keys.json --path feature-api/feast-redis --key connection_string --stdin
-$V versions --keys-file $KEYDIR/vault-keys.json --path feature-api/feast-redis   # metadata only: current_version 1
+  | $V put --token-file $OP --path feature-api/feast-redis --key connection_string --stdin
+$V versions --token-file $OP --path feature-api/feast-redis   # metadata only: current_version 1
 ```
 
 Staged Agent Platform path (only if that part is approved). Use a **new synthetic** key, never the live gateway key:
 
 ```bash
-openssl rand -hex 24 | $V put --keys-file $KEYDIR/vault-keys.json --path agent-platform/agentgateway-client-key --key api-key --stdin
+openssl rand -hex 24 | $V put --token-file $OP --path agent-platform/agentgateway-client-key --key api-key --stdin
 ```
 
 ## 6. External Secrets Operator (MUTATING, Kubernetes)
@@ -135,17 +144,21 @@ kubectl --context $CTX -n ml-platform wait --for=condition=Ready secretstore/vau
 kubectl --context $CTX -n ml-platform wait --for=condition=Ready externalsecret/feature-api-redis --timeout=120s
 ```
 
-Read-only validation. It prints only whether the two values are equal:
+Read-only validation. The comparison prints one status, never a value or a hash:
 
 ```bash
 kubectl --context $CTX -n ml-platform get externalsecret feature-api-redis      # STATUS SecretSynced, READY True
 kubectl --context $CTX -n ml-platform get secret feature-api-redis-vault -o json | jq -c '.data | keys'   # ["connection_string"]
-a=$(kubectl --context $CTX -n ml-platform get secret feast-online-redis -o jsonpath='{.data.connection_string}' | sha256sum)
-b=$(kubectl --context $CTX -n ml-platform get secret feature-api-redis-vault -o jsonpath='{.data.connection_string}' | sha256sum)
-[ "$a" = "$b" ] && echo SHADOW_MATCH || echo SHADOW_MISMATCH
+bash scripts/vault/shadow_compare.sh $CTX ml-platform feast-online-redis feature-api-redis-vault
 ```
 
-**Gate:** proceed only on `SHADOW_MATCH`.
+[`shadow_compare.sh`](../../../scripts/vault/shadow_compare.sh) exits 0 only with
+`SHADOW_MATCH`: both Secrets exist, both have a non-empty `connection_string`, every kubectl,
+jq and base64 step succeeded, and the values are equal. Anything else prints its own status and
+exits 1: `SHADOW_MISMATCH`, `SHADOW_<EXISTING|SHADOW>_SECRET_MISSING`, `…_KEY_MISSING`,
+`…_VALUE_EMPTY` or `…_READ_FAILED` (for example, an API error).
+
+**Gate:** proceed only on `SHADOW_MATCH` with exit code 0.
 
 ## 8. Consumer switch (MUTATING, Kubernetes; production release)
 
@@ -184,7 +197,7 @@ or it stops being a valid rollback target.
 | Check | Command | Expected |
 |---|---|---|
 | Vault runtime | `$V status` | `initialized: true`, `sealed: false` |
-| KV metadata | `$V versions --keys-file … --path feature-api/feast-redis` | version and time, no value |
+| KV metadata | `$V versions --token-file $OP --path feature-api/feast-redis` | version and time, no value |
 | ACL | `configure` output lists the applied policies; the text is `infra/kubernetes/vault/policies/eso-*.hcl` | one `read` path plus the two self-token paths; enforcement is shown by the denied-access row |
 | Store | `kubectl -n ml-platform get secretstore vault` | `Valid`, Ready `True` |
 | Sync | `kubectl -n ml-platform get externalsecret feature-api-redis` | `SecretSynced`, Ready `True` |
@@ -193,14 +206,44 @@ or it stops being a valid rollback target.
 
 ## 11. Rotation (MUTATING, Vault and Kubernetes)
 
-1. Write the new value as a new KV version: `… | $V put --keys-file … --path feature-api/feast-redis --key connection_string --stdin`.
+1. Write the new value as a new KV version: `… | $V put --token-file $OP --path feature-api/feast-redis --key connection_string --stdin`.
 2. ESO picks it up within `refreshInterval` (1h), or at once:
    `kubectl --context $CTX -n ml-platform annotate externalsecret feature-api-redis force-sync=$(date +%s) --overwrite`.
-3. Check that the Secret changed: the step 7 hash comparison against the new value, or `$V versions`.
+3. Check that ESO synced: `kubectl … get externalsecret feature-api-redis` shows `SecretSynced` after the force-sync, and `$V versions --token-file $OP …` shows the new version. Until `feast-online-redis` is updated too, `shadow_compare.sh` reports `SHADOW_MISMATCH`, which is correct.
 4. The Feature API reads the variable at start-up: `kubectl --context $CTX -n ml-platform rollout restart deployment/feature-api`.
 
 Changing the real Redis password is a separate, coordinated step (Redis, every client Secret,
 then restarts). This runbook does not rotate it.
+
+## Token lifecycle and later administration
+
+| Token | Created by | Used for | Ends |
+|---|---|---|---|
+| Initial root (in `vault-keys.json`) | `init` | step 4 only: `configure`, `operator-token` | `retire-root --keys-file` at the end of step 4 |
+| Operator (`$OP`) | `operator-token` | `put` (create or rotate), `versions` (metadata) | TTL 720 h; not renewable |
+| Temporary root (`$KEYDIR/admin-token.json`) | `generate-root` from the unseal shares | policy and role changes: `configure`, `revoke-role`, a new `operator-token` | `retire-root --token-file` right after use |
+
+- The operator token is an **orphan** with only the `secret-operator` policy: it can write
+  values and read metadata under `feature-api/`, `fraud-api/` and `agent-platform/`. It cannot
+  read values, change policies, roles or auth methods, or unseal. Because it is an orphan,
+  revoking the root token that created it does not revoke it.
+- **Policy or role change** (for example, after editing `bootstrap.json` or a policy file):
+
+  ```bash
+  $V generate-root --keys-file $KEYDIR/vault-keys.json --token-out $KEYDIR/admin-token.json   # needs 2 shares; Vault unsealed
+  $V configure --token-file $KEYDIR/admin-token.json
+  $V retire-root --token-file $KEYDIR/admin-token.json && rm $KEYDIR/admin-token.json
+  ```
+
+- **Operator token expired** (after 30 days): generate a temporary root as above, then run
+  `$V operator-token --token-file $KEYDIR/admin-token.json --token-out $KEYDIR/operator-token-<date>.json`,
+  then retire the temporary root. Token files are never overwritten, so each new token goes to a new file name.
+- Root generation from shares works without a token because `values-gke.yaml` sets
+  `enable_unauthenticated_access = ["generate-root"]`. Vault 2.x otherwise demands a token, and
+  after root retirement that would leave no way to administer policies. A caller without two
+  shares can only start or cancel an attempt.
+- Token files live only in `$KEYDIR` (mode 0600; the CLI refuses a path inside the repository).
+  No command prints a token. `generate-root` cancels any unfinished root-generation attempt first.
 
 ## 12. GKE sleep and wake
 

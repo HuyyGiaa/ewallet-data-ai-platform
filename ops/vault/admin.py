@@ -6,6 +6,7 @@ bootstrap converges instead of failing. Nothing here logs a key or token.
 
 from __future__ import annotations
 
+import base64
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -109,6 +110,32 @@ class VaultAdmin:
         """Revoke the current token; used to retire the root token."""
         self._require("POST", "auth/token/revoke-self")
 
+    def create_operator_token(self, policies: list[str], ttl: str) -> str:
+        """Create an orphan, non-renewable token with only ``policies``.
+
+        Orphan, so revoking the root token that created it does not revoke it too.
+        """
+        body = self._require("POST", "auth/token/create-orphan", {
+            "policies": policies, "no_default_policy": True, "renewable": False,
+            "ttl": ttl, "display_name": "secret-operator",
+        })
+        return str(body["auth"]["client_token"])
+
+    def generate_root(self, keys: list[str]) -> str:
+        """Generate a new root token from unseal shares (one-time-password flow).
+
+        Cancels any unfinished attempt first, then submits shares until Vault reports
+        completion, and returns the decoded token. Used only for policy and role changes.
+        """
+        self._call("DELETE", "sys/generate-root/attempt")
+        attempt = self._require("POST", "sys/generate-root/attempt", {})
+        otp, nonce = str(attempt["otp"]), str(attempt["nonce"])
+        for key in keys:
+            progress = self._require("POST", "sys/generate-root/update", {"key": key, "nonce": nonce})
+            if progress.get("complete"):
+                return decode_root_token(str(progress["encoded_token"]), otp)
+        raise VaultError("vault_generate_root_incomplete", "not enough unseal shares to generate a root token")
+
     def snapshot_path(self) -> str:
         """Return the Raft snapshot endpoint used for backups."""
         return f"{self._address}/v1/sys/storage/raft/snapshot"
@@ -127,3 +154,11 @@ def apply_bootstrap(
     for name, role in sorted(config["roles"].items()):
         admin.apply_role(mount, name, role)
     return ["audit", "kv", "kubernetes-auth", *sorted(config["policies"]), *sorted(config["roles"])]
+
+
+def decode_root_token(encoded: str, otp: str) -> str:
+    """Decode a generated root token: base64 (unpadded) XOR the one-time password."""
+    raw = base64.b64decode(encoded + "=" * (-len(encoded) % 4))
+    if len(raw) != len(otp):
+        raise VaultError("vault_generate_root_decode", "encoded token and OTP lengths differ")
+    return bytes(a ^ b for a, b in zip(raw, otp.encode())).decode()

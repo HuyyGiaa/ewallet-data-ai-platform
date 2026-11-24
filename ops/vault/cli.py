@@ -1,9 +1,17 @@
 """Bootstrap and operate Vault without placing key material in the repository.
 
 ``init`` writes the unseal keys and root token to one mode-0600 file that must lie
-outside the Git work tree. Other commands read that file or ``VAULT_TOKEN``. Reach
-Vault through a port-forward and pass ``--ca-file``. Run with no cluster state
-assumed: every command reports what it did, and none prints a secret.
+outside the Git work tree. Token lifecycle:
+
+- the initial root token (``--keys-file``) applies the bootstrap and creates an
+  orphan ``secret-operator`` token (``operator-token``), then is revoked (``retire-root``);
+- day-to-day writes and metadata reads use that token (``--token-file``);
+- policy or role changes use a short-lived root token from ``generate-root`` (unseal
+  shares), which is revoked again right after (``retire-root --token-file``).
+
+Token files are mode 0600, outside the repository, created exclusively. ``VAULT_TOKEN``
+is the fallback. Reach Vault through a port-forward and pass ``--ca-file``. Every
+command reports what it did, and none prints a secret.
 """
 
 from __future__ import annotations
@@ -40,6 +48,11 @@ def read_keys_file(path: Path) -> dict[str, object]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def read_token_file(path: Path) -> str:
+    """Read a token file written by ``operator-token`` or ``generate-root``."""
+    return str(read_keys_file(path)["token"])
+
+
 def admin_for(args: argparse.Namespace, *, token: str | None = None) -> VaultAdmin:
     """Build an admin client from the common arguments."""
     return VaultAdmin(
@@ -50,6 +63,10 @@ def admin_for(args: argparse.Namespace, *, token: str | None = None) -> VaultAdm
 
 
 def _root_token(args: argparse.Namespace) -> str | None:
+    """The token for this command: --token-file, else the initial root token, else VAULT_TOKEN."""
+    token_file = getattr(args, "token_file", None)
+    if token_file:
+        return read_token_file(token_file)
     keys_file = getattr(args, "keys_file", None)
     return str(read_keys_file(keys_file)["root_token"]) if keys_file else None
 
@@ -131,6 +148,31 @@ def cmd_retire_root(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_operator_token(args: argparse.Namespace) -> int:
+    """Create the orphan secret-operator token and store it in a new mode-0600 file."""
+    if args.token_out.exists():
+        raise VaultError("vault_token_file_exists", "token file already exists")
+    write_keys_file(args.token_out, {})   # refuse a repository path before creating anything
+    args.token_out.unlink()
+    token = admin_for(args, token=_root_token(args)).create_operator_token([args.policy], args.ttl)
+    write_keys_file(args.token_out, {"token": token, "policies": [args.policy], "ttl": args.ttl})
+    print(json.dumps({"operator_token_created": True, "policies": [args.policy], "ttl": args.ttl, "orphan": True}))
+    return 0
+
+
+def cmd_generate_root(args: argparse.Namespace) -> int:
+    """Generate a temporary root token from the unseal shares, for policy or role changes."""
+    if args.token_out.exists():
+        raise VaultError("vault_token_file_exists", "token file already exists")
+    write_keys_file(args.token_out, {})
+    args.token_out.unlink()
+    keys = [str(key) for key in read_keys_file(args.keys_file)["keys_base64"]]
+    token = admin_for(args, token=None).generate_root(keys)
+    write_keys_file(args.token_out, {"token": token})
+    print(json.dumps({"root_token_generated": True, "revoke_with": "retire-root --token-file"}))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Create the command-line interface."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -148,12 +190,14 @@ def build_parser() -> argparse.ArgumentParser:
     unseal.set_defaults(run=cmd_unseal)
     configure = sub.add_parser("configure")
     configure.add_argument("--keys-file", type=Path)
+    configure.add_argument("--token-file", type=Path)
     configure.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     configure.add_argument("--kubernetes-host", default=IN_CLUSTER_API)
     configure.set_defaults(run=cmd_configure)
     for name, handler in (("put", cmd_put), ("versions", cmd_versions)):
         command = sub.add_parser(name)
         command.add_argument("--keys-file", type=Path)
+        command.add_argument("--token-file", type=Path)
         command.add_argument("--mount", default="ewallet")
         command.add_argument("--path", required=True)
         if name == "put":
@@ -162,12 +206,25 @@ def build_parser() -> argparse.ArgumentParser:
         command.set_defaults(run=handler)
     revoke = sub.add_parser("revoke-role")
     revoke.add_argument("--keys-file", type=Path)
+    revoke.add_argument("--token-file", type=Path)
     revoke.add_argument("--auth-mount", default="kubernetes")
     revoke.add_argument("--role", required=True)
     revoke.set_defaults(run=cmd_revoke_role)
     retire = sub.add_parser("retire-root")
     retire.add_argument("--keys-file", type=Path)
+    retire.add_argument("--token-file", type=Path)
     retire.set_defaults(run=cmd_retire_root)
+    operator = sub.add_parser("operator-token")
+    operator.add_argument("--keys-file", type=Path)
+    operator.add_argument("--token-file", type=Path)
+    operator.add_argument("--token-out", type=Path, required=True)
+    operator.add_argument("--policy", default="secret-operator")
+    operator.add_argument("--ttl", default="720h")
+    operator.set_defaults(run=cmd_operator_token)
+    generate = sub.add_parser("generate-root")
+    generate.add_argument("--keys-file", type=Path, required=True)
+    generate.add_argument("--token-out", type=Path, required=True)
+    generate.set_defaults(run=cmd_generate_root)
     return parser
 
 

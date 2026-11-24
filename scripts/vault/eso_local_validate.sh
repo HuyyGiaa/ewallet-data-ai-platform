@@ -7,24 +7,46 @@
 # Vault bootstrap, NetworkPolicy, SecretStores and ExternalSecrets, and the real Feature
 # API rendered from infra/helm/ewallet-serving with values-vault-eso.yaml. All secret
 # values are synthetic and only their SHA-256 prefixes are recorded. Local evidence only;
-# it says nothing about GKE. Refuses any non-kind context and any pre-existing
-# ewallet-vault, external-secrets or ml-platform namespace. Everything it creates carries
-# ewallet.io/vault-local=true and is removed on exit.
+# it says nothing about GKE. Refuses any non-kind context.
+#
+# Isolation: a preflight refuses to start if any namespace, CRD, Helm release, cluster-scoped
+# chart object or ewallet-agents object it would create already exists. Objects are created
+# (never applied over) with ewallet.io/vault-local=<run id> set at creation time, and cleanup,
+# registered only after the preflight, deletes only objects carrying this run's id. The
+# pre-existing ewallet-agents namespace and everything else in the cluster are left alone.
 set -euo pipefail
 vault_chart=${1:?vault chart} eso_chart=${2:?eso chart} feature_image=${3:?feature api image} seed_image=${4:?seed image}
 evidence=${5:?evidence directory}
 CONTEXT=${VAULT_LOCAL_CONTEXT:-kind-llm-agent-local}
 [[ "$CONTEXT" == kind-* ]] || { echo "refusing non-kind context $CONTEXT" >&2; exit 2; }
 VNS=ewallet-vault ENS=external-secrets APP=ml-platform AGENTS=ewallet-agents PORT=${VAULT_LOCAL_PORT:-18231}
-FPORT=${FEATURE_LOCAL_PORT:-18232} LABEL=ewallet.io/vault-local
+FPORT=${FEATURE_LOCAL_PORT:-18232} LABEL=ewallet.io/vault-local RUN=vl-$(date -u +%Y%m%d%H%M%S)-$$
 root=$(cd "$(dirname "$0")/../.." && pwd)
-work=$(mktemp -d); keys=$work/keys.json; forward= fforward= agents_created=
-mkdir -p "$evidence"; export PYTHONPATH=$root
+work=$(mktemp -d); keys=$work/keys.json; operator=$work/operator-token.json; admin=$work/admin-token.json
+forward= fforward= agents_created=
+export PYTHONPATH=$root
 k() { kubectl --context "$CONTEXT" "$@"; }
 h() { helm --kube-context "$CONTEXT" "$@"; }
 vault() { python3 -m ops.vault.cli --address "https://127.0.0.1:$PORT" --ca-file "$work/ca.crt" "$@"; }
-record() { printf '%s\n' "$2" | jq -c --arg step "$1" '{step: $step} + .' | tee -a "$evidence/results.jsonl"; }
+record() {  # <step> <json>: an empty or non-JSON result is itself a failure, never a silent skip
+  local line
+  line=$(printf '%s\n' "$2" | jq -c --arg step "$1" '{step: $step} + .' 2>/dev/null) || line=
+  if [ -z "$line" ]; then
+    jq -cn --arg step "$1" '{step: $step, result: "FAIL", detail: "command produced no JSON result"}' | tee -a "$evidence/results.jsonl"
+    exit 1
+  fi
+  printf '%s\n' "$line" | tee -a "$evidence/results.jsonl"
+}
 fail() { record "$1" "$(jq -cn --arg detail "$2" '{result: "FAIL", detail: $detail}')"; exit 1; }
+own() {  # stdin YAML -> stdout YAML with this run's label on every object (set at creation, never later)
+  python3 -c '
+import sys, yaml
+docs = [d for d in yaml.safe_load_all(sys.stdin) if d]
+for d in docs:
+    d.setdefault("metadata", {}).setdefault("labels", {})[sys.argv[1]] = sys.argv[2]
+yaml.safe_dump_all(docs, sys.stdout)' "$LABEL" "$RUN"
+}
+create() { own | k create -f - >/dev/null; }   # fails, rather than overwrites, if the name exists
 sha() { printf '%s' "$1" | sha256sum | cut -c1-12; }
 secret_sha() {  # <namespace> <secret> <key>: hash prefix of a Secret value, never the value
   k -n "$1" get secret "$2" -o go-template="{{index .data \"$3\"}}" 2>/dev/null | base64 -d | sha256sum | cut -c1-12
@@ -34,20 +56,20 @@ cleanup() {
   set +e
   [ -z "$forward" ] || kill "$forward" 2>/dev/null
   [ -z "$fforward" ] || kill "$fforward" 2>/dev/null
-  if k get ns "$AGENTS" >/dev/null 2>&1; then
-    k -n "$AGENTS" delete externalsecret,secretstore,serviceaccount,configmap,secret -l "$LABEL=true" --wait=false >/dev/null 2>&1
-  fi
-  k -n "$APP" delete externalsecret --all --wait=true >/dev/null 2>&1
-  h uninstall external-secrets -n "$ENS" --wait >/dev/null 2>&1
-  h uninstall vault -n "$VNS" >/dev/null 2>&1
+  # ExternalSecrets first, so their owned target Secrets are garbage-collected; then the rest.
+  for ns in "$APP" "$AGENTS"; do
+    k -n "$ns" delete externalsecret,secretstore -l "$LABEL=$RUN" --wait=true >/dev/null 2>&1
+    k -n "$ns" delete pod,serviceaccount,configmap,secret -l "$LABEL=$RUN" --wait=false >/dev/null 2>&1
+  done
+  [ "$(h status external-secrets -n "$ENS" -o json 2>/dev/null | jq -r .namespace)" = "$ENS" ] && h uninstall external-secrets -n "$ENS" --wait >/dev/null 2>&1
+  [ "$(h status vault -n "$VNS" -o json 2>/dev/null | jq -r .namespace)" = "$VNS" ] && h uninstall vault -n "$VNS" >/dev/null 2>&1
+  k delete networkpolicy -n "$VNS" -l "$LABEL=$RUN" >/dev/null 2>&1
   for ns in "$VNS" "$ENS" "$APP" ${agents_created:+"$AGENTS"}; do
-    [ "$(k get ns "$ns" -o jsonpath="{.metadata.labels.ewallet\.io/vault-local}" 2>/dev/null)" = true ] \
+    [ "$(k get ns "$ns" -o jsonpath="{.metadata.labels.ewallet\.io/vault-local}" 2>/dev/null)" = "$RUN" ] \
       && k delete ns "$ns" --wait=false >/dev/null 2>&1
   done
   rm -rf "$work"
 }
-trap cleanup EXIT
-
 forward_vault() {
   k -n "$VNS" wait --for=condition=Ready pod/vault-0 --timeout=180s >/dev/null
   for _ in $(seq 10); do
@@ -104,27 +126,44 @@ es_error() {  # <namespace> <object> [since]: the Vault/TLS cause, from the ESO 
     *"x509"*) echo tls-untrusted-ca ;;
     *"Vault is sealed"*|*"Code: 503"*) echo vault-sealed ;;
     *"connection refused"*|*"no such host"*|*"i/o timeout"*|*"dial tcp"*) echo vault-unreachable ;;
-    *"Code: 404"*|*"secret does not exist"*|*"Secret does not exist"*|*"cannot find secret data"*) echo vault-secret-missing ;;
-    *"does not exist"*|*"not found"*) echo vault-key-missing ;;
+    *"cannot find secret data for key"*) echo vault-key-missing ;;
+    *"Code: 404"*|*"Secret does not exist"*|*"secret does not exist"*) echo vault-secret-missing ;;
+    *"/login"*"permission denied"*) echo vault-login-denied ;;
     *"permission denied"*) echo vault-permission-denied ;;
     *) echo unclassified ;;
   esac
 }
 
-force_sync() { k -n "$1" annotate externalsecret "$2" "force-sync=$(date +%s%N)" --overwrite >/dev/null; }
-
-negative() {  # <step> <namespace> <externalsecret> <target>: must stay unsynced, with no target Secret
-  es_wait "$2" "$3" False 60 || fail "$1" "ExternalSecret $3 did not report a failure"
-  if k -n "$2" get secret "$4" >/dev/null 2>&1; then fail "$1" "target Secret $4 exists"; fi
-  record "$1" "$(jq -cn --arg c "$(es_condition "$2" "$3")" --arg e "$(es_error "$2" "$3")" \
-    '{result: "denied", condition: $c, error_class: $e, target_secret: "absent"}')"
+await_class() {  # <step> <namespace> <externalsecret> <expected-class> <since>: the failure must have this cause
+  local class
+  for _ in $(seq 30); do class=$(es_error "$2" "$3" "$5"); [ "$class" = "$4" ] && return 0; sleep 2; done
+  errors_for "$3"; fail "$1" "expected $4, observed $class"
 }
 
-negative_es() {  # <name> <store> <key> <property>: a labelled ExternalSecret in ml-platform
-  k -n "${5:-$APP}" apply -f - >/dev/null <<YAML
+force_sync() { k -n "$1" annotate externalsecret "$2" "force-sync=$(date +%s%N)" --overwrite >/dev/null; }
+
+errors_for() {  # <object>: on a failed assertion, keep that object's controller errors (no values) for diagnosis
+  k -n "$ENS" logs deploy/external-secrets --since=15m 2>/dev/null | grep -F "\"$1\"" \
+    | jq -r '.error // empty' 2>/dev/null | cut -c1-300 | sort -u > "$evidence/failed-$1-controller-errors.txt"
+}
+
+negative() {  # <step> <namespace> <externalsecret> <target> <expected-class>
+  # Unsynced, no target Secret, AND the specific rejection: an unreachable Vault or another
+  # unrelated failure never counts as a passed authorization test.
+  local class
+  es_wait "$2" "$3" False 60 || fail "$1" "ExternalSecret $3 did not report a failure"
+  if k -n "$2" get secret "$4" >/dev/null 2>&1; then fail "$1" "target Secret $4 exists"; fi
+  for _ in $(seq 20); do class=$(es_error "$2" "$3"); [ "$class" = "$5" ] && break; sleep 2; done
+  [ "$class" = "$5" ] || { errors_for "$3"; fail "$1" "expected $5, observed $class"; }
+  record "$1" "$(jq -cn --arg c "$(es_condition "$2" "$3")" --arg e "$class" \
+    '{result: "denied", condition: $c, error_class: $e, expected: true, target_secret: "absent"}')"
+}
+
+negative_es() {  # <name> <store> <key> <property> [namespace]: a run-owned ExternalSecret
+  create <<YAML
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret
-metadata: {name: $1, labels: {$LABEL: "true"}}
+metadata: {name: $1, namespace: ${5:-$APP}}
 spec:
   refreshInterval: 1h
   secretStoreRef: {kind: SecretStore, name: $2}
@@ -136,10 +175,10 @@ YAML
 }
 
 negative_store() {  # <name> <namespace> <service-account> <audience> <role> <ca-configmap> [mount]
-  k -n "$2" apply -f - >/dev/null <<YAML
+  create <<YAML
 apiVersion: external-secrets.io/v1
 kind: SecretStore
-metadata: {name: $1, labels: {$LABEL: "true"}}
+metadata: {name: $1, namespace: $2}
 spec:
   provider:
     vault:
@@ -156,10 +195,10 @@ YAML
 }
 
 vault_client_pod() {  # <name> <app-label>: vault status from ml-platform; prints the exit code
-  k -n "$APP" apply -f - >/dev/null <<YAML
+  create <<YAML
 apiVersion: v1
 kind: Pod
-metadata: {name: $1, labels: {$LABEL: "true", app.kubernetes.io/name: $2}}
+metadata: {name: $1, namespace: $APP, labels: {app.kubernetes.io/name: $2}}
 spec:
   restartPolicy: Never
   automountServiceAccountToken: false
@@ -194,16 +233,31 @@ yaml.safe_dump_all(out, sys.stdout)'
 }
 
 # ---------------------------------------------------------------- namespaces, TLS, Vault
-for ns in "$VNS" "$ENS" "$APP"; do
-  if k get ns "$ns" >/dev/null 2>&1; then echo "namespace $ns already exists; refusing" >&2; trap - EXIT; exit 2; fi
+refuse() { echo "PREFLIGHT_REFUSED: $1 already exists; nothing was created or changed" >&2; rm -rf "$work"; exit 2; }
+for ns in "$VNS" "$ENS" "$APP"; do k get ns "$ns" >/dev/null 2>&1 && refuse "namespace $ns"; done
+for crd in externalsecrets.external-secrets.io secretstores.external-secrets.io; do
+  k get crd "$crd" >/dev/null 2>&1 && refuse "CRD $crd (another ESO installation)"
 done
+h list -A -q 2>/dev/null | grep -qx -e vault -e external-secrets && refuse "a Helm release named vault or external-secrets"
+for object in clusterrolebinding/vault-server-binding clusterrole/external-secrets-controller \
+    validatingwebhookconfiguration/secretstore-validate validatingwebhookconfiguration/externalsecret-validate; do
+  k get "$object" >/dev/null 2>&1 && refuse "$object"
+done
+if k get ns "$AGENTS" >/dev/null 2>&1; then
+  for object in serviceaccount/eso-vault-reader configmap/vault-ca secret/agentgateway-client-key-vault \
+      secret/neg-agents-reads-feature secret/neg-borrowed-role; do
+    k -n "$AGENTS" get "$object" >/dev/null 2>&1 && refuse "$AGENTS/$object"
+  done
+fi
+mkdir -p "$evidence"
+trap cleanup EXIT   # only now: from here on, everything this run creates carries $RUN
 vault_image=$(python3 -c 'import yaml,sys; i=yaml.safe_load(open(sys.argv[1]))["server"]["image"]; print(i["repository"]+":"+i["tag"])' \
   "$root/infra/kubernetes/vault/values-gke.yaml")
-k create ns "$VNS" >/dev/null; k label ns "$VNS" "$LABEL=true" pod-security.kubernetes.io/enforce=restricted >/dev/null
-k apply -f "$root/infra/kubernetes/external-secrets/namespace.yaml" >/dev/null; k label ns "$ENS" "$LABEL=true" >/dev/null
-k create ns "$APP" >/dev/null; k label ns "$APP" "$LABEL=true" >/dev/null
+printf 'apiVersion: v1\nkind: Namespace\nmetadata: {name: %s, labels: {pod-security.kubernetes.io/enforce: restricted}}\n' "$VNS" | create
+create < "$root/infra/kubernetes/external-secrets/namespace.yaml"
+printf 'apiVersion: v1\nkind: Namespace\nmetadata: {name: %s}\n' "$APP" | create
 if ! k get ns "$AGENTS" >/dev/null 2>&1; then
-  k create ns "$AGENTS" >/dev/null; k label ns "$AGENTS" "$LABEL=true" >/dev/null; agents_created=1
+  printf 'apiVersion: v1\nkind: Namespace\nmetadata: {name: %s}\n' "$AGENTS" | create; agents_created=1
 fi
 
 ca() {  # <name>: a disposable CA in $work/<name>.{key,crt}
@@ -215,16 +269,15 @@ openssl req -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -subj /CN=va
   -keyout "$work/tls.key" -out "$work/tls.csr" 2>/dev/null
 openssl x509 -req -in "$work/tls.csr" -CA "$work/ca.crt" -CAkey "$work/local-vault-ca.key" -CAcreateserial -days 1 \
   -out "$work/tls.crt" -extfile <(printf 'subjectAltName=DNS:vault,DNS:vault.%s.svc,DNS:vault.%s.svc.cluster.local,DNS:localhost,IP:127.0.0.1\nauthorityKeyIdentifier=keyid,issuer\nsubjectKeyIdentifier=hash\nkeyUsage=critical,digitalSignature\nextendedKeyUsage=serverAuth\n' "$VNS" "$VNS") 2>/dev/null
-k -n "$VNS" create secret tls vault-server-tls --cert="$work/tls.crt" --key="$work/tls.key" >/dev/null
+k -n "$VNS" create secret tls vault-server-tls --cert="$work/tls.crt" --key="$work/tls.key" --dry-run=client -o yaml | create
 for ns in "$APP" "$AGENTS"; do
-  k -n "$ns" create configmap vault-ca --from-file=ca.crt="$work/ca.crt" >/dev/null
-  k -n "$ns" label configmap vault-ca "$LABEL=true" >/dev/null
+  k -n "$ns" create configmap vault-ca --from-file=ca.crt="$work/ca.crt" --dry-run=client -o yaml | create
 done
-k -n "$APP" create configmap vault-ca-untrusted --from-file=ca.crt="$work/untrusted-ca.crt" >/dev/null
+k -n "$APP" create configmap vault-ca-untrusted --from-file=ca.crt="$work/untrusted-ca.crt" --dry-run=client -o yaml | create
 
 h install vault "$vault_chart" -n "$VNS" \
   -f "$root/infra/kubernetes/vault/values-gke.yaml" -f "$root/infra/kubernetes/vault/values-local.yaml" >/dev/null
-k apply -f "$root/infra/kubernetes/vault/network-policy.yaml" >/dev/null
+create < "$root/infra/kubernetes/vault/network-policy.yaml"
 k -n "$VNS" wait --for=jsonpath='{.status.phase}'=Running pod/vault-0 --timeout=240s >/dev/null
 forward_vault
 record vault-status-uninitialised "$(vault status)"
@@ -234,6 +287,13 @@ state=$(vault status); record vault-initialised-and-unsealed "$state"
 [ "$(jq -r '.initialized' <<<"$state") $(jq -r '.sealed' <<<"$state")" = "true false" ] || fail vault-state "$state"
 for _ in $(seq 40); do vault configure --keys-file "$keys" > "$work/configure.json" 2>/dev/null && break; sleep 1; done
 record vault-configure "$(cat "$work/configure.json")"
+# Token lifecycle: orphan secret-operator token, then the initial root token is revoked.
+record operator-token-created "$(vault operator-token --keys-file "$keys" --token-out "$operator")"
+record root-token-retired "$(vault retire-root --keys-file "$keys")"
+if vault versions --keys-file "$keys" --path feature-api/feast-redis >/dev/null 2>&1; then fail root-token-rejected "root token still works"; fi
+record root-token-rejected '{"result": "denied"}'
+if vault revoke-role --token-file "$operator" --role fraud-api >/dev/null 2>&1; then fail operator-cannot-administer "operator changed a role"; fi
+record operator-token-cannot-administer '{"result": "denied", "attempt": "delete auth role"}'
 record vault-tls-verifies "$(curl -s --cacert "$work/ca.crt" -o /dev/null -w '{"https_status": %{http_code}, "ssl_verify_result": %{ssl_verify_result}}' "https://127.0.0.1:$PORT/v1/sys/health")"
 if curl -s -o /dev/null --cacert "$work/untrusted-ca.crt" "https://127.0.0.1:$PORT/v1/sys/health"; then
   fail vault-tls-wrong-ca "an untrusted CA was accepted"
@@ -243,9 +303,9 @@ record vault-tls-wrong-ca-rejected '{"result": "denied"}'
 # ---------------------------------------------------------------- synthetic secrets and Redis
 redis_v1=$(openssl rand -hex 20); redis_v2=$(openssl rand -hex 20); agent_key=$(openssl rand -hex 24)
 conn() { printf 'redis.%s.svc.cluster.local:6379,password=%s' "$APP" "$1"; }
-printf '%s' "$(conn "$redis_v1")" | vault put --keys-file "$keys" --path feature-api/feast-redis --key connection_string --stdin >/dev/null
-printf '%s' "$(openssl rand -hex 12)" | vault put --keys-file "$keys" --path fraud-api/feast-redis --key connection_string --stdin >/dev/null
-record vault-kv-seeded "$(vault versions --keys-file "$keys" --path feature-api/feast-redis)"
+printf '%s' "$(conn "$redis_v1")" | vault put --token-file "$operator" --path feature-api/feast-redis --key connection_string --stdin >/dev/null
+printf '%s' "$(openssl rand -hex 12)" | vault put --token-file "$operator" --path fraud-api/feast-redis --key connection_string --stdin >/dev/null
+record vault-kv-seeded "$(vault versions --token-file "$operator" --path feature-api/feast-redis)"
 
 # The existing, out-of-band Secrets: Redis's own password and the Feature API's current Secret.
 k -n "$APP" create secret generic redis-local-auth --from-literal=password="$redis_v1" >/dev/null
@@ -278,7 +338,7 @@ YAML
 # ---------------------------------------------------------------- ESO
 h install external-secrets "$eso_chart" -n "$ENS" -f "$root/infra/kubernetes/external-secrets/values.yaml" --wait --timeout 5m >/dev/null
 record eso-ready "$(k -n "$ENS" get deploy -o json | jq -c '{deployments: [.items[] | {name: .metadata.name, ready: .status.readyReplicas}], image: .items[0].spec.template.spec.containers[0].image}')"
-k apply -f "$root/infra/kubernetes/external-secrets/ml-platform.yaml" >/dev/null
+create < "$root/infra/kubernetes/external-secrets/ml-platform.yaml"
 k -n "$APP" wait --for=condition=Ready secretstore/vault --timeout=120s >/dev/null || fail secretstore-ready "SecretStore ml-platform/vault not Ready"
 record secretstore-ready "$(k -n "$APP" get secretstore vault -o json | jq -c '{store: .metadata.name, ready: (.status.conditions[] | select(.type=="Ready") | .status), reason: (.status.conditions[] | select(.type=="Ready") | .reason)}')"
 es_wait "$APP" feature-api-redis True 120 || fail externalsecret-synced "feature-api-redis did not sync: $(es_condition "$APP" feature-api-redis) $(es_error "$APP" feature-api-redis)"
@@ -291,6 +351,10 @@ record externalsecret-synced "$(jq -cn --arg c "$(es_condition "$APP" feature-ap
 [ "$(k -n "$APP" get secret feast-online-redis -o jsonpath='{.metadata.resourceVersion}')" = "$legacy_version" ] \
   || fail legacy-secret-untouched "feast-online-redis changed"
 record legacy-secret-untouched '{"secret": "feast-online-redis", "resource_version_unchanged": true, "owner": "none"}'
+shadow() { bash "$root/scripts/vault/shadow_compare.sh" "$CONTEXT" "$APP" "$@" || true; }
+status=$(shadow feast-online-redis feature-api-redis-vault); missing=$(shadow feast-online-redis feature-api-redis-absent)
+record shadow-compare "$(jq -cn --arg s "$status" --arg m "$missing" '{equal_values: $s, absent_shadow: $m}')"
+[ "$status" = SHADOW_MATCH ] && [ "$missing" = SHADOW_SHADOW_SECRET_MISSING ] || fail shadow-compare "$status / $missing"
 
 # ---------------------------------------------------------------- real Feature API on the ESO Secret
 cat > "$work/local-serving.yaml" <<YAML
@@ -385,52 +449,45 @@ record switch-forward-again "$(jq -cn --arg s "$status" '{secret_ref: "feature-a
 [ "$status" = 200 ] || fail switch-forward "lookup $status"
 
 # ---------------------------------------------------------------- second namespace and isolation
-k apply -f "$root/infra/kubernetes/external-secrets/ewallet-agents.yaml" >/dev/null
-for kind in serviceaccount/eso-vault-reader secretstore/vault externalsecret/agentgateway-client-key-vault; do
-  k -n "$AGENTS" label "$kind" "$LABEL=true" --overwrite >/dev/null
-done
+create < "$root/infra/kubernetes/external-secrets/ewallet-agents.yaml"
 # The reader may read this path, but nothing is stored there yet: a genuinely missing secret.
-es_wait "$AGENTS" agentgateway-client-key-vault False 90 || fail neg-missing-vault-secret "synced without a Vault value"
-if k -n "$AGENTS" get secret agentgateway-client-key-vault >/dev/null 2>&1; then fail neg-missing-vault-secret "target exists"; fi
-record neg-missing-vault-secret "$(jq -cn --arg c "$(es_condition "$AGENTS" agentgateway-client-key-vault)" \
-  --arg e "$(es_error "$AGENTS" agentgateway-client-key-vault)" '{result: "not synced", condition: $c, error_class: $e, target_secret: "absent"}')"
-printf '%s' "$agent_key" | vault put --keys-file "$keys" --path agent-platform/agentgateway-client-key --key api-key --stdin >/dev/null
+negative neg-missing-vault-secret "$AGENTS" agentgateway-client-key-vault agentgateway-client-key-vault vault-secret-missing
+printf '%s' "$agent_key" | vault put --token-file "$operator" --path agent-platform/agentgateway-client-key --key api-key --stdin >/dev/null
 force_sync "$AGENTS" agentgateway-client-key-vault
 es_wait "$AGENTS" agentgateway-client-key-vault True 120 || fail agents-shadow-sync "$(es_error "$AGENTS" agentgateway-client-key-vault)"
-k -n "$AGENTS" label secret agentgateway-client-key-vault "$LABEL=true" --overwrite >/dev/null
 got=$(secret_sha "$AGENTS" agentgateway-client-key-vault api-key)
 record agents-shadow-secret-synced "$(jq -cn --arg g "$got" --arg w "$(sha "$agent_key")" '{namespace: "ewallet-agents", target: "agentgateway-client-key-vault", consumers: 0, matches_vault: ($g == $w)}')"
 [ "$got" = "$(sha "$agent_key")" ] || fail agents-shadow-value "mismatch"
 
 negative_es neg-ml-reads-fraud vault fraud-api/feast-redis connection_string
-negative neg-ml-platform-reads-fraud-api-path "$APP" neg-ml-reads-fraud neg-ml-reads-fraud
+negative neg-ml-platform-reads-fraud-api-path "$APP" neg-ml-reads-fraud neg-ml-reads-fraud vault-permission-denied
 negative_es neg-ml-reads-agents vault agent-platform/agentgateway-client-key api-key
-negative neg-ml-platform-reads-agent-path "$APP" neg-ml-reads-agents neg-ml-reads-agents
+negative neg-ml-platform-reads-agent-path "$APP" neg-ml-reads-agents neg-ml-reads-agents vault-permission-denied
 negative_es neg-agents-reads-feature vault feature-api/feast-redis connection_string "$AGENTS"
-negative neg-agents-reads-feature-api-path "$AGENTS" neg-agents-reads-feature neg-agents-reads-feature
+negative neg-agents-reads-feature-api-path "$AGENTS" neg-agents-reads-feature neg-agents-reads-feature vault-permission-denied
 negative_store neg-borrowed-role "$AGENTS" eso-vault-reader vault eso-ml-platform vault-ca
 negative_es neg-borrowed-role neg-borrowed-role feature-api/feast-redis connection_string "$AGENTS"
-negative neg-agents-reader-uses-ml-platform-role "$AGENTS" neg-borrowed-role neg-borrowed-role
+negative neg-agents-reader-uses-ml-platform-role "$AGENTS" neg-borrowed-role neg-borrowed-role role-bound-to-other-namespace
 
 # ---------------------------------------------------------------- other negative cases (ml-platform)
 negative_store neg-wrong-sa "$APP" feature-api vault eso-ml-platform vault-ca
 negative_es neg-wrong-sa neg-wrong-sa feature-api/feast-redis connection_string
-negative neg-application-service-account "$APP" neg-wrong-sa neg-wrong-sa
+negative neg-application-service-account "$APP" neg-wrong-sa neg-wrong-sa service-account-not-bound-to-role
 negative_store neg-wrong-audience "$APP" eso-vault-reader kubernetes eso-ml-platform vault-ca
 negative_es neg-wrong-audience neg-wrong-audience feature-api/feast-redis connection_string
-negative neg-wrong-token-audience "$APP" neg-wrong-audience neg-wrong-audience
+negative neg-wrong-token-audience "$APP" neg-wrong-audience neg-wrong-audience token-audience-rejected
 negative_store neg-wrong-ca "$APP" eso-vault-reader vault eso-ml-platform vault-ca-untrusted
 negative_es neg-wrong-ca neg-wrong-ca feature-api/feast-redis connection_string
-negative neg-untrusted-ca "$APP" neg-wrong-ca neg-wrong-ca
+negative neg-untrusted-ca "$APP" neg-wrong-ca neg-wrong-ca tls-untrusted-ca
 negative_store neg-wrong-mount "$APP" eso-vault-reader vault eso-ml-platform vault-ca kubernetes-missing
 negative_es neg-wrong-mount neg-wrong-mount feature-api/feast-redis connection_string
-negative neg-wrong-auth-mount "$APP" neg-wrong-mount neg-wrong-mount
+negative neg-wrong-auth-mount "$APP" neg-wrong-mount neg-wrong-mount vault-login-denied
 negative_es neg-missing-property vault feature-api/feast-redis no_such_property
-negative neg-missing-property "$APP" neg-missing-property neg-missing-property
+negative neg-missing-property "$APP" neg-missing-property neg-missing-property vault-key-missing
 if k -n "$APP" apply -f - >/dev/null 2>"$work/invalid.txt" <<YAML
 apiVersion: external-secrets.io/v1
 kind: SecretStore
-metadata: {name: neg-invalid, labels: {$LABEL: "true"}}
+metadata: {name: neg-invalid, labels: {$LABEL: "$RUN"}}
 spec:
   provider:
     vault: {server: "https://vault.$VNS.svc.cluster.local:8200", path: ewallet, version: v3, auth: {kubernetes: {role: eso-ml-platform, serviceAccountRef: {name: eso-vault-reader}}}}
@@ -440,7 +497,7 @@ record neg-invalid-secretstore-rejected "$(jq -cn --arg e "$(grep -o 'Unsupporte
 k -n "$APP" apply -f - >/dev/null <<YAML
 apiVersion: v1
 kind: Pod
-metadata: {name: neg-missing-target, labels: {$LABEL: "true"}}
+metadata: {name: neg-missing-target, labels: {$LABEL: "$RUN"}}
 spec:
   restartPolicy: Never
   automountServiceAccountToken: false
@@ -462,14 +519,17 @@ record vault-network-policy "$(jq -cn --arg a "$allowed" --arg d "$denied" '{lis
 [ "$allowed" = 0 ] && [ "$denied" != 0 ] || fail vault-network-policy "allowed=$allowed denied=$denied"
 
 # ---------------------------------------------------------------- rotation (synthetic Redis password)
-record rotate-vault "$(printf '%s' "$(conn "$redis_v2")" | vault put --keys-file "$keys" --path feature-api/feast-redis --key connection_string --stdin)"
+record rotate-vault "$(printf '%s' "$(conn "$redis_v2")" | vault put --token-file "$operator" --path feature-api/feast-redis --key connection_string --stdin)"
 printf 'AUTH %s\nCONFIG SET requirepass %s\n' "$redis_v1" "$redis_v2" | k -n "$APP" exec -i deploy/redis -- redis-cli >/dev/null
 force_sync "$APP" feature-api-redis
 for _ in $(seq 60); do [ "$(secret_sha "$APP" feature-api-redis-vault connection_string)" = "$(sha "$(conn "$redis_v2")")" ] && break; sleep 1; done
 got=$(secret_sha "$APP" feature-api-redis-vault connection_string)
-record rotate-eso-synced "$(jq -cn --arg g "$got" --arg w "$(sha "$(conn "$redis_v2")")" --argjson v "$(vault versions --keys-file "$keys" --path feature-api/feast-redis | jq .current_version)" \
+record rotate-eso-synced "$(jq -cn --arg g "$got" --arg w "$(sha "$(conn "$redis_v2")")" --argjson v "$(vault versions --token-file "$operator" --path feature-api/feast-redis | jq .current_version)" \
   '{vault_version: $v, target_value_sha256_prefix: $g, matches_new_version: ($g == $w)}')"
 [ "$got" = "$(sha "$(conn "$redis_v2")")" ] || fail rotate-eso-synced "target did not change"
+status=$(shadow feast-online-redis feature-api-redis-vault)
+record shadow-compare-after-rotation "$(jq -cn --arg s "$status" '{status: $s, note: "feast-online-redis was not rotated"}')"
+[ "$status" = SHADOW_MISMATCH ] || fail shadow-compare-after-rotation "$status"
 k -n "$APP" rollout restart deploy/feature-api >/dev/null
 k -n "$APP" rollout status deploy/feature-api --timeout=600s >/dev/null || fail rotate-consumer "Feature API not ready on the new credential"
 forward_feature; read -r status count < <(lookup)
@@ -481,6 +541,7 @@ k -n "$VNS" scale statefulset vault --replicas=0 >/dev/null
 k -n "$VNS" wait --for=delete pod/vault-0 --timeout=120s >/dev/null
 force_sync "$APP" feature-api-redis
 es_wait "$APP" feature-api-redis False 90 || fail vault-unavailable "ExternalSecret still reports synced"
+await_class vault-unavailable "$APP" feature-api-redis vault-unreachable 60s
 record vault-unavailable "$(jq -cn --arg c "$(es_condition "$APP" feature-api-redis)" --arg e "$(es_error "$APP" feature-api-redis 60s)" \
   --arg g "$(secret_sha "$APP" feature-api-redis-vault connection_string)" '{externalsecret: $c, error_class: $e, retained_secret_sha256_prefix: $g, note: "Secret retained; ESO is NOT syncing"}')"
 k -n "$APP" rollout restart deploy/feature-api >/dev/null
@@ -494,16 +555,28 @@ k -n "$VNS" wait --for=jsonpath='{.status.phase}'=Running pod/vault-0 --timeout=
 forward_vault
 state=$(vault status); record vault-restart-is-sealed "$state"
 [ "$(jq -r .sealed <<<"$state")" = true ] || fail vault-restart-sealed "Vault came back unsealed"
-force_sync "$APP" feature-api-redis; sleep 10
+force_sync "$APP" feature-api-redis
+await_class sync-while-sealed "$APP" feature-api-redis vault-sealed 30s
 record sync-while-sealed "$(jq -cn --arg c "$(es_condition "$APP" feature-api-redis)" --arg e "$(es_error "$APP" feature-api-redis 15s)" '{externalsecret: $c, error_class: $e}')"
 [ "$(es_condition "$APP" feature-api-redis | cut -d' ' -f1)" = False ] || fail sync-while-sealed "synced while sealed"
 record vault-manual-unseal "$(vault unseal --keys-file "$keys")"
 sleep 5
-record vault-data-persisted "$(vault versions --keys-file "$keys" --path feature-api/feast-redis | jq -c '{current_version}')"
+record vault-data-persisted "$(vault versions --token-file "$operator" --path feature-api/feast-redis | jq -c '{current_version}')"
 force_sync "$APP" feature-api-redis
 es_wait "$APP" feature-api-redis True 120 || fail sync-resumed "ESO did not resume"
 record eso-sync-resumed "$(jq -cn --arg c "$(es_condition "$APP" feature-api-redis)" --arg g "$(secret_sha "$APP" feature-api-redis-vault connection_string)" \
   --arg w "$(sha "$(conn "$redis_v2")")" '{externalsecret: $c, matches_version_2: ($g == $w)}')"
+
+# ---------------------------------------------------------------- later administration
+# Policy/role changes after root retirement: a temporary root token from the unseal shares,
+# used for one configure, then revoked. The operator token stays valid throughout.
+record admin-generate-root "$(vault generate-root --keys-file "$keys" --token-out "$admin")"
+record admin-reconfigure "$(vault configure --token-file "$admin")"
+record admin-root-retired "$(vault retire-root --token-file "$admin")"
+[ -f "$admin" ] || fail admin-root-rejected "no generated root token to test"
+if vault configure --token-file "$admin" >/dev/null 2>&1; then fail admin-root-rejected "generated root still works"; fi
+record admin-root-rejected '{"result": "denied"}'
+record operator-token-still-valid "$(vault versions --token-file "$operator" --path feature-api/feast-redis | jq -c '{current_version}')"
 
 # ---------------------------------------------------------------- audit
 audit=$(k -n "$VNS" exec vault-0 -- sh -c 'wc -l < /vault/audit/audit.log')
