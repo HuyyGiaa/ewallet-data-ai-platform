@@ -6,7 +6,7 @@ approves it. Its job is to find GKE-specific problems before the owner's officia
 ([VAULT_GKE_ACCEPTANCE_CAMPAIGN.md](VAULT_GKE_ACCEPTANCE_CAMPAIGN.md), Campaign B). It ends with
 everything removed and the cluster asleep.
 
-**Status: executed on GKE on 2026-11-24 as `vault-rehearsal-20261124T173156Z`: `VAULT_GKE_REHEARSAL_COMPLETE`**
+**Status: Campaign A executed on GKE on 2026-11-24 as `vault-rehearsal-20261124T173156Z`: `VAULT_GKE_REHEARSAL_COMPLETE`. Campaign A+ (§9): KIND PASS, GKE pending approval.**
 ([report](../../evidence/edai2/vault/gke_rehearsal_vault-rehearsal-20261124T173156Z/README.md)). Nothing on this page runs without the owner's
 explicit approval, and the approval names one rehearsal ID.
 
@@ -145,3 +145,104 @@ the runbook and acceptance plan before Campaign B.
 The complete procedure ran on kind before any GKE use:
 [`rehearsal_kind_20261124T172656Z`](../../evidence/edai2/vault/rehearsal_kind_20261124T172656Z/README.md),
 10 phases, 45 steps, no failure, nothing left. It is not GKE evidence.
+
+## 9. Campaign A+: the Feature API release, storage and wake
+
+**Status: KIND PASS ([`rehearsal_aplus_kind_20261124T191350Z`](../../evidence/edai2/vault/rehearsal_aplus_kind_20261124T191350Z/README.md),
+67 steps); not run on GKE.** A GKE run needs the owner's approval for one new rehearsal ID.
+
+### Why
+
+Campaign A proved Vault, ESO and a redis-cli consumer on GKE. Campaign B's riskiest steps were still
+unrehearsed on GKE: the real Feature API reading an ESO-managed Secret, the exact Helm commands of
+G8 and G11 (`helm upgrade --reuse-values -f values-vault-eso.yaml`, `helm rollback`), the PV `Retain`
+patch, and Vault data surviving a guarded sleep and wake. A+ runs them with synthetic values only.
+
+### What is added (and what is not)
+
+| Added | How |
+|---|---|
+| Real Feature API | the serving chart `infra/helm/ewallet-serving`, unchanged, installed as Helm release `rehearsal-serving` in `vault-rehearsal` with [`serving-values.yaml`](../../../scripts/vault/rehearsal/serving-values.yaml) and the production image (by digest). The post-renderer [`serving_post_render.py`](../../../scripts/vault/rehearsal/serving_post_render.py) drops the chart's NetworkPolicy in `feature-store` (owned by the production release), mounts the synthetic Feast registry, labels every object, and refuses any object outside `vault-rehearsal` |
+| Synthetic Feast data | a seed Job on the same image applies and materializes the fixture of `tests/integration/test_feast_online_operator.py` into the rehearsal Redis; the registry (≈9 KB, checked to hold no credential) becomes ConfigMap `feast-registry`. No seed image, no Artifact Registry push |
+| Official overlay | the ESO target in `vault-rehearsal` is named `feature-api-redis-vault`, so `values-vault-eso.yaml` applies unchanged. The "existing" Secret is `rehearsal-feast-online-redis` |
+| Storage | `Retain` on both Vault PVs, a deliberate PVC deletion and the runbook's *Recovery of a Released PV*; on GKE also a guarded sleep and wake with Vault installed |
+| Not added | no chart change, no new image, no extra disk (the registry is a ConfigMap, Redis is in memory), nothing in `ml-platform` or `feature-store` |
+
+### Phases (after Campaign A's `consumer`)
+
+Each needs `FEATURE_IMAGE=<Feature API image@sha256:…>` and, on GKE, `VAULT_REHEARSAL_APPROVED=$ID`.
+Every lookup is classified as in the acceptance plan §4; only `BASELINE_OK` (HTTP 200, all fixture
+features, readiness 200) passes. A 424, 5xx, timeout or no response stops the run.
+
+| Phase | Official gate rehearsed | PASS when |
+|---|---|---|
+| `feature-api` | G1 (and G7's shadow check) | `SHADOW_MATCH` between `rehearsal-feast-online-redis` and `feature-api-redis-vault`; seed Job succeeds; release revision 1 reads `rehearsal-feast-online-redis`; lookup `BASELINE_OK` |
+| `switch` | G8 + G9 | the upgrade (revision 2) reads `feature-api-redis-vault`, no `EWALLET_VAULT_*`; existing Secret unchanged; lookup `BASELINE_OK` |
+| `negative` | G10 classes | Campaign A's six denials (the committed G10 template is proven on kind in `ml-platform`) |
+| `rollback` | G11 + *Final state after G11* | rollback → old Secret, lookup OK; upgrade again → ESO Secret, lookup OK; store `Valid`, `SecretSynced`, existing Secret unchanged, no test objects, production unchanged |
+| `lifecycle` | O2 | Campaign A's checks plus: the Feature API keeps serving while Vault is sealed |
+| `retain` | G2's `Retain`, RB *Recovery* | both PVs `Retain`; PVCs deleted → PVs `Released`, disks present; claimRef cleared, PVCs recreated with `volumeName` → Vault initialised and sealed, unsealed, KV version and operator token intact, ESO re-syncs, lookup OK |
+| GKE only: sleep and wake | G12 and the next G1 | the cloud-lab commands below |
+| `after-wake` | RB 12 | Vault initialised (data survived), unsealed, KV version equal, PVs `Bound/Retain`, ESO new reconciliation, Redis seeded again, lookup OK, production unchanged |
+| `cleanup`, `verify-clean` | — | as R9, plus: the two recorded PVs (identity-checked) go back to `Delete` first, so the provisioner deletes their disks as in Campaign A; no `gcloud compute disks delete` |
+
+### GKE run (pending owner approval)
+
+```bash
+ID=vault-rehearsal-$(date -u +%Y%m%dT%H%M%SZ)
+export KUBECONFIG=~/.cache/ewallet-cloud-lab/kubeconfig CTX=gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev
+export REHEARSAL_CONTEXT=$CTX REHEARSAL_ID=$ID REHEARSAL_DIR=~/ewallet-evidence/vault/$ID CHARTS=~/ewallet-evidence/vault/charts
+R="bash scripts/vault/gke_rehearsal.sh"; A="VAULT_REHEARSAL_APPROVED=$ID"
+MANIFEST=<the newest ~/ewallet-evidence/**/recovery-manifest>          # today: vault-rehearsal-20261124T173156Z/recovery-manifest
+# 1. [OWNER: wake] then READ-ONLY
+CLOUD_LAB_APPROVED=yes python3 ops/gcp/cloud_lab.py wake-full --manifest $MANIFEST --nodes 5 --confirm-cluster ewallet-dev --execute
+python3 ops/gcp/cloud_lab.py verify --expect awake --manifest $MANIFEST
+$R preflight                       # rerun until cert-manager is available (≈3 min after the wake)
+export FEATURE_IMAGE=$(helm --kube-context $CTX get values ewallet-serving -n ml-platform -o json | jq -r .featureApi.image)   # READ-ONLY
+# 2. [OWNER: R3-R8 and A+ for $ID]
+for p in vault init configure eso consumer feature-api switch negative rollback lifecycle retain; do env $A $R $p || break; done
+# 3. [OWNER: guarded sleep, KEDA pause and each --also-approve target for $ID] sleep WITH Vault installed
+python3 ops/gcp/cloud_lab.py record-manifest --campaign $ID --out $REHEARSAL_DIR/recovery-manifest-mid
+python3 ops/gcp/cloud_lab.py plan-sleep --manifest docs/evidence/edai2/cloud_lab/sleep_20261106T163042Z   # stop on any new not_covered target
+CLOUD_LAB_APPROVED=yes CLOUD_LAB_GUARDED_SLEEP_APPROVAL=ewallet-dev:$ID CLOUD_LAB_KEDA_PAUSE_APPROVAL=ewallet-dev:$ID \
+  python3 ops/gcp/cloud_lab.py sleep --scale-pdb-guarded --pause-keda --manifest docs/evidence/edai2/cloud_lab/sleep_20261106T163042Z \
+  --campaign $ID --also-approve <each approved target> --execute --confirm-cluster ewallet-dev
+python3 ops/gcp/cloud_lab.py verify --expect sleep --manifest $REHEARSAL_DIR/recovery-manifest-mid
+# 4. [OWNER: wake] the same Vault comes back on the retained disks
+CLOUD_LAB_APPROVED=yes python3 ops/gcp/cloud_lab.py wake-full --manifest $REHEARSAL_DIR/recovery-manifest-mid --nodes 5 --confirm-cluster ewallet-dev --execute
+python3 ops/gcp/cloud_lab.py verify --expect awake --manifest $REHEARSAL_DIR/recovery-manifest-mid
+env $A $R after-wake
+# 5. [OWNER: cleanup for $ID] then READ-ONLY
+VAULT_REHEARSAL_CLEANUP_APPROVED=$ID $R cleanup && $R verify-clean
+# 6. [OWNER: second guarded sleep] a FRESH manifest without the rehearsal workloads, then step 3's sleep and verify
+python3 ops/gcp/cloud_lab.py record-manifest --campaign $ID --out $REHEARSAL_DIR/recovery-manifest
+```
+
+- **Approvals for one ID:** the first wake; R3–R8 and the A+ phases; the first guarded sleep with
+  its KEDA pause and each `--also-approve` target (so far `ewallet-mcp/feature-rag-mcp`; Campaign A's
+  approval does not carry over); the second wake; cleanup (it deletes the two synthetic disks and
+  ESO's CRDs); the second guarded sleep.
+- **Keep `$REHEARSAL_DIR/private` across the sleep:** it holds the synthetic unseal shares that
+  `after-wake` needs. Cleanup removes it.
+- **The mid-campaign manifest includes the rehearsal workloads** (Vault, ESO, `rehearsal-serving`,
+  Redis), so the second wake restores them. The final manifest (step 6) is recorded after cleanup;
+  Campaign B's G1 uses that one.
+- **Early stop at any point:** stop, keep the evidence, report the state (namespaces, releases,
+  PVCs, PVs and disks, awake or asleep), and ask for cleanup. With the PVs on `Retain`, a deleted
+  PVC or namespace leaves its disk: cleanup must run (it returns the recorded PVs to `Delete` first),
+  never a namespace deletion by hand.
+
+### Resources and cost
+
+Additional to Campaign A: Feature API 100m CPU / 384 MiB (one pod), a seed Job, a ConfigMap; no
+disk. Awake time ≈ 70–90 min in two stretches (≈ 35 min for wake, R2–R8 and A+; ≈ 25 min for the
+second wake, `after-wake`, cleanup), plus three cloud-lab transitions. At the `cloud_lab.py` rate of
+≈ US$0.83/h for 5 nodes plus ≈ US$0.10/h cluster fee: ≈ US$1.2–1.5. The two synthetic disks
+(6 GiB) cost cents while asleep.
+
+### What A+ still cannot show
+
+The production registry in GCS through Workload Identity; `feature-store/redis` and its
+`redis-clients-feature-api` NetworkPolicy; the Feature API's KEDA ScaledObject; the real credential
+and `SHADOW_MATCH` against `feast-online-redis`; anything in `ml-platform`. Those remain Campaign B
+risks, each guarded by a stop condition in the acceptance plan.

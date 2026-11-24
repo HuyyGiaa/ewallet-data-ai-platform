@@ -133,7 +133,7 @@ import json, os, sys
 tool, args = os.path.basename(sys.argv[0]), sys.argv[1:]
 s = json.load(open(os.environ["STUB_SCENARIO"]))
 state_file = os.environ["STUB_STATE"]
-state = json.load(open(state_file)) if os.path.exists(state_file) else {"pvc_deleted": False}
+state = json.load(open(state_file)) if os.path.exists(state_file) else {"pvc_deleted": False, "reclaim": {}}
 open(os.environ["STUB_LOG"], "a").write(tool + " " + " ".join(args) + "\n")
 text = " ".join(args)
 def out(obj, rc=0):
@@ -153,6 +153,14 @@ if tool == "helm":
         out(s["helm_releases"])
     sys.exit(0)
 # kubectl
+if "patch" in args and "pv" in args:
+    pv = args[args.index("pv") + 1]
+    if pv not in [v["name"] for v in s["live_volumes"]]:
+        sys.exit(1)
+    state["reclaim"][pv] = json.loads(args[args.index("-p") + 1])["spec"]["persistentVolumeReclaimPolicy"]
+    json.dump(state, open(state_file, "w")); sys.exit(0)
+if "get" in args and "pv" in args and "persistentVolumeReclaimPolicy" in text:
+    out(state["reclaim"].get(args[args.index("pv") + 1], s["reclaim"]))
 if "delete" in args:
     if "pvc" in args:
         state["pvc_deleted"] = True; json.dump(state, open(state_file, "w"))
@@ -173,7 +181,7 @@ if "get pv" in text and "--ignore-not-found" in args:
     out("" if state["pvc_deleted"] else "persistentvolume/" + args[args.index("pv") + 1])
 if "get pv" in text and "-o json" in text and args[args.index("pv") + 1] != "-o":
     v = next(x for x in s["live_volumes"] if x["name"] == args[args.index("pv") + 1])
-    out({"spec": {"persistentVolumeReclaimPolicy": s["reclaim"], "claimRef": {"namespace": "ewallet-vault", "name": v["claim"]},
+    out({"spec": {"persistentVolumeReclaimPolicy": state["reclaim"].get(v["name"], s["reclaim"]), "claimRef": {"namespace": "ewallet-vault", "name": v["claim"]},
                   "csi": {"volumeHandle": v["disk"]}}})
 if "get ns -o json" in text or "get crd -o json" in text or "get pv -o json" in text:
     out({"items": []})
@@ -238,13 +246,13 @@ def test_cleanup_never_passes_when_disk_absence_is_not_proven(tmp_path, after, r
 
 
 @pytest.mark.parametrize("change,reason", [
-    ({"reclaim": "Retain"}, "not reclaim Delete"),
+    ({"reclaim": "Recycle"}, "claim or disk differs from the record"),
     ({"live_volumes": [dict(VOLUMES[0], disk=DISK.format("other")), VOLUMES[1]]}, "claim or disk differs from the record"),
     ({"live_volumes": [dict(VOLUMES[0], name="pvc-x"), VOLUMES[1]]}, "differ from the recorded"),
     ({"eso_objects": [{"kind": "ExternalSecret", "metadata": {"namespace": "ml-platform", "name": "feature-api-redis"}}]},
      "ESO objects outside vault-rehearsal"),
     ({"recorded_eso": ["ClusterRole/external-secrets-controller"]}, "differ from the recorded inventory"),
-], ids=["retain-policy", "disk-handle-changed", "pvc-bound-to-other-pv", "eso-used-elsewhere", "eso-inventory-drift"])
+], ids=["unexpected-reclaim-policy", "disk-handle-changed", "pvc-bound-to-other-pv", "eso-used-elsewhere", "eso-inventory-drift"])
 def test_cleanup_refuses_before_any_deletion(tmp_path, change, reason):
     done, calls, results = stubbed(tmp_path, "cleanup", **change)
     assert done.returncode != 0 and " delete " not in f" {calls} "
@@ -273,3 +281,101 @@ def test_the_consumer_reports_auth_failure_only_for_a_rejected_password():
     job = TEXT.split("consume() {")[1].split("collisions() {")[0]
     assert "*WRONGPASS*|*NOAUTH*) echo AUTH_FAILED" in job and "echo UNREACHABLE" in job
     assert job.index("WRONGPASS") < job.index("sleep 1")              # an auth failure is reported at once, not retried
+
+
+def test_cleanup_returns_retained_rehearsal_pvs_to_delete_and_only_those(tmp_path):
+    """A+ leaves the Vault PVs on Retain; cleanup patches exactly the two recorded PVs, then deletes."""
+    done, calls, results = stubbed(tmp_path, "cleanup", reclaim="Retain")
+    assert done.returncode == 0, done.stdout
+    patched = [line for line in calls.splitlines() if line.startswith("kubectl") and " patch pv " in line]
+    assert sorted(line.split(" patch pv ")[1].split()[0] for line in patched) == ["pvc-a", "pvc-d"]
+    assert all('"Delete"' in line for line in patched)
+    steps = [r["step"] for r in results]
+    assert steps.index("volumes-identity") < steps.index("reclaim-delete-restored") < steps.index("cleanup")
+    assert calls.index(" patch pv ") < calls.index("delete pvc")
+
+
+# ---- Campaign A+: the serving chart as a rehearsal Helm release
+
+import importlib.util
+import shutil
+import yaml
+
+POST = ROOT / "scripts/vault/rehearsal/serving_post_render.py"
+_spec = importlib.util.spec_from_file_location("serving_post_render", POST)
+post_render_module = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(post_render_module)
+IMAGE = "localhost:5001/ewallet-inference@sha256:" + "0" * 64
+
+
+def _doc(kind, namespace, name, **spec):
+    return {"kind": kind, "metadata": {"name": name, **({"namespace": namespace} if namespace else {})}, "spec": spec}
+
+
+def _deployment():
+    return _doc("Deployment", "vault-rehearsal", "feature-api", template={"spec": {"containers": [{"name": "feature-api"}]}})
+
+
+def test_post_renderer_drops_the_feature_store_policy_mounts_the_registry_and_labels_everything():
+    out = post_render_module.post_render(
+        [_deployment(), _doc("Service", "vault-rehearsal", "feature-api"),
+         _doc("NetworkPolicy", "feature-store", "redis-clients-feature-api")], "vault-rehearsal", ID)
+    assert [(d["kind"], d["metadata"]["name"]) for d in out] == [("Deployment", "feature-api"), ("Service", "feature-api")]
+    assert all(d["metadata"]["labels"]["ewallet.io/vault-rehearsal"] == ID for d in out)
+    pod = out[0]["spec"]["template"]["spec"]
+    assert pod["volumes"] == [{"name": "registry", "configMap": {"name": "feast-registry"}}]
+    assert pod["containers"][0]["volumeMounts"] == [{"name": "registry", "mountPath": "/registry", "readOnly": True}]
+
+
+@pytest.mark.parametrize("stray", [
+    _doc("NetworkPolicy", "feature-store", "something-else"),
+    _doc("ServiceAccount", "ml-platform", "feature-api"),
+    _doc("ClusterRole", None, "anything"),
+], ids=["other-feature-store-object", "production-namespace", "cluster-scoped"])
+def test_post_renderer_refuses_anything_outside_the_rehearsal_namespace(stray):
+    with pytest.raises(SystemExit):
+        post_render_module.post_render([_deployment(), stray], "vault-rehearsal", ID)
+
+
+def test_post_renderer_requires_its_environment():
+    done = subprocess.run([str(POST)], input="", env={"PATH": os.environ["PATH"]}, capture_output=True, text=True, timeout=30)
+    assert done.returncode == 2 and "REHEARSAL_NAMESPACE and REHEARSAL_ID are required" in done.stderr
+
+
+@pytest.mark.skipif(shutil.which("helm") is None, reason="helm not installed")
+@pytest.mark.parametrize("overlay,secret", [(False, "rehearsal-feast-online-redis"), (True, "feature-api-redis-vault")],
+                         ids=["before-switch", "official-overlay"])
+def test_the_real_chart_renders_only_rehearsal_objects_and_the_official_overlay_switches_the_secret(overlay, secret):
+    argv = ["helm", "template", "rehearsal-serving", str(ROOT / "infra/helm/ewallet-serving"), "-n", "vault-rehearsal",
+            "-f", str(ROOT / "scripts/vault/rehearsal/serving-values.yaml"), "--set", f"featureApi.image={IMAGE}",
+            "--post-renderer", str(POST)]
+    if overlay:
+        argv += ["-f", str(ROOT / "infra/helm/ewallet-serving/values-vault-eso.yaml")]
+    env = {**os.environ, "REHEARSAL_NAMESPACE": "vault-rehearsal", "REHEARSAL_ID": ID}
+    done = subprocess.run(argv, env=env, capture_output=True, text=True, timeout=60)
+    assert done.returncode == 0, done.stderr
+    docs = [d for d in yaml.safe_load_all(done.stdout) if d]
+    assert sorted((d["kind"], d["metadata"]["namespace"]) for d in docs) == [("Deployment", "vault-rehearsal"), ("Service", "vault-rehearsal")]
+    container = next(d for d in docs if d["kind"] == "Deployment")["spec"]["template"]["spec"]["containers"][0]
+    env_vars = {e["name"]: e for e in container["env"]}
+    assert env_vars["EWALLET_REDIS_CONNECTION_STRING"]["valueFrom"]["secretKeyRef"]["name"] == secret
+    assert not any(name.startswith("EWALLET_VAULT_") for name in env_vars)
+    assert env_vars["EWALLET_FEAST_REGISTRY"]["value"] == "/registry/registry.db"
+
+
+@pytest.mark.parametrize("phase", ["feature-api", "switch", "rollback", "retain", "after-wake"])
+def test_every_a_plus_phase_needs_the_gke_approval(tmp_path, phase):
+    kubeconfig = tmp_path / ".cache/ewallet-cloud-lab/kubeconfig"
+    done = run(phase, tmp_path, REHEARSAL_CONTEXT=GKE, KUBECONFIG=str(kubeconfig))
+    assert done.returncode == 2 and "needs VAULT_REHEARSAL_APPROVED" in done.stderr
+
+
+def test_a_plus_lookups_pass_only_on_a_real_business_result_and_drift_ignores_sleep_scaling():
+    lookup = TEXT.split("lookup_class() {")[1].split("seed_registry() {")[0]
+    assert '"BASELINE_OK"' in lookup and "[ \"$cls\" = BASELINE_OK ] || fail" in lookup and "--max-time 30" in lookup
+    assert 'elif $rc == 0 and $c == "424"' in lookup                    # a 424 is classified, never BASELINE_OK
+    snapshot = TEXT.split("snapshot() {")[1].split("compare_production() {")[0]
+    assert "metadata.generation" not in snapshot.split("\n", 3)[-1] and "image: .spec.template.spec.containers[0].image" in snapshot
+    assert 'or .name == "rehearsal-serving"' in TEXT.split("collisions() {")[1].split("none_found()")[0]
+    seed = TEXT.split("seed_registry() {")[1].split("\n}\n")[0]
+    assert "the registry contains the Redis password" in seed and "secretKeyRef: {name: $LEGACY" in seed

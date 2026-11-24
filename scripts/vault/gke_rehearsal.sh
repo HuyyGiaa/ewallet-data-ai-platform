@@ -6,6 +6,11 @@
 #   REHEARSAL_DIR=<directory outside the repository>     CHARTS=<directory with the two pinned chart archives>
 #   bash scripts/vault/gke_rehearsal.sh <preflight|vault|init|configure|eso|consumer|negative|lifecycle|cleanup|verify-clean>
 #
+# Campaign A+ phases (docs/runbooks/edai2/VAULT_GKE_REHEARSAL.md §9), in this order after `consumer`:
+#   feature-api  switch  negative  rollback  lifecycle  retain  [GKE: approved sleep + wake]  after-wake
+# They need FEATURE_IMAGE=<the Feature API image pinned by digest> and run the real serving chart as
+# release `rehearsal-serving` in vault-rehearsal (post-renderer scripts/vault/rehearsal/serving_post_render.py).
+#
 # What it deploys: the official Vault and ESO charts with the repository values, certificate,
 # NetworkPolicy and bootstrap (the same names as the official campaign: ewallet-vault,
 # external-secrets, releases vault and external-secrets). The consumer side lives only in the
@@ -33,6 +38,7 @@ PROJECT=ewallet-data-ai-platform-hg26
 CTX=${REHEARSAL_CONTEXT:?REHEARSAL_CONTEXT} ID=${REHEARSAL_ID:?REHEARSAL_ID} DIR=${REHEARSAL_DIR:?REHEARSAL_DIR}
 VNS=ewallet-vault ENS=external-secrets RNS=vault-rehearsal LABEL=ewallet.io/vault-rehearsal PORT=${REHEARSAL_PORT:-18233}
 CLUSTER_KINDS=clusterrole,clusterrolebinding,validatingwebhookconfiguration,mutatingwebhookconfiguration
+SERVING=rehearsal-serving LEGACY=rehearsal-feast-online-redis FPORT=${REHEARSAL_FEATURE_PORT:-18234}
 REDIS_IMAGE=docker.io/library/redis:7.4.2-alpine@sha256:02419de7eddf55aa5bcf49efb74e88fa8d931b4d77c07eff8a6b2144472b6952
 root=$(cd "$(dirname "$0")/../.." && pwd)
 export PYTHONPATH=$root
@@ -46,7 +52,7 @@ elif [ "$CTX" = "$GKE_CONTEXT" ]; then
 else refuse "context $CTX is neither kind-* nor $GKE_CONTEXT"; fi
 case "$phase" in preflight|verify-clean) ;;
   cleanup) [ -n "$KIND" ] || [ "${VAULT_REHEARSAL_CLEANUP_APPROVED:-}" = "$ID" ] || refuse "cleanup needs VAULT_REHEARSAL_CLEANUP_APPROVED=$ID" ;;
-  vault|init|configure|eso|consumer|negative|lifecycle)
+  vault|init|configure|eso|consumer|negative|lifecycle|feature-api|switch|rollback|retain|after-wake)
     [ -n "$KIND" ] || [ "${VAULT_REHEARSAL_APPROVED:-}" = "$ID" ] || refuse "$phase needs VAULT_REHEARSAL_APPROVED=$ID" ;;
   *) refuse "unknown phase $phase" ;;
 esac
@@ -87,7 +93,9 @@ mine() { [ "$(k get ns "$1" -o jsonpath="{.metadata.labels.ewallet\.io/vault-reh
 
 forward=
 stop_forward() { [ -z "$forward" ] || kill "$forward" 2>/dev/null || true; forward=; }
-trap stop_forward EXIT
+ffwd=
+stop_ffwd() { [ -z "$ffwd" ] || kill "$ffwd" 2>/dev/null || true; ffwd=; }
+trap 'stop_forward; stop_ffwd' EXIT
 open_forward() {  # Vault through a port-forward (enters the pod's network namespace; TLS verified with vault-ca)
   for _ in $(seq 15); do
     stop_forward
@@ -199,7 +207,7 @@ spec:
         - name: consumer
           image: $REDIS_IMAGE
           $container_security
-          env: [{name: CONN, valueFrom: {secretKeyRef: {name: rehearsal-redis-vault, key: connection_string}}}]
+          env: [{name: CONN, valueFrom: {secretKeyRef: {name: feature-api-redis-vault, key: connection_string}}}]
           command: [sh, -c]
           args:
             - |
@@ -229,7 +237,7 @@ collisions() {  # JSON of every pre-existing object the rehearsal would own; fai
   local ns crds rel objs pvs
   ns=$(k get ns -o json | jq -c --arg a "$VNS" --arg b "$ENS" --arg c "$RNS" '[.items[].metadata.name | select(. == $a or . == $b or . == $c)]') || return 1
   crds=$(k get crd -o json | jq -c '[.items[].metadata.name | select(endswith(".external-secrets.io"))] | length') || return 1
-  rel=$(h list -A -a -o json | jq -c '[.[] | select(.name == "vault" or .name == "external-secrets") | "\(.namespace)/\(.name)"]') || return 1
+  rel=$(h list -A -a -o json | jq -c '[.[] | select(.name == "vault" or .name == "external-secrets" or .name == "rehearsal-serving") | "\(.namespace)/\(.name)"]') || return 1
   objs=$(k get "$CLUSTER_KINDS" -l 'app.kubernetes.io/instance in (vault,external-secrets)' -o json | jq -c '[.items[] | "\(.kind)/\(.metadata.name)"]') || return 1
   pvs=$(k get pv -o json | jq -c --arg a "$VNS" --arg c "$RNS" '[.items[] | select(.spec.claimRef.namespace == $a or .spec.claimRef.namespace == $c) | .metadata.name]') || return 1
   jq -cn --argjson ns "$ns" --argjson crds "$crds" --argjson rel "$rel" --argjson objs "$objs" --argjson pvs "$pvs" \
@@ -237,12 +245,14 @@ collisions() {  # JSON of every pre-existing object the rehearsal would own; fai
 }
 none_found() { jq -e '(.namespaces + .releases + .chart_cluster_objects + .vault_volumes | length) == 0 and .eso_crds == 0' <<<"$1" >/dev/null; }
 snapshot() {  # production state the rehearsal must not change (names and versions only; its own releases excluded)
+  # The Feature API is compared by its pod template (image, Secret reference), not metadata.generation:
+  # a guarded sleep scales Deployments to zero, which raises generation without changing the configuration.
   local rel feast fapi lbs gw
-  rel=$(h list -A -a -o json | jq -c '[.[] | select(.name != "vault" and .name != "external-secrets") | {name, namespace, revision, status}]
+  rel=$(h list -A -a -o json | jq -c '[.[] | select(.name != "vault" and .name != "external-secrets" and .name != "rehearsal-serving") | {name, namespace, revision, status}]
     | sort_by(.namespace, .name)') || return 1
   feast=$(k -n ml-platform get secret feast-online-redis --ignore-not-found -o jsonpath='{.metadata.resourceVersion}') || return 1
   fapi=$(k -n ml-platform get deploy feature-api --ignore-not-found -o json | jq -cs '.[0] | if . == null then null else
-    {generation: .metadata.generation, redis_secret: ([.spec.template.spec.containers[0].env[]? | select(.name == "EWALLET_REDIS_CONNECTION_STRING") | .valueFrom.secretKeyRef.name][0])} end') || return 1
+    {image: .spec.template.spec.containers[0].image, redis_secret: ([.spec.template.spec.containers[0].env[]? | select(.name == "EWALLET_REDIS_CONNECTION_STRING") | .valueFrom.secretKeyRef.name][0])} end') || return 1
   lbs=$(k get svc -A -o json | jq -c '[.items[] | select(.spec.type == "LoadBalancer") | "\(.metadata.namespace)/\(.metadata.name)"] | sort') || return 1
   gw=$(k -n ewallet-ingress get svc ewallet-edge-gateway --ignore-not-found -o jsonpath='{.spec.type}') || return 1
   jq -cn --argjson rel "$rel" --arg feast "$feast" --argjson fapi "$fapi" --argjson lbs "$lbs" --arg gw "$gw" \
@@ -254,7 +264,7 @@ compare_production() {  # <step>: the production snapshot must equal baseline.js
   [ -f "$DIR/baseline.json" ] || fail "$1" "no baseline.json: run preflight first"
   now=$(snapshot) || fail "$1" "snapshot query failed"
   if jq -e --argjson now "$now" '. == $now' "$DIR/baseline.json" >/dev/null; then
-    record "$1" '{"result": "PASS", "compared": ["helm releases and revisions", "feast-online-redis resourceVersion", "feature-api generation and Secret", "LoadBalancer Services", "edge gateway Service type"]}'
+    record "$1" '{"result": "PASS", "compared": ["helm releases and revisions", "feast-online-redis resourceVersion", "feature-api image and Secret", "LoadBalancer Services", "edge gateway Service type"]}'
   else
     printf '%s\n' "$now" > "$DIR/snapshot-differs-$1.json"
     fail "$1" "production differs from baseline in: $(jq -rn --argjson b "$(cat "$DIR/baseline.json")" --argjson n "$now" \
@@ -287,15 +297,17 @@ check_volumes_before_delete() {  # the live PVC -> PV -> disk chain must be exac
   [ "$(jq -c '[.[] | {claim, name}]' <<<"$recorded")" = "$live" ] || fail volumes-identity "live PVCs $live differ from the recorded $recorded"
   for v in $(jq -r '.[].name' <<<"$recorded"); do
     k get pv "$v" -o json | jq -e --arg ns "$VNS" --argjson r "$(jq -c --arg v "$v" '.[] | select(.name == $v)' <<<"$recorded")" \
-      '.spec.persistentVolumeReclaimPolicy == "Delete" and .spec.claimRef.namespace == $ns and .spec.claimRef.name == $r.claim
-       and (.spec.csi.volumeHandle // null) == $r.disk' >/dev/null || fail volumes-identity "PV $v: not reclaim Delete, or claim or disk differs from the record"
+      '(.spec.persistentVolumeReclaimPolicy == "Delete" or .spec.persistentVolumeReclaimPolicy == "Retain")
+       and .spec.claimRef.namespace == $ns and .spec.claimRef.name == $r.claim
+       and (.spec.csi.volumeHandle // null) == $r.disk' >/dev/null || fail volumes-identity "PV $v: claim or disk differs from the record"
   done
   if [ -z "$KIND" ]; then
     for handle in $(jq -r '.[].disk' <<<"$recorded"); do
       [ "$(disk_state "$handle")" = present ] || fail volumes-identity "disk ${handle##*/} not confirmed present before deletion"
     done
   fi
-  record volumes-identity "$(jq -c '{result: "PASS", volumes: ., reclaim: "Delete", disks: "confirmed present"}' <<<"$recorded")"
+  record volumes-identity "$(jq -c --argjson rp "$(for v in $(jq -r '.[].name' <<<"$recorded"); do k get pv "$v" -o jsonpath='{.spec.persistentVolumeReclaimPolicy}{"\n"}'; done | jq -Rsc 'split("\n")[:-1]')" \
+    '{result: "PASS", volumes: ., reclaim_policies: $rp, disks: "confirmed present"}' <<<"$recorded")"
 }
 check_eso_scope() {  # ESO may only be serving the rehearsal: no store or ExternalSecret elsewhere, no inventory drift
   local where objs
@@ -306,6 +318,121 @@ check_eso_scope() {  # ESO may only be serving the rehearsal: no store or Extern
     || fail eso-scope "cluster object query failed"
   [ "$objs" = "$(jq -c '.cluster_objects | sort' "$DIR/eso-cluster-objects.json")" ] || fail eso-scope "ESO cluster objects differ from the recorded inventory: $objs"
   record eso-scope '{"result": "PASS", "externalsecrets_and_stores": "only in vault-rehearsal", "cluster_objects": "as recorded"}'
+}
+
+# ---- Campaign A+: the real Feature API (serving chart as a Helm release) on the ESO-managed Secret
+serving() {  # <install|upgrade> [extra helm args]: the serving chart through the rehearsal post-renderer
+  local verb=$1; shift
+  REHEARSAL_NAMESPACE=$RNS REHEARSAL_ID=$ID h "$verb" "$SERVING" "$root/infra/helm/ewallet-serving" -n "$RNS" \
+    --post-renderer "$root/scripts/vault/rehearsal/serving_post_render.py" --wait --timeout 10m "$@" >/dev/null
+}
+secret_ref() { k -n "$RNS" get deploy feature-api -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="EWALLET_REDIS_CONNECTION_STRING")].valueFrom.secretKeyRef.name}'; }
+open_feature_forward() {  # the Feature API Service; reopened after every rollout (the old pod goes away)
+  for _ in $(seq 20); do
+    stop_ffwd
+    kubectl --context "$CTX" -n "$RNS" port-forward svc/feature-api "$FPORT:80" >/dev/null 2>&1 & ffwd=$!
+    sleep 2
+    curl -sf --max-time 5 -o /dev/null "http://127.0.0.1:$FPORT/health/live" && return 0
+  done
+  fail feature-forward "Feature API did not answer on 127.0.0.1:$FPORT"
+}
+lookup_class() {  # <gate>: one real lookup and readiness, classified as in the acceptance plan §4; prints the class
+  local body=$DIR/lookup-$1.json code rc ready rrc cls json
+  code=$(curl -sS --max-time 30 -o "$body" -w '%{http_code}' -H 'content-type: application/json' \
+    --data-binary "@$DIR/lookup-request.json" "http://127.0.0.1:$FPORT/v1/features/lookup" 2>/dev/null) && rc=0 || rc=$?
+  ready=$(curl -sS --max-time 30 -o /dev/null -w '%{http_code}' "http://127.0.0.1:$FPORT/health/ready" 2>/dev/null) && rrc=0 || rrc=$?
+  json=$(jq -c . "$body" 2>/dev/null) || json=; [ -n "$json" ] || json='{}'     # an empty or invalid body is never a pass
+  cls=$(jq -rn --arg c "${code:-000}" --argjson rc "$rc" --arg r "${ready:-000}" --argjson rrc "$rrc" \
+    --argjson want "$(jq -c '.feature_names | sort' "$DIR/lookup-request.json")" \
+    --argjson b "$json" '
+    if $rc == 0 and $c == "200" and $rrc == 0 and $r == "200" and (($b.features // {}) | keys | sort) == $want then "BASELINE_OK"
+    elif $rc == 0 and $c == "424" and $r == "200" and (($b.error.code // "") | IN("missing_feature", "stale_feature", "invalid_feature_timestamp"))
+      then "BASELINE_DATA_UNAVAILABLE"
+    else "BASELINE_UNHEALTHY" end')
+  record "lookup-$1" "$(jq -cn --arg g "$1" --arg c "${code:-000}" --argjson rc "$rc" --arg r "${ready:-000}" --arg cls "$cls" \
+    --argjson n "$(jq '(.features // {}) | length' <<<"$json")" \
+    '{gate: $g, http: $c, curl_exit: $rc, ready_http: $r, features_returned: $n, class: $cls}')" >/dev/null
+  printf '%s' "$cls"
+}
+expect_lookup() {  # <gate>: the lookup must be a real business success; anything else stops the run
+  local cls; cls=$(lookup_class "$1")
+  [ "$cls" = BASELINE_OK ] || fail "lookup-$1" "class $cls (see lookup-$1.json); HTTP 424 is never a business success"
+}
+seed_registry() {  # Feast apply + materialize of a synthetic fixture into the rehearsal Redis, on the Feature API image
+  local job state out
+  job=$(own <<YAML | k create -f - -o name
+apiVersion: batch/v1
+kind: Job
+metadata: {generateName: rehearsal-feast-seed-, namespace: $RNS}
+spec:
+  backoffLimit: 0
+  template:
+    metadata: {labels: {app.kubernetes.io/name: rehearsal-feast-seed}}
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext: {runAsNonRoot: true, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: seed
+          image: $FEATURE_IMAGE
+          $container_security
+          command: [python, -c]
+          args:
+            - |
+              # The same fixture as tests/integration/test_feast_online_operator.py, on the production
+              # image: three entities per view, three updates each, materialized through Feast.
+              import base64, json
+              from datetime import datetime
+              from pathlib import Path
+              import pandas as pd
+              from ai_platform.features.feast import online_operator
+              from ai_platform.features.feast.schema import FEATURE_SPECS
+              from ai_platform.ml.training.contract import HISTORICAL_FEATURE_COLUMNS
+              entities = {"user_behavior": ("u1", "u2", "u3"), "account_behavior": ("a1", "a2", "a3"),
+                          "device_behavior": ("d1", "d2", "d3"), "merchant_behavior": ("m1", "m2", "m3")}
+              t0 = pd.Timestamp("2026-05-31 22:00:00", tz="UTC")
+              root = Path("/tmp/offline")
+              for view, spec in FEATURE_SPECS.items():
+                  rows = []
+                  for i, entity in enumerate(entities[view]):
+                      for step, minutes in enumerate((5, 50, 115)):
+                          row = {spec["entity_key"]: entity, "event_timestamp": t0 + pd.Timedelta(minutes=minutes + i)}
+                          for j, feature in enumerate(spec["features"]):
+                              value = i * 1000 + step * 100 + j
+                              row[feature] = value if feature in spec["integer_features"] else value / 7
+                          rows.append(row)
+                  frame = pd.DataFrame(rows)
+                  frame["event_timestamp"] = frame["event_timestamp"].astype("datetime64[us, UTC]")
+                  (root / spec["table"]).mkdir(parents=True)
+                  frame.to_parquet(root / spec["table"] / "part-0.parquet", index=False)
+              store = online_operator.get_online_store()
+              online_operator.apply(store)
+              online_operator.materialize(store, datetime.fromisoformat("2026-05-31T22:00:00+00:00"),
+                                          datetime.fromisoformat("2026-06-01T00:00:00+00:00"))
+              print(json.dumps({"feature_names": list(HISTORICAL_FEATURE_COLUMNS),
+                                "registry_b64": base64.b64encode(Path("/registry/registry.db").read_bytes()).decode()}))
+          env:
+            - {name: EWALLET_FEAST_REGISTRY, value: /registry/registry.db}
+            - {name: EWALLET_FEAST_OFFLINE_DATA_ROOT, value: /tmp/offline}
+            - {name: HOME, value: /tmp}
+            - {name: FEAST_USAGE, value: "False"}
+            - name: EWALLET_REDIS_CONNECTION_STRING
+              valueFrom: {secretKeyRef: {name: $LEGACY, key: connection_string}}
+          volumeMounts: [{name: registry, mountPath: /registry}, {name: tmp, mountPath: /tmp}]
+      volumes: [{name: registry, emptyDir: {}}, {name: tmp, emptyDir: {}}]
+YAML
+)
+  for _ in $(seq 300); do
+    state=$(k -n "$RNS" get "$job" -o jsonpath='{.status.succeeded}/{.status.failed}')
+    case "$state" in 1/*|*/1) break ;; esac; sleep 2
+  done
+  [ "${state%%/*}" = 1 ] || fail feast-seed "seed Job did not succeed ($state): $(k -n "$RNS" logs "$job" --tail=2 2>&1 | tail -1 | cut -c1-200)"
+  out=$(k -n "$RNS" logs "$job" | tail -1)
+  jq -r .registry_b64 <<<"$out" | base64 -d > "$DIR/registry.db" || fail feast-seed "no registry in the seed output"
+  if grep -qaF "$(synthetic P1)" "$DIR/registry.db"; then fail feast-seed "the registry contains the Redis password"; fi
+  k -n "$RNS" create configmap feast-registry --from-file=registry.db="$DIR/registry.db" --dry-run=client -o yaml | own \
+    | { if k -n "$RNS" get configmap feast-registry >/dev/null 2>&1; then k replace -f -; else k create -f -; fi; } >/dev/null
+  jq -c .feature_names <<<"$out"
 }
 
 # ======================================================================== phases
@@ -477,14 +604,14 @@ metadata: {name: eso-vault-reader, namespace: $RNS}
 automountServiceAccountToken: false
 YAML
   secret_store vault eso-vault-reader vault eso-vault-rehearsal vault-ca
-  external_secret rehearsal-redis-vault vault feature-api/rehearsal-redis connection_string
+  external_secret feature-api-redis-vault vault feature-api/rehearsal-redis connection_string
   k -n "$RNS" wait --for=condition=Ready secretstore/vault --timeout=120s >/dev/null || fail store "SecretStore not Ready: $(es_error vault)"
-  es_wait "$RNS" rehearsal-redis-vault True 120 || fail sync "not synced: $(es_error rehearsal-redis-vault)"
-  owner=$(k -n "$RNS" get secret rehearsal-redis-vault -o jsonpath='{.metadata.ownerReferences[0].kind}/{.metadata.ownerReferences[0].name}')
-  keys=$(k -n "$RNS" get secret rehearsal-redis-vault -o json | jq -c '.data | keys')
-  [ "$owner" = ExternalSecret/rehearsal-redis-vault ] || fail sync "target owned by $owner"
-  [ "$(secret_sha "$RNS" rehearsal-redis-vault connection_string)" = "$(sha "$(conn "$p1")")" ] || fail sync "synced value differs from Vault v1"
-  record secret-synced "$(jq -cn --arg c "$(es_condition "$RNS" rehearsal-redis-vault)" --arg o "$owner" --argjson k "$keys" \
+  es_wait "$RNS" feature-api-redis-vault True 120 || fail sync "not synced: $(es_error feature-api-redis-vault)"
+  owner=$(k -n "$RNS" get secret feature-api-redis-vault -o jsonpath='{.metadata.ownerReferences[0].kind}/{.metadata.ownerReferences[0].name}')
+  keys=$(k -n "$RNS" get secret feature-api-redis-vault -o json | jq -c '.data | keys')
+  [ "$owner" = ExternalSecret/feature-api-redis-vault ] || fail sync "target owned by $owner"
+  [ "$(secret_sha "$RNS" feature-api-redis-vault connection_string)" = "$(sha "$(conn "$p1")")" ] || fail sync "synced value differs from Vault v1"
+  record secret-synced "$(jq -cn --arg c "$(es_condition "$RNS" feature-api-redis-vault)" --arg o "$owner" --argjson k "$keys" \
     --arg s "$(k -n "$RNS" get secretstore vault -o jsonpath='{.status.conditions[0].reason}')" \
     '{result: "PASS", store: $s, externalsecret: $c, owner: $o, keys: $k, value: "equal to Vault v1 (hash prefix)"}')"
   k -n "$RNS" rollout status deploy/redis --timeout=180s >/dev/null || fail redis "synthetic Redis not Ready"
@@ -544,37 +671,196 @@ phase_lifecycle() {  # MUTATING (Vault: synthetic versions; Kubernetes: one Vaul
   open_forward; status_is true false >/dev/null
   p1=$(synthetic P1); p2=$(synthetic P2); OP=$PRIV/operator-token.json
   # 1. A new KV version reaches the Secret and the consumer (v2: a wrong password, so the effect is visible).
-  rv=$(es_synced_rv "$RNS" rehearsal-redis-vault)
+  rv=$(es_synced_rv "$RNS" feature-api-redis-vault)
   out=$(conn "$p2" | vault put --token-file "$OP" --path feature-api/rehearsal-redis --key connection_string --stdin) || fail kv-v2 "put failed"
-  force_sync rehearsal-redis-vault; rv=$(synced_after rehearsal-redis-vault "$rv") || fail kv-v2 "no new reconciliation"
-  [ "$(secret_sha "$RNS" rehearsal-redis-vault connection_string)" = "$(sha "$(conn "$p2")")" ] || fail kv-v2 "Secret not at v2"
+  force_sync feature-api-redis-vault; rv=$(synced_after feature-api-redis-vault "$rv") || fail kv-v2 "no new reconciliation"
+  [ "$(secret_sha "$RNS" feature-api-redis-vault connection_string)" = "$(sha "$(conn "$p2")")" ] || fail kv-v2 "Secret not at v2"
   [ "$(consume)" = AUTH_FAILED ] || fail kv-v2 "the consumer did not use the new version"
   record kv-v2-propagated "$(jq -c '{result: "PASS", version: .version, consumer: "AUTH_FAILED (v2 is deliberately wrong: the new value was used)"}' <<<"$out")"
   out=$(conn "$p1" | vault put --token-file "$OP" --path feature-api/rehearsal-redis --key connection_string --stdin) || fail kv-v3 "put failed"
-  force_sync rehearsal-redis-vault; rv=$(synced_after rehearsal-redis-vault "$rv") || fail kv-v3 "no new reconciliation"
+  force_sync feature-api-redis-vault; rv=$(synced_after feature-api-redis-vault "$rv") || fail kv-v3 "no new reconciliation"
   [ "$(consume)" = OK ] || fail kv-v3 "the consumer did not recover with v3"
   record kv-v3-restored "$(jq -cn --argjson o "$out" --argjson m "$(vault versions --token-file "$OP" --path feature-api/rehearsal-redis)" \
     '{result: "PASS", version: $o.version, metadata: $m, consumer: "OK"}')"
   # 2. Restart: Vault comes back sealed (Pod still Ready), ESO fails but keeps the Secret, manual unseal restores sync.
-  before=$(secret_sha "$RNS" rehearsal-redis-vault connection_string)
+  before=$(secret_sha "$RNS" feature-api-redis-vault connection_string)
   stop_forward
   k -n "$VNS" delete pod vault-0 --wait=true >/dev/null
   k -n "$VNS" wait --for=condition=Ready pod/vault-0 --timeout=300s >/dev/null || fail restart "vault-0 not back"
   open_forward
   record restarted-sealed "$(jq -cn --arg r "$(pod_ready)" --argjson s "$(status_is true true)" '{result: "PASS", pod_ready: $r, sealed: $s.sealed}')"
-  force_sync rehearsal-redis-vault
-  es_wait "$RNS" rehearsal-redis-vault False 90 || fail sealed-sync "ESO did not report the sealed Vault"
-  for _ in $(seq 30); do [ "$(es_error rehearsal-redis-vault 3m)" = vault-sealed ] && break; sleep 2; done
-  [ "$(secret_sha "$RNS" rehearsal-redis-vault connection_string)" = "$before" ] || fail sealed-sync "the Secret changed while sealed"
+  force_sync feature-api-redis-vault
+  es_wait "$RNS" feature-api-redis-vault False 90 || fail sealed-sync "ESO did not report the sealed Vault"
+  for _ in $(seq 30); do [ "$(es_error feature-api-redis-vault 3m)" = vault-sealed ] && break; sleep 2; done
+  [ "$(secret_sha "$RNS" feature-api-redis-vault connection_string)" = "$before" ] || fail sealed-sync "the Secret changed while sealed"
   [ "$(consume)" = OK ] || fail sealed-sync "the consumer lost access while Vault was sealed"
-  record sealed-keeps-secret "$(jq -cn --arg c "$(es_condition "$RNS" rehearsal-redis-vault)" --arg e "$(es_error rehearsal-redis-vault 3m)" \
+  if h status "$SERVING" -n "$RNS" >/dev/null 2>&1; then open_feature_forward; expect_lookup while-sealed; fi
+  record sealed-keeps-secret "$(jq -cn --arg c "$(es_condition "$RNS" feature-api-redis-vault)" --arg e "$(es_error feature-api-redis-vault 3m)" \
     '{result: "PASS", externalsecret: $c, error_class: $e, target_secret: "unchanged", consumer: "OK"}')"
   vault unseal --keys-file "$PRIV/vault-keys.json" >/dev/null || fail unseal "unseal failed"
   status_is true false >/dev/null
-  rv=$(es_synced_rv "$RNS" rehearsal-redis-vault); force_sync rehearsal-redis-vault
-  synced_after rehearsal-redis-vault "$rv" >/dev/null || fail unseal-sync "ESO did not recover after unseal"
+  rv=$(es_synced_rv "$RNS" feature-api-redis-vault); force_sync feature-api-redis-vault
+  synced_after feature-api-redis-vault "$rv" >/dev/null || fail unseal-sync "ESO did not recover after unseal"
   [ "$(consume)" = OK ] || fail unseal-sync "consumer failed after unseal"
-  record unsealed-sync-recovered "$(jq -cn --arg c "$(es_condition "$RNS" rehearsal-redis-vault)" '{result: "PASS", externalsecret: $c, consumer: "OK"}')"
+  record unsealed-sync-recovered "$(jq -cn --arg c "$(es_condition "$RNS" feature-api-redis-vault)" '{result: "PASS", externalsecret: $c, consumer: "OK"}')"
+  compare_production production-unchanged
+}
+
+phase_feature_api() {  # MUTATING (rehearsal namespace only): the "before" state of the official G1
+  local p1 names rv out
+  [[ ${FEATURE_IMAGE:-} =~ ^[a-z0-9.-]+(:[0-9]+)?/[a-z0-9._/-]+@sha256:[0-9a-f]{64}$ ]] \
+    || fail feature-image "FEATURE_IMAGE must be the Feature API image pinned by digest"
+  p1=$(synthetic P1)
+  # The rehearsal's "existing" Secret, the stand-in for ml-platform/feast-online-redis: created
+  # directly, holding the same value as Vault v1 (what G5 copies into Vault).
+  printf '%s' "$(conn "$p1")" | k -n "$RNS" create secret generic "$LEGACY" --from-file=connection_string=/dev/stdin \
+    --dry-run=client -o yaml | create
+  rv=$(k -n "$RNS" get secret "$LEGACY" -o jsonpath='{.metadata.resourceVersion}'); printf '%s\n' "$rv" > "$DIR/legacy-resource-version"
+  out=$(bash "$root/scripts/vault/shadow_compare.sh" "$CTX" "$RNS" "$LEGACY" feature-api-redis-vault) \
+    || fail shadow-compare "shadow_compare.sh: $out"
+  record shadow-compare "$(jq -cn --arg s "$out" '{result: "PASS", status: $s, script: "scripts/vault/shadow_compare.sh"}')"
+  names=$(seed_registry)
+  jq -cn --argjson n "$names" '{user_id: "u1", account_id: "a1", device_id: "d1", merchant_id: "m1",
+    event_timestamp: "2026-05-31T23:57:00+00:00", feature_names: $n}' > "$DIR/lookup-request.json"
+  record feast-seeded "$(jq -cn --argjson n "$names" '{result: "PASS", feature_names: $n, registry: "ConfigMap feast-registry (no credential inside)"}')"
+  printf 'apiVersion: v1\nkind: ServiceAccount\nmetadata: {name: rehearsal-feature-api, namespace: %s}\nautomountServiceAccountToken: false\n' "$RNS" | create
+  serving install -f "$root/scripts/vault/rehearsal/serving-values.yaml" --set "featureApi.image=$FEATURE_IMAGE" \
+    ${KIND:+--set featureApi.nodeSelector=null} || fail serving-install "helm install $SERVING failed"
+  [ "$(secret_ref)" = "$LEGACY" ] || fail serving-install "Feature API reads $(secret_ref), expected $LEGACY"
+  open_feature_forward
+  expect_lookup baseline
+  record feature-api-baseline "$(jq -cn --arg r "$(h -n "$RNS" history "$SERVING" --max 1 -o json | jq -r '.[0].revision')" \
+    '{result: "PASS", release: "rehearsal-serving", revision: $r, secret: "rehearsal-feast-online-redis", class: "BASELINE_OK"}')"
+}
+
+phase_switch() {  # MUTATING: the official G8 command, an upgrade with --reuse-values and the unchanged overlay, then G9
+  local before
+  before=$(h -n "$RNS" history "$SERVING" --max 1 -o json | jq -r '.[0].revision')
+  printf '%s\n' "$before" > "$DIR/serving-revision-before-switch"
+  serving upgrade --reuse-values -f "$root/infra/helm/ewallet-serving/values-vault-eso.yaml" || fail switch "helm upgrade failed"
+  [ "$(secret_ref)" = feature-api-redis-vault ] || fail switch "Feature API reads $(secret_ref)"
+  if k -n "$RNS" get deploy feature-api -o json | jq -e '[.spec.template.spec.containers[0].env[].name] | any(startswith("EWALLET_VAULT_"))' >/dev/null; then
+    fail switch "the pod would talk to Vault directly"; fi
+  [ "$(k -n "$RNS" get secret "$LEGACY" -o jsonpath='{.metadata.resourceVersion}')" = "$(cat "$DIR/legacy-resource-version")" ] \
+    || fail switch "the existing Secret changed"
+  open_feature_forward
+  expect_lookup switch
+  record switched "$(jq -cn --arg b "$before" --arg a "$(h -n "$RNS" history "$SERVING" --max 1 -o json | jq -r '.[0].revision')" \
+    '{result: "PASS", revision_before: $b, revision_after: $a, secret: "feature-api-redis-vault", g9_class: "BUSINESS_LOOKUP_PASS"}')"
+}
+
+phase_rollback() {  # MUTATING: the official G11 drill (RB 9 rollback, RB 8 again) and the final-state checks
+  local rev
+  rev=$(cat "$DIR/serving-revision-before-switch")
+  h rollback "$SERVING" "$rev" -n "$RNS" --wait --timeout 10m >/dev/null || fail rollback "helm rollback to $rev failed"
+  [ "$(secret_ref)" = "$LEGACY" ] || fail rollback "after rollback the Feature API reads $(secret_ref)"
+  open_feature_forward
+  expect_lookup g11-rollback
+  serving upgrade --reuse-values -f "$root/infra/helm/ewallet-serving/values-vault-eso.yaml" || fail reupgrade "helm upgrade failed"
+  [ "$(secret_ref)" = feature-api-redis-vault ] || fail reupgrade "after re-upgrade the Feature API reads $(secret_ref)"
+  open_feature_forward
+  expect_lookup g11-reupgrade
+  # Final state after G11 (acceptance plan §4)
+  [ "$(k -n "$RNS" get secretstore vault -o jsonpath='{.status.conditions[?(@.type=="Ready")].reason}')" = Valid ] || fail final-state "SecretStore not Valid"
+  [ "$(es_condition "$RNS" feature-api-redis-vault)" = "True SecretSynced" ] || fail final-state "ExternalSecret not SecretSynced"
+  [ "$(k -n "$RNS" get secret "$LEGACY" -o jsonpath='{.metadata.resourceVersion}')" = "$(cat "$DIR/legacy-resource-version")" ] \
+    || fail final-state "the existing Secret changed"
+  [ -z "$(k -n "$RNS" get externalsecret,secretstore,serviceaccount -l ewallet.io/vault-rehearsal-negative=true -o name)" ] \
+    || fail final-state "negative-test objects remain"
+  record final-state "$(jq -cn --argjson h "$(h -n "$RNS" history "$SERVING" -o json | jq -c '[.[] | {revision, description}]')" \
+    '{result: "PASS", consumer: "feature-api-redis-vault", store: "Valid", externalsecret: "SecretSynced", existing_secret: "unchanged",
+      negative_objects: "none", lookup: "BASELINE_OK", serving_history: $h}')"
+  compare_production production-unchanged
+}
+
+phase_retain() {  # MUTATING: Retain, an accidental PVC deletion, and the runbook's Released-PV recovery
+  local kv v claim sc size
+  open_forward; status_is true false >/dev/null
+  check_volumes_before_delete
+  kv=$(vault versions --token-file "$PRIV/operator-token.json" --path feature-api/rehearsal-redis | jq -r .current_version)
+  printf '%s\n' "$kv" > "$DIR/kv-version"
+  for v in $(jq -r '.[].name' "$DIR/volumes.json"); do
+    k patch pv "$v" -p '{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}' >/dev/null
+    [ "$(k get pv "$v" -o jsonpath='{.spec.persistentVolumeReclaimPolicy}')" = Retain ] || fail retain "PV $v not Retain"
+  done
+  record retain-set "$(jq -cn --arg kv "$kv" '{result: "PASS", reclaim: "Retain", kv_current_version: ($kv | tonumber)}')"
+  stop_forward
+  k -n "$VNS" scale statefulset vault --replicas=0 >/dev/null
+  k -n "$VNS" wait --for=delete pod/vault-0 --timeout=300s >/dev/null 2>&1 || true
+  k -n "$VNS" get pod vault-0 >/dev/null 2>&1 && fail retain "vault-0 still running"
+  k -n "$VNS" delete pvc $(jq -r '.[].claim' "$DIR/volumes.json") --wait=true --timeout=300s >/dev/null
+  for v in $(jq -r '.[].name' "$DIR/volumes.json"); do
+    for _ in $(seq 60); do [ "$(k get pv "$v" -o jsonpath='{.status.phase}')" = Released ] && break; sleep 2; done
+    [ "$(k get pv "$v" -o jsonpath='{.status.phase}')" = Released ] || fail retain "PV $v not Released after its PVC was deleted"
+  done
+  if [ -z "$KIND" ]; then
+    for handle in $(jq -r '.[].disk' "$DIR/volumes.json"); do
+      [ "$(disk_state "$handle")" = present ] || fail retain "disk ${handle##*/} not confirmed present after the PVC deletion"
+    done
+  fi
+  record pvc-deleted-disk-kept "$(jq -cn --arg d "$([ -z "$KIND" ] && echo 'present (gcloud compute disks describe)' || echo 'kind local-path: not a cloud disk; data proven by the re-bound Vault below')" \
+    '{result: "PASS", pv_phase: "Released", disks: $d}')"
+  # Runbook step 2, *Recovery of a Released PV*: clear the claimRef, recreate the PVC with volumeName.
+  for v in $(jq -r '.[].name' "$DIR/volumes.json"); do
+    claim=$(jq -r --arg v "$v" '.[] | select(.name == $v) | .claim' "$DIR/volumes.json")
+    sc=$(k get pv "$v" -o jsonpath='{.spec.storageClassName}'); size=$(k get pv "$v" -o jsonpath='{.spec.capacity.storage}')
+    k patch pv "$v" --type json -p '[{"op":"remove","path":"/spec/claimRef"}]' >/dev/null
+    create <<YAML
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: $claim, namespace: $VNS}
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: $sc
+  volumeName: $v
+  resources: {requests: {storage: $size}}
+YAML
+    for _ in $(seq 60); do [ "$(k -n "$VNS" get pvc "$claim" -o jsonpath='{.status.phase}/{.spec.volumeName}')" = "Bound/$v" ] && break; sleep 2; done
+    [ "$(k -n "$VNS" get pvc "$claim" -o jsonpath='{.status.phase}/{.spec.volumeName}')" = "Bound/$v" ] || fail retain "PVC $claim not bound to $v"
+  done
+  k -n "$VNS" scale statefulset vault --replicas=1 >/dev/null
+  k -n "$VNS" wait --for=condition=Ready pod/vault-0 --timeout=300s >/dev/null || fail retain "vault-0 not back"
+  open_forward
+  # An uninitialised Vault here would mean the data did not come back.
+  record rebound-initialised-sealed "$(jq -c '{result: "PASS", initialized, sealed}' <<<"$(status_is true true)")"
+  vault unseal --keys-file "$PRIV/vault-keys.json" >/dev/null || fail retain "unseal failed"
+  status_is true false >/dev/null
+  [ "$(vault versions --token-file "$PRIV/operator-token.json" --path feature-api/rehearsal-redis | jq -r .current_version)" = "$kv" ] \
+    || fail retain "KV version differs after the recovery"
+  rv=$(es_synced_rv "$RNS" feature-api-redis-vault); force_sync feature-api-redis-vault
+  synced_after feature-api-redis-vault "$rv" >/dev/null || fail retain "ESO did not sync after the recovery"
+  [ "$(consume)" = OK ] || fail retain "consumer failed after the recovery"
+  open_feature_forward; expect_lookup after-retain-recovery
+  record released-pv-recovered "$(jq -cn --arg kv "$kv" '{result: "PASS", kv_current_version: ($kv | tonumber), operator_token: "valid",
+    externalsecret: "SecretSynced (new reconciliation)", consumer: "OK", feature_api: "BASELINE_OK", reclaim: "Retain"}')"
+}
+
+phase_after_wake() {  # MUTATING (unseal, reseed): after the approved GKE sleep and wake (on kind: after pod restarts)
+  local s kv rv
+  k -n "$VNS" wait --for=jsonpath='{.status.phase}'=Running pod/vault-0 --timeout=600s >/dev/null || fail after-wake "vault-0 not Running"
+  open_forward
+  s=$(vault status) || fail after-wake "status failed"
+  record vault-after-wake "$(jq -c '{result: "PASS", initialized, sealed}' <<<"$s")"
+  [ "$(jq -r .initialized <<<"$s")" = true ] || fail after-wake "Vault is not initialised: the data did not survive"
+  if [ "$(jq -r .sealed <<<"$s")" = true ]; then vault unseal --keys-file "$PRIV/vault-keys.json" >/dev/null || fail after-wake "unseal failed"; fi
+  status_is true false >/dev/null
+  kv=$(cat "$DIR/kv-version")
+  [ "$(vault versions --token-file "$PRIV/operator-token.json" --path feature-api/rehearsal-redis | jq -r .current_version)" = "$kv" ] \
+    || fail after-wake "KV version differs after the wake"
+  for v in $(jq -r '.[].name' "$DIR/volumes.json"); do
+    [ "$(k get pv "$v" -o jsonpath='{.status.phase}/{.spec.persistentVolumeReclaimPolicy}')" = Bound/Retain ] || fail after-wake "PV $v not Bound/Retain"
+  done
+  rv=$(es_synced_rv "$RNS" feature-api-redis-vault); force_sync feature-api-redis-vault
+  synced_after feature-api-redis-vault "$rv" >/dev/null || fail after-wake "ESO did not sync after the wake"
+  [ "$(secret_sha "$RNS" feature-api-redis-vault connection_string)" = "$(sha "$(conn "$(synthetic P1)")")" ] || fail after-wake "synced value differs"
+  # The synthetic Redis keeps nothing across a restart: seed it again, then restart the Feature API on the new registry.
+  seed_registry >/dev/null
+  k -n "$RNS" rollout restart deploy/feature-api >/dev/null
+  k -n "$RNS" rollout status deploy/feature-api --timeout=600s >/dev/null || fail after-wake "Feature API rollout failed"
+  [ "$(consume)" = OK ] || fail after-wake "consumer failed"
+  open_feature_forward; expect_lookup after-wake
+  record data-survived "$(jq -cn --arg kv "$kv" '{result: "PASS", kv_current_version: ($kv | tonumber), pv: "Bound/Retain",
+    externalsecret: "SecretSynced (new reconciliation)", consumer: "OK", feature_api: "BASELINE_OK"}')"
   compare_production production-unchanged
 }
 
@@ -587,9 +873,19 @@ phase_cleanup() {  # MUTATING, destructive for rehearsal objects only: synthetic
     '{result: "PASS", namespaces: "labelled with this rehearsal id or absent", volumes: $v, eso_cluster_objects: ($e.cluster_objects // [])}')"
   # Everything is checked before the first deletion; a resumed cleanup skips what is already gone.
   if h status external-secrets -n "$ENS" >/dev/null 2>&1; then check_eso_scope; fi
-  if k -n "$VNS" get pvc -o name 2>/dev/null | grep -q .; then check_volumes_before_delete; fi
-  stop_forward
+  if k -n "$VNS" get pvc -o name 2>/dev/null | grep -q .; then
+    check_volumes_before_delete
+    # A+ leaves the PVs on Retain. Only the recorded, identity-checked PVs go back to Delete, so deleting
+    # their PVCs deletes the synthetic disks through the provisioner, as in Campaign A. No gcloud delete.
+    for v in $(jq -r '.[].name' "$DIR/volumes.json"); do
+      k patch pv "$v" -p '{"spec":{"persistentVolumeReclaimPolicy":"Delete"}}' >/dev/null
+      [ "$(k get pv "$v" -o jsonpath='{.spec.persistentVolumeReclaimPolicy}')" = Delete ] || fail cleanup "PV $v not back to Delete"
+    done
+    record reclaim-delete-restored '{"result": "PASS", "scope": "the two recorded rehearsal PVs only"}'
+  fi
+  stop_forward; stop_ffwd
   if mine "$RNS"; then
+    if h status "$SERVING" -n "$RNS" >/dev/null 2>&1; then h uninstall "$SERVING" -n "$RNS" --wait --timeout 5m >/dev/null; fi
     k -n "$RNS" delete externalsecret,secretstore --all --wait=true >/dev/null 2>&1 || true   # owned Secrets are collected
     k delete ns "$RNS" --wait=true --timeout=300s >/dev/null
   fi
@@ -620,7 +916,7 @@ phase_cleanup() {  # MUTATING, destructive for rehearsal objects only: synthetic
   fi
   rm -rf "$PRIV"
   record cleanup "$(jq -cn --arg d "$([ -z "$KIND" ] && echo 'confirmed absent (gcloud compute disks describe: HTTP 404 naming each recorded disk)' || echo 'kind local-path: removed')" \
-    '{result: "PASS", namespaces_deleted: ["vault-rehearsal", "external-secrets", "ewallet-vault"], releases_uninstalled: ["external-secrets", "vault"],
+    '{result: "PASS", namespaces_deleted: ["vault-rehearsal", "external-secrets", "ewallet-vault"], releases_uninstalled: ["rehearsal-serving", "external-secrets", "vault"],
       vault_volumes: "deleted", disks: $d, synthetic_private_material: "removed"}')"
 }
 
@@ -632,6 +928,7 @@ phase_verify_clean() {  # READ-ONLY: back to the pre-rehearsal state
   [ ! -e "$PRIV" ] || fail private-material "$PRIV still exists: run cleanup"
   # Anchored at ^kubectl: a shell whose command line merely mentions the pattern must not match.
   if pgrep -f "^kubectl .*port-forward pod/vault-0 $PORT:8200" >/dev/null; then fail port-forward "a port-forward to vault-0 on $PORT is still running"; fi
+  if pgrep -f "^kubectl .*port-forward svc/feature-api $FPORT:80" >/dev/null; then fail port-forward "a port-forward to the Feature API on $FPORT is still running"; fi
   record local-state-clean '{"result": "PASS", "synthetic_private_material": "absent", "port_forwards": "none"}'
   if [ -z "$KIND" ]; then
     python3 "$root/scripts/vault/gke_preflight.py" --mode preinstall --kubeconfig "$KUBECONFIG" --context "$CTX" --out "$DIR/preflight-after" >/dev/null \

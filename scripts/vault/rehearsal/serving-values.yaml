@@ -1,0 +1,14 @@
+# Campaign A+ rehearsal release of infra/helm/ewallet-serving (release `rehearsal-serving`,
+# namespace vault-rehearsal). Used with scripts/vault/rehearsal/serving_post_render.py.
+# The image is set by the driver (--set featureApi.image=<digest>): the same Feature API image
+# as production. The switch uses the official overlay infra/helm/ewallet-serving/values-vault-eso.yaml
+# unchanged; it points at Secret feature-api-redis-vault, which ESO writes in this namespace too.
+namespace: vault-rehearsal
+featureApi:
+  enabled: true
+  serviceAccount: {create: false, name: rehearsal-feature-api}   # no Workload Identity: the registry is local
+  registryUri: /registry/registry.db                               # synthetic registry, mounted by the post-renderer
+  redisSecret: {name: rehearsal-feast-online-redis, key: connection_string}   # the "existing Secret" of the rehearsal
+  resources:
+    requests: {cpu: 100m, memory: 384Mi}
+    limits: {cpu: "1", memory: 1Gi}
