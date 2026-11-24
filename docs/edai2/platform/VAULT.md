@@ -280,6 +280,13 @@ is never migrated: Shamir stays, and KMS auto-unseal is out of scope.
   Secrets keep working.
 - **Manual unseal after every Vault restart**, including each GKE wake. Until then,
   ExternalSecrets report `Ready False`.
+- **Pod Ready does not mean unsealed.** The readiness probe accepts a sealed or uninitialised
+  Vault (otherwise `init` could never reach it), so the GKE Workloads page shows `vault-0` Ready
+  while it is sealed. Only `ops/vault/cli.py status` (`sealed: false`) proves Vault is usable.
+- **An initialisation whose answer is lost cannot be recovered.** `init` creates the key file
+  before asking Vault and forces the shares to disk, but if Vault initialises and the answer never
+  arrives, no client can obtain the shares. The CLI reports this as
+  `vault_initialised_keys_not_stored`; the only way forward is a fresh Vault, before any secret is stored.
 - **Refresh is not instant:** one hour by default, so rotations use `force-sync` and a rollout restart.
 - **No PodDisruptionBudget for Vault.** With one replica, the chart's budget (`maxUnavailable: 0`) could only
   block node drains, including the cloud-lab resize to zero. A drain or node upgrade therefore restarts
@@ -338,22 +345,23 @@ kept for history: `eso_local_20261123T210316Z` (42 steps, before the token lifec
 assertions), and `eso_local_20261124T044834Z` (53 steps, which still used the since-removed
 unauthenticated root generation), and `eso_local_20261124T051306Z` (63 steps, with an OpenSSL CA instead of cert-manager).
 
-Local means local: kind's CNI (kindnet) enforced the NetworkPolicy, the Redis was a
-disposable in-namespace instance rather than `feature-store/redis`, and the run used a
-self-signed CA instead of cert-manager. None of this is a GKE result.
+Local means local: kind's CNI (kindnet) enforced the NetworkPolicy, and the Redis was a
+disposable in-namespace instance rather than `feature-store/redis`. None of this is a GKE result.
+
+The GKE technical rehearsal ([VAULT_GKE_REHEARSAL.md](../../runbooks/edai2/VAULT_GKE_REHEARSAL.md))
+was dry-run end to end on kind with its own driver, [`gke_rehearsal.sh`](../../../scripts/vault/gke_rehearsal.sh):
+[`rehearsal_kind_20261124T164815Z`](../../evidence/edai2/vault/rehearsal_kind_20261124T164815Z/README.md),
+10 phases and 43 steps with no failure, from preflight to a verified clean cluster. It also
+recorded two Vault 2.0.4 defaults seen with the new `describe` command: an `agent-registry/`
+mount and a `default-ceiling` policy, neither used here.
 
 Static contract tests: [`tests/ops/test_vault_eso.py`](../../../tests/ops/test_vault_eso.py).
 The earlier direct-loader runs remain in `docs/evidence/edai2/vault/local_20261106T183340Z` and `local_r2_20261107T101251Z`.
 
 ### Owner evidence on GKE (after an approved campaign)
 
-Screenshots illustrate the deployed system; they are taken by the owner, never generated.
-
-| Evidence | Shows |
-|---|---|
-| `ops/vault/cli.py status` | Vault 2.0.4, `initialized true`, `sealed false` after the manual unseal |
-| `ops/vault/cli.py versions --token-file <operator token> --path feature-api/feast-redis` and the policy files | KV v2 metadata (version, time, no value) and the ACL |
-| `kubectl -n ml-platform get secretstore,externalsecret` | `Valid` / `SecretSynced`, Ready `True` |
-| Feature API `secretKeyRef` and one real lookup | the consumer reads `feature-api-redis-vault` |
-| A labelled negative ExternalSecret for `fraud-api/feast-redis` | `permission denied`, no target Secret |
-| Optional: rotation (version 2, `force-sync`, restart) and a seal/unseal cycle | lifecycle |
+Screenshots illustrate the deployed system; the owner takes them during the official campaign,
+and none is generated or reconstructed. The list, the Console navigation, the PASS criteria, what
+must never be visible, and the capture checkpoints are in the acceptance plan's
+[visual evidence playbook](../../runbooks/edai2/VAULT_GKE_ACCEPTANCE_CAMPAIGN.md#7-visual-evidence-playbook-owner-screenshots)
+(E1–E9). Accepted figures are added to the sections they illustrate, with captions.

@@ -11,7 +11,9 @@ Operating procedure for [VAULT.md](../../edai2/platform/VAULT.md). Each step is 
 `scripts/vault/eso_local_validate.sh` (*Local validation*). **Not deployed on GKE, and not
 yet accepted as row 54 evidence.** A GKE run needs a separately approved campaign: GKE is woken
 and put back to sleep only by that campaign's approved cloud-lab procedure, never by a command
-from this page.
+from this page. The synthetic technical rehearsal ([VAULT_GKE_REHEARSAL.md](VAULT_GKE_REHEARSAL.md))
+runs these steps 2–7 through `scripts/vault/gke_rehearsal.sh` before the official campaign
+([VAULT_GKE_ACCEPTANCE_CAMPAIGN.md](VAULT_GKE_ACCEPTANCE_CAMPAIGN.md)).
 
 Never print, paste or commit a Vault token, an unseal share, a private key or a secret value.
 Do not use `set -x`. Values go into Vault on stdin (`put --stdin`) or a hidden prompt, never as an argument.
@@ -124,6 +126,13 @@ not mean usable.** Every gate below checks `initialized: true, sealed: false` fr
 $V init --keys-out $KEYDIR/vault-keys.json     # 3 shares, threshold 2; refuses an existing file or a path in the repo
 ```
 
+`init` creates `vault-keys.json` (exclusive, mode 0600, outside the repository) and keeps it open
+**before** it asks Vault to initialise, then writes the material and forces it to disk before it
+reports `{"initialized": true, …}`. If Vault initialised but the material could not be stored, or
+the answer was lost, it reports `REFUSED vault_initialised_keys_not_stored`; if even the seal
+status is unreadable afterwards, `REFUSED vault_init_outcome_unknown`. Both mean: **stop, do not
+run `init` again**, check `$V status` (*Recovery* below).
+
 `vault-keys.json` (mode 0600) holds **all three unseal shares and the initial root token**.
 It is the most sensitive file in the project:
 
@@ -142,7 +151,11 @@ again over existing data: `init` refuses an initialised Vault.
 $V unseal --keys-file $KEYDIR/vault-keys.json       # {"sealed": false}
 $V status                                           # gate: initialized true, sealed false
 $V configure --keys-file $KEYDIR/vault-keys.json    # audit, KV v2 "ewallet", Kubernetes auth, policies, roles
+$V describe --keys-file $KEYDIR/vault-keys.json     # READ-ONLY: live engines, auth, audit, roles, policy text; no secret data
 ```
+
+`describe` needs a root token, so it runs now, before the root token is retired. Its output is
+the evidence for the live configuration (acceptance campaign E3).
 
 Then replace the root token with the scoped operator token, and revoke root:
 
@@ -386,14 +399,17 @@ Only on a separate decision; the order matters:
 4. `helm --kube-context $CTX uninstall vault -n ewallet-vault`. **The PVCs remain.** Deleting
    them, or the namespace, destroys all Vault data: that needs its own owner decision, after a
    Raft snapshot.
+5. Only after a complete removal: `python3 scripts/vault/gke_preflight.py --mode preinstall …` must
+   report READY. It also fails on a `Released` Vault PV and on leftover chart ClusterRoles,
+   bindings or webhooks.
 
 ## Recovery from an incomplete installation
 
 | Where it stopped | State | Recovery |
 |---|---|---|
 | Step 2: Vault install or Certificate | No data yet | Fix the cause; `helm uninstall vault -n ewallet-vault`; delete the empty PVCs only if `$V status` never showed `initialized: true`; retry |
-| Step 3: `init` failed | `$V status` shows `initialized: false` and no keys file was written | Retry `init` |
-| Step 3: Vault initialised but the keys file is missing | Data sealed, no shares | Unrecoverable by design. Vault holds no secrets yet, so the owner may decide to uninstall, delete the PVCs and start again |
+| Step 3: `init` failed with any other error | `$V status` shows `initialized: false`; the empty key file was removed | Retry `init` |
+| Step 3: `vault_initialised_keys_not_stored` or `vault_init_outcome_unknown` | Vault may be initialised without stored shares | **Stop; never run `init` again.** Check `$V status`. If `initialized: true` and no complete `vault-keys.json` exists, the data is unrecoverable by design. Vault holds no secret yet, so the owner may decide to uninstall, delete the PVCs and start again |
 | Step 4: `configure` stopped part-way | Some policies or roles applied | Re-run `configure`: every step is idempotent. If root is already retired, use the admin path (*Token lifecycle*) |
 | Step 4: root retired before the operator token was created | No routine token | Admin path, then `operator-token` |
 | Step 6: ESO install failed | Partial release | `helm uninstall external-secrets -n external-secrets` (nothing depends on it yet), then retry |

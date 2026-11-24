@@ -1,0 +1,121 @@
+{
+ "secret_engines": {
+  "agent-registry/": {
+   "type": "agent_registry",
+   "version": null
+  },
+  "ewallet/": {
+   "type": "kv",
+   "version": "2"
+  }
+ },
+ "auth_methods": {
+  "kubernetes/": "kubernetes",
+  "token/": "token"
+ },
+ "audit_devices": {
+  "file/": "file"
+ },
+ "kubernetes_roles": {
+  "eso-ewallet-agents": {
+   "bound_service_account_names": [
+    "eso-vault-reader"
+   ],
+   "bound_service_account_namespaces": [
+    "ewallet-agents"
+   ],
+   "audience": "vault",
+   "token_policies": [
+    "eso-ewallet-agents"
+   ],
+   "token_ttl": 300,
+   "token_max_ttl": 900,
+   "token_no_default_policy": true
+  },
+  "eso-ml-platform": {
+   "bound_service_account_names": [
+    "eso-vault-reader"
+   ],
+   "bound_service_account_namespaces": [
+    "ml-platform"
+   ],
+   "audience": "vault",
+   "token_policies": [
+    "eso-ml-platform"
+   ],
+   "token_ttl": 300,
+   "token_max_ttl": 900,
+   "token_no_default_policy": true
+  },
+  "eso-vault-rehearsal": {
+   "bound_service_account_names": [
+    "eso-vault-reader"
+   ],
+   "bound_service_account_namespaces": [
+    "vault-rehearsal"
+   ],
+   "audience": "vault",
+   "token_policies": [
+    "eso-vault-rehearsal"
+   ],
+   "token_ttl": 300,
+   "token_max_ttl": 900,
+   "token_no_default_policy": true
+  },
+  "feature-api": {
+   "bound_service_account_names": [
+    "feature-api"
+   ],
+   "bound_service_account_namespaces": [
+    "ml-platform"
+   ],
+   "audience": "vault",
+   "token_policies": [
+    "feature-api"
+   ],
+   "token_ttl": 300,
+   "token_max_ttl": 900,
+   "token_no_default_policy": true
+  },
+  "fraud-api": {
+   "bound_service_account_names": [
+    "fraud-api"
+   ],
+   "bound_service_account_namespaces": [
+    "ml-platform"
+   ],
+   "audience": "vault",
+   "token_policies": [
+    "fraud-api"
+   ],
+   "token_ttl": 300,
+   "token_max_ttl": 900,
+   "token_no_default_policy": true
+  },
+  "vault-admin": {
+   "bound_service_account_names": [
+    "vault-admin"
+   ],
+   "bound_service_account_namespaces": [
+    "ewallet-vault"
+   ],
+   "audience": "vault",
+   "token_policies": [
+    "root-generation"
+   ],
+   "token_ttl": 900,
+   "token_max_ttl": 1800,
+   "token_no_default_policy": true
+  }
+ },
+ "acl_policies": {
+  "default-ceiling": "\n# Allow an entity to inspect its own registration information\npath \"agent-registry/registration/entity_id/{{identity.entity.id}}\" {\n  capabilities = [\"read\"]\n}\n\n# Allow an entity to read the default policies\npath \"policy/default\" {\n  capabilities = [\"read\"]\n}\npath \"policy/default-ceiling\" {\n  capabilities = [\"read\"]\n}\n",
+  "eso-ewallet-agents": "# External Secrets Operator reader for namespace ewallet-agents (staged, opt-in).\n# One shadow copy of the gateway client key; the live agentgateway-client-key Secret and\n# the MCP credential releases are not managed through Vault.\npath \"ewallet/data/agent-platform/agentgateway-client-key\" {\n  capabilities = [\"read\"]\n}\n\n# token_no_default_policy removes these; ESO checks its login token and revokes it after use.\npath \"auth/token/lookup-self\" {\n  capabilities = [\"read\"]\n}\npath \"auth/token/revoke-self\" {\n  capabilities = [\"update\"]\n}\n",
+  "eso-ml-platform": "# External Secrets Operator reader for namespace ml-platform (SecretStore ml-platform/vault).\n# Exactly the secrets that namespace's ExternalSecrets map, read only. No list, no metadata,\n# so the reader cannot discover other paths. Add a path here only with its ExternalSecret.\npath \"ewallet/data/feature-api/feast-redis\" {\n  capabilities = [\"read\"]\n}\n\n# token_no_default_policy removes these; ESO checks its login token and revokes it after use.\npath \"auth/token/lookup-self\" {\n  capabilities = [\"read\"]\n}\npath \"auth/token/revoke-self\" {\n  capabilities = [\"update\"]\n}\n",
+  "eso-vault-rehearsal": "# GKE technical rehearsal only (docs/runbooks/edai2/VAULT_GKE_REHEARSAL.md): the ESO reader of the\n# temporary namespace vault-rehearsal reads one synthetic entry. The path lies under feature-api/,\n# which the existing secret-operator token may write, so the rehearsal seeds it exactly like the\n# official campaign (put --token-file). The real feature-api/feast-redis is NOT readable here.\npath \"ewallet/data/feature-api/rehearsal-redis\" {\n  capabilities = [\"read\"]\n}\n\n# token_no_default_policy removes these; ESO checks its login token and revokes it after use.\npath \"auth/token/lookup-self\" {\n  capabilities = [\"read\"]\n}\npath \"auth/token/revoke-self\" {\n  capabilities = [\"update\"]\n}\n",
+  "feature-api": "# Exactly one secret, read only, separate from the Fraud API's path.\npath \"ewallet/data/feature-api/feast-redis\" {\n  capabilities = [\"read\"]\n}\n\n# token_no_default_policy removes this; the loader retires its token after reading.\npath \"auth/token/revoke-self\" {\n  capabilities = [\"update\"]\n}\n",
+  "fraud-api": "# Exactly one secret, read only. No list, so a holder cannot discover other paths.\npath \"ewallet/data/fraud-api/feast-redis\" {\n  capabilities = [\"read\"]\n}\n\n# token_no_default_policy removes this; the loader retires its token after reading.\npath \"auth/token/revoke-self\" {\n  capabilities = [\"update\"]\n}\n",
+  "root-generation": "# Vault 2.x authenticates root generation. This policy lets the owner's admin login\n# (role vault-admin) start, read, cancel and feed a root-generation ceremony, and nothing\n# else: no secrets, no policies, no roles. Completing the ceremony still needs 2 of the\n# 3 unseal shares. Never attach it to ESO readers or application roles.\npath \"sys/generate-root/attempt\" {\n  capabilities = [\"create\", \"read\", \"update\", \"delete\"]\n}\npath \"sys/generate-root/update\" {\n  capabilities = [\"create\", \"update\"]\n}\n",
+  "secret-operator": "# Rotation by a human operator: write new versions and read metadata, never values.\npath \"ewallet/data/fraud-api/*\" {\n  capabilities = [\"create\", \"update\"]\n}\npath \"ewallet/metadata/fraud-api/*\" {\n  capabilities = [\"read\", \"list\"]\n}\npath \"ewallet/data/feature-api/*\" {\n  capabilities = [\"create\", \"update\"]\n}\npath \"ewallet/metadata/feature-api/*\" {\n  capabilities = [\"read\", \"list\"]\n}\npath \"ewallet/data/agent-platform/*\" {\n  capabilities = [\"create\", \"update\"]\n}\npath \"ewallet/metadata/agent-platform/*\" {\n  capabilities = [\"read\", \"list\"]\n}\n"
+ }
+}
