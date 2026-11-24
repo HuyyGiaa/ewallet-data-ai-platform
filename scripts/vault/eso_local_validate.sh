@@ -9,6 +9,10 @@
 # values are synthetic and only their SHA-256 prefixes are recorded. Local evidence only;
 # it says nothing about GKE. Refuses any non-kind context.
 #
+# TLS: by default a disposable OpenSSL CA. With VAULT_LOCAL_TLS=cert-manager (cert-manager
+# already installed in the kind cluster) the repository's certificate.yaml issues the CA and
+# server certificate exactly as on GKE, and the CA is read from the vault-ca Secret.
+#
 # Isolation: a preflight refuses to start if any namespace, CRD, Helm release, cluster-scoped
 # chart object or ewallet-agents object it would create already exists. Objects are created
 # (never applied over) with ewallet.io/vault-local=<run id> set at creation time, and cleanup,
@@ -20,7 +24,7 @@ evidence=${5:?evidence directory}
 CONTEXT=${VAULT_LOCAL_CONTEXT:-kind-llm-agent-local}
 [[ "$CONTEXT" == kind-* ]] || { echo "refusing non-kind context $CONTEXT" >&2; exit 2; }
 VNS=ewallet-vault ENS=external-secrets APP=ml-platform AGENTS=ewallet-agents PORT=${VAULT_LOCAL_PORT:-18231}
-FPORT=${FEATURE_LOCAL_PORT:-18232} LABEL=ewallet.io/vault-local RUN=vl-$(date -u +%Y%m%d%H%M%S)-$$
+FPORT=${FEATURE_LOCAL_PORT:-18232} LABEL=ewallet.io/vault-local RUN=vl-$(date -u +%Y%m%d%H%M%S)-$$ TLS_MODE=${VAULT_LOCAL_TLS:-openssl}
 root=$(cd "$(dirname "$0")/../.." && pwd)
 work=$(mktemp -d); keys=$work/keys.json; operator=$work/operator-token.json; admin=$work/admin-token.json
 forward= fforward= agents_created=
@@ -235,6 +239,12 @@ yaml.safe_dump_all(out, sys.stdout)'
 # ---------------------------------------------------------------- namespaces, TLS, Vault
 refuse() { echo "PREFLIGHT_REFUSED: $1 already exists; nothing was created or changed" >&2; rm -rf "$work"; exit 2; }
 for ns in "$VNS" "$ENS" "$APP"; do k get ns "$ns" >/dev/null 2>&1 && refuse "namespace $ns"; done
+case "$TLS_MODE" in
+  openssl) ;;
+  cert-manager) k get crd certificates.cert-manager.io issuers.cert-manager.io >/dev/null 2>&1 \
+                  || { echo "VAULT_LOCAL_TLS=cert-manager needs cert-manager installed in $CONTEXT" >&2; rm -rf "$work"; exit 2; } ;;
+  *) echo "VAULT_LOCAL_TLS must be openssl or cert-manager" >&2; rm -rf "$work"; exit 2 ;;
+esac
 for crd in externalsecrets.external-secrets.io secretstores.external-secrets.io; do
   k get crd "$crd" >/dev/null 2>&1 && refuse "CRD $crd (another ESO installation)"
 done
@@ -264,12 +274,27 @@ ca() {  # <name>: a disposable CA in $work/<name>.{key,crt}
   openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -days 1 -subj "/CN=$1" \
     -addext 'keyUsage=critical,keyCertSign,cRLSign' -keyout "$work/$1.key" -out "$work/$1.crt" 2>/dev/null
 }
-ca local-vault-ca; cp "$work/local-vault-ca.crt" "$work/ca.crt"; ca untrusted-ca
-openssl req -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -subj /CN=vault \
-  -keyout "$work/tls.key" -out "$work/tls.csr" 2>/dev/null
-openssl x509 -req -in "$work/tls.csr" -CA "$work/ca.crt" -CAkey "$work/local-vault-ca.key" -CAcreateserial -days 1 \
-  -out "$work/tls.crt" -extfile <(printf 'subjectAltName=DNS:vault,DNS:vault.%s.svc,DNS:vault.%s.svc.cluster.local,DNS:localhost,IP:127.0.0.1\nauthorityKeyIdentifier=keyid,issuer\nsubjectKeyIdentifier=hash\nkeyUsage=critical,digitalSignature\nextendedKeyUsage=serverAuth\n' "$VNS" "$VNS") 2>/dev/null
-k -n "$VNS" create secret tls vault-server-tls --cert="$work/tls.crt" --key="$work/tls.key" --dry-run=client -o yaml | create
+ca untrusted-ca
+if [ "$TLS_MODE" = cert-manager ]; then
+  # Exactly the GKE path: certificate.yaml -> self-signed CA -> CA Issuer -> vault-server-tls.
+  create < "$root/infra/kubernetes/vault/certificate.yaml"
+  k -n "$VNS" wait --for=condition=Ready certificate/vault-ca certificate/vault-server-tls --timeout=180s >/dev/null \
+    || fail cert-manager-certificates "certificates not Ready"
+  k -n "$VNS" get secret vault-ca -o jsonpath='{.data.ca\.crt}' | base64 -d > "$work/ca.crt"
+  k -n "$VNS" get secret vault-server-tls -o jsonpath='{.data.tls\.crt}' | base64 -d > "$work/server.crt"
+  openssl verify -CAfile "$work/ca.crt" "$work/server.crt" >/dev/null 2>&1 || fail cert-manager-chain "server certificate not signed by vault-ca"
+  sans=$(openssl x509 -in "$work/server.crt" -noout -ext subjectAltName | tail -1 | tr -d ' ')
+  record cert-manager-issued "$(jq -cn --arg s "$sans" --arg a "$(openssl x509 -in "$work/server.crt" -noout -enddate | cut -d= -f2)" \
+    '{result: "issued", chain: "vault-server-tls <- vault-ca (verified)", sans: ($s | split(",")), not_after: $a}')"
+  case ",$sans," in *",DNS:vault.$VNS.svc.cluster.local,"*) ;; *) fail cert-manager-sans "missing the ESO server name" ;; esac
+else
+  ca local-vault-ca; cp "$work/local-vault-ca.crt" "$work/ca.crt"
+  openssl req -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -subj /CN=vault \
+    -keyout "$work/tls.key" -out "$work/tls.csr" 2>/dev/null
+  openssl x509 -req -in "$work/tls.csr" -CA "$work/ca.crt" -CAkey "$work/local-vault-ca.key" -CAcreateserial -days 1 \
+    -out "$work/tls.crt" -extfile <(printf 'subjectAltName=DNS:vault,DNS:vault.%s.svc,DNS:vault.%s.svc.cluster.local,DNS:localhost,IP:127.0.0.1\nauthorityKeyIdentifier=keyid,issuer\nsubjectKeyIdentifier=hash\nkeyUsage=critical,digitalSignature\nextendedKeyUsage=serverAuth\n' "$VNS" "$VNS") 2>/dev/null
+  k -n "$VNS" create secret tls vault-server-tls --cert="$work/tls.crt" --key="$work/tls.key" --dry-run=client -o yaml | create
+fi
 for ns in "$APP" "$AGENTS"; do
   k -n "$ns" create configmap vault-ca --from-file=ca.crt="$work/ca.crt" --dry-run=client -o yaml | create
 done
@@ -281,6 +306,8 @@ create < "$root/infra/kubernetes/vault/network-policy.yaml"
 create < "$root/infra/kubernetes/vault/admin-serviceaccount.yaml"
 k -n "$VNS" wait --for=jsonpath='{.status.phase}'=Running pod/vault-0 --timeout=240s >/dev/null
 forward_vault
+record vault-no-disruption-budget "$(jq -cn --argjson n "$(k -n "$VNS" get pdb -o json | jq '.items | length')" '{pdbs_in_vault_namespace: $n}')"
+[ "$(k -n "$VNS" get pdb -o json | jq '.items | length')" = 0 ] || fail vault-no-disruption-budget "a PDB would block drains"
 record vault-status-uninitialised "$(vault status)"
 record vault-init "$(vault init --keys-out "$keys")"
 record vault-unseal "$(vault unseal --keys-file "$keys")"

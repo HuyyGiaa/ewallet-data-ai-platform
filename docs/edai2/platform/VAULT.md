@@ -11,7 +11,7 @@ Operating procedure: [VAULT_ESO_RUNBOOK.md](../../runbooks/edai2/VAULT_ESO_RUNBO
 |---|---|
 | `IMPLEMENTED` (in Git) | Yes: Vault chart values, bootstrap (policies, roles), token lifecycle, ESO installation, SecretStores, ExternalSecrets, Feature API overlay |
 | `LOCAL_VALIDATED` (on kind) | Yes: full chain with the real charts and the real Feature API (*Validation*) |
-| `GKE_DEPLOYED` | **No**: no Vault, ESO, SecretStore or ExternalSecret exists on GKE |
+| `GKE_DEPLOYED` | **No**: no Vault, ESO, SecretStore or ExternalSecret exists on GKE (read-only preflight 2026-11-24: `VAULT_GKE_PREFLIGHT_READY`; campaign plan in [VAULT_GKE_ACCEPTANCE_CAMPAIGN.md](../../runbooks/edai2/VAULT_GKE_ACCEPTANCE_CAMPAIGN.md)) |
 | `GKE_RUNTIME_VERIFIED` | No |
 | `OWNER_EVIDENCE_COMPLETE` (row 54) | **No**: not yet accepted as row 54 evidence; that needs the approved GKE campaign and the owner's evidence |
 
@@ -281,6 +281,9 @@ is never migrated: Shamir stays, and KMS auto-unseal is out of scope.
 - **Manual unseal after every Vault restart**, including each GKE wake. Until then,
   ExternalSecrets report `Ready False`.
 - **Refresh is not instant:** one hour by default, so rotations use `force-sync` and a rollout restart.
+- **No PodDisruptionBudget for Vault.** With one replica, the chart's budget (`maxUnavailable: 0`) could only
+  block node drains, including the cloud-lab resize to zero. A drain or node upgrade therefore restarts
+  Vault sealed, and it needs a manual unseal.
 - **Owner-held recovery material**, as described above.
 - **ESO is trusted to mint tokens.** Its chart RBAC lets the controller create ServiceAccount
   tokens and write Secrets in every namespace. A namespaced store can only use a
@@ -297,14 +300,16 @@ bootstrap, NetworkPolicy and manifests, a password-protected Redis, and the real
 image rendered from the serving chart with the overlay. All values are synthetic, and only
 SHA-256 prefixes are recorded.
 
-Run [`eso_local_20261124T051306Z`](../../evidence/edai2/vault/eso_local_20261124T051306Z/results.jsonl)
-(kind `kind-llm-agent-local`, Vault 2.0.4, ESO v2.14.0): **63 of 63 steps passed**. Afterwards, the
-pre-existing `ewallet-agents` namespace and the cluster's namespace list were identical to a
-snapshot taken before the run (same objects, same resourceVersions).
+Run [`eso_local_20261124T055021Z`](../../evidence/edai2/vault/eso_local_20261124T055021Z/results.jsonl)
+(kind `kind-llm-agent-local`, Vault 2.0.4, ESO v2.14.0, TLS issued by cert-manager v1.16.2 from the
+repository's `certificate.yaml`, as on GKE): **65 of 65 steps passed**. Afterwards, the kind cluster
+was identical to a snapshot taken before the run: `ewallet-agents` objects and their
+resourceVersions, namespaces, CRDs, webhooks and cluster RBAC. The temporary cert-manager was
+removed afterwards.
 
 | Area | Result |
 |---|---|
-| Vault | Uninitialised → `init` (3/2) → unsealed (`initialized true, sealed false`); bootstrap applied; HTTPS verifies with the CA; an untrusted CA is refused |
+| Vault | cert-manager issued the CA and server certificate (chain verified, SANs include `vault.ewallet-vault.svc.cluster.local`); no PodDisruptionBudget; uninitialised → `init` (3/2) → unsealed (`initialized true, sealed false`); bootstrap applied; HTTPS verifies with the CA; an untrusted CA is refused |
 | Token lifecycle | Orphan `secret-operator` token created; initial root retired and then rejected; the operator token cannot change a role; all seeding and rotation used the operator token |
 | Root generation (authenticated) | Without a token: HTTP 403; with the operator token: denied; an ESO reader cannot log in as `vault-admin`; the admin login can neither configure nor read metadata; 1 share cannot finish (attempt cancelled); admin login plus 2 shares produced a root that re-applied the bootstrap and issued a replacement operator token, then was retired and rejected |
 | Operator-token expiry | A 20 s operator token was rejected after expiry; the replacement and the original operator token kept working |
@@ -326,7 +331,7 @@ controller log, because ESO's events are generic. An unreachable Vault, or any o
 failure, therefore fails the step instead of passing as an authorization test. Earlier runs are
 kept for history: `eso_local_20261123T210316Z` (42 steps, before the token lifecycle and these
 assertions), and `eso_local_20261124T044834Z` (53 steps, which still used the since-removed
-unauthenticated root generation).
+unauthenticated root generation), and `eso_local_20261124T051306Z` (63 steps, with an OpenSSL CA instead of cert-manager).
 
 Local means local: kind's CNI (kindnet) enforced the NetworkPolicy, the Redis was a
 disposable in-namespace instance rather than `feature-store/redis`, and the run used a

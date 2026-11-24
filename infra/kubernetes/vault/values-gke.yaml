@@ -48,6 +48,13 @@ server:
   ha:
     enabled: true
     replicas: 1
+    # No PodDisruptionBudget: with one replica the chart's budget is maxUnavailable 0, which
+    # cannot protect availability and only blocks every drain. The cloud-lab sleep tool's PDB
+    # check (ops/gcp/cloud_lab.py evaluate_pdbs) looks at minAvailable only, so that budget
+    # would pass its gate and then stall the resize to zero for up to an hour per node.
+    # Without it a drain evicts vault-0, which restarts sealed: the designed wake behaviour.
+    disruptionBudget:
+      enabled: false
     raft:
       enabled: true
       setNodeId: true

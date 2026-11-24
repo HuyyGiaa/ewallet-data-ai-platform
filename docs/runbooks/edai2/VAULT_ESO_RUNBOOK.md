@@ -19,6 +19,9 @@ Do not use `set -x`. Values go into Vault on stdin (`put --stdin`) or a hidden p
 ## Variables
 
 ```bash
+# The cloud-lab kubeconfig reaches the control plane through its DNS endpoint; the default
+# ~/.kube/config uses the IP endpoint, which the master authorized networks block from the laptop.
+export KUBECONFIG=~/.cache/ewallet-cloud-lab/kubeconfig
 CTX=gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev   # pin every command
 KEYDIR=~/ewallet-evidence/vault/private      # outside the repository, mode 700; ops/vault refuses a path inside it
 CHARTS=~/ewallet-evidence/vault/charts       # pulled charts, digests checked below
@@ -27,6 +30,18 @@ OP=$KEYDIR/operator-token.json               # secret-operator token, created in
 ```
 
 ## 1. Prerequisites (READ-ONLY)
+
+Run the committed preflight first. It checks every item below that can be checked, and runs only read-only commands:
+
+```bash
+python3 scripts/vault/gke_preflight.py --kubeconfig $KUBECONFIG --context $CTX --out <campaign-dir>/preflight
+# last line: {"verdict": "VAULT_GKE_PREFLIGHT_READY", "blocking": [], "not_checked": [...]}
+```
+
+It refuses (BLOCKED) if an earlier Vault or ESO namespace, CRD, release or PVC exists, or if
+the `ewallet-serving` release differs from the repository chart. It also refuses if the overlay
+would change anything besides the Feature API Secret name. While the node pool is at 0,
+`cert-manager-ready` stays NOT_CHECKED; rerun the preflight after the wake.
 
 - Approved campaign, GKE awake, laptop on the approved network.
 - cert-manager running: `kubectl --context $CTX get crd certificates.cert-manager.io && kubectl --context $CTX -n cert-manager get pods`.
@@ -54,9 +69,20 @@ kubectl --context $CTX -n ewallet-vault wait --for=condition=Ready certificate/v
 helm --kube-context $CTX install vault $CHARTS/vault-0.34.1.tgz -n ewallet-vault -f infra/kubernetes/vault/values-gke.yaml
 kubectl --context $CTX apply -f infra/kubernetes/vault/network-policy.yaml -f infra/kubernetes/vault/admin-serviceaccount.yaml
 kubectl --context $CTX -n ewallet-vault wait --for=jsonpath='{.status.phase}'=Running pod/vault-0 --timeout=240s
+kubectl --context $CTX -n ewallet-vault get pvc        # READ-ONLY: data-vault-0 (5Gi) and audit-vault-0 (1Gi) Bound
 kubectl --context $CTX -n ewallet-vault port-forward pod/vault-0 8200:8200 &   # keep open; restart it after a Vault restart
 kubectl --context $CTX -n ewallet-vault get secret vault-ca -o jsonpath='{.data.ca\.crt}' | base64 -d > $KEYDIR/ca.crt
 $V status        # READ-ONLY: {"initialized": false, "sealed": true, ...}
+```
+
+`standard-rwo` deletes a disk when its PVC is deleted (`reclaimPolicy: Delete`). Recommended,
+with owner approval: keep the two Vault disks even if their PVCs are deleted by mistake
+(**MUTATING**, reversible):
+
+```bash
+for pv in $(kubectl --context $CTX -n ewallet-vault get pvc -o jsonpath='{.items[*].spec.volumeName}'); do
+  kubectl --context $CTX patch pv "$pv" -p '{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}'
+done
 ```
 
 The readiness probe treats sealed and uninitialised as Ready (`sealedcode=204&uninitcode=204`).
@@ -291,15 +317,30 @@ No command prints a token.
 
 ## 12. GKE sleep and wake
 
-- **Sleep:** nothing Vault-specific. The Vault PVCs (Persistent Disks) survive the node pool
-  scaling to 0. Never delete the `ewallet-vault` namespace or its PVCs during cleanup: that
-  destroys all Vault data. The ESO Deployments and Vault have no PodDisruptionBudget.
+- **Sleep:** use the campaign's approved cloud-lab sleep procedure. Nothing Vault-specific is
+  added to it. Vault has no PodDisruptionBudget (`server.ha.disruptionBudget.enabled: false`).
+  The chart's default budget for one replica is `maxUnavailable: 0`, which the sleep tool's
+  check (`evaluate_pdbs`, `minAvailable` only) would not flag, and which would then stall the
+  resize to zero. The drain therefore evicts `vault-0` like any other pod. Vault seals as it
+  stops; Raft data is on the PVC. The ESO Deployments have no budget either. **Never delete the
+  `ewallet-vault` namespace or its PVCs while sleeping**, and do not `helm uninstall` Vault or
+  ESO: sleep keeps both installed.
+- **Disks while asleep:** the data (5 GiB) and audit (1 GiB) disks are zonal in
+  `asia-southeast1-b`, the only zone of `cpu-pool`, so after a wake `vault-0` reattaches them on
+  any new node. Check after the sleep: `kubectl --context $CTX -n ewallet-vault get pvc` shows both Bound.
 - **Wake:** Vault comes back **sealed**. Until it is unsealed, ESO cannot sync (`ExternalSecret`
   Ready `False`), but the synced Secrets stay in place. The Feature API therefore starts and
   serves normally, unlike the direct loader, which fails closed while Vault is sealed. After the
   wake, open the port-forward and run `$V unseal --keys-file $KEYDIR/vault-keys.json` and `$V status`,
-  then force a sync (step 11.2) and check `SecretSynced`.
+  then force a sync (step 11.2) and check `SecretSynced`. If the operator token expired during
+  the sleep, replace it (*Token lifecycle*).
 - A retained Secret is not proof that ESO is syncing. Check the ExternalSecret condition.
+- **Certificate renewal:** cert-manager renews `vault-server-tls` 15 days before its 90-day
+  expiry, but a running Vault keeps serving the certificate it loaded at start-up. Each wake
+  restarts Vault, so this matters only if Vault runs for more than 75 days without a restart.
+  Check `kubectl --context $CTX -n ewallet-vault get certificate vault-server-tls` (`Ready`, renewal
+  time). After a renewal, restart `vault-0` and unseal it. The `vault-ca` CA lasts one year;
+  when it is renewed, re-publish `ca.crt` to the `vault-ca` ConfigMaps (step 6).
 
 ## 13. Safe cleanup (MUTATING, Kubernetes)
 

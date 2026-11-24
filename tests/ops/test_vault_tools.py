@@ -260,3 +260,11 @@ def test_root_generation_is_authenticated_and_only_the_admin_login_may_run_it():
     for name, path in CONFIG["policies"].items():
         if name != "root-generation":
             assert "sys/" not in (ROOT / path).read_text(), name
+
+
+def test_single_replica_vault_has_no_disruption_budget():
+    """A maxUnavailable-0 budget would stall the cloud-lab resize to zero (evaluate_pdbs checks minAvailable only)."""
+    import yaml
+    values = yaml.safe_load((ROOT / "infra/kubernetes/vault/values-gke.yaml").read_text())
+    assert values["server"]["ha"]["replicas"] == 1
+    assert values["server"]["ha"]["disruptionBudget"] == {"enabled": False}
