@@ -181,7 +181,7 @@ YAML
 }
 restricted='securityContext: {runAsNonRoot: true, runAsUser: 999, runAsGroup: 999, seccompProfile: {type: RuntimeDefault}}'
 container_security='securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}'
-consume() {  # one real authenticated Redis round trip with the ESO-managed Secret; prints OK or AUTH_FAILED
+consume() {  # one real authenticated Redis round trip with the ESO-managed Secret; prints OK, AUTH_FAILED or UNREACHABLE
   local job state
   job=$(own <<YAML | k create -f - -o name
 apiVersion: batch/v1
@@ -204,17 +204,26 @@ spec:
           args:
             - |
               host=\${CONN%%:*}; rest=\${CONN#*:}; port=\${rest%%,*}; export REDISCLI_AUTH=\${CONN##*password=}
-              [ "\$(redis-cli -h "\$host" -p "\$port" --no-auth-warning PING 2>&1)" = PONG ] || { echo AUTH_FAILED; exit 1; }
+              # AUTH_FAILED only for a rejected password; a connection error (Service endpoints still being
+              # programmed) is retried for 30 s and then reported as UNREACHABLE, never as an auth result.
+              for i in \$(seq 30); do
+                out=\$(redis-cli -h "\$host" -p "\$port" --no-auth-warning PING 2>&1)
+                case "\$out" in PONG) break ;; *WRONGPASS*|*NOAUTH*) echo AUTH_FAILED; exit 1 ;; esac
+                sleep 1
+              done
+              [ "\$out" = PONG ] || { echo UNREACHABLE; exit 1; }
               nonce=\$(cat /proc/sys/kernel/random/uuid)
               redis-cli -h "\$host" -p "\$port" --no-auth-warning SET rehearsal:nonce "\$nonce" EX 60 >/dev/null
               [ "\$(redis-cli -h "\$host" -p "\$port" --no-auth-warning GET rehearsal:nonce)" = "\$nonce" ] && echo ROUND_TRIP_OK || { echo ROUND_TRIP_FAILED; exit 1; }
 YAML
 )
-  for _ in $(seq 120); do
+  for _ in $(seq 150); do
     state=$(k -n "$RNS" get "$job" -o jsonpath='{.status.succeeded}/{.status.failed}')
     case "$state" in 1/*) break ;; */1) break ;; esac; sleep 1
   done
-  case "$(k -n "$RNS" logs "$job" 2>/dev/null | tail -1)" in ROUND_TRIP_OK) echo OK ;; AUTH_FAILED) echo AUTH_FAILED ;; *) echo "UNEXPECTED:$state" ;; esac
+  case "$(k -n "$RNS" logs "$job" 2>/dev/null | tail -1)" in
+    ROUND_TRIP_OK) echo OK ;; AUTH_FAILED) echo AUTH_FAILED ;; UNREACHABLE) echo UNREACHABLE ;; *) echo "UNEXPECTED:$state" ;;
+  esac
 }
 collisions() {  # JSON of every pre-existing object the rehearsal would own; fails closed on any query error
   local ns crds rel objs pvs
@@ -238,6 +247,65 @@ snapshot() {  # production state the rehearsal must not change (names and versio
   gw=$(k -n ewallet-ingress get svc ewallet-edge-gateway --ignore-not-found -o jsonpath='{.spec.type}') || return 1
   jq -cn --argjson rel "$rel" --arg feast "$feast" --argjson fapi "$fapi" --argjson lbs "$lbs" --arg gw "$gw" \
     '{helm_releases: $rel, feast_online_redis_resource_version: $feast, feature_api: $fapi, loadbalancer_services: $lbs, edge_gateway_service_type: $gw}'
+}
+
+compare_production() {  # <step>: the production snapshot must equal baseline.json; any drift stops the run
+  local now
+  [ -f "$DIR/baseline.json" ] || fail "$1" "no baseline.json: run preflight first"
+  now=$(snapshot) || fail "$1" "snapshot query failed"
+  if jq -e --argjson now "$now" '. == $now' "$DIR/baseline.json" >/dev/null; then
+    record "$1" '{"result": "PASS", "compared": ["helm releases and revisions", "feast-online-redis resourceVersion", "feature-api generation and Secret", "LoadBalancer Services", "edge gateway Service type"]}'
+  else
+    printf '%s\n' "$now" > "$DIR/snapshot-differs-$1.json"
+    fail "$1" "production differs from baseline in: $(jq -rn --argjson b "$(cat "$DIR/baseline.json")" --argjson n "$now" \
+      '[($b | keys[]) as $k | select($b[$k] != $n[$k]) | $k] | join(", ")') (see snapshot-differs-$1.json); stop, nothing was cleaned up"
+  fi
+}
+disk_state() {  # <volume handle projects/P/zones/Z/disks/D>: present | absent | unknown (an API error is never "absent")
+  # `gcloud compute disks list` exits 0 even when the project cannot be read, so it cannot prove absence.
+  # `describe` can: only a 404 naming this exact disk path means "absent". The error text (it names the
+  # gcloud account) is matched in memory and never recorded.
+  local zone name out err
+  zone=$(cut -d/ -f4 <<<"$1"); name=${1##*/}
+  [ -n "$zone" ] && [ -n "$name" ] && [ "$(cut -d/ -f1-2 <<<"$1")" = "projects/$PROJECT" ] || { echo unknown; return; }
+  if out=$(gcloud compute disks describe "$name" --zone "$zone" --project "$PROJECT" --format='value(name)' 2>/dev/null); then
+    [ "$out" = "$name" ] && echo present || echo unknown
+  else
+    err=$(gcloud compute disks describe "$name" --zone "$zone" --project "$PROJECT" --format='value(name)' 2>&1 >/dev/null) || true
+    case "$err" in
+      *"HTTPError 404: The resource 'projects/$PROJECT/zones/$zone/disks/$name' was not found"*) echo absent ;;
+      *) echo unknown ;;
+    esac
+  fi
+}
+check_volumes_before_delete() {  # the live PVC -> PV -> disk chain must be exactly the recorded rehearsal one
+  local recorded live
+  recorded=$(jq -c 'sort_by(.claim)' "$DIR/volumes.json") || fail volumes-identity "volumes.json missing or invalid"
+  [ "$(jq 'length' <<<"$recorded")" = 2 ] || fail volumes-identity "expected 2 recorded volumes"
+  live=$(k -n "$VNS" get pvc -o json | jq -c '[.items[] | {claim: .metadata.name, name: .spec.volumeName}] | sort_by(.claim)') \
+    || fail volumes-identity "PVC query failed"
+  [ "$(jq -c '[.[] | {claim, name}]' <<<"$recorded")" = "$live" ] || fail volumes-identity "live PVCs $live differ from the recorded $recorded"
+  for v in $(jq -r '.[].name' <<<"$recorded"); do
+    k get pv "$v" -o json | jq -e --arg ns "$VNS" --argjson r "$(jq -c --arg v "$v" '.[] | select(.name == $v)' <<<"$recorded")" \
+      '.spec.persistentVolumeReclaimPolicy == "Delete" and .spec.claimRef.namespace == $ns and .spec.claimRef.name == $r.claim
+       and (.spec.csi.volumeHandle // null) == $r.disk' >/dev/null || fail volumes-identity "PV $v: not reclaim Delete, or claim or disk differs from the record"
+  done
+  if [ -z "$KIND" ]; then
+    for handle in $(jq -r '.[].disk' <<<"$recorded"); do
+      [ "$(disk_state "$handle")" = present ] || fail volumes-identity "disk ${handle##*/} not confirmed present before deletion"
+    done
+  fi
+  record volumes-identity "$(jq -c '{result: "PASS", volumes: ., reclaim: "Delete", disks: "confirmed present"}' <<<"$recorded")"
+}
+check_eso_scope() {  # ESO may only be serving the rehearsal: no store or ExternalSecret elsewhere, no inventory drift
+  local where objs
+  where=$(k get externalsecret,secretstore,pushsecret -A -o json | jq -c --arg r "$RNS" '[.items[] | select(.metadata.namespace != $r) | "\(.kind) \(.metadata.namespace)/\(.metadata.name)"]') \
+    || fail eso-scope "ExternalSecret/SecretStore query failed"
+  [ "$where" = "[]" ] || fail eso-scope "ESO objects outside $RNS: $where"
+  objs=$(k get "$CLUSTER_KINDS" -l app.kubernetes.io/instance=external-secrets -o json | jq -c '[.items[] | "\(.kind)/\(.metadata.name)"] | sort') \
+    || fail eso-scope "cluster object query failed"
+  [ "$objs" = "$(jq -c '.cluster_objects | sort' "$DIR/eso-cluster-objects.json")" ] || fail eso-scope "ESO cluster objects differ from the recorded inventory: $objs"
+  record eso-scope '{"result": "PASS", "externalsecrets_and_stores": "only in vault-rehearsal", "cluster_objects": "as recorded"}'
 }
 
 # ======================================================================== phases
@@ -420,7 +488,7 @@ YAML
     --arg s "$(k -n "$RNS" get secretstore vault -o jsonpath='{.status.conditions[0].reason}')" \
     '{result: "PASS", store: $s, externalsecret: $c, owner: $o, keys: $k, value: "equal to Vault v1 (hash prefix)"}')"
   k -n "$RNS" rollout status deploy/redis --timeout=180s >/dev/null || fail redis "synthetic Redis not Ready"
-  [ "$(consume)" = OK ] || fail consumer "the consumer could not authenticate with the ESO Secret"
+  out=$(consume); [ "$out" = OK ] || fail consumer "consumer result $out with the ESO Secret"
   record consumer '{"result": "PASS", "check": "redis-cli PING + SET/GET round trip with the ESO-managed connection_string"}'
 }
 
@@ -507,10 +575,7 @@ phase_lifecycle() {  # MUTATING (Vault: synthetic versions; Kubernetes: one Vaul
   synced_after rehearsal-redis-vault "$rv" >/dev/null || fail unseal-sync "ESO did not recover after unseal"
   [ "$(consume)" = OK ] || fail unseal-sync "consumer failed after unseal"
   record unsealed-sync-recovered "$(jq -cn --arg c "$(es_condition "$RNS" rehearsal-redis-vault)" '{result: "PASS", externalsecret: $c, consumer: "OK"}')"
-  if [ -f "$DIR/baseline.json" ]; then
-    jq -e --argjson now "$(snapshot)" '. == $now' "$DIR/baseline.json" >/dev/null \
-      && record production-unchanged '{"result": "PASS"}' || record production-unchanged '{"result": "DIFFERS", "detail": "compare baseline.json with a fresh snapshot"}'
-  fi
+  compare_production production-unchanged
 }
 
 phase_cleanup() {  # MUTATING, destructive for rehearsal objects only: synthetic Vault data, ESO CRDs, test namespaces
@@ -520,6 +585,9 @@ phase_cleanup() {  # MUTATING, destructive for rehearsal objects only: synthetic
   done
   record ownership "$(jq -cn --argjson v "$(cat "$DIR/volumes.json" 2>/dev/null || echo null)" --argjson e "$(cat "$DIR/eso-cluster-objects.json" 2>/dev/null || echo null)" \
     '{result: "PASS", namespaces: "labelled with this rehearsal id or absent", volumes: $v, eso_cluster_objects: ($e.cluster_objects // [])}')"
+  # Everything is checked before the first deletion; a resumed cleanup skips what is already gone.
+  if h status external-secrets -n "$ENS" >/dev/null 2>&1; then check_eso_scope; fi
+  if k -n "$VNS" get pvc -o name 2>/dev/null | grep -q .; then check_volumes_before_delete; fi
   stop_forward
   if mine "$RNS"; then
     k -n "$RNS" delete externalsecret,secretstore --all --wait=true >/dev/null 2>&1 || true   # owned Secrets are collected
@@ -531,7 +599,8 @@ phase_cleanup() {  # MUTATING, destructive for rehearsal objects only: synthetic
   fi
   if mine "$VNS"; then
     if h status vault -n "$VNS" >/dev/null 2>&1; then h uninstall vault -n "$VNS" --wait --timeout 5m >/dev/null; fi
-    k -n "$VNS" delete pvc --all --wait=true --timeout=300s >/dev/null          # reclaim Delete: the synthetic disks go too
+    # Only the two recorded claims, identity checked above; reclaim Delete removes their synthetic disks.
+    k -n "$VNS" delete pvc $(jq -r '.[].claim' "$DIR/volumes.json") --ignore-not-found --wait=true --timeout=300s >/dev/null
     k delete ns "$VNS" --wait=true --timeout=300s >/dev/null
   fi
   for _ in $(seq 60); do
@@ -540,19 +609,23 @@ phase_cleanup() {  # MUTATING, destructive for rehearsal objects only: synthetic
   done
   [ -z "$pvs" ] || fail volumes "PersistentVolumes still present: $pvs"
   if [ -z "$KIND" ]; then
-    left=$(jq -r '.[].disk // empty' "$DIR/volumes.json" | while read -r handle; do
-      gcloud compute disks describe "${handle##*/}" --zone "$(cut -d/ -f4 <<<"$handle")" --project "$PROJECT" --format='value(name)' 2>/dev/null || true
-    done)
-    [ -z "$left" ] || fail disks "Persistent Disks still present: $left"
+    for handle in $(jq -r '.[].disk' "$DIR/volumes.json"); do
+      for _ in $(seq 24); do [ "$(disk_state "$handle")" = absent ] && break; sleep 5; done
+      case "$(disk_state "$handle")" in
+        absent) ;;
+        present) fail disks "Persistent Disk ${handle##*/} still present" ;;
+        *) fail disks "Persistent Disk ${handle##*/}: state unknown (gcloud query failed); not counted as deleted" ;;
+      esac
+    done
   fi
   rm -rf "$PRIV"
-  record cleanup "$(jq -cn --arg d "$([ -z "$KIND" ] && echo 'deleted (gcloud describe: not found)' || echo 'kind local-path: removed')" \
+  record cleanup "$(jq -cn --arg d "$([ -z "$KIND" ] && echo 'confirmed absent (gcloud disks list: no match)' || echo 'kind local-path: removed')" \
     '{result: "PASS", namespaces_deleted: ["vault-rehearsal", "external-secrets", "ewallet-vault"], releases_uninstalled: ["external-secrets", "vault"],
       vault_volumes: "deleted", disks: $d, synthetic_private_material: "removed"}')"
 }
 
 phase_verify_clean() {  # READ-ONLY: back to the pre-rehearsal state
-  local found now
+  local found
   found=$(collisions) || fail collisions "a query failed"
   none_found "$found" || fail clean "left behind: $found"
   record nothing-left "$(jq -c '{result: "PASS"} + .' <<<"$found")"
@@ -565,14 +638,7 @@ phase_verify_clean() {  # READ-ONLY: back to the pre-rehearsal state
       || fail gke-preflight-after "not READY: see $DIR/preflight-after/gates-preinstall.jsonl"
     record gke-preflight-after '{"result": "PASS", "verdict": "VAULT_GKE_PREFLIGHT_READY"}'
   fi
-  now=$(snapshot) || fail production "snapshot failed"
-  if jq -e --argjson now "$now" '. == $now' "$DIR/baseline.json" >/dev/null; then
-    record production-unchanged '{"result": "PASS", "compared": ["helm releases and revisions", "feast-online-redis resourceVersion", "feature-api generation and Secret", "LoadBalancer Services", "edge gateway Service type"]}'
-  else
-    record production-unchanged "$(jq -cn --argjson b "$(cat "$DIR/baseline.json")" --argjson n "$now" \
-      '{result: "DIFFERS", changed: [($b | keys[]) as $k | select($b[$k] != $n[$k]) | $k]}')"
-    exit 1
-  fi
+  compare_production production-unchanged
 }
 
 "phase_${phase//-/_}"

@@ -350,8 +350,8 @@ disposable in-namespace instance rather than `feature-store/redis`. None of this
 
 The GKE technical rehearsal ([VAULT_GKE_REHEARSAL.md](../../runbooks/edai2/VAULT_GKE_REHEARSAL.md))
 was dry-run end to end on kind with its own driver, [`gke_rehearsal.sh`](../../../scripts/vault/gke_rehearsal.sh):
-[`rehearsal_kind_20261124T164815Z`](../../evidence/edai2/vault/rehearsal_kind_20261124T164815Z/README.md),
-10 phases and 43 steps with no failure, from preflight to a verified clean cluster. It also
+[`rehearsal_kind_20261124T172656Z`](../../evidence/edai2/vault/rehearsal_kind_20261124T172656Z/README.md),
+10 phases and 45 steps with no failure, from preflight to a verified clean cluster. It also
 recorded two Vault 2.0.4 defaults seen with the new `describe` command: an `agent-registry/`
 mount and a `default-ceiling` policy, neither used here.
 

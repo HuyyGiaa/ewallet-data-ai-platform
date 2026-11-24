@@ -1,1 +1,0 @@
-[{"name":"pvc-f95b5002-8214-43ea-b9e2-ff148468ef33","reclaim":"Delete","disk":null,"claim":"audit-vault-0"},{"name":"pvc-8301b5ed-8b98-40ea-a630-3727f7ebd0af","reclaim":"Delete","disk":null,"claim":"data-vault-0"}]

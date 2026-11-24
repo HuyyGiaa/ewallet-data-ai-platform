@@ -1,4 +1,4 @@
-# Vault + ESO technical rehearsal: local dry run on kind (`vault-rehearsal-20261124T164815Z`)
+# Vault + ESO technical rehearsal: local dry run on kind (`vault-rehearsal-20261124T172656Z`)
 
 The complete rehearsal procedure of [VAULT_GKE_REHEARSAL.md](../../../../runbooks/edai2/VAULT_GKE_REHEARSAL.md),
 run on the local kind cluster before any GKE execution. **It is not GKE evidence.** It shows that
@@ -7,12 +7,12 @@ works, and that cleanup returns the cluster to its earlier state.
 
 | | |
 |---|---|
-| Date | 2026-11-24, 16:48–16:52 UTC (10 phases, 207 s) |
+| Date | 2026-11-24, 17:27–17:31 UTC (10 phases, about 220 s) |
 | Cluster | kind `kind-llm-agent-local` (1 node), storage class `standard` (`values-local.yaml`) |
 | Software | Vault 2.0.4 (chart 0.34.1), ESO v2.14.0 (chart 2.14.0), both chart digests verified; cert-manager v1.16.2 installed for this run only and removed afterwards; Redis `7.4.2-alpine` (the digest the platform already uses) |
-| Script | `scripts/vault/gke_rehearsal.sh`, sha256 `835c85bdcd408bf1…` (the committed version) |
+| Script | `scripts/vault/gke_rehearsal.sh`, sha256 `2480c7f5639cc8e1…` (the committed version, after the fail-closed disk check and production-drift fixes) |
 | Values | synthetic only; never printed. The evidence holds statuses, key names and 12-character hash prefixes |
-| Result | 43 recorded steps, no failure; nothing left afterwards (`verify-clean`) |
+| Result | 45 recorded steps, no failure; nothing left afterwards (`verify-clean`) |
 
 ## Files
 
@@ -36,7 +36,7 @@ works, and that cleanup returns the cluster to its earlier state.
 | consumer | KV v1 → `SecretSynced`, owner `ExternalSecret/rehearsal-redis-vault`, value equal to Vault v1; Redis `PING` and `SET`/`GET` succeed with the ESO-managed Secret |
 | negative | unauthorized path, missing key, wrong ServiceAccount, another namespace's role, wrong audience, untrusted CA: each `SecretSyncedError` with its expected cause and **no target Secret**; a non-ESO pod cannot reach Vault (control: it reaches Redis) |
 | lifecycle | v2 (deliberately wrong) reaches the consumer (`AUTH_FAILED`); v3 restores it; restart → sealed while Pod Ready → ESO `vault-sealed`, Secret unchanged, consumer still works → manual unseal → new reconciliation |
-| cleanup | both releases uninstalled, PVCs and PVs deleted, 3 namespaces deleted, synthetic material removed |
+| cleanup | before any deletion: ESO objects only in `vault-rehearsal` and cluster objects as recorded (`eso-scope`); the live PVC → PV → disk chain equal to `volumes.json`, reclaim `Delete` (`volumes-identity`). Then both releases uninstalled, the two recorded PVCs and their PVs deleted, 3 namespaces deleted, synthetic material removed |
 | verify-clean | no Vault/ESO object of any kind; no local material or port-forward; unrelated state unchanged |
 
 ## Observations carried into the GKE plan
@@ -44,9 +44,15 @@ works, and that cleanup returns the cluster to its earlier state.
 - Vault 2.0.4 adds a built-in `agent-registry/` mount and a `default-ceiling` policy. Neither is
   used here; the rehearsal roles set `token_no_default_policy`.
 - ESO 2.14.0 installs 25 CRDs, none annotated `keep`: `helm uninstall` removes them.
-- Two script defects were found and fixed by earlier dry runs on the same day, and are absent
-  from this run: a backgrounded shell function orphaned its `kubectl port-forward`, and a
-  read-only phase recreated the private directory.
+- Script defects found by earlier dry runs on the same day, all fixed before this run: a
+  backgrounded shell function orphaned its `kubectl port-forward`; a read-only phase recreated the
+  private directory; and the consumer reported any non-`PONG` reply as `AUTH_FAILED`. The last
+  one made a Service-endpoint race right after the Redis rollout look like an authentication
+  failure. The consumer now reports `AUTH_FAILED` only for `WRONGPASS`/`NOAUTH`, and retries a
+  connection error for 30 s before reporting `UNREACHABLE`.
+- A cleanup after a failed run (the early-stop path) was also exercised: it passed, and
+  `verify-clean` then correctly failed on Helm-release drift because the temporary cert-manager
+  had already been removed from that run's baseline. That is the drift check working.
 
 ## Not shown here (GKE only)
 
