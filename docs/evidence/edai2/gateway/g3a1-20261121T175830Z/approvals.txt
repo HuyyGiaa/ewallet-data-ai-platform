@@ -1,1 +1,0 @@
-2026-11-21T18:02:24Z owner approval: --also-approve ewallet-mcp/feature-rag-mcp for ewallet-dev campaign g3a1-20261121T175830Z (sleep only, only if it is an actual blocker); CLOUD_LAB_APPROVED, CLOUD_LAB_GUARDED_SLEEP_APPROVAL=ewallet-dev:g3a1-20261121T175830Z, CLOUD_LAB_KEDA_PAUSE_APPROVAL=ewallet-dev:g3a1-20261121T175830Z command-scoped

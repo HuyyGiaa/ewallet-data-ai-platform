@@ -1,9 +1,0 @@
-{"query": {"hostname": "ewallet-hg.gleeze.com", "myip": "34.124.139.246", "myipv6": "no"}, "dynu_response": "good", "update_status": "accepted (DNS decides)"}
-{"attempt": 1, "of": 10, "verdict": "DNS_ONLINE_NOT_YET", "A_status": "NOT_OK", "AAAA_status": "OK", "check_errors": 0, "duration_s": 2.2}
-{"attempt": 2, "of": 10, "verdict": "DNS_ONLINE_NOT_YET", "A_status": "NOT_OK", "AAAA_status": "OK", "check_errors": 0, "duration_s": 2.2}
-{"attempt": 3, "of": 10, "verdict": "DNS_ONLINE_NOT_YET", "A_status": "NOT_OK", "AAAA_status": "OK", "check_errors": 0, "duration_s": 2.1}
-{"attempt": 4, "of": 10, "verdict": "DNS_ONLINE_NOT_YET", "A_status": "NOT_OK", "AAAA_status": "OK", "check_errors": 0, "duration_s": 1.9}
-{"attempt": 5, "of": 10, "verdict": "DNS_ONLINE_NOT_YET", "A_status": "NOT_OK", "AAAA_status": "OK", "check_errors": 0, "duration_s": 1.9}
-{"attempt": 6, "of": 10, "verdict": "DNS_ONLINE_NOT_YET", "A_status": "NOT_OK", "AAAA_status": "OK", "check_errors": 0, "duration_s": 2.0}
-{"attempt": 7, "of": 10, "verdict": "DNS_ONLINE_OK", "A_status": "OK", "AAAA_status": "OK", "check_errors": 0, "duration_s": 2.2}
-{"verdict": "DNS_ONLINE_OK", "dns_check_attempts": 7}

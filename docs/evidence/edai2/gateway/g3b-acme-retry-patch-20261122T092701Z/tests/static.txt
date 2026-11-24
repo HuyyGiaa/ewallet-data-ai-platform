@@ -1,2 +1,0 @@
-py_compile OK
-infra/, ops/, issue_certificate.sh, acme_http01_hook.sh unchanged

@@ -1,7 +1,0 @@
- docs/runbooks/edai2/EXTERNAL_GATEWAY_RUNBOOK.md | 100 +++++--
- scripts/edge/create_basic_auth.sh               |  74 ++++-
- scripts/edge/g3b_campaign.py                    | 198 ++++++++++--
- tests/ops/test_dns_campaign.py                  |   9 +-
- tests/ops/test_edge_negative_checks.py          |   6 +-
- tests/ops/test_g3b_prelive.py                   | 382 ++++++++++++++++++++++++
- 6 files changed, 712 insertions(+), 57 deletions(-)

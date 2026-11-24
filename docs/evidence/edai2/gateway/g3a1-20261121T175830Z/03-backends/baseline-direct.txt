@@ -1,9 +1,0 @@
-== 2026-11-21T18:10:27Z direct (port-forward, bypasses the edge)
-feature-api GET /health/ready -> 200
-feature-api POST lookup {} -> 422 body-keys: ['error'] ['code', 'correlation_id', 'details', 'message', 'retryable']
-kagent-ui GET /health -> 200; GET / -> 200 
-kagent-ui GET /api/agents (via UI proxy) -> 200 agents=4
-registry GET / -> 200 
-grafana GET /api/health -> {"database":"ok","version":"12.3.0","commit":"20051fb1fc604fc54aae76356da1c14612af41d0"}
-grafana GET / -> 302 location=http://127.0.0.1:19083/login
-grafana GET /login -> 200

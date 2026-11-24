@@ -1,9 +1,0 @@
-Read-only observation during cleanup, before signoff had propagated (2026-11-22, about 05:25Z).
-Values compared, not printed: LB = this campaign's LB_IP from state.json; OFF4/OFF6 = approved offline addresses.
-features.ewallet-hg.gleeze.com
-  ns1.dynu.com  AAAA=OFF6  A=LB          <- the Online state Dynu published
-  1.1.1.1       AAAA=OFF6  A=OFF4        (signoff already visible there)
-  8.8.8.8       AAAA=OFF6  A=OFF4
-Authoritative A, seconds later, while the signoff propagated:
-  ns1 LB, ns3 LB, ns4 LB, ns5 LB, ns6 OFF4, ns7 none
-Conclusion: after myip=<LB>&myipv6=no from Offline, Dynu answers A = LB and keeps AAAA = OFF6 (its offline IPv6).

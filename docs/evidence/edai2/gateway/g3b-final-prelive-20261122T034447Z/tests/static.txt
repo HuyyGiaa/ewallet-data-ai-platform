@@ -1,9 +1,0 @@
-bash -n OK scripts/edge/acme_http01_hook.sh
-bash -n OK scripts/edge/create_basic_auth.sh
-bash -n OK scripts/edge/grafana_root_url_check.sh
-bash -n OK scripts/edge/install_watchdog.sh
-bash -n OK scripts/edge/issue_certificate.sh
-bash -n OK scripts/edge/local_validate.sh
-bash -n OK scripts/edge/staged_rollout_check.sh
-py_compile OK
-infra/ and ops/ unchanged since 2af465b4

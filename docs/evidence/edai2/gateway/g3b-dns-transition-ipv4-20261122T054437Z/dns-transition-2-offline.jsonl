@@ -1,7 +1,0 @@
-{"query": {"hostname": "ewallet-hg.gleeze.com", "offline": "yes"}, "dynu_response": "good", "update_status": "accepted (DNS decides)"}
-{"attempt": 1, "of": 10, "verdict": "DNS_OFFLINE_NOT_YET", "A_status": "NOT_OK", "AAAA_status": "NOT_OK", "check_errors": 0, "duration_s": 2.3}
-{"attempt": 2, "of": 10, "verdict": "DNS_OFFLINE_NOT_YET", "A_status": "NOT_OK", "AAAA_status": "NOT_OK", "check_errors": 0, "duration_s": 1.9}
-{"attempt": 3, "of": 10, "verdict": "DNS_OFFLINE_NOT_YET", "A_status": "NOT_OK", "AAAA_status": "NOT_OK", "check_errors": 0, "duration_s": 1.9}
-{"attempt": 4, "of": 10, "verdict": "DNS_OFFLINE_NOT_YET", "A_status": "NOT_OK", "AAAA_status": "NOT_OK", "check_errors": 0, "duration_s": 2.3}
-{"attempt": 5, "of": 10, "verdict": "DNS_OFFLINE_OK", "A_status": "OK", "AAAA_status": "OK", "check_errors": 0, "duration_s": 2.1}
-{"verdict": "DNS_OFFLINE_OK", "dns_check_attempts": 5}

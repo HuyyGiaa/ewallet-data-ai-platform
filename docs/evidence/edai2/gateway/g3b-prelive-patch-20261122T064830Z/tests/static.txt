@@ -1,2 +1,0 @@
-py_compile OK
-infra/, ops/, issue_certificate.sh, dns_check, dynu_dns, negative_tests unchanged

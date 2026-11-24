@@ -1,6 +1,0 @@
-== 2026-11-21T18:18:35Z TLS (via port-forward, TCP passthrough to Envoy)
-verify with test CA: Verify return code: 0 (ok)
-tls1.1: New, (NONE), Cipher is (NONE)
-tls1.2: New, TLSv1.2, Cipher is ECDHE-ECDSA-CHACHA20-POLY1305
-tls1.3: New, TLSv1.3, Cipher is TLS_AES_256_GCM_SHA384
-wrong CA (system trust) curl: 000 exit=60
