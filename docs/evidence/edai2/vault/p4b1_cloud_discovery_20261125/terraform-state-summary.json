@@ -1,0 +1,90 @@
+{
+ "backend": {
+  "type": "gcs",
+  "bucket": "ewallet-data-ai-platform-hg26-tfstate",
+  "prefix": "terraform/dev"
+ },
+ "workspace": "default",
+ "state_objects_in_bucket": [
+  "terraform/dev/default.tfstate"
+ ],
+ "lock_file_present": false,
+ "object_generation_before": "1794062463403448",
+ "object_generation_after": "1794062463403448",
+ "object_updated": "2026-11-07T14:41:03+0000",
+ "command": "terraform state list (no lock, no refresh, addresses only)",
+ "addresses": 55,
+ "module_vault_kms_addresses": 0,
+ "google_kms_resources_anywhere": 0,
+ "managed_project_services": [
+  "artifactregistry.googleapis.com",
+  "cloudresourcemanager.googleapis.com",
+  "compute.googleapis.com",
+  "container.googleapis.com",
+  "dataproc.googleapis.com",
+  "iam.googleapis.com",
+  "iamcredentials.googleapis.com",
+  "iap.googleapis.com",
+  "logging.googleapis.com",
+  "monitoring.googleapis.com",
+  "serviceusage.googleapis.com",
+  "storage.googleapis.com",
+  "sts.googleapis.com"
+ ],
+ "relevant_addresses": [
+  "module.iam.google_service_account.workload[\"ci\"]",
+  "module.iam.google_service_account.workload[\"feature_api\"]",
+  "module.iam.google_service_account.workload[\"fraud_api\"]",
+  "module.iam.google_service_account.workload[\"generator\"]",
+  "module.iam.google_service_account.workload[\"gke_nodes\"]",
+  "module.iam.google_service_account.workload[\"serving\"]",
+  "module.iam.google_service_account.workload[\"spark\"]",
+  "module.iam.google_service_account.workload[\"training\"]",
+  "module.iam.google_service_account_iam_member.ci_can_submit_dataproc",
+  "module.project_services.google_project_service.required[\"artifactregistry.googleapis.com\"]",
+  "module.project_services.google_project_service.required[\"cloudresourcemanager.googleapis.com\"]",
+  "module.project_services.google_project_service.required[\"compute.googleapis.com\"]",
+  "module.project_services.google_project_service.required[\"container.googleapis.com\"]",
+  "module.project_services.google_project_service.required[\"dataproc.googleapis.com\"]",
+  "module.project_services.google_project_service.required[\"iam.googleapis.com\"]",
+  "module.project_services.google_project_service.required[\"iamcredentials.googleapis.com\"]",
+  "module.project_services.google_project_service.required[\"iap.googleapis.com\"]",
+  "module.project_services.google_project_service.required[\"logging.googleapis.com\"]",
+  "module.project_services.google_project_service.required[\"monitoring.googleapis.com\"]",
+  "module.project_services.google_project_service.required[\"serviceusage.googleapis.com\"]",
+  "module.project_services.google_project_service.required[\"storage.googleapis.com\"]",
+  "module.project_services.google_project_service.required[\"sts.googleapis.com\"]",
+  "module.workload_identity.google_service_account_iam_member.workload_identity[\"feature_api\"]",
+  "module.workload_identity.google_service_account_iam_member.workload_identity[\"fraud_api\"]",
+  "module.workload_identity.google_service_account_iam_member.workload_identity[\"generator\"]",
+  "module.workload_identity.google_service_account_iam_member.workload_identity[\"serving\"]",
+  "module.workload_identity.google_service_account_iam_member.workload_identity[\"training\"]"
+ ],
+ "resource_types": {
+  "module.artifact_registry.google_artifact_registry_repository.docker": 1,
+  "module.dataproc.terraform_data.batch_prerequisites": 1,
+  "module.gke.google_container_cluster.platform": 1,
+  "module.gke.google_container_node_pool.cpu": 1,
+  "module.iam.google_project_iam_member.ci": 3,
+  "module.iam.google_project_iam_member.gke_nodes": 4,
+  "module.iam.google_project_iam_member.spark": 3,
+  "module.iam.google_service_account.workload": 8,
+  "module.iam.google_service_account_iam_member.ci_can_submit_dataproc": 1,
+  "module.iam.google_storage_bucket_iam_member.canonical": 4,
+  "module.iam.google_storage_bucket_iam_member.registry_reader": 2,
+  "module.iam.google_storage_bucket_iam_member.temporary": 2,
+  "module.jenkins_vm.data.google_compute_image.ubuntu": 1,
+  "module.network.google_compute_firewall.internal": 1,
+  "module.network.google_compute_network.platform": 1,
+  "module.network.google_compute_subnetwork.platform": 1,
+  "module.project_services.google_project_service.required": 13,
+  "module.storage.google_storage_bucket.canonical": 1,
+  "module.storage.google_storage_bucket.temporary": 1,
+  "module.workload_identity.google_service_account_iam_member.workload_identity": 5
+ },
+ "other_state": {
+  "bootstrap (local file)": [
+   "google_storage_bucket.terraform_state"
+  ]
+ }
+}

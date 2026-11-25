@@ -68,13 +68,23 @@ safety also rests on IAM: no automation holds destroy rights.
 
 **P4-B procedure.** Each step is a stop point; nothing goes on automatically.
 
-1. **Read-only inspection** (owner approves cloud access):
-   - Run `python3 scripts/vault/kms_preflight.py --mode cloud`. Before P4-B every KMS gate must FAIL as
-     *not found*. Any existing key ring, key or GSA means **stop for an ownership or import decision**:
-     never adopt or overwrite it.
-   - Inspect the real state read-only (`terraform state list` with the real backend, no refresh) for any
-     `module.vault_kms` address.
-   - Confirm the GKE workload pool exists (the cluster exists; it may be asleep).
+1. **Read-only discovery** (owner approves cloud access). **Done: P4-B1,
+   [`p4b1_cloud_discovery_20261125`](../../evidence/edai2/vault/p4b1_cloud_discovery_20261125/README.md),
+   `VAULT_V2_P4B1_READY_WITH_WARNINGS`.** Discovery is not readiness.
+   - `kms_preflight.py --mode cloud` answers "is everything ready?" **after** provisioning. Before it, its
+     FAIL or BLOCKED never proves that something is absent.
+   - Discovery needs authoritative answers:
+     - **Cloud KMS API:** a successful `gcloud services list --enabled` filter, plus the Service Usage audit
+       history (with a positive control on another API).
+     - **Key ring and key:** while the API is disabled the KMS API answers 403 SERVICE_DISABLED (not
+       absence). The Cloud KMS Admin Activity history (400-day retention) must show no `CreateKeyRing` or
+       `CreateCryptoKey`.
+     - **GSA:** IAM NOT_FOUND.
+     - **State:** `terraform state list` (addresses only, no lock, no refresh; the object generation
+       unchanged) must show no `module.vault_kms` and no `google_kms_*` anywhere.
+     - **GKE:** the cluster's `workloadIdentityConfig` read through the management API, never kubectl.
+   - Any existing key ring, key or GSA, or any competing state address, means **stop for an ownership or
+     import decision**: never adopt or overwrite it.
 2. **Saved plan** with the real backend:
    `terraform plan -target=module.vault_kms -var enable_vault_kms=true -out=p4.tfplan`, plus the tfvars the
    state was applied with (`ops.gcp.r2_terraform tfvars`). `-target` alone is **not** proof of a narrow

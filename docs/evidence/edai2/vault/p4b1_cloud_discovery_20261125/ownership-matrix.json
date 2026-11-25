@@ -1,0 +1,58 @@
+[
+ {
+  "resource": "Cloud KMS API",
+  "address": "module.vault_kms.google_project_service.cloudkms[0]",
+  "state": "NOT_IN_STATE (not among the 13 managed services)",
+  "cloud": "API_DISABLED (authoritative), never enabled",
+  "conclusion": "NOT_IN_STATE_AND_CONFIRMED_ABSENT",
+  "create": "CLEARLY_ELIGIBLE: a genuine enable, no adoption of an independently enabled API"
+ },
+ {
+  "resource": "KeyRing ewallet-vault",
+  "address": "module.vault_kms.google_kms_key_ring.vault[0]",
+  "state": "NOT_IN_STATE (no google_kms_* anywhere)",
+  "cloud": "UNKNOWN_OR_BLOCKED via the KMS API (disabled); absent by audit history",
+  "conclusion": "UNKNOWN_OR_BLOCKED (absent by audit history, not API-confirmed)",
+  "create": "ELIGIBLE_WITH_WARNING"
+ },
+ {
+  "resource": "CryptoKey vault-unseal",
+  "address": "module.vault_kms.google_kms_crypto_key.vault_unseal[0]",
+  "state": "NOT_IN_STATE",
+  "cloud": "UNKNOWN via the parent; absent by audit history",
+  "conclusion": "UNKNOWN_OR_BLOCKED (absent by audit history, not API-confirmed)",
+  "create": "ELIGIBLE_WITH_WARNING"
+ },
+ {
+  "resource": "GSA ewallet-vault-unseal",
+  "address": "module.vault_kms.google_service_account.vault_unseal[0]",
+  "state": "NOT_IN_STATE (module.iam manages 8 other GSAs)",
+  "cloud": "CONFIRMED_ABSENT (IAM NOT_FOUND)",
+  "conclusion": "NOT_IN_STATE_AND_CONFIRMED_ABSENT",
+  "create": "CLEARLY_ELIGIBLE"
+ },
+ {
+  "resource": "Key IAM encrypterDecrypter",
+  "address": "module.vault_kms.google_kms_crypto_key_iam_member.vault_encrypter_decrypter[0]",
+  "state": "NOT_IN_STATE",
+  "cloud": "cannot exist: GSA absent; key unreadable",
+  "conclusion": "NOT_IN_STATE_AND_CONFIRMED_ABSENT (member GSA does not exist)",
+  "create": "ELIGIBLE (follows the key)"
+ },
+ {
+  "resource": "Key IAM viewer",
+  "address": "module.vault_kms.google_kms_crypto_key_iam_member.vault_viewer[0]",
+  "state": "NOT_IN_STATE",
+  "cloud": "cannot exist: GSA absent; key unreadable",
+  "conclusion": "NOT_IN_STATE_AND_CONFIRMED_ABSENT (member GSA does not exist)",
+  "create": "ELIGIBLE (follows the key)"
+ },
+ {
+  "resource": "Workload Identity member",
+  "address": "module.vault_kms.google_service_account_iam_member.vault_workload_identity[0]",
+  "state": "NOT_IN_STATE (5 other WI members in module.workload_identity)",
+  "cloud": "CONFIRMED_ABSENT (its GSA does not exist); pool exists",
+  "conclusion": "NOT_IN_STATE_AND_CONFIRMED_ABSENT",
+  "create": "CLEARLY_ELIGIBLE"
+ }
+]
