@@ -1,12 +1,15 @@
 # Official chart external-secrets 2.14.0 (sha256 0a6d9e91...5e34), ESO v2.14.0, from
 # https://charts.external-secrets.io. One installation serves every namespace.
 #
-# Only namespaced SecretStores are processed: each namespace authenticates to Vault with
-# its own ServiceAccount and Vault role, so no single store can read every path.
-# ClusterSecretStore, ClusterExternalSecret and PushSecret objects are ignored even if
-# someone creates them (ESO never writes back to Vault).
+# Vault V2 (docs/edai2/platform/VAULT_V2_ARCHITECTURE_AUDIT.md §7): one ClusterSecretStore,
+# ewallet-vault (cluster-secret-store.yaml), restricted to an exact namespace list. The
+# chart turns processClusterStore into the controller flag --enable-cluster-store-reconciler.
+# ClusterExternalSecret, PushSecret and ClusterPushSecret stay off: nobody can fan a Secret
+# out to every namespace, and ESO never writes back to Vault. Namespaced SecretStores are
+# still processed (chart default); one can only use a ServiceAccount of its own namespace,
+# and the Vault reader role binds external-secrets/eso-vault-reader alone.
 installCRDs: true
-processClusterStore: false
+processClusterStore: true
 processClusterExternalSecret: false
 processPushSecret: false
 processClusterPushSecret: false

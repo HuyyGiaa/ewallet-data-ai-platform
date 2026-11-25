@@ -1,14 +1,9 @@
 # Rotation by a human operator: write new versions and read metadata, never values.
-path "ewallet/data/fraud-api/*" {
+# The two V2 areas only (docs/edai2/platform/VAULT_V2_ARCHITECTURE_AUDIT.md §10).
+path "ewallet/data/ml-platform/*" {
   capabilities = ["create", "update"]
 }
-path "ewallet/metadata/fraud-api/*" {
-  capabilities = ["read", "list"]
-}
-path "ewallet/data/feature-api/*" {
-  capabilities = ["create", "update"]
-}
-path "ewallet/metadata/feature-api/*" {
+path "ewallet/metadata/ml-platform/*" {
   capabilities = ["read", "list"]
 }
 path "ewallet/data/agent-platform/*" {

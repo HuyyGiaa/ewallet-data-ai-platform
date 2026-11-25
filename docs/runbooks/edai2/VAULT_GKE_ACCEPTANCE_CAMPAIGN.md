@@ -198,55 +198,67 @@ jq -n --slurpfile a helm-g1.json --slurpfile b helm-final.json \
 
 Any difference from the expected list or table: stop, record it, and explain it before G12.
 
-## 5. G10 negative tests: three cases, created and removed by label
+## 5. G10 negative tests (Vault V2): five cases, created and removed by label
 
-Campaign A proved six denial classes on GKE with synthetic values
-([report](../../evidence/edai2/vault/gke_rehearsal_vault-rehearsal-20261124T173156Z/README.md)). G10 repeats the
-three that matter for the real store, in `ml-platform`, with the committed template
-[`negative-tests.yaml`](../../../infra/kubernetes/external-secrets/negative-tests.yaml): a throwaway
-ServiceAccount `vault-neg-intruder`, SecretStores `vault-neg-wrong-sa` and `vault-neg-wrong-aud`,
-and ExternalSecrets `vault-neg-agent-path`, `vault-neg-wrong-sa` and `vault-neg-wrong-aud`. Every
-object carries `ewallet.io/vault-campaign=$CID`. Nothing is created in `ewallet-agents`; no existing
-object is changed; the production `feature-api` ServiceAccount is not used.
+The V2 trust model (ClusterSecretStore `ewallet-vault`, one reader role `eso-ewallet-reader`,
+[audit §7.4](../../edai2/platform/VAULT_V2_ARCHITECTURE_AUDIT.md)) is tested with the committed template
+[`negative-tests.yaml`](../../../infra/kubernetes/external-secrets/negative-tests.yaml). V1's case "the
+ml-platform reader cannot read agent-platform paths" is retired on purpose: one reader serves both trusted
+namespaces. Objects: ServiceAccounts `vault-neg-intruder` and `eso-vault-reader` (same name as the real
+reader, in `ml-platform`), SecretStores `vault-neg-wrong-sa` and `vault-neg-wrong-ns`, the cluster-scoped test
+store `vault-neg-wrong-aud`, and ExternalSecrets `vault-neg-out-of-prefix`, `vault-neg-wrong-sa`,
+`vault-neg-wrong-ns`, `vault-neg-wrong-aud` (all in `ml-platform`) and `vault-neg-sandbox` (in
+`ewallet-sandbox`). Every object carries `ewallet.io/vault-campaign=$CID`. No existing object is changed;
+`ewallet-vault` is only referenced.
 
-| Case | ExternalSecret | Expected cause (ESO controller log) | Target Secret |
+| Case | ExternalSecret | Expected cause | Target Secret |
 |---|---|---|---|
-| Unauthorized path: the valid store `vault` asks for `agent-platform/agentgateway-client-key` | `vault-neg-agent-path` | `permission denied` | must not exist |
-| Wrong ServiceAccount: `vault-neg-intruder` logs in to role `eso-ml-platform` | `vault-neg-wrong-sa` | `service account name not authorized` | must not exist |
-| Wrong JWT audience: `eso-vault-reader` with audience `kubernetes` | `vault-neg-wrong-aud` | `invalid audience` | must not exist |
+| Path outside the reader's prefixes: `ewallet-vault` asks for `mcp-platform/out-of-prefix-probe` | `ml-platform/vault-neg-out-of-prefix` | `permission denied` (ESO log) | must not exist |
+| Namespace not in the store's list | `ewallet-sandbox/vault-neg-sandbox` | the store is not allowed in the namespace (ExternalSecret status; no Vault call); exact text recorded by the kind run | must not exist |
+| Wrong ServiceAccount: `vault-neg-intruder` logs in to role `eso-ewallet-reader` | `ml-platform/vault-neg-wrong-sa` | `service account name not authorized` | must not exist |
+| Same-named reader in a consumer namespace: `ml-platform/eso-vault-reader` | `ml-platform/vault-neg-wrong-ns` | `namespace not authorized` | must not exist |
+| Wrong JWT audience: the real reader with audience `kubernetes` | `ml-platform/vault-neg-wrong-aud` | `invalid audience` | must not exist |
 
 ```bash
-N="vault-neg-agent-path vault-neg-wrong-sa vault-neg-wrong-aud"
+N="vault-neg-out-of-prefix vault-neg-wrong-sa vault-neg-wrong-ns vault-neg-wrong-aud"
 # 1. Precheck (READ-ONLY): must print nothing
-for o in serviceaccount/vault-neg-intruder secretstore/vault-neg-wrong-sa secretstore/vault-neg-wrong-aud \
+for o in serviceaccount/vault-neg-intruder serviceaccount/eso-vault-reader secretstore/vault-neg-wrong-sa secretstore/vault-neg-wrong-ns \
          $(for n in $N; do echo externalsecret/$n secret/$n; done); do
   kubectl --context $CTX -n ml-platform get $o -o name --ignore-not-found
 done
+kubectl --context $CTX -n ewallet-sandbox get externalsecret/vault-neg-sandbox secret/vault-neg-sandbox -o name --ignore-not-found
+kubectl --context $CTX get clustersecretstore vault-neg-wrong-aud -o name --ignore-not-found
 # 2. Create (MUTATING, test objects only)
 sed "s/__CID__/$CID/g" infra/kubernetes/external-secrets/negative-tests.yaml | kubectl --context $CTX create -f -
 # 3. Each must fail, with its own cause, and leave no Secret
 for n in $N; do kubectl --context $CTX -n ml-platform wait --for=condition=Ready=False externalsecret/$n --timeout=120s; done
+kubectl --context $CTX -n ewallet-sandbox wait --for=condition=Ready=False externalsecret/vault-neg-sandbox --timeout=120s
 logs=$(kubectl --context $CTX -n external-secrets logs deploy/external-secrets --since=15m)
-for pair in "vault-neg-agent-path:permission denied" "vault-neg-wrong-sa:service account name not authorized" \
-            "vault-neg-wrong-aud:invalid audience"; do
+for pair in "vault-neg-out-of-prefix:permission denied" "vault-neg-wrong-sa:service account name not authorized" \
+            "vault-neg-wrong-ns:namespace not authorized" "vault-neg-wrong-aud:invalid audience"; do
   n=${pair%%:*}; want=${pair#*:}
-  got=$(grep -F "\"$n\"" <<<"$logs" | grep -oE 'permission denied|service account name not authorized|invalid audience' | sort -u | paste -sd,)
+  got=$(grep -F "\"$n\"" <<<"$logs" | grep -oE 'permission denied|service account name not authorized|namespace not authorized|invalid audience' | sort -u | paste -sd,)
   [ "$got" = "$want" ] && echo "$n: $want" || echo "$n: MISSING or WRONG cause (got: ${got:-none})"
 done
-kubectl --context $CTX -n ml-platform get secret $N          # three times NotFound
+kubectl --context $CTX -n ewallet-sandbox get externalsecret vault-neg-sandbox -o jsonpath='{.status.conditions[0].message}'; echo
+kubectl --context $CTX -n ml-platform get secret $N; kubectl --context $CTX -n ewallet-sandbox get secret vault-neg-sandbox   # NotFound each
 # -> pause: E8a, E8b
 # 4. Cleanup (MUTATING): only this campaign's objects, then prove nothing is left
-kubectl --context $CTX -n ml-platform delete externalsecret,secretstore,serviceaccount -l ewallet.io/vault-campaign=$CID --wait=true
-kubectl --context $CTX -n ml-platform get externalsecret,secretstore,serviceaccount,secret -l ewallet.io/vault-campaign=$CID   # No resources found
-kubectl --context $CTX -n ml-platform get secret $N --ignore-not-found                                                         # nothing
+for ns in ml-platform ewallet-sandbox; do
+  kubectl --context $CTX -n $ns delete externalsecret,secretstore,serviceaccount -l ewallet.io/vault-campaign=$CID --wait=true
+  kubectl --context $CTX -n $ns get externalsecret,secretstore,serviceaccount,secret -l ewallet.io/vault-campaign=$CID   # No resources found
+done
+kubectl --context $CTX delete clustersecretstore -l ewallet.io/vault-campaign=$CID --wait=true
+kubectl --context $CTX get clustersecretstore -l ewallet.io/vault-campaign=$CID                                          # No resources found
 ```
 
-PASS: the precheck prints nothing; each ExternalSecret reaches Ready `False`; the loop prints
-each name with exactly its expected cause (the log lines naming it contain no other cause); all three target Secrets are NotFound; cleanup
-leaves nothing with the label. **Any target Secret that appears, or a missing or different
-cause, is a failure:** capture it, delete the test objects, roll the consumer back (RB 9) and
-stop. An unrelated failure (for example Vault unreachable or sealed) never counts as a denial.
-The real `ExternalSecret/feature-api-redis` stays `SecretSynced` throughout; check it after cleanup.
+PASS: the precheck prints nothing; each ExternalSecret reaches Ready `False`; the loop prints each
+name with exactly its expected cause; the sandbox ExternalSecret reports that the store is not
+allowed in its namespace; all five target Secrets are NotFound; cleanup leaves nothing with the
+label. **Any target Secret that appears, or a missing or different cause, is a failure:** capture
+it, delete the test objects, roll the consumer back (RB 9) and stop. An unrelated failure (for
+example Vault unreachable or sealed) never counts as a denial. The real
+`ml-platform/ExternalSecret/feast-online-redis` stays `SecretSynced` throughout; check it after cleanup.
 
 ## 6. Sleep (G12) and early stop
 
@@ -383,16 +395,17 @@ secret (entity IDs come from the synthetic dataset). Doc: VAULT.md *Feature API 
 **E8a Unauthorized access denied, from the controller log.** Before deleting the G10 objects:
 Console → Logging → *Logs Explorer*, last 30 minutes, query
 `resource.type="k8s_container" resource.labels.cluster_name="ewallet-dev" resource.labels.namespace_name="external-secrets" "vault-neg-"`.
-Expected: ESO error lines for `vault-neg-agent-path` (`permission denied`), `vault-neg-wrong-sa`
-(`service account name not authorized`) and `vault-neg-wrong-aud` (`invalid audience`). The log
+Expected: ESO error lines for `vault-neg-out-of-prefix` (`permission denied`), `vault-neg-wrong-sa`
+(`service account name not authorized`), `vault-neg-wrong-ns` (`namespace not authorized`) and `vault-neg-wrong-aud`
+(`invalid audience`). The log
 names the path and role, never a token. PASS: each name with its own cause. Doc: VAULT.md
 *Namespace isolation*.
 
 **E8b Denied status and no target Secret.** Terminal:
-`kubectl --context $CTX -n ml-platform get externalsecret vault-neg-agent-path` (Ready `False`,
-`SecretSyncedError`) and `kubectl --context $CTX -n ml-platform get secret vault-neg-agent-path`
-(`NotFound`), and the same pair for `vault-neg-wrong-sa` and `vault-neg-wrong-aud` (the objects
-of §5). PASS: three failure statuses and three NotFound. Doc: VAULT.md *Namespace isolation*.
+`kubectl --context $CTX -n ml-platform get externalsecret vault-neg-out-of-prefix` (Ready `False`,
+`SecretSyncedError`) and `kubectl --context $CTX -n ml-platform get secret vault-neg-out-of-prefix`
+(`NotFound`), and the same pair for `vault-neg-wrong-sa`, `vault-neg-wrong-ns`, `vault-neg-wrong-aud` and
+`ewallet-sandbox/vault-neg-sandbox` (the objects of §5). PASS: five failure statuses and five NotFound. Doc: VAULT.md *Namespace isolation*.
 
 **E9a Back to zero nodes.** After G12: Console → Kubernetes Engine → Clusters → `ewallet-dev` →
 *Nodes*: node pool `cpu-pool`, 0 nodes. Optionally the terminal `cloud_lab.py verify --expect sleep`

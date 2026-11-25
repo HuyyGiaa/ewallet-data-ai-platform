@@ -1,3 +1,8 @@
+# V1 DIRECT LOADER, NOT SUPPORTED BY THE VAULT V2 BOOTSTRAP: it logs in as Vault role fraud-api and
+# reads fraud-api/feast-redis, neither of which infra/kubernetes/vault/bootstrap.json defines any more,
+# and the Vault NetworkPolicy admits only the ESO controller. No deploy script applies it. Use
+# fraud-api-eso.patch.yaml (ESO-synced Secret) instead; this file stays as the record of the V1 design.
+#
 # Strategic merge patch: move one Fraud API secret to Vault. `kubectl rollout undo`
 # restores the secretKeyRef, which stays in the base manifest untouched.
 apiVersion: apps/v1

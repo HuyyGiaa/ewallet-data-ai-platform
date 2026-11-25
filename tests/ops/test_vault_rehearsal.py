@@ -26,26 +26,35 @@ def grants(policy_path: str) -> dict[str, str]:
 
 # ---- the rehearsal's Vault role and policy
 
-def test_rehearsal_role_is_bound_only_to_the_temporary_namespace():
+def test_rehearsal_role_binds_the_dedicated_reader_and_only_its_own_policy():
+    """V2: the rehearsal store uses the same reader identity as ewallet-vault, through its own narrower role."""
     (name, role), = REHEARSAL["roles"].items()
     assert name == "eso-vault-rehearsal" and name not in OFFICIAL["roles"]
     assert role["bound_service_account_names"] == ["eso-vault-reader"]
-    assert role["bound_service_account_namespaces"] == ["vault-rehearsal"]
+    assert role["bound_service_account_namespaces"] == ["external-secrets"]
     assert role["audience"] == "vault" and role["token_no_default_policy"] is True
     assert role["token_policies"] == ["eso-vault-rehearsal"]
 
 
-def test_rehearsal_policy_reads_one_synthetic_path_never_the_real_credential():
+SYNTHETIC = ["ewallet/data/agent-platform/rehearsal-agentgateway-client-key", "ewallet/data/agent-platform/rehearsal-vllm-api-key",
+             "ewallet/data/ml-platform/rehearsal-redis"]
+
+
+def test_rehearsal_policy_reads_three_synthetic_paths_never_the_real_credentials():
     paths = grants(REHEARSAL["policies"]["eso-vault-rehearsal"])
-    reads = [p for p, caps in paths.items() if not p.startswith("auth/token/")]
-    assert reads == ["ewallet/data/feature-api/rehearsal-redis"] and paths[reads[0]].strip() == '"read"'
-    assert "ewallet/data/feature-api/feast-redis" not in paths
+    reads = sorted(p for p, caps in paths.items() if not p.startswith("auth/token/"))
+    assert reads == SYNTHETIC and all(paths[p].strip() == '"read"' for p in reads)
+    for real in ("ml-platform/feast-online-redis", "agent-platform/vllm-api-key", "agent-platform/agentgateway-client-key"):
+        assert f"ewallet/data/{real}" not in paths
+    assert not any("*" in p for p in paths)
 
 
-def test_the_existing_operator_token_can_seed_the_rehearsal_path():
+def test_the_existing_operator_token_can_seed_the_rehearsal_paths():
     """The rehearsal uses the official put --token-file workflow; no operator policy change is needed."""
     operator = grants(OFFICIAL["policies"]["secret-operator"])
-    assert "create" in operator["ewallet/data/feature-api/*"] and "update" in operator["ewallet/data/feature-api/*"]
+    for prefix in ("ewallet/data/ml-platform/*", "ewallet/data/agent-platform/*"):
+        assert "create" in operator[prefix] and "update" in operator[prefix]
+    assert all(p.rsplit("/", 1)[0] + "/*" in operator for p in SYNTHETIC)
 
 
 def test_rehearsal_bootstrap_reuses_the_official_mounts():
@@ -569,7 +578,7 @@ def test_post_renderer_requires_its_environment():
 
 
 @pytest.mark.skipif(shutil.which("helm") is None, reason="helm not installed")
-@pytest.mark.parametrize("overlay,secret", [(False, "rehearsal-feast-online-redis"), (True, "feature-api-redis-vault")],
+@pytest.mark.parametrize("overlay,secret", [(False, "rehearsal-feast-online-redis"), (True, "feast-online-redis-vault")],
                          ids=["before-switch", "official-overlay"])
 def test_the_real_chart_renders_only_rehearsal_objects_and_the_official_overlay_switches_the_secret(overlay, secret):
     argv = ["helm", "template", "rehearsal-serving", str(ROOT / "infra/helm/ewallet-serving"), "-n", "vault-rehearsal",

@@ -1,6 +1,7 @@
 # Opt-in consumer switch: the Feature API reads its Redis connection string from the
-# Secret that External Secrets Operator syncs from Vault (ml-platform/feature-api-redis-vault,
-# infra/kubernetes/external-secrets/ml-platform.yaml). Same secretKeyRef mechanism as
+# Secret that External Secrets Operator syncs from Vault (ml-platform/feast-online-redis-vault,
+# infra/kubernetes/external-secrets/ml-platform.yaml; the Fraud API uses the same Secret through
+# infra/kubernetes/fraud-serving/fraud-api-eso.patch.yaml). Same secretKeyRef mechanism as
 # before, so no application change and no Vault client in the pod.
 #
 # The direct loader (featureApi.vault) stays off: the pod never talks to Vault here.
@@ -11,4 +12,4 @@
 featureApi:
   vault:
     enabled: false
-  redisSecret: {name: feature-api-redis-vault, key: connection_string}
+  redisSecret: {name: feast-online-redis-vault, key: connection_string}

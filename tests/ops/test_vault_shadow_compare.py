@@ -37,7 +37,7 @@ def secret(value=None, *, key="connection_string", raw=None):
     return json.dumps({"kind": "Secret", "data": data})
 
 
-def compare(tmp_path, existing, shadow, *, existing_name="feast-online-redis", shadow_name="feature-api-redis-vault"):
+def compare(tmp_path, existing, shadow, *, existing_name="feast-online-redis", shadow_name="feast-online-redis-vault"):
     bin_dir, fake_dir = tmp_path / "bin", tmp_path / "secrets"
     bin_dir.mkdir(exist_ok=True)
     fake_dir.mkdir(exist_ok=True)

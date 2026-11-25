@@ -19,8 +19,9 @@ featureApi:
     # Workload Identity GSA ewallet-feature-api@<project>.iam.gserviceaccount.com,
     # which may read only the online Feast registry prefix. Required when create is true.
     gcpServiceAccount: ""
-  # Optional: read the Redis connection string from Vault with the feature-api role.
-  # Off, the Deployment reads featureApi.redisSecret as before.
+  # Optional V1 direct loader: read the Redis connection string from Vault with the feature-api role.
+  # Off, the Deployment reads featureApi.redisSecret as before. Not supported by the Vault V2
+  # bootstrap (no feature-api role; Vault admits only ESO): V2 uses values-vault-eso.yaml instead.
   vault:
     enabled: false
     address: https://vault.ewallet-vault.svc.cluster.local:8200

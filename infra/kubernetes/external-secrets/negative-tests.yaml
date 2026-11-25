@@ -1,18 +1,19 @@
-# Campaign B gate G10: three negative tests in ml-platform (docs/runbooks/edai2/VAULT_GKE_ACCEPTANCE_CAMPAIGN.md §5).
+# Campaign B gate G10 (Vault V2): five negative tests (docs/runbooks/edai2/VAULT_GKE_ACCEPTANCE_CAMPAIGN.md §5).
 # Template: replace __CID__ with the campaign ID and create, never apply:
 #   sed "s/__CID__/$CID/g" infra/kubernetes/external-secrets/negative-tests.yaml | kubectl --context $CTX create -f -
-# Every object carries ewallet.io/vault-campaign=<CID>; cleanup deletes by that label only.
-# No existing object is used except the campaign's own SecretStore `vault` and its reader
-# eso-vault-reader (created at G7); the production feature-api ServiceAccount is never used.
+# Every object carries ewallet.io/vault-campaign=<CID>; cleanup deletes by that label only (namespaced
+# objects per namespace, and the one cluster-scoped test store by its name and label).
+# No production object is changed; the real ClusterSecretStore ewallet-vault is only referenced.
 #
-# | Case                 | Object (ExternalSecret = SecretStore name) | Expected cause in the ESO controller log |
-# | unauthorized path    | vault-neg-agent-path (store `vault`)       | permission denied                        |
-# | wrong ServiceAccount | vault-neg-wrong-sa                         | service account name not authorized      |
-# | wrong JWT audience   | vault-neg-wrong-aud                        | invalid audience                         |
+# | Case                         | Object (ExternalSecret = target name)         | Expected cause in the ESO controller log / status |
+# | path outside the prefixes    | ml-platform/vault-neg-out-of-prefix (ewallet-vault) | permission denied                           |
+# | namespace not in the store   | ewallet-sandbox/vault-neg-sandbox (ewallet-vault)   | store not allowed in the namespace (Ready False, no Vault call) |
+# | wrong ServiceAccount         | ml-platform/vault-neg-wrong-sa                       | service account name not authorized         |
+# | same-named reader, other ns  | ml-platform/vault-neg-wrong-ns                       | namespace not authorized                    |
+# | wrong JWT audience           | ml-platform/vault-neg-wrong-aud (ClusterSecretStore vault-neg-wrong-aud) | invalid audience         |
 #
-# Each target Secret has the ExternalSecret's name and must never exist. The two login cases
-# request the real feature-api/feast-redis path on purpose: if a login wrongly succeeded, the
-# test would fail visibly (a target Secret appears), and deleting the ExternalSecret removes it.
+# Each target Secret has the ExternalSecret's name and must never exist. The login cases request the
+# real ml-platform/feast-online-redis on purpose: if a login wrongly succeeded, a target Secret appears.
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -21,7 +22,15 @@ metadata:
   labels: {ewallet.io/vault-campaign: __CID__}
 automountServiceAccountToken: false
 ---
-# A reader that is not bound to role eso-ml-platform.
+# Same name as the real reader, in a consumer namespace: role eso-ewallet-reader binds external-secrets only.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: eso-vault-reader
+  namespace: ml-platform
+  labels: {ewallet.io/vault-campaign: __CID__}
+automountServiceAccountToken: false
+---
 apiVersion: external-secrets.io/v1
 kind: SecretStore
 metadata:
@@ -34,18 +43,17 @@ spec:
       server: https://vault.ewallet-vault.svc.cluster.local:8200
       path: ewallet
       version: v2
-      caProvider: {type: ConfigMap, name: vault-ca, key: ca.crt}
+      caProvider: {type: ConfigMap, name: vault-ca, key: ca.crt, namespace: external-secrets}
       auth:
         kubernetes:
           mountPath: kubernetes
-          role: eso-ml-platform
+          role: eso-ewallet-reader
           serviceAccountRef: {name: vault-neg-intruder, audiences: [vault]}
 ---
-# The right reader, but a token minted for another audience.
 apiVersion: external-secrets.io/v1
 kind: SecretStore
 metadata:
-  name: vault-neg-wrong-aud
+  name: vault-neg-wrong-ns
   namespace: ml-platform
   labels: {ewallet.io/vault-campaign: __CID__}
 spec:
@@ -54,27 +62,61 @@ spec:
       server: https://vault.ewallet-vault.svc.cluster.local:8200
       path: ewallet
       version: v2
-      caProvider: {type: ConfigMap, name: vault-ca, key: ca.crt}
+      caProvider: {type: ConfigMap, name: vault-ca, key: ca.crt, namespace: external-secrets}
       auth:
         kubernetes:
           mountPath: kubernetes
-          role: eso-ml-platform
-          serviceAccountRef: {name: eso-vault-reader, audiences: [kubernetes]}
+          role: eso-ewallet-reader
+          serviceAccountRef: {name: eso-vault-reader, audiences: [vault]}
 ---
-# The campaign's valid store, asking for a path its policy does not grant.
+# The real reader identity, but a token minted for another audience.
+apiVersion: external-secrets.io/v1
+kind: ClusterSecretStore
+metadata:
+  name: vault-neg-wrong-aud
+  labels: {ewallet.io/vault-campaign: __CID__}
+spec:
+  conditions:
+    - namespaces: [ml-platform]
+  provider:
+    vault:
+      server: https://vault.ewallet-vault.svc.cluster.local:8200
+      path: ewallet
+      version: v2
+      caProvider: {type: ConfigMap, name: vault-ca, key: ca.crt, namespace: external-secrets}
+      auth:
+        kubernetes:
+          mountPath: kubernetes
+          role: eso-ewallet-reader
+          serviceAccountRef: {name: eso-vault-reader, namespace: external-secrets, audiences: [kubernetes]}
+---
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret
 metadata:
-  name: vault-neg-agent-path
+  name: vault-neg-out-of-prefix
   namespace: ml-platform
   labels: {ewallet.io/vault-campaign: __CID__}
 spec:
   refreshInterval: 1h
-  secretStoreRef: {kind: SecretStore, name: vault}
-  target: {name: vault-neg-agent-path, creationPolicy: Owner}
+  secretStoreRef: {kind: ClusterSecretStore, name: ewallet-vault}
+  target: {name: vault-neg-out-of-prefix, creationPolicy: Owner}
   data:
-    - secretKey: api-key
-      remoteRef: {key: agent-platform/agentgateway-client-key, property: api-key}
+    - secretKey: token
+      remoteRef: {key: mcp-platform/out-of-prefix-probe, property: token}
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: vault-neg-sandbox
+  namespace: ewallet-sandbox
+  labels: {ewallet.io/vault-campaign: __CID__}
+spec:
+  refreshInterval: 1h
+  secretStoreRef: {kind: ClusterSecretStore, name: ewallet-vault}
+  target: {name: vault-neg-sandbox, creationPolicy: Owner}
+  data:
+    - secretKey: connection_string
+      remoteRef: {key: ml-platform/feast-online-redis, property: connection_string}
 ---
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret
@@ -88,7 +130,21 @@ spec:
   target: {name: vault-neg-wrong-sa, creationPolicy: Owner}
   data:
     - secretKey: connection_string
-      remoteRef: {key: feature-api/feast-redis, property: connection_string}
+      remoteRef: {key: ml-platform/feast-online-redis, property: connection_string}
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: vault-neg-wrong-ns
+  namespace: ml-platform
+  labels: {ewallet.io/vault-campaign: __CID__}
+spec:
+  refreshInterval: 1h
+  secretStoreRef: {kind: SecretStore, name: vault-neg-wrong-ns}
+  target: {name: vault-neg-wrong-ns, creationPolicy: Owner}
+  data:
+    - secretKey: connection_string
+      remoteRef: {key: ml-platform/feast-online-redis, property: connection_string}
 ---
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret
@@ -98,8 +154,8 @@ metadata:
   labels: {ewallet.io/vault-campaign: __CID__}
 spec:
   refreshInterval: 1h
-  secretStoreRef: {kind: SecretStore, name: vault-neg-wrong-aud}
+  secretStoreRef: {kind: ClusterSecretStore, name: vault-neg-wrong-aud}
   target: {name: vault-neg-wrong-aud, creationPolicy: Owner}
   data:
     - secretKey: connection_string
-      remoteRef: {key: feature-api/feast-redis, property: connection_string}
+      remoteRef: {key: ml-platform/feast-online-redis, property: connection_string}

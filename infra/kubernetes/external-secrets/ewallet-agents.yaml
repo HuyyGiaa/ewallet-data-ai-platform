@@ -1,52 +1,37 @@
-# STAGED, OPT-IN: the same pattern for namespace ewallet-agents, with its own identity,
-# Vault role (eso-ewallet-agents) and policy. It shows a second namespace cannot read
-# ml-platform's paths and vice versa.
+# Vault -> ESO -> Kubernetes Secrets for namespace ewallet-agents, through ClusterSecretStore
+# ewallet-vault (cluster-secret-store.yaml).
 #
-# It writes a shadow Secret, agentgateway-client-key-vault, that no workload reads. The
-# live agentgateway-client-key, vllm-api-key, ModelConfig reference and the versioned MCP
-# credential Secrets are unchanged; moving a consumer is a separate, coordinated change
-# (client and gateway must switch together).
-# Prerequisite: ConfigMap vault-ca (ca.crt) in this namespace, see the runbook.
-apiVersion: v1
-kind: ServiceAccount
+# Two credentials, each one Vault record:
+#   agent-platform/vllm-api-key            -> vllm-api-key-vault            (vLLM, and agentgateway towards vLLM)
+#   agent-platform/agentgateway-client-key -> agentgateway-client-key-vault (agentgateway validator, ModelConfig -> agents)
+# The live vllm-api-key and agentgateway-client-key are not adopted, changed or deleted. The
+# consumers switch together, in one Helm upgrade, only through the opt-in overlay
+# infra/helm/llm-agent-platform/values-vault-eso.yaml (a client and its validator must never disagree).
+# The MCP credential releases (mcp-token-*, mcp-auth-*) are NOT managed here (audit §11, MCP-A).
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
 metadata:
-  name: eso-vault-reader
+  name: vllm-api-key
   namespace: ewallet-agents
   labels: {app.kubernetes.io/part-of: ewallet-platform}
-automountServiceAccountToken: false
----
-apiVersion: external-secrets.io/v1
-kind: SecretStore
-metadata:
-  name: vault
-  namespace: ewallet-agents
 spec:
-  provider:
-    vault:
-      server: https://vault.ewallet-vault.svc.cluster.local:8200
-      path: ewallet
-      version: v2
-      caProvider: {type: ConfigMap, name: vault-ca, key: ca.crt}
-      auth:
-        kubernetes:
-          mountPath: kubernetes
-          role: eso-ewallet-agents
-          serviceAccountRef:
-            name: eso-vault-reader
-            audiences: [vault]
+  refreshInterval: 1h
+  secretStoreRef: {kind: ClusterSecretStore, name: ewallet-vault}
+  target: {name: vllm-api-key-vault, creationPolicy: Owner, deletionPolicy: Retain}
+  data:
+    - secretKey: api-key
+      remoteRef: {key: agent-platform/vllm-api-key, property: api-key}
 ---
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret
 metadata:
-  name: agentgateway-client-key-vault
+  name: agentgateway-client-key
   namespace: ewallet-agents
+  labels: {app.kubernetes.io/part-of: ewallet-platform}
 spec:
   refreshInterval: 1h
-  secretStoreRef: {kind: SecretStore, name: vault}
-  target:
-    name: agentgateway-client-key-vault
-    creationPolicy: Owner
-    deletionPolicy: Retain
+  secretStoreRef: {kind: ClusterSecretStore, name: ewallet-vault}
+  target: {name: agentgateway-client-key-vault, creationPolicy: Owner, deletionPolicy: Retain}
   data:
     - secretKey: api-key
       remoteRef: {key: agent-platform/agentgateway-client-key, property: api-key}

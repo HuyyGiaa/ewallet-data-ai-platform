@@ -121,7 +121,7 @@ status_is() {  # <initialized> <sealed>: the real Vault state, never Pod readine
 }
 pod_ready() { k -n "$VNS" get pod vault-0 -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'; }
 
-# ---- ExternalSecret helpers (same classes as scripts/vault/eso_local_validate.sh)
+# ---- ExternalSecret helpers
 es_condition() { k -n "$1" get externalsecret "$2" -o jsonpath='{range .status.conditions[?(@.type=="Ready")]}{.status} {.reason}{end}' 2>/dev/null; }
 es_synced_rv() { k -n "$1" get externalsecret "$2" -o jsonpath='{.status.syncedResourceVersion}' 2>/dev/null; }
 es_wait() {  # <ns> <es> <True|False> [seconds]

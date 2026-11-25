@@ -54,25 +54,28 @@ def test_bootstrap_applies_audit_before_any_secret_engine():
     writes = [path for method, path, _ in transport.calls if method == "POST"]
     assert writes[0] == "sys/audit/file"
     assert "sys/mounts/ewallet" in writes
-    assert "auth/kubernetes/role/fraud-api" in writes
+    assert "auth/kubernetes/role/eso-ewallet-reader" in writes and "auth/kubernetes/role/vault-admin" in writes
+    assert not any(path.endswith(("/role/fraud-api", "/role/feature-api")) for path in writes)   # V1 direct loader retired
 
 
-def test_workload_role_is_scoped_and_short_lived():
-    role = CONFIG["roles"]["fraud-api"]
-    assert role["bound_service_account_namespaces"] == ["ml-platform"]
-    assert "*" not in role["bound_service_account_names"]
+def test_reader_role_is_scoped_and_short_lived():
+    """V2: the only reader role binds one dedicated identity (V1's per-workload direct-loader roles are retired)."""
+    role = CONFIG["roles"]["eso-ewallet-reader"]
+    assert role["bound_service_account_names"] == ["eso-vault-reader"]
+    assert role["bound_service_account_namespaces"] == ["external-secrets"]
     assert role["token_no_default_policy"] is True
     assert role["audience"] == "vault"
     assert role["token_ttl"] == "5m"
 
 
-def test_workload_policy_grants_one_read_only_path():
-    text = (ROOT / "infra/kubernetes/vault/policies/fraud-api.hcl").read_text()
-    assert 'path "ewallet/data/fraud-api/feast-redis"' in text
-    assert 'path "auth/token/revoke-self"' in text
-    assert text.count("path ") == 2
-    assert text.count('["read"]') == 1
-    assert "*" not in text
+def test_reader_policy_grants_read_only_on_two_prefixes():
+    text = (ROOT / "infra/kubernetes/vault/policies/eso-ewallet-reader.hcl").read_text()
+    assert 'path "ewallet/data/ml-platform/*"' in text and 'path "ewallet/data/agent-platform/*"' in text
+    assert 'path "auth/token/revoke-self"' in text and 'path "auth/token/lookup-self"' in text
+    import re
+    grants = dict(re.findall(r'path "([^"]+)"\s*\{\s*capabilities\s*=\s*\[([^\]]*)\]', text))
+    assert grants == {"ewallet/data/ml-platform/*": '"read"', "ewallet/data/agent-platform/*": '"read"',
+                      "auth/token/lookup-self": '"read"', "auth/token/revoke-self": '"update"'}
 
 
 def test_gke_values_never_use_dev_mode_or_plain_http():
@@ -130,19 +133,19 @@ def test_after_root_retirement_writes_and_metadata_use_the_operator_token(tmp_pa
     fake = Fake()
     monkeypatch.setattr("sys.stdin", __import__("io").StringIO("new-value"))
     code, _ = run_cli(monkeypatch, capsys, fake, "put", "--keys-file", str(keys), "--token-file", str(out),
-                      "--path", "feature-api/feast-redis", "--key", "connection_string", "--stdin")
+                      "--path", "ml-platform/feast-online-redis", "--key", "connection_string", "--stdin")
     assert code == 0
-    code, printed = run_cli(monkeypatch, capsys, fake, "versions", "--token-file", str(out), "--path", "feature-api/feast-redis")
+    code, printed = run_cli(monkeypatch, capsys, fake, "versions", "--token-file", str(out), "--path", "ml-platform/feast-online-redis")
     assert code == 0 and json.loads(printed.out)["current_version"] == 3
     assert [(m, p, t) for m, p, t, _ in fake.calls] == [
-        ("POST", "ewallet/data/feature-api/feast-redis", "operator-token-value"),   # --token-file wins over --keys-file
-        ("GET", "ewallet/metadata/feature-api/feast-redis", "operator-token-value"),
+        ("POST", "ewallet/data/ml-platform/feast-online-redis", "operator-token-value"),   # --token-file wins over --keys-file
+        ("GET", "ewallet/metadata/ml-platform/feast-online-redis", "operator-token-value"),
     ]
 
 
 def test_a_retired_root_token_fails_closed_with_a_safe_message(tmp_path, monkeypatch, capsys):
-    fake = Fake({("GET", "ewallet/metadata/feature-api/feast-redis"): (403, {"errors": ["permission denied"]})})
-    code, printed = run_cli(monkeypatch, capsys, fake, "versions", "--keys-file", str(keys_file(tmp_path)), "--path", "feature-api/feast-redis")
+    fake = Fake({("GET", "ewallet/metadata/ml-platform/feast-online-redis"): (403, {"errors": ["permission denied"]})})
+    code, printed = run_cli(monkeypatch, capsys, fake, "versions", "--keys-file", str(keys_file(tmp_path)), "--path", "ml-platform/feast-online-redis")
     assert code == 2 and "REFUSED vault_admin_failed" in printed.err and "root-token-value" not in printed.err
 
 
@@ -336,25 +339,25 @@ def test_a_failed_key_write_after_vault_answered_says_stop(tmp_path, monkeypatch
 
 def test_describe_reads_configuration_only(tmp_path, monkeypatch, capsys):
     role = {"bound_service_account_names": ["eso-vault-reader"], "bound_service_account_namespaces": ["ml-platform"],
-            "audience": "vault", "token_policies": ["eso-ml-platform"], "token_ttl": 300, "token_max_ttl": 900,
+            "audience": "vault", "token_policies": ["eso-ewallet-reader"], "token_ttl": 300, "token_max_ttl": 900,
             "token_no_default_policy": True, "alias_name_source": "serviceaccount_uid"}
     fake = Fake({
         ("GET", "sys/mounts"): (200, {"data": {"ewallet/": {"type": "kv", "options": {"version": "2"}},
                                                "sys/": {"type": "system"}, "cubbyhole/": {"type": "cubbyhole"}}}),
         ("GET", "sys/auth"): (200, {"data": {"kubernetes/": {"type": "kubernetes"}, "token/": {"type": "token"}}}),
         ("GET", "sys/audit"): (200, {"data": {"file/": {"type": "file"}}}),
-        ("GET", "auth/kubernetes/role?list=true"): (200, {"data": {"keys": ["eso-ml-platform"]}}),
-        ("GET", "auth/kubernetes/role/eso-ml-platform"): (200, {"data": role}),
-        ("GET", "sys/policies/acl?list=true"): (200, {"data": {"keys": ["default", "eso-ml-platform", "root"]}}),
-        ("GET", "sys/policies/acl/eso-ml-platform"): (200, {"data": {"policy": 'path "ewallet/data/feature-api/feast-redis" {}'}}),
+        ("GET", "auth/kubernetes/role?list=true"): (200, {"data": {"keys": ["eso-ewallet-reader"]}}),
+        ("GET", "auth/kubernetes/role/eso-ewallet-reader"): (200, {"data": role}),
+        ("GET", "sys/policies/acl?list=true"): (200, {"data": {"keys": ["default", "eso-ewallet-reader", "root"]}}),
+        ("GET", "sys/policies/acl/eso-ewallet-reader"): (200, {"data": {"policy": 'path "ewallet/data/ml-platform/feast-online-redis" {}'}}),
     })
     code, printed = run_cli(monkeypatch, capsys, fake, "describe", "--keys-file", str(keys_file(tmp_path)))
     shown = json.loads(printed.out)
     assert code == 0
     assert shown["secret_engines"] == {"ewallet/": {"type": "kv", "version": "2"}}
-    assert shown["kubernetes_roles"]["eso-ml-platform"]["audience"] == "vault"
-    assert "alias_name_source" not in shown["kubernetes_roles"]["eso-ml-platform"]
-    assert list(shown["acl_policies"]) == ["eso-ml-platform"]
+    assert shown["kubernetes_roles"]["eso-ewallet-reader"]["audience"] == "vault"
+    assert "alias_name_source" not in shown["kubernetes_roles"]["eso-ewallet-reader"]
+    assert list(shown["acl_policies"]) == ["eso-ewallet-reader"]
     assert {m for m, _, _, _ in fake.calls} == {"GET"}
     assert not any(p.startswith("ewallet/") for _, p, _, _ in fake.calls)       # no secret path is read
     assert "root-token-value" not in printed.out + printed.err

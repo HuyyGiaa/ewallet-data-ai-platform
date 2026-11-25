@@ -4,46 +4,16 @@
   "kubernetes_auth_mount": "kubernetes",
   "token_audience": "vault",
   "policies": {
-    "eso-ewallet-agents": "infra/kubernetes/vault/policies/eso-ewallet-agents.hcl",
-    "eso-ml-platform": "infra/kubernetes/vault/policies/eso-ml-platform.hcl",
-    "feature-api": "infra/kubernetes/vault/policies/feature-api.hcl",
-    "fraud-api": "infra/kubernetes/vault/policies/fraud-api.hcl",
+    "eso-ewallet-reader": "infra/kubernetes/vault/policies/eso-ewallet-reader.hcl",
     "root-generation": "infra/kubernetes/vault/policies/root-generation.hcl",
     "secret-operator": "infra/kubernetes/vault/policies/secret-operator.hcl"
   },
   "roles": {
-    "eso-ewallet-agents": {
+    "eso-ewallet-reader": {
       "bound_service_account_names": ["eso-vault-reader"],
-      "bound_service_account_namespaces": ["ewallet-agents"],
+      "bound_service_account_namespaces": ["external-secrets"],
       "audience": "vault",
-      "token_policies": ["eso-ewallet-agents"],
-      "token_ttl": "5m",
-      "token_max_ttl": "15m",
-      "token_no_default_policy": true
-    },
-    "eso-ml-platform": {
-      "bound_service_account_names": ["eso-vault-reader"],
-      "bound_service_account_namespaces": ["ml-platform"],
-      "audience": "vault",
-      "token_policies": ["eso-ml-platform"],
-      "token_ttl": "5m",
-      "token_max_ttl": "15m",
-      "token_no_default_policy": true
-    },
-    "feature-api": {
-      "bound_service_account_names": ["feature-api"],
-      "bound_service_account_namespaces": ["ml-platform"],
-      "audience": "vault",
-      "token_policies": ["feature-api"],
-      "token_ttl": "5m",
-      "token_max_ttl": "15m",
-      "token_no_default_policy": true
-    },
-    "fraud-api": {
-      "bound_service_account_names": ["fraud-api"],
-      "bound_service_account_namespaces": ["ml-platform"],
-      "audience": "vault",
-      "token_policies": ["fraud-api"],
+      "token_policies": ["eso-ewallet-reader"],
       "token_ttl": "5m",
       "token_max_ttl": "15m",
       "token_no_default_policy": true

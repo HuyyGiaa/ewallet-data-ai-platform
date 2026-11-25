@@ -1,0 +1,15 @@
+# Opt-in Vault V2 consumer switch for the Agent Platform (docs/edai2/platform/VAULT_V2_ARCHITECTURE_AUDIT.md §12 step 3).
+# The three references move together, in ONE helm upgrade (--reuse-values -f this file):
+#   vllm.apiKeySecret            vLLM primary/fallback/candidate (server side) and agentgateway towards vLLM
+#   agentgateway.clientKeySecret agentgateway's apiKey validator ($GATEWAY_CLIENT_KEY)
+#   modelConfig.apiKeySecret     ModelConfig ewallet-global-llm and the BYO agents' gateway key (client side)
+# A client and its validator therefore never disagree. The targets are written by ESO from Vault
+# (infra/kubernetes/external-secrets/ewallet-agents.yaml); switch only after shadow_compare.sh reports
+# SHADOW_MATCH for both pairs, so the values are identical and the rollout changes nothing at runtime.
+# Rollback: helm rollback to the previous revision. vllm-api-key and agentgateway-client-key are never modified.
+vllm:
+  apiKeySecret: {name: vllm-api-key-vault, key: api-key}
+agentgateway:
+  clientKeySecret: {name: agentgateway-client-key-vault, key: api-key}
+modelConfig:
+  apiKeySecret: {name: agentgateway-client-key-vault, key: api-key}

@@ -1,8 +1,15 @@
-# GKE technical rehearsal only (docs/runbooks/edai2/VAULT_GKE_REHEARSAL.md): the ESO reader of the
-# temporary namespace vault-rehearsal reads one synthetic entry. The path lies under feature-api/,
-# which the existing secret-operator token may write, so the rehearsal seeds it exactly like the
-# official campaign (put --token-file). The real feature-api/feast-redis is NOT readable here.
-path "ewallet/data/feature-api/rehearsal-redis" {
+# Rehearsal only (docs/runbooks/edai2/VAULT_GKE_REHEARSAL.md): ClusterSecretStore ewallet-vault-rehearsal,
+# used from the temporary rehearsal namespaces, reads exactly three synthetic entries. They lie under the
+# official prefixes, which the existing secret-operator token may write, so the rehearsal seeds them exactly
+# like the official campaign (put --token-file). The real ml-platform/feast-online-redis,
+# agent-platform/vllm-api-key and agent-platform/agentgateway-client-key are NOT readable here.
+path "ewallet/data/ml-platform/rehearsal-redis" {
+  capabilities = ["read"]
+}
+path "ewallet/data/agent-platform/rehearsal-vllm-api-key" {
+  capabilities = ["read"]
+}
+path "ewallet/data/agent-platform/rehearsal-agentgateway-client-key" {
   capabilities = ["read"]
 }
 

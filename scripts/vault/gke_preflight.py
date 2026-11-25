@@ -82,7 +82,7 @@ def manifest_diff(first: str, second: str) -> list[str]:
 def overlay_is_secret_name_only(diff: list[str]) -> bool:
     """True when the overlay changes exactly the Feature API Redis Secret name, and nothing else."""
     key = "('Deployment', 'ml-platform', 'feature-api')"
-    return sorted(diff) == sorted([f"{key} -name: feast-online-redis", f"{key} +name: feature-api-redis-vault"])
+    return sorted(diff) == sorted([f"{key} -name: feast-online-redis", f"{key} +name: feast-online-redis-vault"])
 
 
 class Preflight:
@@ -255,28 +255,28 @@ class Preflight:
         self.guarded("eso-ready", "controller, webhook and cert-controller available", eso_installed)
 
         def synced():
-            es = self.optional("ExternalSecret feature-api-redis", "-n", "ml-platform", "get", "externalsecret", "feature-api-redis")
+            es = self.optional("ExternalSecret feast-online-redis", "-n", "ml-platform", "get", "externalsecret", "feast-online-redis")
             if es is None:
                 return "missing", "BLOCKED"
             ready = next((c for c in es.get("status", {}).get("conditions", []) if c.get("type") == "Ready"), {})
             ok = ready.get("status") == "True" and ready.get("reason") == "SecretSynced"
             return f"Ready={ready.get('status')} {ready.get('reason')}", "PASS" if ok else "BLOCKED"
-        self.guarded("externalsecret-synced", "feature-api-redis Ready=True, SecretSynced", synced)
+        self.guarded("externalsecret-synced", "feast-online-redis Ready=True, SecretSynced", synced)
 
         def target_owned():
-            secret = self.optional("Secret feature-api-redis-vault", "-n", "ml-platform", "get", "secret", "feature-api-redis-vault")
+            secret = self.optional("Secret feast-online-redis-vault", "-n", "ml-platform", "get", "secret", "feast-online-redis-vault")
             if secret is None:
                 return "missing", "BLOCKED"
             owners = [f"{o.get('kind')}/{o.get('name')}" for o in secret["metadata"].get("ownerReferences", [])]
             present = bool((secret.get("data") or {}).get("connection_string"))
-            ok = owners == ["ExternalSecret/feature-api-redis"] and present
+            ok = owners == ["ExternalSecret/feast-online-redis"] and present
             return f"owner {owners}, connection_string {'present' if present else 'missing/empty'}", "PASS" if ok else "BLOCKED"
-        self.guarded("target-secret", "owned by ExternalSecret/feature-api-redis, non-empty key", target_owned)
+        self.guarded("target-secret", "owned by ExternalSecret/feast-online-redis, non-empty key", target_owned)
         self.secret_present("redis-secret", "feast-online-redis")
 
         def shadow():
             code, out = self.runner(["env", f"KUBECONFIG={self.kubeconfig}", "bash", str(SHADOW), self.context,
-                                     "ml-platform", "feast-online-redis", "feature-api-redis-vault"])
+                                     "ml-platform", "feast-online-redis", "feast-online-redis-vault"])
             status = out.strip().splitlines()[-1] if out.strip() else "no status"
             return status, "PASS" if code == 0 and status == "SHADOW_MATCH" else "BLOCKED"
         self.guarded("shadow-match", "SHADOW_MATCH, exit 0", shadow)

@@ -1,9 +1,14 @@
 """R2: the Fraud API, the Feature API and MLflow each run as their own identity.
 
 Pins the source contract: separate Kubernetes ServiceAccounts with no mounted API
-token and no RBAC, separate Vault roles bound to exactly one account each, a Vault
-network policy that admits only those two pods, and GCP Workload Identity mappings
-to GSAs that read only the online Feast registry prefix.
+token and no RBAC, and GCP Workload Identity mappings to GSAs that read only the
+online Feast registry prefix.
+
+RETIRED IN VAULT V2 (docs/edai2/platform/VAULT_V2_ARCHITECTURE_AUDIT.md §3, decision O4): the
+direct-loader Vault roles fraud-api and feature-api, their two policies, and their NetworkPolicy
+entries. No deployed manifest used them. Their invariant ("each serving pod reads only its own Vault
+path") is replaced by a stronger one tested below: no serving account can obtain a Vault token at all,
+Vault admits only the ESO controller, and both APIs read one ESO-synced Secret.
 """
 
 from __future__ import annotations
@@ -122,35 +127,27 @@ def test_feature_api_secret_mode_is_unchanged_without_vault():
     assert not any(name.startswith("EWALLET_VAULT_") for name in env)
 
 
-def test_each_vault_role_binds_exactly_one_serving_account():
-    roles = {name: role for name, role in BOOTSTRAP["roles"].items() if not name.startswith("eso-") and name != "vault-admin"}
-    assert set(roles) == {"fraud-api", "feature-api"}   # ESO readers: test_vault_eso.py; vault-admin: test_vault_tools.py
-    for name, role in roles.items():
-        assert role["bound_service_account_names"] == [name]
-        assert role["bound_service_account_namespaces"] == ["ml-platform"]
-        assert role["token_policies"] == [name]
-        assert role["audience"] == "vault"
-        assert role["token_no_default_policy"] is True
-    assert not any("training" in role["bound_service_account_names"] for role in roles.values())
+def test_no_vault_role_binds_a_serving_account():
+    for name, role in BOOTSTRAP["roles"].items():
+        assert not {"fraud-api", "feature-api", "training"} & set(role["bound_service_account_names"]), name
+        assert "ml-platform" not in role["bound_service_account_namespaces"], name
+    assert not {"fraud-api", "feature-api"} & set(BOOTSTRAP["policies"])
 
 
-def test_vault_policies_never_overlap():
-    readable = {}
-    for name in ("fraud-api", "feature-api"):
-        text = (ROOT / BOOTSTRAP["policies"][name]).read_text(encoding="utf-8")
-        readable[name] = set(re.findall(r'path "(ewallet/[^"]+)"', text))
-        assert readable[name] == {f"ewallet/data/{name}/feast-redis"}
-        grants = re.findall(r'path "(ewallet/[^"]+)"\s*\{\s*capabilities\s*=\s*\[([^\]]*)\]', text)
-        assert grants == [(f"ewallet/data/{name}/feast-redis", '"read"')]
-    assert not readable["fraud-api"] & readable["feature-api"]
+def test_both_serving_apis_read_one_eso_synced_secret_not_vault():
+    serving = yaml.safe_load((CHART / "values-vault-eso.yaml").read_text(encoding="utf-8"))["featureApi"]
+    assert serving["vault"]["enabled"] is False
+    fraud = yaml.safe_load((ROOT / "infra/kubernetes/fraud-serving/fraud-api-eso.patch.yaml").read_text(encoding="utf-8"))
+    (env,) = fraud["spec"]["template"]["spec"]["containers"][0]["env"]
+    assert serving["redisSecret"]["name"] == env["valueFrom"]["secretKeyRef"]["name"] == "feast-online-redis-vault"
 
 
-def test_vault_network_policy_admits_only_the_two_serving_pods_and_the_eso_controller():
+def test_vault_network_policy_admits_only_the_eso_controller():
     policy = yaml.safe_load((VAULT / "network-policy.yaml").read_text(encoding="utf-8"))
     sources = [peer for rule in policy["spec"]["ingress"] for peer in rule["from"]]
     peers = sorted((peer["namespaceSelector"]["matchLabels"]["kubernetes.io/metadata.name"],
                     peer["podSelector"]["matchLabels"]["app.kubernetes.io/name"]) for peer in sources)
-    assert peers == [("external-secrets", "external-secrets"), ("ml-platform", "feature-api"), ("ml-platform", "fraud-api")]
+    assert peers == [("external-secrets", "external-secrets")]
     assert all(set(peer) == {"namespaceSelector", "podSelector"} for peer in sources)
 
 

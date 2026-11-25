@@ -36,7 +36,7 @@ class Cluster:
     """Answers kubectl/helm argv. ``fail``/``invalid`` hold substrings whose commands fail or return junk."""
 
     def __init__(self, *, nodes=0, namespaces=("ml-platform",), crds=("certificates.cert-manager.io", "issuers.cert-manager.io"),
-                 releases=None, live=LIVE, head=LIVE, overlay=DEPLOY % "feature-api-redis-vault", objects=None,
+                 releases=None, live=LIVE, head=LIVE, overlay=DEPLOY % "feast-online-redis-vault", objects=None,
                  shadow=(0, "SHADOW_MATCH\n"), fail=(), invalid=(), pvs=(), cluster_objects=()):
         self.calls, self.nodes, self.namespaces, self.crds = [], nodes, namespaces, crds
         self.releases = releases if releases is not None else [
@@ -106,8 +106,8 @@ def switch_ready(**changes):
     """An awake cluster after G7: Vault and ESO installed, synced, SHADOW_MATCH, Feature API on the old Secret."""
     objects = {
         "secret feast-online-redis": secret("feast-online-redis"),
-        "secret feature-api-redis-vault": secret("feature-api-redis-vault", [{"kind": "ExternalSecret", "name": "feature-api-redis"}]),
-        "externalsecret feature-api-redis": {"metadata": {"name": "feature-api-redis"},
+        "secret feast-online-redis-vault": secret("feast-online-redis-vault", [{"kind": "ExternalSecret", "name": "feast-online-redis"}]),
+        "externalsecret feast-online-redis": {"metadata": {"name": "feast-online-redis"},
                                              "status": {"conditions": [{"type": "Ready", "status": "True", "reason": "SecretSynced"}]}},
         "deploy feature-api": {"metadata": {"name": "feature-api"}, "status": {"availableReplicas": 1},
                                "spec": {"template": {"spec": {"containers": [{"env": [{"name": "EWALLET_REDIS_CONNECTION_STRING",
@@ -134,7 +134,7 @@ def test_preinstall_on_the_asleep_clean_cluster_is_ready_with_pod_checks_not_che
     (Cluster(namespaces=("ml-platform", "ewallet-vault")), "no-prior-vault-eso-namespaces"),
     (Cluster(crds=("certificates.cert-manager.io", "issuers.cert-manager.io", "secretstores.external-secrets.io")), "no-prior-eso-crds"),
     (Cluster(head=DEPLOY % "something-else"), "serving-no-drift"),
-    (Cluster(overlay=(DEPLOY % "feature-api-redis-vault").replace("connection_string", "other_key")), "serving-overlay-scope"),
+    (Cluster(overlay=(DEPLOY % "feast-online-redis-vault").replace("connection_string", "other_key")), "serving-overlay-scope"),
     (Cluster(releases=[]), "serving-release"),
     (Cluster(namespaces=("ml-platform", "vault-rehearsal")), "no-prior-vault-eso-namespaces"),
     (Cluster(pvs=[RELEASED_PV]), "no-prior-vault-volumes"),
@@ -193,9 +193,9 @@ def test_consumer_switch_accepts_installed_vault_and_eso(tmp_path):
     ({"nodes": 0}, "node-pool"),
     ({"shadow": (1, "SHADOW_MISMATCH\n")}, "shadow-match"),
     ({"shadow": (1, "SHADOW_SHADOW_READ_FAILED\n")}, "shadow-match"),
-    ({"objects": {"externalsecret feature-api-redis": {"metadata": {"name": "x"}, "status": {"conditions": [
+    ({"objects": {"externalsecret feast-online-redis": {"metadata": {"name": "x"}, "status": {"conditions": [
         {"type": "Ready", "status": "False", "reason": "SecretSyncedError"}]}}}}, "externalsecret-synced"),
-    ({"objects": {"secret feature-api-redis-vault": secret("feature-api-redis-vault")}}, "target-secret"),   # not ESO-owned
+    ({"objects": {"secret feast-online-redis-vault": secret("feast-online-redis-vault")}}, "target-secret"),   # not ESO-owned
     ({"objects": {"deploy feature-api": {"metadata": {"name": "feature-api"}, "status": {"availableReplicas": 0},
         "spec": {"template": {"spec": {"containers": [{"env": []}]}}}}}}, "feature-api-before-switch"),
 ], ids=["asleep", "mismatch", "read-failed", "not-synced", "target-not-owned", "feature-api-unavailable"])

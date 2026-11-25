@@ -1,56 +1,27 @@
-# Vault -> ESO -> Kubernetes Secret for namespace ml-platform.
+# Vault -> ESO -> Kubernetes Secret for namespace ml-platform, through ClusterSecretStore
+# ewallet-vault (cluster-secret-store.yaml).
 #
-# eso-vault-reader is an identity only: no pod runs as it, it has no RBAC and mounts no
-# token. ESO requests a short-lived token for it (audience "vault") and logs in to Vault
-# role eso-ml-platform, whose policy reads exactly the paths mapped below.
-#
-# The target Secret is new (feature-api-redis-vault). The existing feast-online-redis
-# Secret is not adopted, changed or deleted; the Feature API switches to the new Secret
-# only through infra/helm/ewallet-serving/values-vault-eso.yaml.
-# Prerequisite: ConfigMap vault-ca (ca.crt) in this namespace, see the runbook.
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: eso-vault-reader
-  namespace: ml-platform
-  labels: {app.kubernetes.io/part-of: ewallet-platform}
-automountServiceAccountToken: false
----
-apiVersion: external-secrets.io/v1
-kind: SecretStore
-metadata:
-  name: vault
-  namespace: ml-platform
-spec:
-  provider:
-    vault:
-      server: https://vault.ewallet-vault.svc.cluster.local:8200
-      path: ewallet
-      version: v2
-      caProvider: {type: ConfigMap, name: vault-ca, key: ca.crt}
-      auth:
-        kubernetes:
-          mountPath: kubernetes
-          role: eso-ml-platform
-          serviceAccountRef:
-            name: eso-vault-reader
-            audiences: [vault]
----
+# One Vault record for one underlying credential: the Feature API and the Fraud API share
+# the Feast online Redis connection string, so both read the same new Secret,
+# feast-online-redis-vault. The existing feast-online-redis is not adopted, changed or
+# deleted; a consumer switches only through its opt-in overlay
+# (infra/helm/ewallet-serving/values-vault-eso.yaml, infra/kubernetes/fraud-serving/fraud-api-eso.patch.yaml).
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret
 metadata:
-  name: feature-api-redis
+  name: feast-online-redis
   namespace: ml-platform
+  labels: {app.kubernetes.io/part-of: ewallet-platform}
 spec:
   refreshInterval: 1h
-  secretStoreRef: {kind: SecretStore, name: vault}
+  secretStoreRef: {kind: ClusterSecretStore, name: ewallet-vault}
   target:
-    name: feature-api-redis-vault
-    # ESO owns this Secret: deleting the ExternalSecret deletes it. Switch the Feature
-    # API back to feast-online-redis first (runbook, rollback).
+    name: feast-online-redis-vault
+    # ESO owns this Secret: deleting the ExternalSecret deletes it. Switch both consumers
+    # back to feast-online-redis first (runbook, rollback).
     creationPolicy: Owner
     # If the Vault entry disappears, keep the last good value instead of emptying it.
     deletionPolicy: Retain
   data:
     - secretKey: connection_string
-      remoteRef: {key: feature-api/feast-redis, property: connection_string}
+      remoteRef: {key: ml-platform/feast-online-redis, property: connection_string}
