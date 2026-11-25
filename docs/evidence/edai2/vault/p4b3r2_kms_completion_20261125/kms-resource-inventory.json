@@ -1,0 +1,60 @@
+{
+ "verdict": "P4B3R2_KMS_RESOURCES_PASS",
+ "checked": "after the apply, read-only gcloud",
+ "resources": [
+  {
+   "address": "module.vault_kms.google_project_service.cloudkms[0]",
+   "observed": "cloudkms.googleapis.com enabled",
+   "status": "PASS"
+  },
+  {
+   "address": "module.vault_kms.google_kms_key_ring.vault[0]",
+   "observed": "projects/ewallet-data-ai-platform-hg26/locations/asia-southeast1/keyRings/ewallet-vault",
+   "status": "PASS"
+  },
+  {
+   "address": "module.vault_kms.google_kms_crypto_key.vault_unseal[0]",
+   "observed": {
+    "name": "vault-unseal",
+    "purpose": "ENCRYPT_DECRYPT",
+    "protection": "SOFTWARE",
+    "rotation_period": null,
+    "next_rotation": null,
+    "versions": [
+     {
+      "id": 1,
+      "state": "ENABLED"
+     }
+    ],
+    "primary": "ENABLED"
+   },
+   "status": "PASS"
+  },
+  {
+   "address": "module.vault_kms.google_service_account.vault_unseal[0]",
+   "observed": {
+    "email": "ewallet-vault-unseal@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com",
+    "project": "ewallet-data-ai-platform-hg26",
+    "disabled": false,
+    "user_managed_keys": 0
+   },
+   "status": "PASS"
+  },
+  {
+   "address": "module.vault_kms.google_kms_crypto_key_iam_member.vault_viewer[0]",
+   "observed": "roles/cloudkms.viewer -> the GSA only, unconditional, unchanged",
+   "status": "PASS"
+  },
+  {
+   "address": "module.vault_kms.google_kms_crypto_key_iam_member.vault_encrypter_decrypter[0]",
+   "observed": "roles/cloudkms.cryptoKeyEncrypterDecrypter -> the GSA only, unconditional, on the key (new)",
+   "status": "PASS"
+  },
+  {
+   "address": "module.vault_kms.google_service_account_iam_member.vault_workload_identity[0]",
+   "observed": "roles/iam.workloadIdentityUser -> serviceAccount:ewallet-data-ai-platform-hg26.svc.id.goog[ewallet-vault/vault] only, unconditional",
+   "status": "PASS"
+  }
+ ],
+ "total": "7/7"
+}

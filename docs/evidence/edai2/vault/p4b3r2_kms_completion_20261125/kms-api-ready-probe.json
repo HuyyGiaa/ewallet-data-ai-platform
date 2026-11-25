@@ -1,0 +1,13 @@
+{
+ "note": "positive control of the new read-only --mode api-ready against the already-enabled API; NOT a fresh-install test",
+ "mode": "api-ready",
+ "verdict": "VAULT_KMS_API_READY",
+ "probes": 3,
+ "failed_probes": 0,
+ "consecutive_successes": 3,
+ "parameters": {
+  "required": 3,
+  "interval_s": 5,
+  "timeout_s": 60
+ }
+}

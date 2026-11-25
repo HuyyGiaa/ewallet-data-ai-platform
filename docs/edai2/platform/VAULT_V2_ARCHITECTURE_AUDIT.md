@@ -918,7 +918,7 @@ it is listed here.
 |---|---|
 | IMPLEMENTED SOURCE CODE | `infra/terraform/gcp/modules/vault_kms/`; `module.vault_kms` in `environments/dev` (`enable_vault_kms`, default `false`); `ops/gcp/vault_kms_terraform.py`; `scripts/vault/kms_preflight.py`; `scripts/vault/kms_offline_plan.sh`; the driver's GKE KMS gate |
 | OFFLINE TESTED | `terraform fmt` and backend-disabled `validate`; a **real `terraform plan`** of `-target=module.vault_kms` against an empty LOCAL state with the network black-holed (7 creates, nothing else); the guard on that plan and on its mutations; the preflight against a fake `gcloud` |
-| FUTURE CLOUD VERIFICATION | the real-backend plan and guard; apply; `kms_preflight.py --mode cloud`; Vault auto-unseal through KMS on GKE (Campaign A2) |
+| CLOUD VERIFICATION | done in P4-B (the real-backend plan and guard, the apply, the preflight READY; [closure](../../evidence/edai2/vault/p4b3r2_kms_completion_20261125/README.md)). Still open: Vault auto-unseal through KMS on GKE (Campaign A2) |
 | OWNER APPROVAL REQUIRED | every step of P4-B (VAULT_ESO_RUNBOOK.md step 0) and Campaign A2 |
 
 **What the module creates** (exactly the guard's allowlist): the Cloud KMS API, key ring `ewallet-vault`

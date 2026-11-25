@@ -15,10 +15,10 @@ Operating procedure for [VAULT.md](../../edai2/platform/VAULT.md). Each step is 
   [VAULT_V2_ARCHITECTURE_AUDIT.md](../../edai2/platform/VAULT_V2_ARCHITECTURE_AUDIT.md).
 - It is verified end to end on **kind only**, with auto-unseal **simulated** by a local transit seal
   (VAULT.md *Validation*).
-- **Nothing of V2 is deployed on GKE.** The Cloud KMS resources are **partly provisioned** (P4-B3 stopped after 6
-  of 7 creates; the GSA's encrypterDecrypter on the key is missing). The preflight is BLOCKED until an
-  owner-approved completion (step 0). P4-B3R1 prepared it: a one-create saved plan that passed the guard's
-  completion mode; **P4-B3R2 (its apply) needs separate approval**.
+- **Nothing of V2 is deployed on GKE.** The Cloud KMS infrastructure is **complete** (P4 closed:
+  `VAULT_V2_P4_CLOUD_INFRASTRUCTURE_COMPLETE`, step 0). The key, its IAM and the Workload Identity
+  binding exist, and `kms_preflight.py --mode cloud` is READY. Vault has **not** used the key on GKE yet;
+  that is Campaign A2.
   Every GKE step needs a separately approved campaign. GKE is woken and put back to sleep only by
   that campaign's approved cloud-lab procedure, never by a command from this page.
 
@@ -38,14 +38,14 @@ V="python3 -m ops.vault.cli --ca-file $KEYDIR/ca.crt"   # talks to https://127.0
 OP=$KEYDIR/operator-token.json               # secret-operator token, created in step 4
 ```
 
-## 0. Cloud KMS (P4-B: separate owner approval per step; PARTIAL, STOPPED)
+## 0. Cloud KMS (P4: COMPLETE; each step had its own owner approval)
 
 `values-gke.yaml` configures `seal "gcpckms"`: project `ewallet-data-ai-platform-hg26`, region
 `asia-southeast1`, key ring `ewallet-vault`, key `vault-unseal`. It has no credentials file: Vault gets
 Application Default Credentials from Workload Identity. Until the KMS resources exist and pass the
 preflight, the rehearsal driver's `vault` phase refuses on GKE and Vault could not start.
 
-**Implemented and offline-tested (P4-A), not applied:**
+**Implemented and offline-tested (P4-A); applied in P4-B (closure below):**
 
 - **Module** [`modules/vault_kms`](../../../infra/terraform/gcp/modules/vault_kms/main.tf), called from
   `environments/dev` as `module.vault_kms` with `enable_vault_kms` (default `false`). It has no
@@ -123,13 +123,44 @@ safety also rests on IAM: no automation holds destroy rights.
      refreshed prior state that holds the six others with their approved values, unchanged, with nothing
      else;
    - the plan: 1/0/0, SHA-256 `d87d37d4…154cc72`, kept privately; **not applied**;
-   - **P4-B3R2** needs separate approval of that SHA-256. Before the apply: the SHA-256, the state generation
-     `1795603007838257` and the guard are re-checked. Apply that file once; then the preflight must be
-     READY; then stop.
+   - **P4-B3R2** (approved separately, done): the SHA-256, the state generation and the guard were re-checked,
+     and that file was applied once: 1 added, 0 changed, 0 destroyed.
 6. **Stop.** P4-B never wakes GKE; Campaign A2 is its own approval.
 
 If the apply fails part-way, do not run destroy, `state rm` or a re-apply. Inspect what exists (preflight,
 state list) and decide deliberately. No step here deletes or disables a key, a key version or the GSA.
+
+**P4 closure** (authoritative): [`p4b3r2_kms_completion_20261125`](../../evidence/edai2/vault/p4b3r2_kms_completion_20261125/README.md),
+**`VAULT_V2_P4_CLOUD_INFRASTRUCTURE_COMPLETE`**.
+
+| Item | State |
+|---|---|
+| Cloud KMS API, key ring, key, GSA | provisioned; 7/7 `module.vault_kms` resources in state (62 addresses = 55 + 7) |
+| Key IAM | encrypterDecrypter + viewer → the GSA only, on the key, unconditional |
+| Workload Identity binding | `ewallet-vault/vault` → the GSA (configuration only) |
+| Preflight | `VAULT_KMS_PREFLIGHT_READY`, 11/11 |
+| Real auto-unseal by Vault on GKE, the runtime token exchange, Persistent Disk recovery, sleep and wake | **not tested**: Campaign A2 (not started) |
+| Production migration | not started |
+| Dev Terraform drift (`cpu-pool`) | unresolved; only targeted, guarded saved plans |
+
+The incident:
+
+- P4-B3 stopped at 6/7 with `API_ENABLEMENT_PROPAGATION_403`; that record is kept as it happened;
+- recovered by P4-B3R1 (the completion guard, a one-create plan) and P4-B3R2 (one apply).
+
+**A fresh install elsewhere** (not this project, whose API is enabled) uses two stages, each its own approval:
+
+1. a saved plan for `module.vault_kms.google_project_service.cloudkms[0]` only, then its apply;
+2. `python3 scripts/vault/kms_preflight.py --mode api-ready` (read-only; 5 consecutive successful Cloud KMS
+   reads 30 s apart, timeout 900 s):
+   - `VAULT_KMS_API_NOT_READY` means stop and plan nothing;
+3. a new saved plan for the remaining six resources, from the new state, then its apply;
+4. the preflight `--mode cloud` READY.
+
+This replaces a Terraform wait resource (no `time_sleep`, no new provider). Before first use, the guard needs
+explicit modes for stages 1 and 2: a separate, reviewed change. The procedure is untested in a fresh
+environment, and the probe lowers the propagation risk without removing it. The comparison and reasons are
+in the closure record.
 
 The offline record is in [`p4a_terraform_offline_20261125`](../../evidence/edai2/vault/p4a_terraform_offline_20261125/README.md).
 

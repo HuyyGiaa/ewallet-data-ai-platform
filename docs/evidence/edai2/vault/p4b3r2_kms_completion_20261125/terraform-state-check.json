@@ -1,0 +1,25 @@
+{
+ "state_object": "gs://ewallet-data-ai-platform-hg26-tfstate/terraform/dev/default.tfstate",
+ "before": {
+  "generation": "1795603007838257",
+  "metageneration": "1"
+ },
+ "after": {
+  "generation": "1795605257706973",
+  "metageneration": "1"
+ },
+ "advanced": true,
+ "lock_after": "none (only default.tfstate in the prefix)",
+ "addresses_before": 61,
+ "addresses_after": 62,
+ "module_vault_kms_addresses": 7,
+ "other_addresses": "55, identical list",
+ "added": [
+  "module.vault_kms.google_kms_crypto_key_iam_member.vault_encrypter_decrypter[0]"
+ ],
+ "removed": [],
+ "values_check": "all 61 earlier resources identical to the reviewed plan's refreshed prior state (compared privately, attribute names only)",
+ "state_only_change": "module.vault_kms.google_kms_crypto_key.vault_unseal[0] labels null -> {} (the accepted provider refresh normalisation; no cloud change)",
+ "verdict": "CONSISTENT",
+ "state_contents_recorded": false
+}

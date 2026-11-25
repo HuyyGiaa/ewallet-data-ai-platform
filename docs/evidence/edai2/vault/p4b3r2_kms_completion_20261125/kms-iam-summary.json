@@ -1,0 +1,37 @@
+{
+ "note": "role names, Vault principals and counts only; no raw policy",
+ "key_vault_unseal": {
+  "bindings": 2,
+  "roles": [
+   {
+    "role": "roles/cloudkms.cryptoKeyEncrypterDecrypter",
+    "members": "the Vault GSA only",
+    "conditional": false
+   },
+   {
+    "role": "roles/cloudkms.viewer",
+    "members": "the Vault GSA only",
+    "conditional": false
+   }
+  ]
+ },
+ "key_ring_ewallet_vault": {
+  "bindings": 0
+ },
+ "project_level": {
+  "roles/cloudkms.*": "none",
+  "roles held by the Vault GSA": "none"
+ },
+ "gsa_ewallet_vault_unseal": {
+  "roles": [
+   {
+    "role": "roles/iam.workloadIdentityUser",
+    "members": [
+     "serviceAccount:ewallet-data-ai-platform-hg26.svc.id.goog[ewallet-vault/vault]"
+    ],
+    "conditional": false
+   }
+  ]
+ },
+ "inherited": "project roles/owner (1 user) and roles/editor (Compute Engine default SA) as corrected in P4-B3 W2; unchanged"
+}

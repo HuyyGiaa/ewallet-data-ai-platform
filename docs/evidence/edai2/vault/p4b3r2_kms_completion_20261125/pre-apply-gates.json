@@ -1,0 +1,46 @@
+{
+ "campaign": "p4b3r2-20261125T111338Z",
+ "verdict": "P4B3R2_PRE_APPLY_PASS",
+ "checks": [
+  {
+   "check": "GIT_INTEGRITY_PASS",
+   "observed": "experiment/edai2-vault-clustersecretstore at d3204975, clean; since the plan commit 4860f0f0 only docs/ changed (infra/, the guard, the preflight and .terraform.lock.hcl identical)"
+  },
+  {
+   "check": "PLAN_SHA256_MATCH",
+   "observed": "p4b3r1.tfplan 54069 bytes, owner huyy-giaa, mode 600 in a 700 directory, sha256 d87d37d4b38fd51a8e3dcd328986975fa00f72b6e7d2fd79cfe9a5de9154cc72 (re-checked again immediately before apply)"
+  },
+  {
+   "check": "PLAN_JSON_INTEGRITY_PASS",
+   "observed": "a fresh terraform show -json of the same binary is byte-identical to the reviewed JSON (sha256 72e65908\u2026e0d0690); no new plan generated"
+  },
+  {
+   "check": "BACKEND_MATCH",
+   "observed": "initialised root infra/terraform/gcp/environments/dev: gcs ewallet-data-ai-platform-hg26-tfstate, prefix terraform/dev; Terraform 1.16.6, hashicorp/google 7.46.1; gcloud project ewallet-data-ai-platform-hg26"
+  },
+  {
+   "check": "WORKSPACE_MATCH",
+   "observed": "default"
+  },
+  {
+   "check": "STATE_GENERATION_MATCH",
+   "observed": "1795603007838257/1 (re-checked again immediately before apply)"
+  },
+  {
+   "check": "NO_CONFLICTING_LOCK",
+   "observed": "only default.tfstate in the prefix; no running GKE operation"
+  },
+  {
+   "check": "SIX_EXISTING_RESOURCES_VERIFIED",
+   "observed": "API enabled; key ring; key ENCRYPT_DECRYPT SOFTWARE no rotation, version 1 ENABLED; GSA enabled, 0 user-managed keys; viewer (GSA only, unconditional); Workload Identity (ewallet-vault/vault only)"
+  },
+  {
+   "check": "MISSING_IAM_GRANT_CONFIRMED",
+   "observed": "key policy held only roles/cloudkms.viewer"
+  },
+  {
+   "check": "COMPLETION_GUARD_PASS",
+   "observed": "VAULT_KMS_COMPLETION_PLAN_GUARD_PASS: 1 create, 6 existing unchanged, only the accepted labels null->{} normalisation, 0 unrelated mutations (completion-guard-result.json)"
+  }
+ ]
+}
