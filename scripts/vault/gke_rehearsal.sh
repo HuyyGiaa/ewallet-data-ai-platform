@@ -5,6 +5,7 @@
 #   REHEARSAL_CONTEXT=<kind-* | the pinned GKE context>  REHEARSAL_ID=vault-rehearsal-<UTC yyyymmddThhmmssZ>
 #   REHEARSAL_DIR=<directory outside the repository>     CHARTS=<directory with the two pinned chart archives>
 #   bash scripts/vault/gke_rehearsal.sh <preflight|vault|init|configure|eso|consumer|negative|lifecycle|cleanup|verify-clean>
+#   bash scripts/vault/gke_rehearsal.sh inspect | gate <retain|after-wake|clean>      (READ-ONLY, §9 of the runbook)
 #
 # Campaign A+ phases (docs/runbooks/edai2/VAULT_GKE_REHEARSAL.md §9), in this order after `consumer`:
 #   feature-api  switch  negative  rollback  lifecycle  retain  [GKE: approved sleep + wake]  after-wake
@@ -27,11 +28,16 @@
 #   deletes the synthetic Vault disks and the ESO CRDs) VAULT_REHEARSAL_CLEANUP_APPROVED=<REHEARSAL_ID>;
 # - secret values are synthetic, live only in REHEARSAL_DIR/private (mode 700, removed by cleanup)
 #   and are never printed: the evidence holds statuses, key names and 12-character hash prefixes.
+# - fail-fast: once a mutating phase has failed or was interrupted, or cleanup has started, every
+#   normal phase refuses; only inspect, cleanup and verify-clean run. `gate` exits 0 only when the
+#   run may go on to the next cloud step (sleep, cleanup verdict, final sleep);
+# - cleanup works from the state of each recorded Vault volume (scripts/vault/rehearsal/volume_states.jq),
+#   including a Retain recovery stopped half-way, and refuses on anything it cannot identify.
 # It never wakes or sleeps the cluster: that is cloud_lab.py, approved separately.
 set -euo pipefail
 case $- in *x*) echo "refusing to run with xtrace: it would print secret values" >&2; exit 2 ;; esac
 
-phase=${1:?phase}
+phase=${1:?phase} arg=${2:-}
 GKE_CONTEXT=gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev
 GKE_KUBECONFIG=$HOME/.cache/ewallet-cloud-lab/kubeconfig
 PROJECT=ewallet-data-ai-platform-hg26
@@ -50,7 +56,9 @@ elif [ "$CTX" = "$GKE_CONTEXT" ]; then
   KIND=
   [ "${KUBECONFIG:-}" = "$GKE_KUBECONFIG" ] || refuse "on GKE, KUBECONFIG must be $GKE_KUBECONFIG"
 else refuse "context $CTX is neither kind-* nor $GKE_CONTEXT"; fi
-case "$phase" in preflight|verify-clean) ;;
+[ -z "${REHEARSAL_FAULT:-}" ] || [ -n "$KIND" ] || refuse "REHEARSAL_FAULT is for kind fault-injection tests only"
+case "$phase" in preflight|verify-clean|inspect) ;;
+  gate) case "$arg" in retain|after-wake|clean) ;; *) refuse "gate needs retain, after-wake or clean" ;; esac ;;
   cleanup) [ -n "$KIND" ] || [ "${VAULT_REHEARSAL_CLEANUP_APPROVED:-}" = "$ID" ] || refuse "cleanup needs VAULT_REHEARSAL_CLEANUP_APPROVED=$ID" ;;
   vault|init|configure|eso|consumer|negative|lifecycle|feature-api|switch|rollback|retain|after-wake)
     [ -n "$KIND" ] || [ "${VAULT_REHEARSAL_APPROVED:-}" = "$ID" ] || refuse "$phase needs VAULT_REHEARSAL_APPROVED=$ID" ;;
@@ -60,7 +68,7 @@ DIR=$(realpath -m "$DIR")                       # resolve first: nothing is crea
 case "$DIR/" in "$root"/*) refuse "REHEARSAL_DIR must be outside the repository" ;; esac
 mkdir -p "$DIR"
 PRIV=$DIR/private
-case "$phase" in preflight|verify-clean) ;; *) mkdir -p -m 700 "$PRIV"; chmod 700 "$PRIV" ;; esac   # synthetic material only
+case "$phase" in preflight|verify-clean|inspect|gate) ;; *) mkdir -p -m 700 "$PRIV"; chmod 700 "$PRIV" ;; esac   # synthetic material only
 EV=$DIR/results.jsonl
 
 k() { kubectl --context "$CTX" "$@"; }
@@ -288,26 +296,54 @@ disk_state() {  # <volume handle projects/P/zones/Z/disks/D>: present | absent |
     esac
   fi
 }
-check_volumes_before_delete() {  # the live PVC -> PV -> disk chain must be exactly the recorded rehearsal one
-  local recorded live
-  recorded=$(jq -c 'sort_by(.claim)' "$DIR/volumes.json") || fail volumes-identity "volumes.json missing or invalid"
-  [ "$(jq 'length' <<<"$recorded")" = 2 ] || fail volumes-identity "expected 2 recorded volumes"
-  live=$(k -n "$VNS" get pvc -o json | jq -c '[.items[] | {claim: .metadata.name, name: .spec.volumeName}] | sort_by(.claim)') \
-    || fail volumes-identity "PVC query failed"
-  [ "$(jq -c '[.[] | {claim, name}]' <<<"$recorded")" = "$live" ] || fail volumes-identity "live PVCs $live differ from the recorded $recorded"
-  for v in $(jq -r '.[].name' <<<"$recorded"); do
-    k get pv "$v" -o json | jq -e --arg ns "$VNS" --argjson r "$(jq -c --arg v "$v" '.[] | select(.name == $v)' <<<"$recorded")" \
-      '(.spec.persistentVolumeReclaimPolicy == "Delete" or .spec.persistentVolumeReclaimPolicy == "Retain")
-       and .spec.claimRef.namespace == $ns and .spec.claimRef.name == $r.claim
-       and (.spec.csi.volumeHandle // null) == $r.disk' >/dev/null || fail volumes-identity "PV $v: claim or disk differs from the record"
-  done
-  if [ -z "$KIND" ]; then
-    for handle in $(jq -r '.[].disk' <<<"$recorded"); do
+check_volumes_before_delete() {  # <allowed states>: identity and state of the recorded volumes; the only gate before a PVC/PV change
+  local st bad
+  st=$(volume_states)
+  [ "$(jq '.problems | length' <<<"$st")" = 0 ] \
+    || fail volumes-identity "$(jq -r '.problems | join("; ")' <<<"$st"); nothing deleted, owner decision (VAULT_GKE_REHEARSAL.md §9)"
+  bad=$(jq -r --arg ok "$1" '[.volumes[] | select(.state | IN($ok | split(" ")[]) | not) | "\(.claim): \(.state)"] | join(", ")' <<<"$st")
+  [ -z "$bad" ] || fail volumes-identity "volume state $bad, expected one of: $1; nothing deleted"
+  if [ -z "$KIND" ]; then   # a disk whose PV still exists must be confirmed; a gone PV's disk is proven absent at the end
+    for handle in $(jq -r '.volumes[] | select(.state != "gone") | .disk' <<<"$st"); do
       [ "$(disk_state "$handle")" = present ] || fail volumes-identity "disk ${handle##*/} not confirmed present before deletion"
     done
   fi
-  record volumes-identity "$(jq -c --argjson rp "$(for v in $(jq -r '.[].name' <<<"$recorded"); do k get pv "$v" -o jsonpath='{.spec.persistentVolumeReclaimPolicy}{"\n"}'; done | jq -Rsc 'split("\n")[:-1]')" \
-    '{result: "PASS", volumes: ., reclaim_policies: $rp, disks: "confirmed present"}' <<<"$recorded")"
+  record volumes-identity "$(jq -c --arg d "$([ -z "$KIND" ] && echo 'confirmed present where the PV exists' || echo 'kind local-path')" \
+    '{result: "PASS", volumes: [.volumes[] | {claim, name, state, reclaim}], disks: $d}' <<<"$st")"
+}
+volume_states() {  # READ-ONLY: the recorded volumes classified by volume_states.jq; fails closed on a missing record or a query error
+  local recorded pvs pvcs
+  recorded=$(jq -ce 'select(type == "array" and length == 2 and all(.[]; (.name | type) == "string" and (.claim | type) == "string" and has("disk")))' \
+    "$DIR/volumes.json" 2>/dev/null) || fail volumes-identity "volumes.json missing or invalid: the rehearsal volumes cannot be identified; nothing deleted"
+  pvs=$(k get pv -o json) || fail volumes-identity "PV query failed; nothing deleted"
+  pvcs=$(k -n "$VNS" get pvc -o json) || fail volumes-identity "PVC query failed; nothing deleted"
+  printf '%s\n%s\n%s\n' "$recorded" "$pvs" "$pvcs" | jq -cs --arg ns "$VNS" '{recorded: .[0], pvs: .[1].items, pvcs: .[2].items, ns: $ns}' \
+    | jq -c -f "$root/scripts/vault/rehearsal/volume_states.jq" || fail volumes-identity "volume classification failed; nothing deleted"
+}
+rebind_volume() {  # <pv> <claim>: the runbook's Recovery of a Released PV (clear claimRef, recreate the PVC with volumeName); resumable
+  local v=$1 claim=$2 pv
+  pv=$(k get pv "$v" -o json) || fail rebind "PV $v unreadable"
+  if [ "$(jq -r .status.phase <<<"$pv")" = Released ]; then
+    k patch pv "$v" --type json -p '[{"op":"remove","path":"/spec/claimRef"}]' >/dev/null
+  fi
+  fault "claimref-removed:$claim"
+  if [ -z "$(k -n "$VNS" get pvc "$claim" -o name --ignore-not-found)" ]; then
+    create <<YAML
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: $claim, namespace: $VNS}
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: $(jq -r .spec.storageClassName <<<"$pv")
+  volumeName: $v
+  resources: {requests: {storage: $(jq -r .spec.capacity.storage <<<"$pv")}}
+YAML
+  fi
+  for _ in $(seq 60); do [ "$(k -n "$VNS" get pvc "$claim" -o jsonpath='{.status.phase}/{.spec.volumeName}')" = "Bound/$v" ] && break; sleep 2; done
+  [ "$(k -n "$VNS" get pvc "$claim" -o jsonpath='{.status.phase}/{.spec.volumeName}')" = "Bound/$v" ] || fail rebind "PVC $claim not bound to $v"
+}
+fault() {  # <point>: kind fault-injection tests stop here (REHEARSAL_FAULT is refused on GKE)
+  [ "${REHEARSAL_FAULT:-}" != "$1" ] || fail fault-injected "stopped at $1 (kind fault-injection test)"
 }
 check_eso_scope() {  # ESO may only be serving the rehearsal: no store or ExternalSecret elsewhere, no inventory drift
   local where objs
@@ -774,9 +810,9 @@ phase_rollback() {  # MUTATING: the official G11 drill (RB 9 rollback, RB 8 agai
 }
 
 phase_retain() {  # MUTATING: Retain, an accidental PVC deletion, and the runbook's Released-PV recovery
-  local kv v claim sc size
+  local kv v claim rv
   open_forward; status_is true false >/dev/null
-  check_volumes_before_delete
+  check_volumes_before_delete bound
   kv=$(vault versions --token-file "$PRIV/operator-token.json" --path feature-api/rehearsal-redis | jq -r .current_version)
   printf '%s\n' "$kv" > "$DIR/kv-version"
   for v in $(jq -r '.[].name' "$DIR/volumes.json"); do
@@ -784,11 +820,15 @@ phase_retain() {  # MUTATING: Retain, an accidental PVC deletion, and the runboo
     [ "$(k get pv "$v" -o jsonpath='{.spec.persistentVolumeReclaimPolicy}')" = Retain ] || fail retain "PV $v not Retain"
   done
   record retain-set "$(jq -cn --arg kv "$kv" '{result: "PASS", reclaim: "Retain", kv_current_version: ($kv | tonumber)}')"
+  fault retain-set
   stop_forward
   k -n "$VNS" scale statefulset vault --replicas=0 >/dev/null
   k -n "$VNS" wait --for=delete pod/vault-0 --timeout=300s >/dev/null 2>&1 || true
   k -n "$VNS" get pod vault-0 >/dev/null 2>&1 && fail retain "vault-0 still running"
-  k -n "$VNS" delete pvc $(jq -r '.[].claim' "$DIR/volumes.json") --wait=true --timeout=300s >/dev/null
+  for claim in $(jq -r '.[].claim' "$DIR/volumes.json" | sort); do   # one by one: the tests stop between the two
+    k -n "$VNS" delete pvc "$claim" --wait=true --timeout=300s >/dev/null
+    fault "pvc-deleted:$claim"
+  done
   for v in $(jq -r '.[].name' "$DIR/volumes.json"); do
     for _ in $(seq 60); do [ "$(k get pv "$v" -o jsonpath='{.status.phase}')" = Released ] && break; sleep 2; done
     [ "$(k get pv "$v" -o jsonpath='{.status.phase}')" = Released ] || fail retain "PV $v not Released after its PVC was deleted"
@@ -800,23 +840,11 @@ phase_retain() {  # MUTATING: Retain, an accidental PVC deletion, and the runboo
   fi
   record pvc-deleted-disk-kept "$(jq -cn --arg d "$([ -z "$KIND" ] && echo 'present (gcloud compute disks describe)' || echo 'kind local-path: not a cloud disk; data proven by the re-bound Vault below')" \
     '{result: "PASS", pv_phase: "Released", disks: $d}')"
+  fault pvcs-released
   # Runbook step 2, *Recovery of a Released PV*: clear the claimRef, recreate the PVC with volumeName.
-  for v in $(jq -r '.[].name' "$DIR/volumes.json"); do
-    claim=$(jq -r --arg v "$v" '.[] | select(.name == $v) | .claim' "$DIR/volumes.json")
-    sc=$(k get pv "$v" -o jsonpath='{.spec.storageClassName}'); size=$(k get pv "$v" -o jsonpath='{.spec.capacity.storage}')
-    k patch pv "$v" --type json -p '[{"op":"remove","path":"/spec/claimRef"}]' >/dev/null
-    create <<YAML
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata: {name: $claim, namespace: $VNS}
-spec:
-  accessModes: [ReadWriteOnce]
-  storageClassName: $sc
-  volumeName: $v
-  resources: {requests: {storage: $size}}
-YAML
-    for _ in $(seq 60); do [ "$(k -n "$VNS" get pvc "$claim" -o jsonpath='{.status.phase}/{.spec.volumeName}')" = "Bound/$v" ] && break; sleep 2; done
-    [ "$(k -n "$VNS" get pvc "$claim" -o jsonpath='{.status.phase}/{.spec.volumeName}')" = "Bound/$v" ] || fail retain "PVC $claim not bound to $v"
+  for claim in $(jq -r '.[].claim' "$DIR/volumes.json" | sort); do
+    rebind_volume "$(jq -r --arg c "$claim" '.[] | select(.claim == $c) | .name' "$DIR/volumes.json")" "$claim"
+    fault "rebound:$claim"
   done
   k -n "$VNS" scale statefulset vault --replicas=1 >/dev/null
   k -n "$VNS" wait --for=condition=Ready pod/vault-0 --timeout=300s >/dev/null || fail retain "vault-0 not back"
@@ -865,7 +893,7 @@ phase_after_wake() {  # MUTATING (unseal, reseed): after the approved GKE sleep 
 }
 
 phase_cleanup() {  # MUTATING, destructive for rehearsal objects only: synthetic Vault data, ESO CRDs, test namespaces
-  local pvs left
+  local pvs left claim st unfinished
   for ns in "$RNS" "$ENS" "$VNS"; do
     if k get ns "$ns" >/dev/null 2>&1 && ! mine "$ns"; then fail ownership "namespace $ns exists without $LABEL=$ID: not this rehearsal's"; fi
   done
@@ -873,15 +901,38 @@ phase_cleanup() {  # MUTATING, destructive for rehearsal objects only: synthetic
     '{result: "PASS", namespaces: "labelled with this rehearsal id or absent", volumes: $v, eso_cluster_objects: ($e.cluster_objects // [])}')"
   # Everything is checked before the first deletion; a resumed cleanup skips what is already gone.
   if h status external-secrets -n "$ENS" >/dev/null 2>&1; then check_eso_scope; fi
-  if k -n "$VNS" get pvc -o name 2>/dev/null | grep -q .; then
-    check_volumes_before_delete
-    # A+ leaves the PVs on Retain. Only the recorded, identity-checked PVs go back to Delete, so deleting
-    # their PVCs deletes the synthetic disks through the provisioner, as in Campaign A. No gcloud delete.
+  if [ -e "$DIR/volumes.json" ]; then
+    # Any point of the Retain drill: both PVCs bound, one or both deleted (PV Released), a claimRef already
+    # cleared (PV Available), one PVC recreated, or a cleanup retried after some volumes are gone.
+    # An Available PV is never reclaimed by the provisioner, so an interrupted recovery is finished first
+    # (the runbook's own steps); a PV object or disk is never deleted directly, and never by a selector.
+    check_volumes_before_delete "bound binding unclaimed released gone"
+    st=$(volume_states)     # an assignment, so a failed query stops here (set -e); never inside a here-string or for list
+    unfinished=$(jq -r '.volumes[] | select(.state == "unclaimed" or .state == "binding") | .claim' <<<"$st")
+    if [ -n "$unfinished" ]; then
+      mine "$VNS" || fail volumes-identity "an interrupted PVC recovery needs $VNS (labelled with this id) to finish; nothing deleted"
+      for claim in $unfinished; do
+        rebind_volume "$(jq -r --arg c "$claim" '.[] | select(.claim == $c) | .name' "$DIR/volumes.json")" "$claim"
+      done
+      record recovery-completed '{"result": "PASS", "detail": "the interrupted Released-PV recovery was finished before cleanup"}'
+      check_volumes_before_delete "bound released gone"
+    fi
+    # A+ leaves the PVs on Retain. Only the recorded, identity-checked PVs that still exist go back to Delete:
+    # a Released one is then deleted with its disk by the provisioner, a Bound one with its PVC below,
+    # as in Campaign A. No gcloud delete.
     for v in $(jq -r '.[].name' "$DIR/volumes.json"); do
+      [ -n "$(k get pv "$v" -o name --ignore-not-found)" ] || continue
       k patch pv "$v" -p '{"spec":{"persistentVolumeReclaimPolicy":"Delete"}}' >/dev/null
-      [ "$(k get pv "$v" -o jsonpath='{.spec.persistentVolumeReclaimPolicy}')" = Delete ] || fail cleanup "PV $v not back to Delete"
+      [ "$(k get pv "$v" -o jsonpath='{.spec.persistentVolumeReclaimPolicy}' --ignore-not-found)" != Retain ] || fail cleanup "PV $v not back to Delete"
     done
-    record reclaim-delete-restored '{"result": "PASS", "scope": "the two recorded rehearsal PVs only"}'
+    record reclaim-delete-restored '{"result": "PASS", "scope": "the recorded rehearsal PVs still present"}'
+    fault cleanup-reclaim-restored
+  else
+    left=$( { k -n "$VNS" get pvc -o json; k get pv -o json; } | jq -rs --arg ns "$VNS" \
+      '[.[0].items[] | "PVC \(.metadata.name)"] + [.[1].items[] | select(.spec.claimRef.namespace == $ns) | "PV \(.metadata.name)"] | join(", ")') \
+      || fail volumes-identity "PVC/PV query failed; nothing deleted"
+    [ -z "$left" ] || fail volumes-identity "no volumes.json, but $VNS has volumes ($left): not identified, nothing deleted"
+    record volumes-identity '{"result": "PASS", "volumes": "none recorded and none in ewallet-vault"}'
   fi
   stop_forward; stop_ffwd
   if mine "$RNS"; then
@@ -909,7 +960,7 @@ phase_cleanup() {  # MUTATING, destructive for rehearsal objects only: synthetic
       for _ in $(seq 24); do [ "$(disk_state "$handle")" = absent ] && break; sleep 5; done
       case "$(disk_state "$handle")" in
         absent) ;;
-        present) fail disks "Persistent Disk ${handle##*/} still present" ;;
+        present) fail disks "Persistent Disk ${handle##*/} still present after its PV was deleted; the script never deletes a disk itself: owner decision (VAULT_GKE_REHEARSAL.md §9)" ;;
         *) fail disks "Persistent Disk ${handle##*/}: state unknown (gcloud query failed); not counted as deleted" ;;
       esac
     done
@@ -936,6 +987,57 @@ phase_verify_clean() {  # READ-ONLY: back to the pre-rehearsal state
     record gke-preflight-after '{"result": "PASS", "verdict": "VAULT_GKE_PREFLIGHT_READY"}'
   fi
   compare_production production-unchanged
+  record clean-verified '{"result": "PASS"}'
 }
 
-"phase_${phase//-/_}"
+# ---- fail-fast: what the run may do next (VAULT_GKE_REHEARSAL.md §9)
+halt_reason() {  # empty while every mutating phase so far passed; else why only inspect, cleanup and verify-clean may run
+  [ -s "$EV" ] || return 0
+  jq -rs '([.[] | select(.result == "FAIL" and (.phase | IN("preflight", "verify-clean", "inspect", "gate") | not)) | "\(.phase) failed at \(.step)"][0])
+    // (if any(.[]; .phase == "cleanup") then "cleanup has started" else null end)
+    // ([.[] | select(.step == "phase-start" or .step == "phase-done")] | last | select(.step == "phase-start") | "\(.phase) was interrupted (no PASS or FAIL)")
+    // empty' "$EV"
+}
+last_done() { [ -s "$EV" ] && jq -rs '[.[] | select(.step == "phase-done") | .phase] | last // ""' "$EV" || true; }
+phase_gate() {  # READ-ONLY: exit 0 only if the run may go on to the next cloud step
+  local why ok= last
+  why=$(halt_reason); last=$(last_done)
+  case "$arg" in
+    retain|after-wake) if [ -z "$why" ] && [ "$last" = "$arg" ]; then ok=1; fi ;;
+    clean) ok=$(jq -rs '([.[] | select(.phase == "cleanup")] | last | select(.step == "cleanup" and .result == "PASS")) as $c
+      | if $c and ([.[] | select(.phase == "verify-clean")] | last | (.step == "clean-verified" and .result == "PASS")) then 1 else empty end' "$EV" 2>/dev/null || true) ;;
+  esac
+  if [ -n "$ok" ]; then record "gate-$arg" '{"result": "PASS"}'; return; fi
+  fail "gate-$arg" "NOT READY for the step after $arg: ${why:-last passed phase is ${last:-none}}; do not continue: run inspect and follow VAULT_GKE_REHEARSAL.md §9 Failure"
+}
+phase_inspect() {  # READ-ONLY: the state after any stop, and the decision it leaves to the owner
+  local ns rel vols disks why next
+  ns=$(for n in "$VNS" "$ENS" "$RNS"; do
+    o=$(k get ns "$n" -o json --ignore-not-found) || fail inspect "namespace query failed"
+    jq -cn --arg n "$n" --arg id "$ID" --argjson o "${o:-null}" '{($n): (if $o == null then "absent" elif $o.metadata.labels["ewallet.io/vault-rehearsal"] == $id then "this rehearsal" else "NOT this rehearsal" end)}'
+  done | jq -cs add)
+  rel=$(h list -A -o json | jq -c --arg v "$VNS" --arg e "$ENS" --arg r "$RNS" '[.[] | select(.namespace | IN($v, $e, $r)) | "\(.namespace)/\(.name) r\(.revision) \(.status)"]') \
+    || fail inspect "helm query failed"
+  vols=null; disks=null
+  if [ -e "$DIR/volumes.json" ]; then
+    vols=$(volume_states)
+    if [ -z "$KIND" ]; then disks=$(for h in $(jq -r '.[].disk' "$DIR/volumes.json"); do jq -cn --arg d "${h##*/}" --arg s "$(disk_state "$h")" '{($d): $s}'; done | jq -cs add); fi
+  fi
+  why=$(halt_reason)
+  if [ -z "$why" ]; then next="no failure: continue with the next step of §9 after its gate (last passed phase: $(last_done))"
+  elif [ "$vols" != null ] && [ "$(jq '.problems | length' <<<"$vols")" != 0 ]; then next="STOPPED; cleanup would refuse: owner decision (§9 Failure, F2: guarded sleep as-is)"
+  else next="STOPPED; owner decision: F1 cleanup (VAULT_REHEARSAL_CLEANUP_APPROVED) then the final guarded sleep, or F2 guarded sleep as-is"; fi
+  record inspect "$(jq -cn --arg why "$why" --arg next "$next" --argjson ns "$ns" --argjson rel "$rel" --argjson vols "$vols" --argjson disks "$disks" \
+    '{result: "PASS", stopped: (if $why == "" then null else $why end), namespaces: $ns, releases: $rel, volumes: $vols, disks: $disks, next: $next}')"
+}
+
+case "$phase" in
+  vault|init|configure|eso|consumer|negative|lifecycle|feature-api|switch|rollback|retain|after-wake)
+    why=$(halt_reason)
+    [ -z "$why" ] || refuse "this run has stopped ($why): only inspect, cleanup and verify-clean may run (VAULT_GKE_REHEARSAL.md §9 Failure)"
+    record phase-start '{"result": "STARTED"}'
+    "phase_${phase//-/_}"
+    record phase-done '{"result": "PASS"}' ;;
+  cleanup) record phase-start '{"result": "STARTED"}'; phase_cleanup ;;
+  *) "phase_${phase//-/_}" ;;
+esac

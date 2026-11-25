@@ -149,7 +149,8 @@ The complete procedure ran on kind before any GKE use:
 ## 9. Campaign A+: the Feature API release, storage and wake
 
 **Status: KIND PASS ([`rehearsal_aplus_kind_20261124T191350Z`](../../evidence/edai2/vault/rehearsal_aplus_kind_20261124T191350Z/README.md),
-67 steps); not run on GKE.** A GKE run needs the owner's approval for one new rehearsal ID.
+67 steps; fail-fast and interrupted-recovery cleanup KIND PASS in
+[`rehearsal_aplus_faults_kind_20261125`](../../evidence/edai2/vault/rehearsal_aplus_faults_kind_20261125/README.md)); not run on GKE.** A GKE run needs the owner's approval for one new rehearsal ID.
 
 ### Why
 
@@ -184,53 +185,147 @@ features, readiness 200) passes. A 424, 5xx, timeout or no response stops the ru
 | `retain` | G2's `Retain`, RB *Recovery* | both PVs `Retain`; PVCs deleted → PVs `Released`, disks present; claimRef cleared, PVCs recreated with `volumeName` → Vault initialised and sealed, unsealed, KV version and operator token intact, ESO re-syncs, lookup OK |
 | GKE only: sleep and wake | G12 and the next G1 | the cloud-lab commands below |
 | `after-wake` | RB 12 | Vault initialised (data survived), unsealed, KV version equal, PVs `Bound/Retain`, ESO new reconciliation, Redis seeded again, lookup OK, production unchanged |
-| `cleanup`, `verify-clean` | — | as R9, plus: the two recorded PVs (identity-checked) go back to `Delete` first, so the provisioner deletes their disks as in Campaign A; no `gcloud compute disks delete` |
+| `cleanup`, `verify-clean` | — | as R9, plus: cleanup works from the state of each recorded volume (table below) and returns the PVs that still exist to `Delete` first, so the provisioner deletes their disks as in Campaign A; no `gcloud compute disks delete`, no PV deletion |
 
 ### GKE run (pending owner approval)
 
+Fail-fast, enforced in two places:
+
+- **The script.** Once a mutating phase has failed or was interrupted (a `phase-start` with no
+  `phase-done`), or cleanup has started, every normal phase refuses. Only `inspect`, `cleanup` and
+  `verify-clean` still run. A failed read-only `preflight` does not stop the run: its rerun after a
+  wake is expected.
+- **The blocks below.** Each one is a single paste in a subshell with `set -euo pipefail`. It stops
+  at its first failure and ends with `BLOCK n PASS`. The next block starts with a `gate`
+  (read-only), which exits 0 only when the previous step passed.
+
+A+ passes on GKE only when blocks 1–6 all print their PASS line.
+
 ```bash
+# 0. Session (READ-ONLY): variables and the guarded-sleep helper used by blocks 3 and 6 and by F2
 ID=vault-rehearsal-$(date -u +%Y%m%dT%H%M%SZ)
 export KUBECONFIG=~/.cache/ewallet-cloud-lab/kubeconfig CTX=gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev
 export REHEARSAL_CONTEXT=$CTX REHEARSAL_ID=$ID REHEARSAL_DIR=~/ewallet-evidence/vault/$ID CHARTS=~/ewallet-evidence/vault/charts
-R="bash scripts/vault/gke_rehearsal.sh"; A="VAULT_REHEARSAL_APPROVED=$ID"
-MANIFEST=<the newest ~/ewallet-evidence/**/recovery-manifest>          # today: vault-rehearsal-20261124T173156Z/recovery-manifest
-# 1. [OWNER: wake] then READ-ONLY
-CLOUD_LAB_APPROVED=yes python3 ops/gcp/cloud_lab.py wake-full --manifest $MANIFEST --nodes 5 --confirm-cluster ewallet-dev --execute
-python3 ops/gcp/cloud_lab.py verify --expect awake --manifest $MANIFEST
-$R preflight                       # rerun until cert-manager is available (≈3 min after the wake)
+export R="bash scripts/vault/gke_rehearsal.sh" SLEEPM=docs/evidence/edai2/cloud_lab/sleep_20261106T163042Z
+export MANIFEST=~/ewallet-evidence/vault/vault-rehearsal-20261124T173156Z/recovery-manifest   # the newest recovery-manifest
+export ALSO='["ewallet-mcp/feature-rag-mcp"]'      # exactly the --also-approve targets the owner approved for $ID
+guarded_sleep() (  # <new manifest dir>: record the manifest, refuse on any unapproved target, sleep, verify
+  set -euo pipefail
+  python3 ops/gcp/cloud_lab.py record-manifest --campaign "$ID" --out "$1"
+  python3 ops/gcp/cloud_lab.py plan-sleep --manifest "$SLEEPM" > "$1-plan-sleep.json"
+  jq -e --argjson ok "$ALSO" '.verdict != "UNSAFE_TO_SLEEP" and ((.guarded_preparation.not_covered // []) - $ok) == []' \
+    "$1-plan-sleep.json" >/dev/null || { echo "SLEEP NOT STARTED: see $1-plan-sleep.json (unsafe, or a target not approved)"; exit 1; }
+  CLOUD_LAB_APPROVED=yes CLOUD_LAB_GUARDED_SLEEP_APPROVAL=ewallet-dev:$ID CLOUD_LAB_KEDA_PAUSE_APPROVAL=ewallet-dev:$ID \
+    python3 ops/gcp/cloud_lab.py sleep --scale-pdb-guarded --pause-keda --manifest "$SLEEPM" --campaign "$ID" \
+    $(jq -r '.[] | "--also-approve " + .' <<<"$ALSO") --execute --confirm-cluster ewallet-dev
+  python3 ops/gcp/cloud_lab.py verify --expect sleep --manifest "$1" | tee "$1-verify-sleep.json"
+)
+
+# 1. [OWNER: first wake for $ID] then READ-ONLY checks; preflight is retried while cert-manager starts (≈3 min)
+( set -euo pipefail
+  CLOUD_LAB_APPROVED=yes python3 ops/gcp/cloud_lab.py wake-full --manifest "$MANIFEST" --nodes 5 --confirm-cluster ewallet-dev --execute
+  python3 ops/gcp/cloud_lab.py verify --expect awake --manifest "$MANIFEST"
+  for i in $(seq 10); do if $R preflight; then break; fi; [ "$i" -lt 10 ] || exit 1; sleep 60; done
+  echo "BLOCK 1 PASS" )
 export FEATURE_IMAGE=$(helm --kube-context $CTX get values ewallet-serving -n ml-platform -o json | jq -r .featureApi.image)   # READ-ONLY
-# 2. [OWNER: R3-R8 and A+ for $ID]
-for p in vault init configure eso consumer feature-api switch negative rollback lifecycle retain; do env $A $R $p || break; done
-# 3. [OWNER: guarded sleep, KEDA pause and each --also-approve target for $ID] sleep WITH Vault installed
-python3 ops/gcp/cloud_lab.py record-manifest --campaign $ID --out $REHEARSAL_DIR/recovery-manifest-mid
-python3 ops/gcp/cloud_lab.py plan-sleep --manifest docs/evidence/edai2/cloud_lab/sleep_20261106T163042Z   # stop on any new not_covered target
-CLOUD_LAB_APPROVED=yes CLOUD_LAB_GUARDED_SLEEP_APPROVAL=ewallet-dev:$ID CLOUD_LAB_KEDA_PAUSE_APPROVAL=ewallet-dev:$ID \
-  python3 ops/gcp/cloud_lab.py sleep --scale-pdb-guarded --pause-keda --manifest docs/evidence/edai2/cloud_lab/sleep_20261106T163042Z \
-  --campaign $ID --also-approve <each approved target> --execute --confirm-cluster ewallet-dev
-python3 ops/gcp/cloud_lab.py verify --expect sleep --manifest $REHEARSAL_DIR/recovery-manifest-mid
-# 4. [OWNER: wake] the same Vault comes back on the retained disks
-CLOUD_LAB_APPROVED=yes python3 ops/gcp/cloud_lab.py wake-full --manifest $REHEARSAL_DIR/recovery-manifest-mid --nodes 5 --confirm-cluster ewallet-dev --execute
-python3 ops/gcp/cloud_lab.py verify --expect awake --manifest $REHEARSAL_DIR/recovery-manifest-mid
-env $A $R after-wake
-# 5. [OWNER: cleanup for $ID] then READ-ONLY
-VAULT_REHEARSAL_CLEANUP_APPROVED=$ID $R cleanup && $R verify-clean
-# 6. [OWNER: second guarded sleep] a FRESH manifest without the rehearsal workloads, then step 3's sleep and verify
-python3 ops/gcp/cloud_lab.py record-manifest --campaign $ID --out $REHEARSAL_DIR/recovery-manifest
+
+# 2. [OWNER: R3–R8 and the A+ phases for $ID] the first failure ends the block; the script refuses the rest
+( set -euo pipefail
+  [[ $FEATURE_IMAGE =~ @sha256:[0-9a-f]{64}$ ]] || { echo "FEATURE_IMAGE is not pinned by digest: nothing started"; exit 1; }
+  for p in vault init configure eso consumer feature-api switch negative rollback lifecycle retain; do
+    VAULT_REHEARSAL_APPROVED=$ID $R "$p"
+  done
+  $R gate retain
+  echo "BLOCK 2 PASS" )
+
+# 3. [OWNER: guarded sleep, KEDA pause and the $ALSO targets for $ID] the first sleep, WITH Vault installed
+( set -euo pipefail; $R gate retain; guarded_sleep "$REHEARSAL_DIR/recovery-manifest-mid"; echo "BLOCK 3 PASS" )
+
+# 4. [OWNER: second wake for $ID] the same Vault comes back on the retained disks
+( set -euo pipefail
+  $R gate retain
+  CLOUD_LAB_APPROVED=yes python3 ops/gcp/cloud_lab.py wake-full --manifest "$REHEARSAL_DIR/recovery-manifest-mid" --nodes 5 --confirm-cluster ewallet-dev --execute
+  python3 ops/gcp/cloud_lab.py verify --expect awake --manifest "$REHEARSAL_DIR/recovery-manifest-mid"
+  VAULT_REHEARSAL_APPROVED=$ID $R after-wake
+  $R gate after-wake
+  echo "BLOCK 4 PASS: every A+ phase passed" )
+
+# 5. [OWNER: cleanup for $ID] then READ-ONLY verification
+( set -euo pipefail; VAULT_REHEARSAL_CLEANUP_APPROVED=$ID $R cleanup; $R verify-clean; $R gate clean; echo "BLOCK 5 PASS" )
+
+# 6. [OWNER: second guarded sleep for $ID] a FRESH manifest without the rehearsal workloads; Campaign B's G1 wakes from it
+( set -euo pipefail; $R gate clean; guarded_sleep "$REHEARSAL_DIR/recovery-manifest"; echo "BLOCK 6 PASS: asleep" )
 ```
 
-- **Approvals for one ID:** the first wake; R3–R8 and the A+ phases; the first guarded sleep with
-  its KEDA pause and each `--also-approve` target (so far `ewallet-mcp/feature-rag-mcp`; Campaign A's
-  approval does not carry over); the second wake; cleanup (it deletes the two synthetic disks and
-  ESO's CRDs); the second guarded sleep.
+- **Approvals for one ID:**
+  - the first wake (block 1);
+  - R3–R8 and the A+ phases (block 2);
+  - the first guarded sleep, with its KEDA pause and each target in `$ALSO` (block 3). So far that is
+    `ewallet-mcp/feature-rag-mcp`; Campaign A's approval does not carry over. `guarded_sleep` refuses
+    any `not_covered` target outside `$ALSO`, so a new target needs a new approval;
+  - the second wake (block 4);
+  - cleanup (block 5): it deletes the two synthetic disks and ESO's CRDs;
+  - the second guarded sleep (block 6).
 - **Keep `$REHEARSAL_DIR/private` across the sleep:** it holds the synthetic unseal shares that
   `after-wake` needs. Cleanup removes it.
 - **The mid-campaign manifest includes the rehearsal workloads** (Vault, ESO, `rehearsal-serving`,
-  Redis), so the second wake restores them. The final manifest (step 6) is recorded after cleanup;
+  Redis), so the second wake restores them. The final manifest (block 6) is recorded after cleanup;
   Campaign B's G1 uses that one.
-- **Early stop at any point:** stop, keep the evidence, report the state (namespaces, releases,
-  PVCs, PVs and disks, awake or asleep), and ask for cleanup. With the PVs on `Retain`, a deleted
-  PVC or namespace leaves its disk: cleanup must run (it returns the recorded PVs to `Delete` first),
-  never a namespace deletion by hand.
+
+### Failure: a block that does not print its PASS line
+
+1. **Stop.** Do not paste the next block. Its gate refuses anyway, and the script refuses every
+   normal phase once one has failed or was interrupted. Never re-run a failed mutating phase. Never
+   delete a namespace, PV or disk by hand.
+2. **Read-only report:** run `$R inspect; tail -n 5 "$REHEARSAL_DIR/results.jsonl"; python3 ops/gcp/cloud_lab.py status`.
+   `inspect` records:
+   - why the run stopped;
+   - the three namespaces (absent, this rehearsal's, or not);
+   - the rehearsal's Helm releases;
+   - the state of each recorded Vault volume, with any problem;
+   - on GKE, each recorded disk (present, absent or unknown);
+   - the decision left to the owner.
+3. **The owner decides one of the following before anything else runs.** The cluster is never left
+   awake without one of them.
+
+| | When | Commands |
+|---|---|---|
+| **F1** cleanup, then the final sleep | Vault was installed, and `inspect` shows no volume problem | [OWNER: cleanup for `$ID`] block 5, then [OWNER: second guarded sleep] block 6 |
+| **F2** guarded sleep as it is | the failure came before `vault` (nothing installed); cleanup refused; or the owner decides later | [OWNER: guarded sleep for `$ID`] `( set -euo pipefail; guarded_sleep "$REHEARSAL_DIR/recovery-manifest-stopped" )`. Later: wake from that manifest, then F1. The `Retain` PVs keep the disks; a few cents a day |
+| sleep blocked | `guarded_sleep` printed `SLEEP NOT STARTED`, or `cloud_lab.py sleep` printed `SLEEP_BLOCKED` | report the plan or the refusal; never add a flag or a target without approval. Then re-run the same block with the owner's new approval, or F1 |
+
+**Cleanup is resumable.** It starts from the actual state of each recorded volume:
+
+- after a transient error (an API timeout), the same command can run again once the owner has seen
+  the reason;
+- when it refuses with "nothing deleted, owner decision", it is not retried: F2, and the cause is
+  investigated.
+
+| Volume state (`volume_states.jq`) | Left by | What cleanup does |
+|---|---|---|
+| `bound` | before the PVC deletion, or after the recovery | PV back to `Delete`, then the PVC is deleted with the release; the provisioner deletes the disk |
+| `released` | a PVC deleted, recovery not reached | PV back to `Delete`: the provisioner deletes the PV and its disk |
+| `unclaimed` (PV `Available`, claimRef cleared) | stopped between the claimRef removal and the new PVC | finishes the runbook recovery first (PVC with `volumeName`, needs `ewallet-vault` labelled with this ID), then as `bound`. An `Available` PV is never reclaimed, and the script never deletes a PV object |
+| `binding` (PVC recreated, not yet Bound) | stopped while binding | waits for the bind, then as `bound`; refuses if it does not bind |
+| `gone` | a cleanup retried after the volume was deleted | nothing; its disk must still be proven absent |
+| anything else: a disk or claim that differs from the record, an unrecorded PV or PVC in `ewallet-vault`, a `Failed` or `Lost` volume, a missing `volumes.json` while volumes exist, a disk that cannot be read | — | refuses before the first deletion |
+
+Every cleanup ends with each recorded disk proven absent: an HTTP 404 that names that exact disk.
+A disk that is still present after its PV is gone (for example, a `Retain` PV deleted by hand)
+fails cleanup. The script never deletes a disk itself; the owner decides.
+
+**Fault-injection tests (kind only).** `REHEARSAL_FAULT=<point>` stops `retain` (or `cleanup`) at
+a named point, and the script refuses it on GKE. The points are:
+
+- `retain-set`;
+- `pvc-deleted:audit-vault-0`;
+- `pvcs-released`;
+- `claimref-removed:audit-vault-0`;
+- `rebound:audit-vault-0`;
+- `rebound:data-vault-0`;
+- `cleanup-reclaim-restored`.
+
+`tests/ops/test_vault_rehearsal.py` covers every state in the table against the real script.
 
 ### Resources and cost
 

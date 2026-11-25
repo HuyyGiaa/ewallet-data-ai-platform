@@ -14,7 +14,7 @@ synthetic, removed afterwards) runs first. It ran on 2026-11-24 and passed
 ([report](../../evidence/edai2/vault/gke_rehearsal_vault-rehearsal-20261124T173156Z/README.md)); its corrections are applied here.
 Campaign A+ ([§9](VAULT_GKE_REHEARSAL.md#9-campaign-a-the-feature-api-release-storage-and-wake)) adds the real Feature API on an
 ESO Secret through the exact G8/G11 Helm commands, the `Retain` drill and a sleep/wake with Vault installed:
-KIND PASS, GKE pending approval. This official campaign (Campaign B) starts after the owner has reviewed
+KIND PASS (with fail-fast gates and cleanup from any point of the `Retain` drill), GKE pending approval. This official campaign (Campaign B) starts after the owner has reviewed
 the rehearsal reports.
 
 ## 1. Baseline (2026-11-24)

@@ -375,6 +375,9 @@ release in the rehearsal namespace, switched to the ESO Secret with the official
 and switched again, plus the PV `Retain` drill (a deleted PVC recovered from its `Released` PV) and a
 restart standing in for a wake. On kind every lookup returned HTTP 200 with all 31 features
 ([`rehearsal_aplus_kind_20261124T191350Z`](../../evidence/edai2/vault/rehearsal_aplus_kind_20261124T191350Z/README.md)).
+The driver stops a run at its first failure, and its cleanup finishes from any point of the `Retain`
+drill. Five interrupted runs were cleaned up on kind
+([`rehearsal_aplus_faults_kind_20261125`](../../evidence/edai2/vault/rehearsal_aplus_faults_kind_20261125/README.md)).
 The GKE run, with a real guarded sleep and wake, awaits the owner's approval
 ([runbook §9](../../runbooks/edai2/VAULT_GKE_REHEARSAL.md#9-campaign-a-the-feature-api-release-storage-and-wake)).
 

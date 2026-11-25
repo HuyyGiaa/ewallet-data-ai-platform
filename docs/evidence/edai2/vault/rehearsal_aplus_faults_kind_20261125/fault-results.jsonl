@@ -1,0 +1,262 @@
+{"phase":"preflight","step":"chart-digests","result":"PASS","charts":["vault-0.34.1","external-secrets-2.14.0"]}
+{"phase":"preflight","step":"cluster","result":"PASS","context":"kind-llm-agent-local","nodes":1,"cert_manager":"available"}
+{"phase":"preflight","step":"no-collisions","result":"PASS","namespaces":[],"eso_crds":0,"releases":[],"chart_cluster_objects":[],"vault_volumes":[]}
+{"phase":"preflight","step":"baseline","result":"RECORDED","releases":7,"loadbalancers":[],"feature_api":null,"edge_gateway_service_type":""}
+{"phase":"vault","step":"phase-start","result":"STARTED"}
+{"phase":"vault","step":"certificates","result":"PASS","chain":"vault-server-tls <- vault-ca","sans":["DNS:vault","DNS:vault.ewallet-vault","DNS:vault.ewallet-vault.svc","DNS:vault.ewallet-vault.svc.cluster.local","DNS:vault-0.vault-internal","DNS:vault-0.vault-internal.ewallet-vault.svc.cluster.local","DNS:localhost","IPAddress:127.0.0.1"]}
+{"phase":"vault","step":"vault-runtime","result":"PASS","image":"hashicorp/vault 2.0.4 (pinned digest)","pvcs":[{"name":"audit-vault-0","phase":"Bound","storage_class":"standard","size":"1Gi","volume":"pvc-15b957b1-36b5-4c73-b0be-df86cd171d8d"},{"name":"data-vault-0","phase":"Bound","storage_class":"standard","size":"5Gi","volume":"pvc-b29dff54-5baf-4f93-9b48-bb17ca770d5a"}],"volumes":[{"name":"pvc-15b957b1-36b5-4c73-b0be-df86cd171d8d","reclaim":"Delete","disk":null,"claim":"audit-vault-0"},{"name":"pvc-b29dff54-5baf-4f93-9b48-bb17ca770d5a","reclaim":"Delete","disk":null,"claim":"data-vault-0"}],"pdbs":0,"services":[{"name":"vault","type":"ClusterIP"},{"name":"vault-active","type":"ClusterIP"},{"name":"vault-internal","type":"ClusterIP"},{"name":"vault-standby","type":"ClusterIP"}]}
+{"phase":"vault","step":"vault-uninitialised","initialized":false,"sealed":true,"t":0,"n":0,"version":"2.0.4"}
+{"phase":"vault","step":"vault-tls","https_status":200,"ssl_verify_result":0}
+{"phase":"vault","step":"phase-done","result":"PASS"}
+{"phase":"init","step":"phase-start","result":"STARTED"}
+{"phase":"init","step":"vault-init","initialized":true,"shares":3,"threshold":2}
+{"phase":"init","step":"pod-ready-while-sealed","pod_ready":"True","initialized":true,"sealed":true,"note":"Pod Ready does not mean unsealed"}
+{"phase":"init","step":"vault-unsealed","initialized":true,"sealed":false,"t":2,"n":3,"version":"2.0.4"}
+{"phase":"init","step":"phase-done","result":"PASS"}
+{"phase":"configure","step":"phase-start","result":"STARTED"}
+{"phase":"configure","step":"configure-official","applied":["audit","kv","kubernetes-auth","eso-ewallet-agents","eso-ml-platform","feature-api","fraud-api","root-generation","secret-operator","eso-ewallet-agents","eso-ml-platform","feature-api","fraud-api","vault-admin"]}
+{"phase":"configure","step":"configure-rehearsal","applied":["audit","kv","kubernetes-auth","eso-vault-rehearsal","eso-vault-rehearsal"]}
+{"phase":"configure","step":"describe","result":"PASS","engines":{"agent-registry/":{"type":"agent_registry","version":null},"ewallet/":{"type":"kv","version":"2"}},"auth":{"kubernetes/":"kubernetes","token/":"token"},"audit":{"file/":"file"},"roles":["eso-ewallet-agents","eso-ml-platform","eso-vault-rehearsal","feature-api","fraud-api","vault-admin"],"policies":["default-ceiling","eso-ewallet-agents","eso-ml-platform","eso-vault-rehearsal","feature-api","fraud-api","root-generation","secret-operator"]}
+{"phase":"configure","step":"operator-token","operator_token_created":true,"policies":["secret-operator"],"ttl":"720h","orphan":true}
+{"phase":"configure","step":"retire-root","root_token_revoked":true}
+{"phase":"configure","step":"root-rejected","result":"denied","http_status":403,"probe":"configure"}
+{"phase":"configure","step":"operator-cannot-administer","result":"denied","http_status":403,"attempt":"delete auth role"}
+{"phase":"configure","step":"tls-wrong-ca-rejected","result":"denied"}
+{"phase":"configure","step":"phase-done","result":"PASS"}
+{"phase":"eso","step":"phase-start","result":"STARTED"}
+{"phase":"eso","step":"eso-runtime","result":"PASS","deployments":[{"name":"external-secrets","available":1},{"name":"external-secrets-cert-controller","available":1},{"name":"external-secrets-webhook","available":1}],"crds":25,"cluster_objects":["ClusterRole/external-secrets-cert-controller","ClusterRole/external-secrets-controller","ClusterRole/external-secrets-edit","ClusterRole/external-secrets-servicebindings","ClusterRole/external-secrets-view","ClusterRoleBinding/external-secrets-cert-controller","ClusterRoleBinding/external-secrets-controller","ValidatingWebhookConfiguration/externalsecret-validate","ValidatingWebhookConfiguration/secretstore-validate"],"cluster_scoped_stores":0}
+{"phase":"eso","step":"phase-done","result":"PASS"}
+{"phase":"consumer","step":"phase-start","result":"STARTED"}
+{"phase":"consumer","step":"seed","path":"feature-api/rehearsal-redis","version":1}
+{"phase":"consumer","step":"secret-synced","result":"PASS","store":"Valid","externalsecret":"True SecretSynced","owner":"ExternalSecret/feature-api-redis-vault","keys":["connection_string"],"value":"equal to Vault v1 (hash prefix)"}
+{"phase":"consumer","step":"consumer","result":"PASS","check":"redis-cli PING + SET/GET round trip with the ESO-managed connection_string"}
+{"phase":"consumer","step":"phase-done","result":"PASS"}
+{"phase":"retain","step":"phase-start","result":"STARTED"}
+{"phase":"retain","step":"volumes-identity","result":"PASS","volumes":[{"claim":"audit-vault-0","name":"pvc-15b957b1-36b5-4c73-b0be-df86cd171d8d","state":"bound","reclaim":"Delete"},{"claim":"data-vault-0","name":"pvc-b29dff54-5baf-4f93-9b48-bb17ca770d5a","state":"bound","reclaim":"Delete"}],"disks":"kind local-path"}
+{"phase":"retain","step":"retain-set","result":"PASS","reclaim":"Retain","kv_current_version":1}
+{"phase":"retain","step":"fault-injected","result":"FAIL","detail":"stopped at retain-set (kind fault-injection test)"}
+{"phase":"gate","step":"gate-retain","result":"FAIL","detail":"NOT READY for the step after retain: retain failed at fault-injected; do not continue: run inspect and follow VAULT_GKE_REHEARSAL.md §9 Failure"}
+{"phase":"inspect","step":"inspect","result":"PASS","stopped":"retain failed at fault-injected","namespaces":{"ewallet-vault":"this rehearsal","external-secrets":"this rehearsal","vault-rehearsal":"this rehearsal"},"releases":["external-secrets/external-secrets r1 deployed","ewallet-vault/vault r1 deployed"],"volumes":{"volumes":[{"claim":"audit-vault-0","name":"pvc-15b957b1-36b5-4c73-b0be-df86cd171d8d","disk":null,"reclaim":"Retain","state":"bound"},{"claim":"data-vault-0","name":"pvc-b29dff54-5baf-4f93-9b48-bb17ca770d5a","disk":null,"reclaim":"Retain","state":"bound"}],"problems":[]},"disks":null,"next":"STOPPED; owner decision: F1 cleanup (VAULT_REHEARSAL_CLEANUP_APPROVED) then the final guarded sleep, or F2 guarded sleep as-is"}
+{"phase":"cleanup","step":"phase-start","result":"STARTED"}
+{"phase":"cleanup","step":"ownership","result":"PASS","namespaces":"labelled with this rehearsal id or absent","volumes":[{"name":"pvc-15b957b1-36b5-4c73-b0be-df86cd171d8d","reclaim":"Delete","disk":null,"claim":"audit-vault-0"},{"name":"pvc-b29dff54-5baf-4f93-9b48-bb17ca770d5a","reclaim":"Delete","disk":null,"claim":"data-vault-0"}],"eso_cluster_objects":["ClusterRole/external-secrets-cert-controller","ClusterRole/external-secrets-controller","ClusterRole/external-secrets-edit","ClusterRole/external-secrets-servicebindings","ClusterRole/external-secrets-view","ClusterRoleBinding/external-secrets-cert-controller","ClusterRoleBinding/external-secrets-controller","ValidatingWebhookConfiguration/externalsecret-validate","ValidatingWebhookConfiguration/secretstore-validate"]}
+{"phase":"cleanup","step":"eso-scope","result":"PASS","externalsecrets_and_stores":"only in vault-rehearsal","cluster_objects":"as recorded"}
+{"phase":"cleanup","step":"volumes-identity","result":"PASS","volumes":[{"claim":"audit-vault-0","name":"pvc-15b957b1-36b5-4c73-b0be-df86cd171d8d","state":"bound","reclaim":"Retain"},{"claim":"data-vault-0","name":"pvc-b29dff54-5baf-4f93-9b48-bb17ca770d5a","state":"bound","reclaim":"Retain"}],"disks":"kind local-path"}
+{"phase":"cleanup","step":"reclaim-delete-restored","result":"PASS","scope":"the recorded rehearsal PVs still present"}
+{"phase":"cleanup","step":"cleanup","result":"PASS","namespaces_deleted":["vault-rehearsal","external-secrets","ewallet-vault"],"releases_uninstalled":["rehearsal-serving","external-secrets","vault"],"vault_volumes":"deleted","disks":"kind local-path: removed","synthetic_private_material":"removed"}
+{"phase":"verify-clean","step":"nothing-left","result":"PASS","namespaces":[],"eso_crds":0,"releases":[],"chart_cluster_objects":[],"vault_volumes":[]}
+{"phase":"verify-clean","step":"local-state-clean","result":"PASS","synthetic_private_material":"absent","port_forwards":"none"}
+{"phase":"verify-clean","step":"production-unchanged","result":"PASS","compared":["helm releases and revisions","feast-online-redis resourceVersion","feature-api image and Secret","LoadBalancer Services","edge gateway Service type"]}
+{"phase":"verify-clean","step":"clean-verified","result":"PASS"}
+{"phase":"gate","step":"gate-clean","result":"PASS"}
+{"phase":"preflight","step":"chart-digests","result":"PASS","charts":["vault-0.34.1","external-secrets-2.14.0"]}
+{"phase":"preflight","step":"cluster","result":"PASS","context":"kind-llm-agent-local","nodes":1,"cert_manager":"available"}
+{"phase":"preflight","step":"no-collisions","result":"PASS","namespaces":[],"eso_crds":0,"releases":[],"chart_cluster_objects":[],"vault_volumes":[]}
+{"phase":"preflight","step":"baseline","result":"RECORDED","releases":7,"loadbalancers":[],"feature_api":null,"edge_gateway_service_type":""}
+{"phase":"vault","step":"phase-start","result":"STARTED"}
+{"phase":"vault","step":"certificates","result":"PASS","chain":"vault-server-tls <- vault-ca","sans":["DNS:vault","DNS:vault.ewallet-vault","DNS:vault.ewallet-vault.svc","DNS:vault.ewallet-vault.svc.cluster.local","DNS:vault-0.vault-internal","DNS:vault-0.vault-internal.ewallet-vault.svc.cluster.local","DNS:localhost","IPAddress:127.0.0.1"]}
+{"phase":"vault","step":"vault-runtime","result":"PASS","image":"hashicorp/vault 2.0.4 (pinned digest)","pvcs":[{"name":"audit-vault-0","phase":"Bound","storage_class":"standard","size":"1Gi","volume":"pvc-6f245e6b-1167-458c-a9c7-a367cc5467ff"},{"name":"data-vault-0","phase":"Bound","storage_class":"standard","size":"5Gi","volume":"pvc-1fe30704-3c4b-4fff-96e8-595905bb5610"}],"volumes":[{"name":"pvc-6f245e6b-1167-458c-a9c7-a367cc5467ff","reclaim":"Delete","disk":null,"claim":"audit-vault-0"},{"name":"pvc-1fe30704-3c4b-4fff-96e8-595905bb5610","reclaim":"Delete","disk":null,"claim":"data-vault-0"}],"pdbs":0,"services":[{"name":"vault","type":"ClusterIP"},{"name":"vault-active","type":"ClusterIP"},{"name":"vault-internal","type":"ClusterIP"},{"name":"vault-standby","type":"ClusterIP"}]}
+{"phase":"vault","step":"vault-uninitialised","initialized":false,"sealed":true,"t":0,"n":0,"version":"2.0.4"}
+{"phase":"vault","step":"vault-tls","https_status":200,"ssl_verify_result":0}
+{"phase":"vault","step":"phase-done","result":"PASS"}
+{"phase":"init","step":"phase-start","result":"STARTED"}
+{"phase":"init","step":"vault-init","initialized":true,"shares":3,"threshold":2}
+{"phase":"init","step":"pod-ready-while-sealed","pod_ready":"True","initialized":true,"sealed":true,"note":"Pod Ready does not mean unsealed"}
+{"phase":"init","step":"vault-unsealed","initialized":true,"sealed":false,"t":2,"n":3,"version":"2.0.4"}
+{"phase":"init","step":"phase-done","result":"PASS"}
+{"phase":"configure","step":"phase-start","result":"STARTED"}
+{"phase":"configure","step":"configure-official","applied":["audit","kv","kubernetes-auth","eso-ewallet-agents","eso-ml-platform","feature-api","fraud-api","root-generation","secret-operator","eso-ewallet-agents","eso-ml-platform","feature-api","fraud-api","vault-admin"]}
+{"phase":"configure","step":"configure-rehearsal","applied":["audit","kv","kubernetes-auth","eso-vault-rehearsal","eso-vault-rehearsal"]}
+{"phase":"configure","step":"describe","result":"PASS","engines":{"agent-registry/":{"type":"agent_registry","version":null},"ewallet/":{"type":"kv","version":"2"}},"auth":{"kubernetes/":"kubernetes","token/":"token"},"audit":{"file/":"file"},"roles":["eso-ewallet-agents","eso-ml-platform","eso-vault-rehearsal","feature-api","fraud-api","vault-admin"],"policies":["default-ceiling","eso-ewallet-agents","eso-ml-platform","eso-vault-rehearsal","feature-api","fraud-api","root-generation","secret-operator"]}
+{"phase":"configure","step":"operator-token","operator_token_created":true,"policies":["secret-operator"],"ttl":"720h","orphan":true}
+{"phase":"configure","step":"retire-root","root_token_revoked":true}
+{"phase":"configure","step":"root-rejected","result":"denied","http_status":403,"probe":"configure"}
+{"phase":"configure","step":"operator-cannot-administer","result":"denied","http_status":403,"attempt":"delete auth role"}
+{"phase":"configure","step":"tls-wrong-ca-rejected","result":"denied"}
+{"phase":"configure","step":"phase-done","result":"PASS"}
+{"phase":"eso","step":"phase-start","result":"STARTED"}
+{"phase":"eso","step":"eso-runtime","result":"PASS","deployments":[{"name":"external-secrets","available":1},{"name":"external-secrets-cert-controller","available":1},{"name":"external-secrets-webhook","available":1}],"crds":25,"cluster_objects":["ClusterRole/external-secrets-cert-controller","ClusterRole/external-secrets-controller","ClusterRole/external-secrets-edit","ClusterRole/external-secrets-servicebindings","ClusterRole/external-secrets-view","ClusterRoleBinding/external-secrets-cert-controller","ClusterRoleBinding/external-secrets-controller","ValidatingWebhookConfiguration/externalsecret-validate","ValidatingWebhookConfiguration/secretstore-validate"],"cluster_scoped_stores":0}
+{"phase":"eso","step":"phase-done","result":"PASS"}
+{"phase":"consumer","step":"phase-start","result":"STARTED"}
+{"phase":"consumer","step":"seed","path":"feature-api/rehearsal-redis","version":1}
+{"phase":"consumer","step":"secret-synced","result":"PASS","store":"Valid","externalsecret":"True SecretSynced","owner":"ExternalSecret/feature-api-redis-vault","keys":["connection_string"],"value":"equal to Vault v1 (hash prefix)"}
+{"phase":"consumer","step":"consumer","result":"PASS","check":"redis-cli PING + SET/GET round trip with the ESO-managed connection_string"}
+{"phase":"consumer","step":"phase-done","result":"PASS"}
+{"phase":"retain","step":"phase-start","result":"STARTED"}
+{"phase":"retain","step":"volumes-identity","result":"PASS","volumes":[{"claim":"audit-vault-0","name":"pvc-6f245e6b-1167-458c-a9c7-a367cc5467ff","state":"bound","reclaim":"Delete"},{"claim":"data-vault-0","name":"pvc-1fe30704-3c4b-4fff-96e8-595905bb5610","state":"bound","reclaim":"Delete"}],"disks":"kind local-path"}
+{"phase":"retain","step":"retain-set","result":"PASS","reclaim":"Retain","kv_current_version":1}
+{"phase":"retain","step":"fault-injected","result":"FAIL","detail":"stopped at pvc-deleted:audit-vault-0 (kind fault-injection test)"}
+{"phase":"gate","step":"gate-retain","result":"FAIL","detail":"NOT READY for the step after retain: retain failed at fault-injected; do not continue: run inspect and follow VAULT_GKE_REHEARSAL.md §9 Failure"}
+{"phase":"inspect","step":"inspect","result":"PASS","stopped":"retain failed at fault-injected","namespaces":{"ewallet-vault":"this rehearsal","external-secrets":"this rehearsal","vault-rehearsal":"this rehearsal"},"releases":["external-secrets/external-secrets r1 deployed","ewallet-vault/vault r1 deployed"],"volumes":{"volumes":[{"claim":"audit-vault-0","name":"pvc-6f245e6b-1167-458c-a9c7-a367cc5467ff","disk":null,"reclaim":"Retain","state":"released"},{"claim":"data-vault-0","name":"pvc-1fe30704-3c4b-4fff-96e8-595905bb5610","disk":null,"reclaim":"Retain","state":"bound"}],"problems":[]},"disks":null,"next":"STOPPED; owner decision: F1 cleanup (VAULT_REHEARSAL_CLEANUP_APPROVED) then the final guarded sleep, or F2 guarded sleep as-is"}
+{"phase":"cleanup","step":"phase-start","result":"STARTED"}
+{"phase":"cleanup","step":"ownership","result":"PASS","namespaces":"labelled with this rehearsal id or absent","volumes":[{"name":"pvc-6f245e6b-1167-458c-a9c7-a367cc5467ff","reclaim":"Delete","disk":null,"claim":"audit-vault-0"},{"name":"pvc-1fe30704-3c4b-4fff-96e8-595905bb5610","reclaim":"Delete","disk":null,"claim":"data-vault-0"}],"eso_cluster_objects":["ClusterRole/external-secrets-cert-controller","ClusterRole/external-secrets-controller","ClusterRole/external-secrets-edit","ClusterRole/external-secrets-servicebindings","ClusterRole/external-secrets-view","ClusterRoleBinding/external-secrets-cert-controller","ClusterRoleBinding/external-secrets-controller","ValidatingWebhookConfiguration/externalsecret-validate","ValidatingWebhookConfiguration/secretstore-validate"]}
+{"phase":"cleanup","step":"eso-scope","result":"PASS","externalsecrets_and_stores":"only in vault-rehearsal","cluster_objects":"as recorded"}
+{"phase":"cleanup","step":"volumes-identity","result":"PASS","volumes":[{"claim":"audit-vault-0","name":"pvc-6f245e6b-1167-458c-a9c7-a367cc5467ff","state":"released","reclaim":"Retain"},{"claim":"data-vault-0","name":"pvc-1fe30704-3c4b-4fff-96e8-595905bb5610","state":"bound","reclaim":"Retain"}],"disks":"kind local-path"}
+{"phase":"cleanup","step":"reclaim-delete-restored","result":"PASS","scope":"the recorded rehearsal PVs still present"}
+{"phase":"cleanup","step":"cleanup","result":"PASS","namespaces_deleted":["vault-rehearsal","external-secrets","ewallet-vault"],"releases_uninstalled":["rehearsal-serving","external-secrets","vault"],"vault_volumes":"deleted","disks":"kind local-path: removed","synthetic_private_material":"removed"}
+{"phase":"verify-clean","step":"nothing-left","result":"PASS","namespaces":[],"eso_crds":0,"releases":[],"chart_cluster_objects":[],"vault_volumes":[]}
+{"phase":"verify-clean","step":"local-state-clean","result":"PASS","synthetic_private_material":"absent","port_forwards":"none"}
+{"phase":"verify-clean","step":"production-unchanged","result":"PASS","compared":["helm releases and revisions","feast-online-redis resourceVersion","feature-api image and Secret","LoadBalancer Services","edge gateway Service type"]}
+{"phase":"verify-clean","step":"clean-verified","result":"PASS"}
+{"phase":"gate","step":"gate-clean","result":"PASS"}
+{"phase":"preflight","step":"chart-digests","result":"PASS","charts":["vault-0.34.1","external-secrets-2.14.0"]}
+{"phase":"preflight","step":"cluster","result":"PASS","context":"kind-llm-agent-local","nodes":1,"cert_manager":"available"}
+{"phase":"preflight","step":"no-collisions","result":"PASS","namespaces":[],"eso_crds":0,"releases":[],"chart_cluster_objects":[],"vault_volumes":[]}
+{"phase":"preflight","step":"baseline","result":"RECORDED","releases":7,"loadbalancers":[],"feature_api":null,"edge_gateway_service_type":""}
+{"phase":"vault","step":"phase-start","result":"STARTED"}
+{"phase":"vault","step":"certificates","result":"PASS","chain":"vault-server-tls <- vault-ca","sans":["DNS:vault","DNS:vault.ewallet-vault","DNS:vault.ewallet-vault.svc","DNS:vault.ewallet-vault.svc.cluster.local","DNS:vault-0.vault-internal","DNS:vault-0.vault-internal.ewallet-vault.svc.cluster.local","DNS:localhost","IPAddress:127.0.0.1"]}
+{"phase":"vault","step":"vault-runtime","result":"PASS","image":"hashicorp/vault 2.0.4 (pinned digest)","pvcs":[{"name":"audit-vault-0","phase":"Bound","storage_class":"standard","size":"1Gi","volume":"pvc-b6677266-f04e-47c0-9f34-ac2e35c5e3a0"},{"name":"data-vault-0","phase":"Bound","storage_class":"standard","size":"5Gi","volume":"pvc-984a4933-67c1-4f30-8744-a2dbe9a8cd5b"}],"volumes":[{"name":"pvc-b6677266-f04e-47c0-9f34-ac2e35c5e3a0","reclaim":"Delete","disk":null,"claim":"audit-vault-0"},{"name":"pvc-984a4933-67c1-4f30-8744-a2dbe9a8cd5b","reclaim":"Delete","disk":null,"claim":"data-vault-0"}],"pdbs":0,"services":[{"name":"vault","type":"ClusterIP"},{"name":"vault-active","type":"ClusterIP"},{"name":"vault-internal","type":"ClusterIP"},{"name":"vault-standby","type":"ClusterIP"}]}
+{"phase":"vault","step":"vault-uninitialised","initialized":false,"sealed":true,"t":0,"n":0,"version":"2.0.4"}
+{"phase":"vault","step":"vault-tls","https_status":200,"ssl_verify_result":0}
+{"phase":"vault","step":"phase-done","result":"PASS"}
+{"phase":"init","step":"phase-start","result":"STARTED"}
+{"phase":"init","step":"vault-init","initialized":true,"shares":3,"threshold":2}
+{"phase":"init","step":"pod-ready-while-sealed","pod_ready":"True","initialized":true,"sealed":true,"note":"Pod Ready does not mean unsealed"}
+{"phase":"init","step":"vault-unsealed","initialized":true,"sealed":false,"t":2,"n":3,"version":"2.0.4"}
+{"phase":"init","step":"phase-done","result":"PASS"}
+{"phase":"configure","step":"phase-start","result":"STARTED"}
+{"phase":"configure","step":"configure-official","applied":["audit","kv","kubernetes-auth","eso-ewallet-agents","eso-ml-platform","feature-api","fraud-api","root-generation","secret-operator","eso-ewallet-agents","eso-ml-platform","feature-api","fraud-api","vault-admin"]}
+{"phase":"configure","step":"configure-rehearsal","applied":["audit","kv","kubernetes-auth","eso-vault-rehearsal","eso-vault-rehearsal"]}
+{"phase":"configure","step":"describe","result":"PASS","engines":{"agent-registry/":{"type":"agent_registry","version":null},"ewallet/":{"type":"kv","version":"2"}},"auth":{"kubernetes/":"kubernetes","token/":"token"},"audit":{"file/":"file"},"roles":["eso-ewallet-agents","eso-ml-platform","eso-vault-rehearsal","feature-api","fraud-api","vault-admin"],"policies":["default-ceiling","eso-ewallet-agents","eso-ml-platform","eso-vault-rehearsal","feature-api","fraud-api","root-generation","secret-operator"]}
+{"phase":"configure","step":"operator-token","operator_token_created":true,"policies":["secret-operator"],"ttl":"720h","orphan":true}
+{"phase":"configure","step":"retire-root","root_token_revoked":true}
+{"phase":"configure","step":"root-rejected","result":"denied","http_status":403,"probe":"configure"}
+{"phase":"configure","step":"operator-cannot-administer","result":"denied","http_status":403,"attempt":"delete auth role"}
+{"phase":"configure","step":"tls-wrong-ca-rejected","result":"denied"}
+{"phase":"configure","step":"phase-done","result":"PASS"}
+{"phase":"eso","step":"phase-start","result":"STARTED"}
+{"phase":"eso","step":"eso-runtime","result":"PASS","deployments":[{"name":"external-secrets","available":1},{"name":"external-secrets-cert-controller","available":1},{"name":"external-secrets-webhook","available":1}],"crds":25,"cluster_objects":["ClusterRole/external-secrets-cert-controller","ClusterRole/external-secrets-controller","ClusterRole/external-secrets-edit","ClusterRole/external-secrets-servicebindings","ClusterRole/external-secrets-view","ClusterRoleBinding/external-secrets-cert-controller","ClusterRoleBinding/external-secrets-controller","ValidatingWebhookConfiguration/externalsecret-validate","ValidatingWebhookConfiguration/secretstore-validate"],"cluster_scoped_stores":0}
+{"phase":"eso","step":"phase-done","result":"PASS"}
+{"phase":"consumer","step":"phase-start","result":"STARTED"}
+{"phase":"consumer","step":"seed","path":"feature-api/rehearsal-redis","version":1}
+{"phase":"consumer","step":"secret-synced","result":"PASS","store":"Valid","externalsecret":"True SecretSynced","owner":"ExternalSecret/feature-api-redis-vault","keys":["connection_string"],"value":"equal to Vault v1 (hash prefix)"}
+{"phase":"consumer","step":"consumer","result":"PASS","check":"redis-cli PING + SET/GET round trip with the ESO-managed connection_string"}
+{"phase":"consumer","step":"phase-done","result":"PASS"}
+{"phase":"retain","step":"phase-start","result":"STARTED"}
+{"phase":"retain","step":"volumes-identity","result":"PASS","volumes":[{"claim":"audit-vault-0","name":"pvc-b6677266-f04e-47c0-9f34-ac2e35c5e3a0","state":"bound","reclaim":"Delete"},{"claim":"data-vault-0","name":"pvc-984a4933-67c1-4f30-8744-a2dbe9a8cd5b","state":"bound","reclaim":"Delete"}],"disks":"kind local-path"}
+{"phase":"retain","step":"retain-set","result":"PASS","reclaim":"Retain","kv_current_version":1}
+{"phase":"retain","step":"pvc-deleted-disk-kept","result":"PASS","pv_phase":"Released","disks":"kind local-path: not a cloud disk; data proven by the re-bound Vault below"}
+{"phase":"retain","step":"fault-injected","result":"FAIL","detail":"stopped at pvcs-released (kind fault-injection test)"}
+{"phase":"gate","step":"gate-retain","result":"FAIL","detail":"NOT READY for the step after retain: retain failed at fault-injected; do not continue: run inspect and follow VAULT_GKE_REHEARSAL.md §9 Failure"}
+{"phase":"inspect","step":"inspect","result":"PASS","stopped":"retain failed at fault-injected","namespaces":{"ewallet-vault":"this rehearsal","external-secrets":"this rehearsal","vault-rehearsal":"this rehearsal"},"releases":["external-secrets/external-secrets r1 deployed","ewallet-vault/vault r1 deployed"],"volumes":{"volumes":[{"claim":"audit-vault-0","name":"pvc-b6677266-f04e-47c0-9f34-ac2e35c5e3a0","disk":null,"reclaim":"Retain","state":"released"},{"claim":"data-vault-0","name":"pvc-984a4933-67c1-4f30-8744-a2dbe9a8cd5b","disk":null,"reclaim":"Retain","state":"released"}],"problems":[]},"disks":null,"next":"STOPPED; owner decision: F1 cleanup (VAULT_REHEARSAL_CLEANUP_APPROVED) then the final guarded sleep, or F2 guarded sleep as-is"}
+{"phase":"cleanup","step":"phase-start","result":"STARTED"}
+{"phase":"cleanup","step":"ownership","result":"PASS","namespaces":"labelled with this rehearsal id or absent","volumes":[{"name":"pvc-b6677266-f04e-47c0-9f34-ac2e35c5e3a0","reclaim":"Delete","disk":null,"claim":"audit-vault-0"},{"name":"pvc-984a4933-67c1-4f30-8744-a2dbe9a8cd5b","reclaim":"Delete","disk":null,"claim":"data-vault-0"}],"eso_cluster_objects":["ClusterRole/external-secrets-cert-controller","ClusterRole/external-secrets-controller","ClusterRole/external-secrets-edit","ClusterRole/external-secrets-servicebindings","ClusterRole/external-secrets-view","ClusterRoleBinding/external-secrets-cert-controller","ClusterRoleBinding/external-secrets-controller","ValidatingWebhookConfiguration/externalsecret-validate","ValidatingWebhookConfiguration/secretstore-validate"]}
+{"phase":"cleanup","step":"eso-scope","result":"PASS","externalsecrets_and_stores":"only in vault-rehearsal","cluster_objects":"as recorded"}
+{"phase":"cleanup","step":"volumes-identity","result":"PASS","volumes":[{"claim":"audit-vault-0","name":"pvc-b6677266-f04e-47c0-9f34-ac2e35c5e3a0","state":"released","reclaim":"Retain"},{"claim":"data-vault-0","name":"pvc-984a4933-67c1-4f30-8744-a2dbe9a8cd5b","state":"released","reclaim":"Retain"}],"disks":"kind local-path"}
+{"phase":"cleanup","step":"reclaim-delete-restored","result":"PASS","scope":"the recorded rehearsal PVs still present"}
+{"phase":"cleanup","step":"fault-injected","result":"FAIL","detail":"stopped at cleanup-reclaim-restored (kind fault-injection test)"}
+{"phase":"inspect","step":"inspect","result":"PASS","stopped":"retain failed at fault-injected","namespaces":{"ewallet-vault":"this rehearsal","external-secrets":"this rehearsal","vault-rehearsal":"this rehearsal"},"releases":["external-secrets/external-secrets r1 deployed","ewallet-vault/vault r1 deployed"],"volumes":{"volumes":[{"claim":"audit-vault-0","name":"pvc-b6677266-f04e-47c0-9f34-ac2e35c5e3a0","disk":null,"reclaim":"Delete","state":"released"},{"claim":"data-vault-0","name":"pvc-984a4933-67c1-4f30-8744-a2dbe9a8cd5b","disk":null,"reclaim":"Delete","state":"released"}],"problems":[]},"disks":null,"next":"STOPPED; owner decision: F1 cleanup (VAULT_REHEARSAL_CLEANUP_APPROVED) then the final guarded sleep, or F2 guarded sleep as-is"}
+{"phase":"cleanup","step":"phase-start","result":"STARTED"}
+{"phase":"cleanup","step":"ownership","result":"PASS","namespaces":"labelled with this rehearsal id or absent","volumes":[{"name":"pvc-b6677266-f04e-47c0-9f34-ac2e35c5e3a0","reclaim":"Delete","disk":null,"claim":"audit-vault-0"},{"name":"pvc-984a4933-67c1-4f30-8744-a2dbe9a8cd5b","reclaim":"Delete","disk":null,"claim":"data-vault-0"}],"eso_cluster_objects":["ClusterRole/external-secrets-cert-controller","ClusterRole/external-secrets-controller","ClusterRole/external-secrets-edit","ClusterRole/external-secrets-servicebindings","ClusterRole/external-secrets-view","ClusterRoleBinding/external-secrets-cert-controller","ClusterRoleBinding/external-secrets-controller","ValidatingWebhookConfiguration/externalsecret-validate","ValidatingWebhookConfiguration/secretstore-validate"]}
+{"phase":"cleanup","step":"eso-scope","result":"PASS","externalsecrets_and_stores":"only in vault-rehearsal","cluster_objects":"as recorded"}
+{"phase":"cleanup","step":"volumes-identity","result":"PASS","volumes":[{"claim":"audit-vault-0","name":"pvc-b6677266-f04e-47c0-9f34-ac2e35c5e3a0","state":"released","reclaim":"Delete"},{"claim":"data-vault-0","name":"pvc-984a4933-67c1-4f30-8744-a2dbe9a8cd5b","state":"released","reclaim":"Delete"}],"disks":"kind local-path"}
+{"phase":"cleanup","step":"reclaim-delete-restored","result":"PASS","scope":"the recorded rehearsal PVs still present"}
+{"phase":"cleanup","step":"cleanup","result":"PASS","namespaces_deleted":["vault-rehearsal","external-secrets","ewallet-vault"],"releases_uninstalled":["rehearsal-serving","external-secrets","vault"],"vault_volumes":"deleted","disks":"kind local-path: removed","synthetic_private_material":"removed"}
+{"phase":"verify-clean","step":"nothing-left","result":"PASS","namespaces":[],"eso_crds":0,"releases":[],"chart_cluster_objects":[],"vault_volumes":[]}
+{"phase":"verify-clean","step":"local-state-clean","result":"PASS","synthetic_private_material":"absent","port_forwards":"none"}
+{"phase":"verify-clean","step":"production-unchanged","result":"PASS","compared":["helm releases and revisions","feast-online-redis resourceVersion","feature-api image and Secret","LoadBalancer Services","edge gateway Service type"]}
+{"phase":"verify-clean","step":"clean-verified","result":"PASS"}
+{"phase":"gate","step":"gate-clean","result":"PASS"}
+{"phase":"preflight","step":"chart-digests","result":"PASS","charts":["vault-0.34.1","external-secrets-2.14.0"]}
+{"phase":"preflight","step":"cluster","result":"PASS","context":"kind-llm-agent-local","nodes":1,"cert_manager":"available"}
+{"phase":"preflight","step":"no-collisions","result":"PASS","namespaces":[],"eso_crds":0,"releases":[],"chart_cluster_objects":[],"vault_volumes":[]}
+{"phase":"preflight","step":"baseline","result":"RECORDED","releases":7,"loadbalancers":[],"feature_api":null,"edge_gateway_service_type":""}
+{"phase":"vault","step":"phase-start","result":"STARTED"}
+{"phase":"vault","step":"certificates","result":"PASS","chain":"vault-server-tls <- vault-ca","sans":["DNS:vault","DNS:vault.ewallet-vault","DNS:vault.ewallet-vault.svc","DNS:vault.ewallet-vault.svc.cluster.local","DNS:vault-0.vault-internal","DNS:vault-0.vault-internal.ewallet-vault.svc.cluster.local","DNS:localhost","IPAddress:127.0.0.1"]}
+{"phase":"vault","step":"vault-runtime","result":"PASS","image":"hashicorp/vault 2.0.4 (pinned digest)","pvcs":[{"name":"audit-vault-0","phase":"Bound","storage_class":"standard","size":"1Gi","volume":"pvc-55bfc876-b9a0-4f9c-ba12-896bbd921706"},{"name":"data-vault-0","phase":"Bound","storage_class":"standard","size":"5Gi","volume":"pvc-ede795a1-7a1d-43bc-ba83-3c6983c59585"}],"volumes":[{"name":"pvc-55bfc876-b9a0-4f9c-ba12-896bbd921706","reclaim":"Delete","disk":null,"claim":"audit-vault-0"},{"name":"pvc-ede795a1-7a1d-43bc-ba83-3c6983c59585","reclaim":"Delete","disk":null,"claim":"data-vault-0"}],"pdbs":0,"services":[{"name":"vault","type":"ClusterIP"},{"name":"vault-active","type":"ClusterIP"},{"name":"vault-internal","type":"ClusterIP"},{"name":"vault-standby","type":"ClusterIP"}]}
+{"phase":"vault","step":"vault-uninitialised","initialized":false,"sealed":true,"t":0,"n":0,"version":"2.0.4"}
+{"phase":"vault","step":"vault-tls","https_status":200,"ssl_verify_result":0}
+{"phase":"vault","step":"phase-done","result":"PASS"}
+{"phase":"init","step":"phase-start","result":"STARTED"}
+{"phase":"init","step":"vault-init","initialized":true,"shares":3,"threshold":2}
+{"phase":"init","step":"pod-ready-while-sealed","pod_ready":"True","initialized":true,"sealed":true,"note":"Pod Ready does not mean unsealed"}
+{"phase":"init","step":"vault-unsealed","initialized":true,"sealed":false,"t":2,"n":3,"version":"2.0.4"}
+{"phase":"init","step":"phase-done","result":"PASS"}
+{"phase":"configure","step":"phase-start","result":"STARTED"}
+{"phase":"configure","step":"configure-official","applied":["audit","kv","kubernetes-auth","eso-ewallet-agents","eso-ml-platform","feature-api","fraud-api","root-generation","secret-operator","eso-ewallet-agents","eso-ml-platform","feature-api","fraud-api","vault-admin"]}
+{"phase":"configure","step":"configure-rehearsal","applied":["audit","kv","kubernetes-auth","eso-vault-rehearsal","eso-vault-rehearsal"]}
+{"phase":"configure","step":"describe","result":"PASS","engines":{"agent-registry/":{"type":"agent_registry","version":null},"ewallet/":{"type":"kv","version":"2"}},"auth":{"kubernetes/":"kubernetes","token/":"token"},"audit":{"file/":"file"},"roles":["eso-ewallet-agents","eso-ml-platform","eso-vault-rehearsal","feature-api","fraud-api","vault-admin"],"policies":["default-ceiling","eso-ewallet-agents","eso-ml-platform","eso-vault-rehearsal","feature-api","fraud-api","root-generation","secret-operator"]}
+{"phase":"configure","step":"operator-token","operator_token_created":true,"policies":["secret-operator"],"ttl":"720h","orphan":true}
+{"phase":"configure","step":"retire-root","root_token_revoked":true}
+{"phase":"configure","step":"root-rejected","result":"denied","http_status":403,"probe":"configure"}
+{"phase":"configure","step":"operator-cannot-administer","result":"denied","http_status":403,"attempt":"delete auth role"}
+{"phase":"configure","step":"tls-wrong-ca-rejected","result":"denied"}
+{"phase":"configure","step":"phase-done","result":"PASS"}
+{"phase":"eso","step":"phase-start","result":"STARTED"}
+{"phase":"eso","step":"eso-runtime","result":"PASS","deployments":[{"name":"external-secrets","available":1},{"name":"external-secrets-cert-controller","available":1},{"name":"external-secrets-webhook","available":1}],"crds":25,"cluster_objects":["ClusterRole/external-secrets-cert-controller","ClusterRole/external-secrets-controller","ClusterRole/external-secrets-edit","ClusterRole/external-secrets-servicebindings","ClusterRole/external-secrets-view","ClusterRoleBinding/external-secrets-cert-controller","ClusterRoleBinding/external-secrets-controller","ValidatingWebhookConfiguration/externalsecret-validate","ValidatingWebhookConfiguration/secretstore-validate"],"cluster_scoped_stores":0}
+{"phase":"eso","step":"phase-done","result":"PASS"}
+{"phase":"consumer","step":"phase-start","result":"STARTED"}
+{"phase":"consumer","step":"seed","path":"feature-api/rehearsal-redis","version":1}
+{"phase":"consumer","step":"secret-synced","result":"PASS","store":"Valid","externalsecret":"True SecretSynced","owner":"ExternalSecret/feature-api-redis-vault","keys":["connection_string"],"value":"equal to Vault v1 (hash prefix)"}
+{"phase":"consumer","step":"consumer","result":"PASS","check":"redis-cli PING + SET/GET round trip with the ESO-managed connection_string"}
+{"phase":"consumer","step":"phase-done","result":"PASS"}
+{"phase":"retain","step":"phase-start","result":"STARTED"}
+{"phase":"retain","step":"volumes-identity","result":"PASS","volumes":[{"claim":"audit-vault-0","name":"pvc-55bfc876-b9a0-4f9c-ba12-896bbd921706","state":"bound","reclaim":"Delete"},{"claim":"data-vault-0","name":"pvc-ede795a1-7a1d-43bc-ba83-3c6983c59585","state":"bound","reclaim":"Delete"}],"disks":"kind local-path"}
+{"phase":"retain","step":"retain-set","result":"PASS","reclaim":"Retain","kv_current_version":1}
+{"phase":"retain","step":"pvc-deleted-disk-kept","result":"PASS","pv_phase":"Released","disks":"kind local-path: not a cloud disk; data proven by the re-bound Vault below"}
+{"phase":"retain","step":"fault-injected","result":"FAIL","detail":"stopped at claimref-removed:audit-vault-0 (kind fault-injection test)"}
+{"phase":"gate","step":"gate-retain","result":"FAIL","detail":"NOT READY for the step after retain: retain failed at fault-injected; do not continue: run inspect and follow VAULT_GKE_REHEARSAL.md §9 Failure"}
+{"phase":"inspect","step":"inspect","result":"PASS","stopped":"retain failed at fault-injected","namespaces":{"ewallet-vault":"this rehearsal","external-secrets":"this rehearsal","vault-rehearsal":"this rehearsal"},"releases":["external-secrets/external-secrets r1 deployed","ewallet-vault/vault r1 deployed"],"volumes":{"volumes":[{"claim":"audit-vault-0","name":"pvc-55bfc876-b9a0-4f9c-ba12-896bbd921706","disk":null,"reclaim":"Retain","state":"unclaimed"},{"claim":"data-vault-0","name":"pvc-ede795a1-7a1d-43bc-ba83-3c6983c59585","disk":null,"reclaim":"Retain","state":"released"}],"problems":[]},"disks":null,"next":"STOPPED; owner decision: F1 cleanup (VAULT_REHEARSAL_CLEANUP_APPROVED) then the final guarded sleep, or F2 guarded sleep as-is"}
+{"phase":"cleanup","step":"phase-start","result":"STARTED"}
+{"phase":"cleanup","step":"ownership","result":"PASS","namespaces":"labelled with this rehearsal id or absent","volumes":[{"name":"pvc-55bfc876-b9a0-4f9c-ba12-896bbd921706","reclaim":"Delete","disk":null,"claim":"audit-vault-0"},{"name":"pvc-ede795a1-7a1d-43bc-ba83-3c6983c59585","reclaim":"Delete","disk":null,"claim":"data-vault-0"}],"eso_cluster_objects":["ClusterRole/external-secrets-cert-controller","ClusterRole/external-secrets-controller","ClusterRole/external-secrets-edit","ClusterRole/external-secrets-servicebindings","ClusterRole/external-secrets-view","ClusterRoleBinding/external-secrets-cert-controller","ClusterRoleBinding/external-secrets-controller","ValidatingWebhookConfiguration/externalsecret-validate","ValidatingWebhookConfiguration/secretstore-validate"]}
+{"phase":"cleanup","step":"eso-scope","result":"PASS","externalsecrets_and_stores":"only in vault-rehearsal","cluster_objects":"as recorded"}
+{"phase":"cleanup","step":"volumes-identity","result":"PASS","volumes":[{"claim":"audit-vault-0","name":"pvc-55bfc876-b9a0-4f9c-ba12-896bbd921706","state":"unclaimed","reclaim":"Retain"},{"claim":"data-vault-0","name":"pvc-ede795a1-7a1d-43bc-ba83-3c6983c59585","state":"released","reclaim":"Retain"}],"disks":"kind local-path"}
+{"phase":"cleanup","step":"recovery-completed","result":"PASS","detail":"the interrupted Released-PV recovery was finished before cleanup"}
+{"phase":"cleanup","step":"volumes-identity","result":"PASS","volumes":[{"claim":"audit-vault-0","name":"pvc-55bfc876-b9a0-4f9c-ba12-896bbd921706","state":"bound","reclaim":"Retain"},{"claim":"data-vault-0","name":"pvc-ede795a1-7a1d-43bc-ba83-3c6983c59585","state":"released","reclaim":"Retain"}],"disks":"kind local-path"}
+{"phase":"cleanup","step":"reclaim-delete-restored","result":"PASS","scope":"the recorded rehearsal PVs still present"}
+{"phase":"cleanup","step":"cleanup","result":"PASS","namespaces_deleted":["vault-rehearsal","external-secrets","ewallet-vault"],"releases_uninstalled":["rehearsal-serving","external-secrets","vault"],"vault_volumes":"deleted","disks":"kind local-path: removed","synthetic_private_material":"removed"}
+{"phase":"verify-clean","step":"nothing-left","result":"PASS","namespaces":[],"eso_crds":0,"releases":[],"chart_cluster_objects":[],"vault_volumes":[]}
+{"phase":"verify-clean","step":"local-state-clean","result":"PASS","synthetic_private_material":"absent","port_forwards":"none"}
+{"phase":"verify-clean","step":"production-unchanged","result":"PASS","compared":["helm releases and revisions","feast-online-redis resourceVersion","feature-api image and Secret","LoadBalancer Services","edge gateway Service type"]}
+{"phase":"verify-clean","step":"clean-verified","result":"PASS"}
+{"phase":"gate","step":"gate-clean","result":"PASS"}
+{"phase":"preflight","step":"chart-digests","result":"PASS","charts":["vault-0.34.1","external-secrets-2.14.0"]}
+{"phase":"preflight","step":"cluster","result":"PASS","context":"kind-llm-agent-local","nodes":1,"cert_manager":"available"}
+{"phase":"preflight","step":"no-collisions","result":"PASS","namespaces":[],"eso_crds":0,"releases":[],"chart_cluster_objects":[],"vault_volumes":[]}
+{"phase":"preflight","step":"baseline","result":"RECORDED","releases":7,"loadbalancers":[],"feature_api":null,"edge_gateway_service_type":""}
+{"phase":"vault","step":"phase-start","result":"STARTED"}
+{"phase":"vault","step":"certificates","result":"PASS","chain":"vault-server-tls <- vault-ca","sans":["DNS:vault","DNS:vault.ewallet-vault","DNS:vault.ewallet-vault.svc","DNS:vault.ewallet-vault.svc.cluster.local","DNS:vault-0.vault-internal","DNS:vault-0.vault-internal.ewallet-vault.svc.cluster.local","DNS:localhost","IPAddress:127.0.0.1"]}
+{"phase":"vault","step":"vault-runtime","result":"PASS","image":"hashicorp/vault 2.0.4 (pinned digest)","pvcs":[{"name":"audit-vault-0","phase":"Bound","storage_class":"standard","size":"1Gi","volume":"pvc-a193640c-eebb-41a3-9cdb-1b956c8a0f8f"},{"name":"data-vault-0","phase":"Bound","storage_class":"standard","size":"5Gi","volume":"pvc-21d648b1-08e5-41dc-95dd-e157f9fbf568"}],"volumes":[{"name":"pvc-a193640c-eebb-41a3-9cdb-1b956c8a0f8f","reclaim":"Delete","disk":null,"claim":"audit-vault-0"},{"name":"pvc-21d648b1-08e5-41dc-95dd-e157f9fbf568","reclaim":"Delete","disk":null,"claim":"data-vault-0"}],"pdbs":0,"services":[{"name":"vault","type":"ClusterIP"},{"name":"vault-active","type":"ClusterIP"},{"name":"vault-internal","type":"ClusterIP"},{"name":"vault-standby","type":"ClusterIP"}]}
+{"phase":"vault","step":"vault-uninitialised","initialized":false,"sealed":true,"t":0,"n":0,"version":"2.0.4"}
+{"phase":"vault","step":"vault-tls","https_status":200,"ssl_verify_result":0}
+{"phase":"vault","step":"phase-done","result":"PASS"}
+{"phase":"init","step":"phase-start","result":"STARTED"}
+{"phase":"init","step":"vault-init","initialized":true,"shares":3,"threshold":2}
+{"phase":"init","step":"pod-ready-while-sealed","pod_ready":"True","initialized":true,"sealed":true,"note":"Pod Ready does not mean unsealed"}
+{"phase":"init","step":"vault-unsealed","initialized":true,"sealed":false,"t":2,"n":3,"version":"2.0.4"}
+{"phase":"init","step":"phase-done","result":"PASS"}
+{"phase":"configure","step":"phase-start","result":"STARTED"}
+{"phase":"configure","step":"configure-official","applied":["audit","kv","kubernetes-auth","eso-ewallet-agents","eso-ml-platform","feature-api","fraud-api","root-generation","secret-operator","eso-ewallet-agents","eso-ml-platform","feature-api","fraud-api","vault-admin"]}
+{"phase":"configure","step":"configure-rehearsal","applied":["audit","kv","kubernetes-auth","eso-vault-rehearsal","eso-vault-rehearsal"]}
+{"phase":"configure","step":"describe","result":"PASS","engines":{"agent-registry/":{"type":"agent_registry","version":null},"ewallet/":{"type":"kv","version":"2"}},"auth":{"kubernetes/":"kubernetes","token/":"token"},"audit":{"file/":"file"},"roles":["eso-ewallet-agents","eso-ml-platform","eso-vault-rehearsal","feature-api","fraud-api","vault-admin"],"policies":["default-ceiling","eso-ewallet-agents","eso-ml-platform","eso-vault-rehearsal","feature-api","fraud-api","root-generation","secret-operator"]}
+{"phase":"configure","step":"operator-token","operator_token_created":true,"policies":["secret-operator"],"ttl":"720h","orphan":true}
+{"phase":"configure","step":"retire-root","root_token_revoked":true}
+{"phase":"configure","step":"root-rejected","result":"denied","http_status":403,"probe":"configure"}
+{"phase":"configure","step":"operator-cannot-administer","result":"denied","http_status":403,"attempt":"delete auth role"}
+{"phase":"configure","step":"tls-wrong-ca-rejected","result":"denied"}
+{"phase":"configure","step":"phase-done","result":"PASS"}
+{"phase":"eso","step":"phase-start","result":"STARTED"}
+{"phase":"eso","step":"eso-runtime","result":"PASS","deployments":[{"name":"external-secrets","available":1},{"name":"external-secrets-cert-controller","available":1},{"name":"external-secrets-webhook","available":1}],"crds":25,"cluster_objects":["ClusterRole/external-secrets-cert-controller","ClusterRole/external-secrets-controller","ClusterRole/external-secrets-edit","ClusterRole/external-secrets-servicebindings","ClusterRole/external-secrets-view","ClusterRoleBinding/external-secrets-cert-controller","ClusterRoleBinding/external-secrets-controller","ValidatingWebhookConfiguration/externalsecret-validate","ValidatingWebhookConfiguration/secretstore-validate"],"cluster_scoped_stores":0}
+{"phase":"eso","step":"phase-done","result":"PASS"}
+{"phase":"consumer","step":"phase-start","result":"STARTED"}
+{"phase":"consumer","step":"seed","path":"feature-api/rehearsal-redis","version":1}
+{"phase":"consumer","step":"secret-synced","result":"PASS","store":"Valid","externalsecret":"True SecretSynced","owner":"ExternalSecret/feature-api-redis-vault","keys":["connection_string"],"value":"equal to Vault v1 (hash prefix)"}
+{"phase":"consumer","step":"consumer","result":"PASS","check":"redis-cli PING + SET/GET round trip with the ESO-managed connection_string"}
+{"phase":"consumer","step":"phase-done","result":"PASS"}
+{"phase":"retain","step":"phase-start","result":"STARTED"}
+{"phase":"retain","step":"volumes-identity","result":"PASS","volumes":[{"claim":"audit-vault-0","name":"pvc-a193640c-eebb-41a3-9cdb-1b956c8a0f8f","state":"bound","reclaim":"Delete"},{"claim":"data-vault-0","name":"pvc-21d648b1-08e5-41dc-95dd-e157f9fbf568","state":"bound","reclaim":"Delete"}],"disks":"kind local-path"}
+{"phase":"retain","step":"retain-set","result":"PASS","reclaim":"Retain","kv_current_version":1}
+{"phase":"retain","step":"pvc-deleted-disk-kept","result":"PASS","pv_phase":"Released","disks":"kind local-path: not a cloud disk; data proven by the re-bound Vault below"}
+{"phase":"retain","step":"fault-injected","result":"FAIL","detail":"stopped at rebound:audit-vault-0 (kind fault-injection test)"}
+{"phase":"gate","step":"gate-retain","result":"FAIL","detail":"NOT READY for the step after retain: retain failed at fault-injected; do not continue: run inspect and follow VAULT_GKE_REHEARSAL.md §9 Failure"}
+{"phase":"inspect","step":"inspect","result":"PASS","stopped":"retain failed at fault-injected","namespaces":{"ewallet-vault":"this rehearsal","external-secrets":"this rehearsal","vault-rehearsal":"this rehearsal"},"releases":["external-secrets/external-secrets r1 deployed","ewallet-vault/vault r1 deployed"],"volumes":{"volumes":[{"claim":"audit-vault-0","name":"pvc-a193640c-eebb-41a3-9cdb-1b956c8a0f8f","disk":null,"reclaim":"Retain","state":"bound"},{"claim":"data-vault-0","name":"pvc-21d648b1-08e5-41dc-95dd-e157f9fbf568","disk":null,"reclaim":"Retain","state":"released"}],"problems":[]},"disks":null,"next":"STOPPED; owner decision: F1 cleanup (VAULT_REHEARSAL_CLEANUP_APPROVED) then the final guarded sleep, or F2 guarded sleep as-is"}
+{"phase":"cleanup","step":"phase-start","result":"STARTED"}
+{"phase":"cleanup","step":"ownership","result":"PASS","namespaces":"labelled with this rehearsal id or absent","volumes":[{"name":"pvc-a193640c-eebb-41a3-9cdb-1b956c8a0f8f","reclaim":"Delete","disk":null,"claim":"audit-vault-0"},{"name":"pvc-21d648b1-08e5-41dc-95dd-e157f9fbf568","reclaim":"Delete","disk":null,"claim":"data-vault-0"}],"eso_cluster_objects":["ClusterRole/external-secrets-cert-controller","ClusterRole/external-secrets-controller","ClusterRole/external-secrets-edit","ClusterRole/external-secrets-servicebindings","ClusterRole/external-secrets-view","ClusterRoleBinding/external-secrets-cert-controller","ClusterRoleBinding/external-secrets-controller","ValidatingWebhookConfiguration/externalsecret-validate","ValidatingWebhookConfiguration/secretstore-validate"]}
+{"phase":"cleanup","step":"eso-scope","result":"PASS","externalsecrets_and_stores":"only in vault-rehearsal","cluster_objects":"as recorded"}
+{"phase":"cleanup","step":"volumes-identity","result":"PASS","volumes":[{"claim":"audit-vault-0","name":"pvc-a193640c-eebb-41a3-9cdb-1b956c8a0f8f","state":"bound","reclaim":"Retain"},{"claim":"data-vault-0","name":"pvc-21d648b1-08e5-41dc-95dd-e157f9fbf568","state":"released","reclaim":"Retain"}],"disks":"kind local-path"}
+{"phase":"cleanup","step":"reclaim-delete-restored","result":"PASS","scope":"the recorded rehearsal PVs still present"}
+{"phase":"cleanup","step":"cleanup","result":"PASS","namespaces_deleted":["vault-rehearsal","external-secrets","ewallet-vault"],"releases_uninstalled":["rehearsal-serving","external-secrets","vault"],"vault_volumes":"deleted","disks":"kind local-path: removed","synthetic_private_material":"removed"}
+{"phase":"verify-clean","step":"nothing-left","result":"PASS","namespaces":[],"eso_crds":0,"releases":[],"chart_cluster_objects":[],"vault_volumes":[]}
+{"phase":"verify-clean","step":"local-state-clean","result":"PASS","synthetic_private_material":"absent","port_forwards":"none"}
+{"phase":"verify-clean","step":"production-unchanged","result":"PASS","compared":["helm releases and revisions","feast-online-redis resourceVersion","feature-api image and Secret","LoadBalancer Services","edge gateway Service type"]}
+{"phase":"verify-clean","step":"clean-verified","result":"PASS"}
+{"phase":"gate","step":"gate-clean","result":"PASS"}
