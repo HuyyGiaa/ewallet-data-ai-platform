@@ -160,3 +160,68 @@ def test_cli_cloud_ready_when_every_gate_passes(tmp_path, monkeypatch):
     assert kp.main(["--mode", "cloud", "--vault-chart", str(chart), "--out", str(tmp_path / "ev")], runner=fake_helm_and_gcloud) == 0
     lines = (tmp_path / "ev/kms-gates-cloud.jsonl").read_text().splitlines()
     assert json.loads(lines[-1])["verdict"] == "VAULT_KMS_PREFLIGHT_READY" and len(lines) == 12
+
+
+# ---- api-ready: the bounded, read-only readiness probe for a fresh two-stage install
+
+class Clock:
+    def __init__(self):
+        self.now = 0.0
+
+    def __call__(self):
+        return self.now
+
+    def sleep(self, seconds):
+        self.now += seconds
+
+
+def probe_runner(results):
+    """results: one entry per probe, "ok" or an error text; the last one repeats."""
+    calls = []
+
+    def runner(argv):
+        calls.append(argv)
+        result = results[min(len(calls), len(results)) - 1]
+        return (0, "[]", "") if result == "ok" else (1, "", result)
+    return runner, calls
+
+
+def ready(results, required=3, interval=10, timeout=100):
+    clock = Clock()
+    runner, calls = probe_runner(results)
+    return kp.api_ready(P, runner, required, interval, timeout, clock.sleep, clock), calls
+
+
+def test_api_ready_needs_consecutive_successes_and_reads_only():
+    result, calls = ready(["403 SERVICE_DISABLED", "ok", "403 SERVICE_DISABLED", "ok", "ok", "ok"])
+    assert result["verdict"] == "VAULT_KMS_API_READY" and result["probes"] == 6 and result["failed_probes"] == 2
+    assert all(c[:4] == ["gcloud", "kms", "keyrings", "list"] and P in c for c in calls)
+
+
+def test_api_ready_times_out_fail_closed():
+    result, calls = ready(["403 SERVICE_DISABLED"])
+    assert result["verdict"] == "VAULT_KMS_API_NOT_READY" and result["consecutive_successes"] == 0
+    assert len(calls) == 11                                        # bounded: probes at t = 0, 10, ..., 100 (the timeout)
+
+
+def test_api_ready_a_flapping_api_never_counts_as_ready():
+    result, _ = ready(["ok", "ok", "403 SERVICE_DISABLED"] * 10)
+    assert result["verdict"] == "VAULT_KMS_API_NOT_READY"
+
+
+def test_api_ready_rejects_a_non_json_answer():
+    clock = Clock()
+    result = kp.api_ready(P, lambda argv: (0, "not json", ""), 1, 10, 30, clock.sleep, clock)
+    assert result["verdict"] == "VAULT_KMS_API_NOT_READY"
+
+
+def test_api_ready_cli_exit_codes(tmp_path, capsys):
+    clock = Clock()
+    ok_runner, _ = probe_runner(["ok"])
+    assert kp.main(["--mode", "api-ready", "--required", "2", "--interval", "1", "--timeout", "10", "--out", str(tmp_path)],
+                   ok_runner, clock.sleep, clock) == 0
+    assert json.loads((tmp_path / "kms-api-ready.json").read_text())["verdict"] == "VAULT_KMS_API_READY"
+    bad_runner, _ = probe_runner(["403 SERVICE_DISABLED"])
+    assert kp.main(["--mode", "api-ready", "--interval", "1", "--timeout", "5"], bad_runner, clock.sleep, clock) == 1
+    assert kp.main(["--mode", "api-ready", "--required", "0"], ok_runner, clock.sleep, clock) == 2
+    assert "VAULT_KMS_API_NOT_READY" in capsys.readouterr().out

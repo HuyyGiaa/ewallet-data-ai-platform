@@ -10,6 +10,11 @@ Two modes:
            IAM (the GSA holds encrypterDecrypter + viewer, nobody else can use the key), the GSA (exists,
            enabled, no user-managed key), and its Workload Identity binding (exactly ewallet-vault/vault).
            Run only in an owner-approved phase: it reads the real project.
+  api-ready  fresh installs only (two-stage P4, stage 1 -> stage 2): after the Cloud KMS API was enabled,
+           probe it with a read-only `gcloud kms keyrings list` until --required consecutive probes succeed,
+           --interval seconds apart. Any failure resets the count. Not ready within --timeout is
+           VAULT_KMS_API_NOT_READY: stop, do not plan stage 2. Stable success lowers the propagation risk,
+           it does not guarantee every Cloud KMS method is ready.
 
 Status per gate: PASS, FAIL (missing, wrong, or malformed answer), BLOCKED (the query itself failed or was
 denied: nothing can be concluded) or NOT_CHECKED. A failed query is never read as "absent". Exit 0 only for
@@ -17,6 +22,7 @@ VAULT_KMS_PREFLIGHT_READY. No credential, token or command error text is printed
 
   python3 scripts/vault/kms_preflight.py --mode offline [--vault-chart ~/ewallet-evidence/vault/charts/vault-0.34.1.tgz]
   python3 scripts/vault/kms_preflight.py --mode cloud --project ewallet-data-ai-platform-hg26 [--out DIR]
+  python3 scripts/vault/kms_preflight.py --mode api-ready [--required 5 --interval 30 --timeout 900]
 """
 
 from __future__ import annotations
@@ -28,6 +34,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import time
 
 import yaml
 
@@ -209,16 +216,52 @@ def verdict(gates: list[dict], mode: str) -> dict:
     return {"mode": mode, "verdict": name, "blocking": bad, "not_checked": unchecked}
 
 
-def main(argv: list[str] | None = None, runner: Runner = run) -> int:
+def api_ready(project: str, runner: Runner, required: int, interval: float, timeout: float,
+              sleep: Callable[[float], None] = time.sleep, clock: Callable[[], float] = time.monotonic) -> dict:
+    """Bounded read-only probe: `required` consecutive successful Cloud KMS reads, or NOT_READY at `timeout`."""
+    start, streak, probes, failures = clock(), 0, 0, 0
+    while True:
+        probes += 1
+        code, out, _ = runner(["gcloud", "kms", "keyrings", "list", "--location", LOCATION, "--project", project,
+                               "--format", "json"])
+        try:
+            ok = code == 0 and isinstance(json.loads(out), list)
+        except ValueError:
+            ok = False
+        streak, failures = (streak + 1, failures) if ok else (0, failures + 1)
+        if streak >= required:
+            return {"mode": "api-ready", "verdict": "VAULT_KMS_API_READY", "probes": probes, "failed_probes": failures,
+                    "consecutive_successes": streak}
+        if clock() - start + interval > timeout:
+            return {"mode": "api-ready", "verdict": "VAULT_KMS_API_NOT_READY", "probes": probes,
+                    "failed_probes": failures, "consecutive_successes": streak}
+        sleep(interval)
+
+
+def main(argv: list[str] | None = None, runner: Runner = run,
+         sleep: Callable[[float], None] = time.sleep, clock: Callable[[], float] = time.monotonic) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--mode", choices=("offline", "cloud"), required=True)
+    parser.add_argument("--mode", choices=("offline", "cloud", "api-ready"), required=True)
     parser.add_argument("--project", default=PROJECT)
     parser.add_argument("--vault-chart", type=Path)
     parser.add_argument("--out", type=Path, help="evidence directory for kms-gates-<mode>.jsonl")
+    parser.add_argument("--required", type=int, default=5, help="api-ready: consecutive successful probes")
+    parser.add_argument("--interval", type=float, default=30.0, help="api-ready: seconds between probes")
+    parser.add_argument("--timeout", type=float, default=900.0, help="api-ready: give up after this many seconds")
     args = parser.parse_args(argv)
     if args.project != PROJECT:
         print(f"REFUSED: only {PROJECT} is supported", file=sys.stderr)
         return 2
+    if args.mode == "api-ready":
+        if args.required < 1 or args.interval <= 0 or args.timeout <= 0:
+            print("REFUSED: --required, --interval and --timeout must be positive", file=sys.stderr)
+            return 2
+        result = api_ready(args.project, runner, args.required, args.interval, args.timeout, sleep, clock)
+        print(json.dumps(result))
+        if args.out:
+            args.out.mkdir(parents=True, exist_ok=True)
+            (args.out / "kms-api-ready.json").write_text(json.dumps(result) + "\n")
+        return 0 if result["verdict"] == "VAULT_KMS_API_READY" else 1
     check = KmsPreflight(args.project, runner)
     check.repository(args.vault_chart)
     check.cloud() if args.mode == "cloud" else check.not_checked()
