@@ -648,3 +648,35 @@ def test_cleanup_refuses_a_cluster_secret_store_it_did_not_create(tmp_path):
     done, calls, results = stubbed(tmp_path, "cleanup", cluster_stores=foreign)
     assert done.returncode != 0 and results[-1]["step"] == "eso-scope" and "ewallet-vault" in results[-1]["detail"]
     assert " delete " not in f" {calls} " and " patch " not in f" {calls} "
+
+
+# ---- P4: on GKE the vault phase needs this run's Cloud KMS preflight PASS
+
+def _gke_vault(tmp_path, results=()):
+    bin_dir = tmp_path / "bin"; bin_dir.mkdir()
+    for tool in ("kubectl", "helm", "gcloud"):
+        (bin_dir / tool).write_text(f'#!/usr/bin/env bash\necho "{tool} $*" >> "{tmp_path}/calls.log"\nexit 1\n')
+        (bin_dir / tool).chmod(0o755)
+    ev = tmp_path / "ev"; ev.mkdir()
+    if results:
+        (ev / "results.jsonl").write_text("".join(json.dumps(r) + "\n" for r in results))
+    env = {"PATH": f"{bin_dir}:{os.environ['PATH']}", "HOME": str(tmp_path), "REHEARSAL_CONTEXT": GKE, "REHEARSAL_ID": ID,
+           "REHEARSAL_DIR": str(ev), "KUBECONFIG": str(tmp_path / ".cache/ewallet-cloud-lab/kubeconfig"),
+           "VAULT_REHEARSAL_APPROVED": ID}
+    done = subprocess.run(["bash", str(SCRIPT), "vault"], env=env, capture_output=True, text=True, timeout=60)
+    calls = (tmp_path / "calls.log").read_text() if (tmp_path / "calls.log").exists() else ""
+    return done, calls, [json.loads(line) for line in (ev / "results.jsonl").read_text().splitlines()]
+
+
+@pytest.mark.parametrize("results", [(), ({"phase": "preflight", "step": "kms-preflight", "result": "FAIL"},),
+                                     ({"phase": "vault", "step": "kms-preflight", "result": "PASS"},)],
+                         ids=["no-preflight", "preflight-failed", "wrong-phase"])
+def test_gke_vault_phase_refuses_without_a_kms_preflight_pass_before_any_cluster_call(tmp_path, results):
+    done, calls, records = _gke_vault(tmp_path, results)
+    assert done.returncode == 1 and records[-1]["step"] == "kms-prerequisite" and calls == ""
+
+
+def test_gke_preflight_requires_the_cloud_kms_preflight():
+    pre = TEXT.split("phase_preflight() {")[1].split("phase_vault() {")[0]
+    assert 'scripts/vault/kms_preflight.py" --mode cloud' in pre and "fail kms-preflight" in pre
+    assert pre.index("kms_preflight.py") > pre.index('if [ -z "$KIND" ]; then')       # GKE only; kind keeps the transit stand-in

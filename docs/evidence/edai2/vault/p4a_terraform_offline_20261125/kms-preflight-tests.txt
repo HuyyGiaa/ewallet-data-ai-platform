@@ -1,0 +1,28 @@
+PASSED tests/ops/test_vault_kms_preflight.py::test_a_correct_project_is_ready_except_the_unrendered_chart
+PASSED tests/ops/test_vault_kms_preflight.py::test_every_query_is_read_only_and_pinned_to_the_project
+PASSED tests/ops/test_vault_kms_preflight.py::test_offline_mode_never_calls_gcloud_and_is_never_ready
+PASSED tests/ops/test_vault_kms_preflight.py::test_each_wrong_fact_fails_its_own_gate[api-off]
+PASSED tests/ops/test_vault_kms_preflight.py::test_each_wrong_fact_fails_its_own_gate[ring-wrong-project]
+PASSED tests/ops/test_vault_kms_preflight.py::test_each_wrong_fact_fails_its_own_gate[purpose]
+PASSED tests/ops/test_vault_kms_preflight.py::test_each_wrong_fact_fails_its_own_gate[hsm]
+PASSED tests/ops/test_vault_kms_preflight.py::test_each_wrong_fact_fails_its_own_gate[rotation]
+PASSED tests/ops/test_vault_kms_preflight.py::test_each_wrong_fact_fails_its_own_gate[primary-disabled]
+PASSED tests/ops/test_vault_kms_preflight.py::test_each_wrong_fact_fails_its_own_gate[wrong-key]
+PASSED tests/ops/test_vault_kms_preflight.py::test_each_wrong_fact_fails_its_own_gate[old-version-disabled]
+PASSED tests/ops/test_vault_kms_preflight.py::test_each_wrong_fact_fails_its_own_gate[version-destroy-scheduled]
+PASSED tests/ops/test_vault_kms_preflight.py::test_each_wrong_fact_fails_its_own_gate[no-versions]
+PASSED tests/ops/test_vault_kms_preflight.py::test_each_wrong_fact_fails_its_own_gate[viewer-missing]
+PASSED tests/ops/test_vault_kms_preflight.py::test_each_wrong_fact_fails_its_own_gate[other-decrypter]
+PASSED tests/ops/test_vault_kms_preflight.py::test_each_wrong_fact_fails_its_own_gate[conditional]
+PASSED tests/ops/test_vault_kms_preflight.py::test_each_wrong_fact_fails_its_own_gate[gsa-disabled]
+PASSED tests/ops/test_vault_kms_preflight.py::test_each_wrong_fact_fails_its_own_gate[json-key]
+PASSED tests/ops/test_vault_kms_preflight.py::test_each_wrong_fact_fails_its_own_gate[wrong-ksa]
+PASSED tests/ops/test_vault_kms_preflight.py::test_each_wrong_fact_fails_its_own_gate[extra-gsa-role]
+PASSED tests/ops/test_vault_kms_preflight.py::test_a_missing_resource_fails_and_a_failed_query_blocks_never_passes[stderr0-FAIL]
+PASSED tests/ops/test_vault_kms_preflight.py::test_a_missing_resource_fails_and_a_failed_query_blocks_never_passes[stderr1-BLOCKED]
+PASSED tests/ops/test_vault_kms_preflight.py::test_a_missing_resource_fails_and_a_failed_query_blocks_never_passes[ERROR: There was a problem refreshing your current auth tokens: owner@example.com-BLOCKED]
+PASSED tests/ops/test_vault_kms_preflight.py::test_a_malformed_answer_fails
+PASSED tests/ops/test_vault_kms_preflight.py::test_repository_checks_fail_on_a_wrong_seal_or_annotation
+PASSED tests/ops/test_vault_kms_preflight.py::test_cli_refuses_another_project_and_exits_nonzero_unless_ready
+PASSED tests/ops/test_vault_kms_preflight.py::test_cli_cloud_ready_when_every_gate_passes
+27 passed in 0.22s

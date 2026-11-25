@@ -602,6 +602,10 @@ phase_preflight() {  # READ-ONLY
     python3 "$root/scripts/vault/gke_preflight.py" --mode preinstall --kubeconfig "$KUBECONFIG" --context "$CTX" --out "$DIR/preflight" >/dev/null \
       || fail gke-preflight "not READY: see $DIR/preflight/gates-preinstall.jsonl"
     record gke-preflight '{"result": "PASS", "verdict": "VAULT_GKE_PREFLIGHT_READY"}'
+    # P4: the Cloud KMS key, its IAM and Workload Identity must exist before Vault can start with gcpckms.
+    python3 "$root/scripts/vault/kms_preflight.py" --mode cloud --vault-chart "$CHARTS/vault-0.34.1.tgz" --out "$DIR/preflight" >/dev/null \
+      || fail kms-preflight "not VAULT_KMS_PREFLIGHT_READY: see $DIR/preflight/kms-gates-cloud.jsonl"
+    record kms-preflight '{"result": "PASS", "verdict": "VAULT_KMS_PREFLIGHT_READY"}'
   fi
   base=$(snapshot) || fail baseline "snapshot query failed"
   printf '%s\n' "$base" > "$DIR/baseline.json"
@@ -684,9 +688,11 @@ YAML
 
 phase_vault() {  # MUTATING (Kubernetes): RB step 2 with the official files, in a namespace proven new
   local found pvcs pvs image sans out
-  # GKE needs the P4 Cloud KMS key ring, key, GSA and bindings and their read-only preflight gates (not implemented):
-  # without them the gcpckms seal cannot start Vault. Refuse before creating anything.
-  [ -n "$KIND" ] || fail kms-prerequisite "Vault V2 on GKE needs the P4 Cloud KMS resources and preflight gates; nothing was created"
+  # GKE: the gcpckms seal cannot start Vault without the P4 Cloud KMS key, IAM and Workload Identity. Proceed only if
+  # this run's preflight recorded VAULT_KMS_PREFLIGHT_READY (scripts/vault/kms_preflight.py); refuse before creating anything.
+  if [ -z "$KIND" ] && ! jq -se 'any(.[]; .phase == "preflight" and .step == "kms-preflight" and .result == "PASS")' "$EV" >/dev/null 2>&1; then
+    fail kms-prerequisite "no kms-preflight PASS in this run: P4-B (Cloud KMS) must exist and pass the read-only preflight; nothing was created"
+  fi
   found=$(collisions) || fail collisions "a query failed"; none_found "$found" || fail collisions "already present: $found"
   create < "$root/infra/kubernetes/vault/namespace.yaml"
   create < "$root/infra/kubernetes/vault/certificate.yaml"

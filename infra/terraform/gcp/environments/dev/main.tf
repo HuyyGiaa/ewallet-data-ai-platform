@@ -137,3 +137,13 @@ module "cicd_build" {
 
   depends_on = [module.project_services, module.artifact_registry]
 }
+
+# Vault V2 Cloud KMS auto-unseal (P4). Deliberately no depends_on and no input from module.gke or
+# module.workload_identity: the dev state has drifted from the live node pool (ops/gcp/r2_terraform.py),
+# and a plan for this module must contain its own creates only (ops/gcp/vault_kms_terraform.py guard).
+module "vault_kms" {
+  source = "../../modules/vault_kms"
+
+  enabled    = var.enable_vault_kms
+  project_id = var.project_id
+}

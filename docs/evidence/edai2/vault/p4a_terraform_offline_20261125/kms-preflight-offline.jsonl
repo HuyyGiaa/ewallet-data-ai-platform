@@ -1,0 +1,13 @@
+{"gate": "vault-seal-config", "expected": "seal gcpckms ewallet-data-ai-platform-hg26/asia-southeast1/ewallet-vault/vault-unseal, no credentials", "observed": "{'project': 'ewallet-data-ai-platform-hg26', 'region': 'asia-southeast1', 'key_ring': 'ewallet-vault', 'crypto_key': 'vault-unseal'}", "status": "PASS"}
+{"gate": "vault-ksa-annotation", "expected": "iam.gke.io/gcp-service-account: ewallet-vault-unseal@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com; no credentials file", "observed": "ewallet-vault-unseal@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com", "status": "PASS"}
+{"gate": "vault-ksa-rendered", "expected": "chart renders ServiceAccount ewallet-vault/vault with the annotation", "observed": "1 ServiceAccount vault", "status": "PASS"}
+{"gate": "kms-api-enabled", "expected": "cloud check", "observed": "offline mode: not queried", "status": "NOT_CHECKED"}
+{"gate": "kms-key-ring", "expected": "cloud check", "observed": "offline mode: not queried", "status": "NOT_CHECKED"}
+{"gate": "kms-crypto-key", "expected": "cloud check", "observed": "offline mode: not queried", "status": "NOT_CHECKED"}
+{"gate": "kms-key-versions", "expected": "cloud check", "observed": "offline mode: not queried", "status": "NOT_CHECKED"}
+{"gate": "kms-key-iam", "expected": "cloud check", "observed": "offline mode: not queried", "status": "NOT_CHECKED"}
+{"gate": "vault-gsa", "expected": "cloud check", "observed": "offline mode: not queried", "status": "NOT_CHECKED"}
+{"gate": "vault-gsa-no-json-key", "expected": "cloud check", "observed": "offline mode: not queried", "status": "NOT_CHECKED"}
+{"gate": "vault-workload-identity", "expected": "cloud check", "observed": "offline mode: not queried", "status": "NOT_CHECKED"}
+{"mode": "offline", "verdict": "VAULT_KMS_PREFLIGHT_OFFLINE_ONLY", "blocking": [], "not_checked": ["kms-api-enabled", "kms-key-ring", "kms-crypto-key", "kms-key-versions", "kms-key-iam", "vault-gsa", "vault-gsa-no-json-key", "vault-workload-identity"]}
+exit 1 (offline is never READY)

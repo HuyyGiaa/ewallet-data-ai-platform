@@ -111,3 +111,9 @@ variable "enable_in_cluster_cd" {
   type        = bool
   default     = false
 }
+
+variable "enable_vault_kms" {
+  description = "Create the Vault auto-unseal key ring, key, GSA and IAM members (P4-B, owner approval)."
+  type        = bool
+  default     = false
+}

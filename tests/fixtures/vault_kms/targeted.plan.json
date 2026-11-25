@@ -1,0 +1,3523 @@
+{
+ "applyable": true,
+ "checks": [
+  {
+   "address": {
+    "kind": "resource",
+    "mode": "managed",
+    "module": "module.dataproc",
+    "name": "batch_prerequisites",
+    "to_display": "module.dataproc.terraform_data.batch_prerequisites",
+    "type": "terraform_data"
+   },
+   "status": "unknown"
+  },
+  {
+   "address": {
+    "kind": "resource",
+    "mode": "managed",
+    "module": "module.gke",
+    "name": "platform",
+    "to_display": "module.gke.google_container_cluster.platform",
+    "type": "google_container_cluster"
+   },
+   "status": "unknown"
+  },
+  {
+   "address": {
+    "kind": "var",
+    "module": "module.gke",
+    "name": "master_authorized_cidrs",
+    "to_display": "module.gke.var.master_authorized_cidrs"
+   },
+   "status": "unknown"
+  },
+  {
+   "address": {
+    "kind": "var",
+    "module": "module.iam",
+    "name": "dataproc_submitter_members",
+    "to_display": "module.iam.var.dataproc_submitter_members"
+   },
+   "status": "unknown"
+  },
+  {
+   "address": {
+    "kind": "var",
+    "module": "module.network",
+    "name": "subnet_cidr",
+    "to_display": "module.network.var.subnet_cidr"
+   },
+   "status": "unknown"
+  },
+  {
+   "address": {
+    "kind": "var",
+    "module": "module.storage",
+    "name": "temporary_retention_days",
+    "to_display": "module.storage.var.temporary_retention_days"
+   },
+   "status": "unknown"
+  },
+  {
+   "address": {
+    "kind": "var",
+    "name": "gke_max_nodes",
+    "to_display": "var.gke_max_nodes"
+   },
+   "status": "unknown"
+  },
+  {
+   "address": {
+    "kind": "var",
+    "name": "project_id",
+    "to_display": "var.project_id"
+   },
+   "instances": [
+    {
+     "address": {
+      "to_display": "var.project_id"
+     },
+     "status": "pass"
+    }
+   ],
+   "status": "pass"
+  }
+ ],
+ "complete": false,
+ "configuration": {
+  "provider_config": {
+   "google": {
+    "expressions": {
+     "default_labels": {
+      "constant_value": {
+       "environment": "dev",
+       "managed_by": "terraform",
+       "project": "ewallet"
+      }
+     },
+     "project": {
+      "references": [
+       "var.project_id"
+      ]
+     },
+     "region": {
+      "references": [
+       "var.region"
+      ]
+     },
+     "zone": {
+      "references": [
+       "var.zone"
+      ]
+     }
+    },
+    "full_name": "registry.terraform.io/hashicorp/google",
+    "name": "google",
+    "version_constraint": ">= 7.17.0, < 8.0.0"
+   },
+   "module.dataproc:terraform": {
+    "full_name": "terraform.io/builtin/terraform",
+    "module_address": "module.dataproc",
+    "name": "terraform"
+   }
+  },
+  "root_module": {
+   "module_calls": {
+    "artifact_registry": {
+     "depends_on": [
+      "module.project_services"
+     ],
+     "expressions": {
+      "project_id": {
+       "references": [
+        "var.project_id"
+       ]
+      },
+      "region": {
+       "references": [
+        "var.region"
+       ]
+      },
+      "repository_id": {
+       "constant_value": "ewallet-platform"
+      }
+     },
+     "module": {
+      "outputs": {
+       "repository_id": {
+        "description": "Artifact Registry repository ID.",
+        "expression": {
+         "references": [
+          "google_artifact_registry_repository.docker.repository_id",
+          "google_artifact_registry_repository.docker"
+         ]
+        }
+       },
+       "repository_url": {
+        "description": "Docker push/pull prefix.",
+        "expression": {
+         "references": [
+          "var.region",
+          "var.project_id",
+          "google_artifact_registry_repository.docker.repository_id",
+          "google_artifact_registry_repository.docker"
+         ]
+        }
+       }
+      },
+      "resources": [
+       {
+        "address": "google_artifact_registry_repository.docker",
+        "expressions": {
+         "description": {
+          "constant_value": "Immutable E-Wallet platform images tagged by Git SHA"
+         },
+         "docker_config": [
+          {
+           "immutable_tags": {
+            "constant_value": true
+           }
+          }
+         ],
+         "format": {
+          "constant_value": "DOCKER"
+         },
+         "location": {
+          "references": [
+           "var.region"
+          ]
+         },
+         "project": {
+          "references": [
+           "var.project_id"
+          ]
+         },
+         "repository_id": {
+          "references": [
+           "var.repository_id"
+          ]
+         }
+        },
+        "mode": "managed",
+        "name": "docker",
+        "provider_config_key": "google",
+        "schema_version": 0,
+        "type": "google_artifact_registry_repository"
+       }
+      ],
+      "variables": {
+       "project_id": {
+        "description": "GCP project that owns the repository."
+       },
+       "region": {
+        "description": "Artifact Registry region."
+       },
+       "repository_id": {
+        "description": "Docker repository identifier."
+       }
+      }
+     },
+     "source": "../../modules/artifact_registry"
+    },
+    "cicd_build": {
+     "count_expression": {
+      "references": [
+       "var.enable_in_cluster_cd"
+      ]
+     },
+     "depends_on": [
+      "module.project_services",
+      "module.artifact_registry"
+     ],
+     "expressions": {
+      "artifact_repository_id": {
+       "references": [
+        "module.artifact_registry.repository_id",
+        "module.artifact_registry"
+       ]
+      },
+      "project_id": {
+       "references": [
+        "var.project_id"
+       ]
+      },
+      "region": {
+       "references": [
+        "var.region"
+       ]
+      }
+     },
+     "module": {
+      "outputs": {
+       "build_bucket": {
+        "description": "Bucket for staged sources and build logs.",
+        "expression": {
+         "references": [
+          "google_storage_bucket.builds.name",
+          "google_storage_bucket.builds"
+         ]
+        }
+       },
+       "build_logs_bucket": {
+        "description": "Bucket Cloud Build writes build logs to.",
+        "expression": {
+         "references": [
+          "google_storage_bucket.build_logs.name",
+          "google_storage_bucket.build_logs"
+         ]
+        }
+       },
+       "cloudbuild_service_account_email": {
+        "description": "Identity Cloud Build steps run as.",
+        "expression": {
+         "references": [
+          "google_service_account.cloudbuild.email",
+          "google_service_account.cloudbuild"
+         ]
+        }
+       },
+       "jenkins_service_account_email": {
+        "description": "Workload Identity target of KSA ewallet-ci/jenkins.",
+        "expression": {
+         "references": [
+          "google_service_account.jenkins.email",
+          "google_service_account.jenkins"
+         ]
+        }
+       }
+      },
+      "resources": [
+       {
+        "address": "google_artifact_registry_repository_iam_member.runner_pushes_images",
+        "expressions": {
+         "location": {
+          "references": [
+           "var.region"
+          ]
+         },
+         "member": {
+          "references": [
+           "google_service_account.cloudbuild.email",
+           "google_service_account.cloudbuild"
+          ]
+         },
+         "project": {
+          "references": [
+           "var.project_id"
+          ]
+         },
+         "repository": {
+          "references": [
+           "var.artifact_repository_id"
+          ]
+         },
+         "role": {
+          "constant_value": "roles/artifactregistry.writer"
+         }
+        },
+        "mode": "managed",
+        "name": "runner_pushes_images",
+        "provider_config_key": "google",
+        "schema_version": 0,
+        "type": "google_artifact_registry_repository_iam_member"
+       },
+       {
+        "address": "google_project_iam_custom_role.build_submitter",
+        "expressions": {
+         "description": {
+          "constant_value": "Create, read and cancel Cloud Build builds; nothing else"
+         },
+         "permissions": {
+          "constant_value": [
+           "cloudbuild.builds.create",
+           "cloudbuild.builds.get",
+           "cloudbuild.builds.update"
+          ]
+         },
+         "project": {
+          "references": [
+           "var.project_id"
+          ]
+         },
+         "role_id": {
+          "constant_value": "ewalletCicdBuildSubmitter"
+         },
+         "title": {
+          "constant_value": "E-Wallet CI/CD build submitter"
+         }
+        },
+        "mode": "managed",
+        "name": "build_submitter",
+        "provider_config_key": "google",
+        "schema_version": 0,
+        "type": "google_project_iam_custom_role"
+       },
+       {
+        "address": "google_project_iam_member.jenkins_submits_builds",
+        "expressions": {
+         "member": {
+          "references": [
+           "google_service_account.jenkins.email",
+           "google_service_account.jenkins"
+          ]
+         },
+         "project": {
+          "references": [
+           "var.project_id"
+          ]
+         },
+         "role": {
+          "references": [
+           "google_project_iam_custom_role.build_submitter.id",
+           "google_project_iam_custom_role.build_submitter"
+          ]
+         }
+        },
+        "mode": "managed",
+        "name": "jenkins_submits_builds",
+        "provider_config_key": "google",
+        "schema_version": 0,
+        "type": "google_project_iam_member"
+       },
+       {
+        "address": "google_service_account.cloudbuild",
+        "expressions": {
+         "account_id": {
+          "constant_value": "ewallet-cloudbuild"
+         },
+         "description": {
+          "constant_value": "Runs Cloud Build steps and publishes immutable images to one repository"
+         },
+         "display_name": {
+          "constant_value": "E-Wallet Cloud Build runner"
+         },
+         "project": {
+          "references": [
+           "var.project_id"
+          ]
+         }
+        },
+        "mode": "managed",
+        "name": "cloudbuild",
+        "provider_config_key": "google",
+        "schema_version": 0,
+        "type": "google_service_account"
+       },
+       {
+        "address": "google_service_account.jenkins",
+        "expressions": {
+         "account_id": {
+          "constant_value": "ewallet-jenkins"
+         },
+         "description": {
+          "constant_value": "Submits Cloud Build jobs for reviewed source snapshots; no deploy or push rights"
+         },
+         "display_name": {
+          "constant_value": "E-Wallet in-cluster Jenkins"
+         },
+         "project": {
+          "references": [
+           "var.project_id"
+          ]
+         }
+        },
+        "mode": "managed",
+        "name": "jenkins",
+        "provider_config_key": "google",
+        "schema_version": 0,
+        "type": "google_service_account"
+       },
+       {
+        "address": "google_service_account_iam_member.jenkins_acts_as_runner",
+        "expressions": {
+         "member": {
+          "references": [
+           "google_service_account.jenkins.email",
+           "google_service_account.jenkins"
+          ]
+         },
+         "role": {
+          "constant_value": "roles/iam.serviceAccountUser"
+         },
+         "service_account_id": {
+          "references": [
+           "google_service_account.cloudbuild.name",
+           "google_service_account.cloudbuild"
+          ]
+         }
+        },
+        "mode": "managed",
+        "name": "jenkins_acts_as_runner",
+        "provider_config_key": "google",
+        "schema_version": 0,
+        "type": "google_service_account_iam_member"
+       },
+       {
+        "address": "google_service_account_iam_member.jenkins_workload_identity",
+        "expressions": {
+         "member": {
+          "references": [
+           "local.jenkins_ksa"
+          ]
+         },
+         "role": {
+          "constant_value": "roles/iam.workloadIdentityUser"
+         },
+         "service_account_id": {
+          "references": [
+           "google_service_account.jenkins.name",
+           "google_service_account.jenkins"
+          ]
+         }
+        },
+        "mode": "managed",
+        "name": "jenkins_workload_identity",
+        "provider_config_key": "google",
+        "schema_version": 0,
+        "type": "google_service_account_iam_member"
+       },
+       {
+        "address": "google_storage_bucket.build_logs",
+        "expressions": {
+         "force_destroy": {
+          "constant_value": false
+         },
+         "lifecycle_rule": [
+          {
+           "action": [
+            {
+             "type": {
+              "constant_value": "Delete"
+             }
+            }
+           ],
+           "condition": [
+            {
+             "age": {
+              "references": [
+               "var.build_object_retention_days"
+              ]
+             }
+            }
+           ]
+          }
+         ],
+         "location": {
+          "references": [
+           "var.region"
+          ]
+         },
+         "name": {
+          "references": [
+           "var.project_id"
+          ]
+         },
+         "project": {
+          "references": [
+           "var.project_id"
+          ]
+         },
+         "public_access_prevention": {
+          "constant_value": "enforced"
+         },
+         "uniform_bucket_level_access": {
+          "constant_value": true
+         }
+        },
+        "mode": "managed",
+        "name": "build_logs",
+        "provider_config_key": "google",
+        "schema_version": 4,
+        "type": "google_storage_bucket"
+       },
+       {
+        "address": "google_storage_bucket.builds",
+        "expressions": {
+         "force_destroy": {
+          "constant_value": false
+         },
+         "lifecycle_rule": [
+          {
+           "action": [
+            {
+             "type": {
+              "constant_value": "Delete"
+             }
+            }
+           ],
+           "condition": [
+            {
+             "age": {
+              "references": [
+               "var.build_object_retention_days"
+              ]
+             }
+            }
+           ]
+          }
+         ],
+         "location": {
+          "references": [
+           "var.region"
+          ]
+         },
+         "name": {
+          "references": [
+           "var.project_id"
+          ]
+         },
+         "project": {
+          "references": [
+           "var.project_id"
+          ]
+         },
+         "public_access_prevention": {
+          "constant_value": "enforced"
+         },
+         "uniform_bucket_level_access": {
+          "constant_value": true
+         }
+        },
+        "mode": "managed",
+        "name": "builds",
+        "provider_config_key": "google",
+        "schema_version": 4,
+        "type": "google_storage_bucket"
+       },
+       {
+        "address": "google_storage_bucket_iam_member.jenkins_reads_logs",
+        "expressions": {
+         "bucket": {
+          "references": [
+           "google_storage_bucket.build_logs.name",
+           "google_storage_bucket.build_logs"
+          ]
+         },
+         "member": {
+          "references": [
+           "google_service_account.jenkins.email",
+           "google_service_account.jenkins"
+          ]
+         },
+         "role": {
+          "constant_value": "roles/storage.objectViewer"
+         }
+        },
+        "mode": "managed",
+        "name": "jenkins_reads_logs",
+        "provider_config_key": "google",
+        "schema_version": 0,
+        "type": "google_storage_bucket_iam_member"
+       },
+       {
+        "address": "google_storage_bucket_iam_member.jenkins_stages_sources",
+        "expressions": {
+         "bucket": {
+          "references": [
+           "google_storage_bucket.builds.name",
+           "google_storage_bucket.builds"
+          ]
+         },
+         "member": {
+          "references": [
+           "google_service_account.jenkins.email",
+           "google_service_account.jenkins"
+          ]
+         },
+         "role": {
+          "references": [
+           "each.value"
+          ]
+         }
+        },
+        "mode": "managed",
+        "name": "jenkins_stages_sources",
+        "provider_config_key": "google",
+        "schema_version": 0,
+        "type": "google_storage_bucket_iam_member"
+       },
+       {
+        "address": "google_storage_bucket_iam_member.runner_reads_sources_writes_logs",
+        "expressions": {
+         "bucket": {
+          "references": [
+           "google_storage_bucket.builds.name",
+           "google_storage_bucket.builds"
+          ]
+         },
+         "member": {
+          "references": [
+           "google_service_account.cloudbuild.email",
+           "google_service_account.cloudbuild"
+          ]
+         },
+         "role": {
+          "references": [
+           "each.value"
+          ]
+         }
+        },
+        "mode": "managed",
+        "name": "runner_reads_sources_writes_logs",
+        "provider_config_key": "google",
+        "schema_version": 0,
+        "type": "google_storage_bucket_iam_member"
+       },
+       {
+        "address": "google_storage_bucket_iam_member.runner_writes_logs",
+        "expressions": {
+         "bucket": {
+          "references": [
+           "google_storage_bucket.build_logs.name",
+           "google_storage_bucket.build_logs"
+          ]
+         },
+         "member": {
+          "references": [
+           "google_service_account.cloudbuild.email",
+           "google_service_account.cloudbuild"
+          ]
+         },
+         "role": {
+          "references": [
+           "each.value"
+          ]
+         }
+        },
+        "mode": "managed",
+        "name": "runner_writes_logs",
+        "provider_config_key": "google",
+        "schema_version": 0,
+        "type": "google_storage_bucket_iam_member"
+       }
+      ],
+      "variables": {
+       "artifact_repository_id": {
+        "description": "The only Artifact Registry repository the build runner may write."
+       },
+       "build_object_retention_days": {
+        "default": 30,
+        "description": "Days before staged sources and build logs are deleted."
+       },
+       "jenkins_namespace": {
+        "default": "ewallet-ci",
+        "description": "Namespace of the in-cluster Jenkins controller."
+       },
+       "jenkins_service_account": {
+        "default": "jenkins",
+        "description": "Kubernetes ServiceAccount of the Jenkins controller."
+       },
+       "project_id": {
+        "description": "GCP project that hosts the builds, bucket and service accounts."
+       },
+       "region": {
+        "description": "Region of the build bucket and the Artifact Registry repository."
+       }
+      }
+     },
+     "source": "../../modules/cicd_build"
+    },
+    "dataproc": {
+     "depends_on": [
+      "module.project_services",
+      "module.network",
+      "module.iam"
+     ],
+     "expressions": {
+      "project_id": {
+       "references": [
+        "var.project_id"
+       ]
+      },
+      "region": {
+       "references": [
+        "var.region"
+       ]
+      },
+      "service_account_email": {
+       "references": [
+        "module.iam.spark_service_account_email",
+        "module.iam"
+       ]
+      },
+      "subnet_self_link": {
+       "references": [
+        "module.network.subnet_self_link",
+        "module.network"
+       ]
+      },
+      "temporary_bucket_name": {
+       "references": [
+        "module.storage.temporary_bucket_name",
+        "module.storage"
+       ]
+      }
+     },
+     "module": {
+      "outputs": {
+       "batch_runtime": {
+        "description": "Non-secret defaults passed to Dataproc batch submission.",
+        "expression": {
+         "references": [
+          "terraform_data.batch_prerequisites.output",
+          "terraform_data.batch_prerequisites"
+         ]
+        }
+       }
+      },
+      "resources": [
+       {
+        "address": "terraform_data.batch_prerequisites",
+        "expressions": {
+         "input": {
+          "references": [
+           "local.batch_runtime"
+          ]
+         }
+        },
+        "mode": "managed",
+        "name": "batch_prerequisites",
+        "provider_config_key": "module.dataproc:terraform",
+        "schema_version": 0,
+        "type": "terraform_data"
+       }
+      ],
+      "variables": {
+       "project_id": {
+        "description": "GCP project used by Serverless for Apache Spark batches."
+       },
+       "region": {
+        "description": "Region in which batches run."
+       },
+       "service_account_email": {
+        "description": "Least-privilege Spark runtime identity."
+       },
+       "subnet_self_link": {
+        "description": "Subnet with Private Google Access used by batches."
+       },
+       "temporary_bucket_name": {
+        "description": "Bucket for regenerable Spark staging and temporary data."
+       }
+      }
+     },
+     "source": "../../modules/dataproc"
+    },
+    "gke": {
+     "depends_on": [
+      "module.project_services",
+      "module.network",
+      "module.iam"
+     ],
+     "expressions": {
+      "cluster_name": {
+       "constant_value": "ewallet-dev"
+      },
+      "deletion_protection": {
+       "references": [
+        "var.gke_deletion_protection"
+       ]
+      },
+      "enabled": {
+       "references": [
+        "var.enable_gke"
+       ]
+      },
+      "machine_type": {
+       "references": [
+        "var.gke_machine_type"
+       ]
+      },
+      "master_authorized_cidrs": {
+       "references": [
+        "var.gke_master_authorized_cidrs"
+       ]
+      },
+      "max_node_count": {
+       "references": [
+        "var.gke_max_nodes"
+       ]
+      },
+      "min_node_count": {
+       "references": [
+        "var.gke_min_nodes"
+       ]
+      },
+      "network_self_link": {
+       "references": [
+        "module.network.network_self_link",
+        "module.network"
+       ]
+      },
+      "node_service_account_email": {
+       "references": [
+        "module.iam.gke_node_service_account_email",
+        "module.iam"
+       ]
+      },
+      "project_id": {
+       "references": [
+        "var.project_id"
+       ]
+      },
+      "subnet_self_link": {
+       "references": [
+        "module.network.subnet_self_link",
+        "module.network"
+       ]
+      },
+      "zone": {
+       "references": [
+        "var.zone"
+       ]
+      }
+     },
+     "module": {
+      "outputs": {
+       "cluster_location": {
+        "description": "GKE cluster zone, or null while disabled.",
+        "expression": {
+         "references": [
+          "google_container_cluster.platform[0].location",
+          "google_container_cluster.platform[0]",
+          "google_container_cluster.platform"
+         ]
+        }
+       },
+       "cluster_name": {
+        "description": "GKE cluster name, or null while the cost gate is disabled.",
+        "expression": {
+         "references": [
+          "google_container_cluster.platform[0].name",
+          "google_container_cluster.platform[0]",
+          "google_container_cluster.platform"
+         ]
+        }
+       },
+       "workload_pool": {
+        "description": "Workload Identity pool used by later Helm releases.",
+        "expression": {
+         "references": [
+          "var.enabled",
+          "var.project_id"
+         ]
+        }
+       }
+      },
+      "resources": [
+       {
+        "address": "google_container_cluster.platform",
+        "count_expression": {
+         "references": [
+          "var.enabled"
+         ]
+        },
+        "expressions": {
+         "deletion_protection": {
+          "references": [
+           "var.deletion_protection"
+          ]
+         },
+         "enable_shielded_nodes": {
+          "constant_value": true
+         },
+         "initial_node_count": {
+          "constant_value": 1
+         },
+         "ip_allocation_policy": [
+          {
+           "stack_type": {
+            "constant_value": "IPV4"
+           }
+          }
+         ],
+         "location": {
+          "references": [
+           "var.zone"
+          ]
+         },
+         "master_auth": [
+          {
+           "client_certificate_config": [
+            {
+             "issue_client_certificate": {
+              "constant_value": false
+             }
+            }
+           ]
+          }
+         ],
+         "master_authorized_networks_config": [
+          {}
+         ],
+         "name": {
+          "references": [
+           "var.cluster_name"
+          ]
+         },
+         "network": {
+          "references": [
+           "var.network_self_link"
+          ]
+         },
+         "project": {
+          "references": [
+           "var.project_id"
+          ]
+         },
+         "release_channel": [
+          {
+           "channel": {
+            "constant_value": "REGULAR"
+           }
+          }
+         ],
+         "remove_default_node_pool": {
+          "constant_value": true
+         },
+         "resource_labels": {
+          "constant_value": {
+           "environment": "dev",
+           "managed_by": "terraform",
+           "project": "ewallet"
+          }
+         },
+         "subnetwork": {
+          "references": [
+           "var.subnet_self_link"
+          ]
+         },
+         "workload_identity_config": [
+          {
+           "workload_pool": {
+            "references": [
+             "var.project_id"
+            ]
+           }
+          }
+         ]
+        },
+        "mode": "managed",
+        "name": "platform",
+        "provider_config_key": "google",
+        "schema_version": 2,
+        "type": "google_container_cluster"
+       },
+       {
+        "address": "google_container_node_pool.cpu",
+        "count_expression": {
+         "references": [
+          "var.enabled"
+         ]
+        },
+        "expressions": {
+         "autoscaling": [
+          {
+           "max_node_count": {
+            "references": [
+             "var.max_node_count"
+            ]
+           },
+           "min_node_count": {
+            "references": [
+             "var.min_node_count"
+            ]
+           }
+          }
+         ],
+         "cluster": {
+          "references": [
+           "google_container_cluster.platform[0].name",
+           "google_container_cluster.platform[0]",
+           "google_container_cluster.platform"
+          ]
+         },
+         "initial_node_count": {
+          "references": [
+           "var.initial_node_count"
+          ]
+         },
+         "location": {
+          "references": [
+           "var.zone"
+          ]
+         },
+         "management": [
+          {
+           "auto_repair": {
+            "constant_value": true
+           },
+           "auto_upgrade": {
+            "constant_value": true
+           }
+          }
+         ],
+         "name": {
+          "constant_value": "cpu-pool"
+         },
+         "node_config": [
+          {
+           "disk_size_gb": {
+            "references": [
+             "var.disk_size_gb"
+            ]
+           },
+           "disk_type": {
+            "constant_value": "pd-balanced"
+           },
+           "image_type": {
+            "constant_value": "COS_CONTAINERD"
+           },
+           "labels": {
+            "constant_value": {
+             "workload": "cpu"
+            }
+           },
+           "machine_type": {
+            "references": [
+             "var.machine_type"
+            ]
+           },
+           "oauth_scopes": {
+            "constant_value": [
+             "https://www.googleapis.com/auth/cloud-platform"
+            ]
+           },
+           "service_account": {
+            "references": [
+             "var.node_service_account_email"
+            ]
+           },
+           "shielded_instance_config": [
+            {
+             "enable_integrity_monitoring": {
+              "constant_value": true
+             },
+             "enable_secure_boot": {
+              "constant_value": true
+             }
+            }
+           ],
+           "workload_metadata_config": [
+            {
+             "mode": {
+              "constant_value": "GKE_METADATA"
+             }
+            }
+           ]
+          }
+         ],
+         "project": {
+          "references": [
+           "var.project_id"
+          ]
+         }
+        },
+        "mode": "managed",
+        "name": "cpu",
+        "provider_config_key": "google",
+        "schema_version": 1,
+        "type": "google_container_node_pool"
+       }
+      ],
+      "variables": {
+       "cluster_name": {
+        "description": "GKE cluster name."
+       },
+       "deletion_protection": {
+        "default": true,
+        "description": "Protect the cluster until a separately reviewed cleanup plan disables it."
+       },
+       "disk_size_gb": {
+        "default": 50,
+        "description": "Balanced persistent disk size per node."
+       },
+       "enabled": {
+        "default": false,
+        "description": "Explicit cost gate for GKE resources."
+       },
+       "initial_node_count": {
+        "default": 1,
+        "description": "Initial nodes when GKE is explicitly enabled."
+       },
+       "machine_type": {
+        "default": "e2-standard-4",
+        "description": "CPU-only node machine type."
+       },
+       "master_authorized_cidrs": {
+        "default": [],
+        "description": "Explicit administrator CIDRs allowed to reach the public control-plane endpoint."
+       },
+       "max_node_count": {
+        "default": 3,
+        "description": "Autoscaler maximum nodes per zone."
+       },
+       "min_node_count": {
+        "default": 0,
+        "description": "Autoscaler minimum nodes per zone."
+       },
+       "network_self_link": {
+        "description": "VPC self link."
+       },
+       "node_service_account_email": {
+        "description": "Dedicated identity attached to GKE nodes."
+       },
+       "project_id": {
+        "description": "GCP project that owns the cluster."
+       },
+       "subnet_self_link": {
+        "description": "Subnet self link."
+       },
+       "zone": {
+        "description": "Zone for the cost-bounded development cluster."
+       }
+      }
+     },
+     "source": "../../modules/gke"
+    },
+    "iam": {
+     "depends_on": [
+      "module.project_services",
+      "module.storage",
+      "module.artifact_registry"
+     ],
+     "expressions": {
+      "data_bucket_name": {
+       "references": [
+        "module.storage.data_bucket_name",
+        "module.storage"
+       ]
+      },
+      "dataproc_submitter_members": {
+       "references": [
+        "var.dataproc_submitter_members"
+       ]
+      },
+      "project_id": {
+       "references": [
+        "var.project_id"
+       ]
+      },
+      "temporary_bucket_name": {
+       "references": [
+        "module.storage.temporary_bucket_name",
+        "module.storage"
+       ]
+      }
+     },
+     "module": {
+      "outputs": {
+       "ci_service_account_email": {
+        "description": "Identity attached to the optional Jenkins VM.",
+        "expression": {
+         "references": [
+          "google_service_account.workload[\"ci\"].email",
+          "google_service_account.workload[\"ci\"]",
+          "google_service_account.workload"
+         ]
+        }
+       },
+       "gke_node_service_account_email": {
+        "description": "Identity attached to GKE nodes.",
+        "expression": {
+         "references": [
+          "google_service_account.workload[\"gke_nodes\"].email",
+          "google_service_account.workload[\"gke_nodes\"]",
+          "google_service_account.workload"
+         ]
+        }
+       },
+       "service_account_emails": {
+        "description": "Workload service-account emails keyed by responsibility.",
+        "expression": {
+         "references": [
+          "google_service_account.workload"
+         ]
+        }
+       },
+       "spark_service_account_email": {
+        "description": "Identity used by Serverless for Apache Spark batches.",
+        "expression": {
+         "references": [
+          "google_service_account.workload[\"spark\"].email",
+          "google_service_account.workload[\"spark\"]",
+          "google_service_account.workload"
+         ]
+        }
+       }
+      },
+      "resources": [
+       {
+        "address": "google_project_iam_member.ci",
+        "expressions": {
+         "member": {
+          "references": [
+           "google_service_account.workload[\"ci\"].email",
+           "google_service_account.workload[\"ci\"]",
+           "google_service_account.workload"
+          ]
+         },
+         "project": {
+          "references": [
+           "var.project_id"
+          ]
+         },
+         "role": {
+          "references": [
+           "each.value"
+          ]
+         }
+        },
+        "for_each_expression": {
+         "references": [
+          "local.ci_project_roles"
+         ]
+        },
+        "mode": "managed",
+        "name": "ci",
+        "provider_config_key": "google",
+        "schema_version": 0,
+        "type": "google_project_iam_member"
+       },
+       {
+        "address": "google_project_iam_member.gke_nodes",
+        "expressions": {
+         "member": {
+          "references": [
+           "google_service_account.workload[\"gke_nodes\"].email",
+           "google_service_account.workload[\"gke_nodes\"]",
+           "google_service_account.workload"
+          ]
+         },
+         "project": {
+          "references": [
+           "var.project_id"
+          ]
+         },
+         "role": {
+          "references": [
+           "each.value"
+          ]
+         }
+        },
+        "for_each_expression": {
+         "references": [
+          "local.gke_project_roles"
+         ]
+        },
+        "mode": "managed",
+        "name": "gke_nodes",
+        "provider_config_key": "google",
+        "schema_version": 0,
+        "type": "google_project_iam_member"
+       },
+       {
+        "address": "google_project_iam_member.spark",
+        "expressions": {
+         "member": {
+          "references": [
+           "google_service_account.workload[\"spark\"].email",
+           "google_service_account.workload[\"spark\"]",
+           "google_service_account.workload"
+          ]
+         },
+         "project": {
+          "references": [
+           "var.project_id"
+          ]
+         },
+         "role": {
+          "references": [
+           "each.value"
+          ]
+         }
+        },
+        "for_each_expression": {
+         "references": [
+          "local.spark_project_roles"
+         ]
+        },
+        "mode": "managed",
+        "name": "spark",
+        "provider_config_key": "google",
+        "schema_version": 0,
+        "type": "google_project_iam_member"
+       },
+       {
+        "address": "google_service_account.workload",
+        "expressions": {
+         "account_id": {
+          "references": [
+           "each.key"
+          ]
+         },
+         "description": {
+          "references": [
+           "each.value"
+          ]
+         },
+         "display_name": {
+          "references": [
+           "each.key"
+          ]
+         },
+         "project": {
+          "references": [
+           "var.project_id"
+          ]
+         }
+        },
+        "for_each_expression": {
+         "references": [
+          "local.service_accounts"
+         ]
+        },
+        "mode": "managed",
+        "name": "workload",
+        "provider_config_key": "google",
+        "schema_version": 0,
+        "type": "google_service_account"
+       },
+       {
+        "address": "google_service_account_iam_member.ci_can_submit_dataproc",
+        "expressions": {
+         "member": {
+          "references": [
+           "google_service_account.workload[\"ci\"].email",
+           "google_service_account.workload[\"ci\"]",
+           "google_service_account.workload"
+          ]
+         },
+         "role": {
+          "constant_value": "roles/iam.serviceAccountUser"
+         },
+         "service_account_id": {
+          "references": [
+           "google_service_account.workload[\"spark\"].name",
+           "google_service_account.workload[\"spark\"]",
+           "google_service_account.workload"
+          ]
+         }
+        },
+        "mode": "managed",
+        "name": "ci_can_submit_dataproc",
+        "provider_config_key": "google",
+        "schema_version": 0,
+        "type": "google_service_account_iam_member"
+       },
+       {
+        "address": "google_service_account_iam_member.operator_can_submit_dataproc",
+        "expressions": {
+         "member": {
+          "references": [
+           "each.value"
+          ]
+         },
+         "role": {
+          "constant_value": "roles/iam.serviceAccountUser"
+         },
+         "service_account_id": {
+          "references": [
+           "google_service_account.workload[\"spark\"].name",
+           "google_service_account.workload[\"spark\"]",
+           "google_service_account.workload"
+          ]
+         }
+        },
+        "for_each_expression": {
+         "references": [
+          "var.dataproc_submitter_members"
+         ]
+        },
+        "mode": "managed",
+        "name": "operator_can_submit_dataproc",
+        "provider_config_key": "google",
+        "schema_version": 0,
+        "type": "google_service_account_iam_member"
+       },
+       {
+        "address": "google_storage_bucket_iam_member.canonical",
+        "expressions": {
+         "bucket": {
+          "references": [
+           "var.data_bucket_name"
+          ]
+         },
+         "member": {
+          "references": [
+           "google_service_account.workload",
+           "each.key"
+          ]
+         },
+         "role": {
+          "references": [
+           "each.value"
+          ]
+         }
+        },
+        "for_each_expression": {
+         "references": [
+          "local.data_bucket_roles"
+         ]
+        },
+        "mode": "managed",
+        "name": "canonical",
+        "provider_config_key": "google",
+        "schema_version": 0,
+        "type": "google_storage_bucket_iam_member"
+       },
+       {
+        "address": "google_storage_bucket_iam_member.registry_reader",
+        "expressions": {
+         "bucket": {
+          "references": [
+           "var.data_bucket_name"
+          ]
+         },
+         "condition": [
+          {
+           "description": {
+            "references": [
+             "local.registry_prefix"
+            ]
+           },
+           "expression": {
+            "references": [
+             "var.data_bucket_name",
+             "local.registry_prefix"
+            ]
+           },
+           "title": {
+            "constant_value": "online-feast-registry-only"
+           }
+          }
+         ],
+         "member": {
+          "references": [
+           "google_service_account.workload",
+           "each.key"
+          ]
+         },
+         "role": {
+          "constant_value": "roles/storage.objectViewer"
+         }
+        },
+        "for_each_expression": {
+         "references": [
+          "local.registry_readers"
+         ]
+        },
+        "mode": "managed",
+        "name": "registry_reader",
+        "provider_config_key": "google",
+        "schema_version": 0,
+        "type": "google_storage_bucket_iam_member"
+       },
+       {
+        "address": "google_storage_bucket_iam_member.temporary",
+        "expressions": {
+         "bucket": {
+          "references": [
+           "var.temporary_bucket_name"
+          ]
+         },
+         "member": {
+          "references": [
+           "google_service_account.workload",
+           "each.key"
+          ]
+         },
+         "role": {
+          "references": [
+           "each.value"
+          ]
+         }
+        },
+        "for_each_expression": {
+         "references": [
+          "local.temporary_bucket_roles"
+         ]
+        },
+        "mode": "managed",
+        "name": "temporary",
+        "provider_config_key": "google",
+        "schema_version": 0,
+        "type": "google_storage_bucket_iam_member"
+       }
+      ],
+      "variables": {
+       "data_bucket_name": {
+        "description": "Canonical platform bucket for bucket-scoped IAM."
+       },
+       "dataproc_submitter_members": {
+        "default": [],
+        "description": "Additional IAM principals allowed to submit batches as the Spark service account."
+       },
+       "project_id": {
+        "description": "GCP project that owns workload identities."
+       },
+       "temporary_bucket_name": {
+        "description": "Regenerable staging bucket for bucket-scoped IAM."
+       }
+      }
+     },
+     "source": "../../modules/iam"
+    },
+    "jenkins_vm": {
+     "depends_on": [
+      "module.project_services",
+      "module.network",
+      "module.iam"
+     ],
+     "expressions": {
+      "deletion_protection": {
+       "references": [
+        "var.jenkins_deletion_protection"
+       ]
+      },
+      "enabled": {
+       "references": [
+        "var.enable_jenkins_vm"
+       ]
+      },
+      "instance_name": {
+       "constant_value": "ewallet-jenkins"
+      },
+      "machine_type": {
+       "references": [
+        "var.jenkins_machine_type"
+       ]
+      },
+      "network_self_link": {
+       "references": [
+        "module.network.network_self_link",
+        "module.network"
+       ]
+      },
+      "project_id": {
+       "references": [
+        "var.project_id"
+       ]
+      },
+      "service_account_email": {
+       "references": [
+        "module.iam.ci_service_account_email",
+        "module.iam"
+       ]
+      },
+      "subnet_self_link": {
+       "references": [
+        "module.network.subnet_self_link",
+        "module.network"
+       ]
+      },
+      "zone": {
+       "references": [
+        "var.zone"
+       ]
+      }
+     },
+     "module": {
+      "outputs": {
+       "external_ip": {
+        "description": "Ephemeral egress IP, or null while disabled.",
+        "expression": {
+         "references": [
+          "google_compute_instance.jenkins[0].network_interface[0].access_config[0].nat_ip",
+          "google_compute_instance.jenkins[0].network_interface[0].access_config[0]",
+          "google_compute_instance.jenkins[0].network_interface[0].access_config",
+          "google_compute_instance.jenkins[0].network_interface[0]",
+          "google_compute_instance.jenkins[0].network_interface",
+          "google_compute_instance.jenkins[0]",
+          "google_compute_instance.jenkins"
+         ]
+        }
+       },
+       "instance_name": {
+        "description": "Jenkins VM name, or null while disabled.",
+        "expression": {
+         "references": [
+          "google_compute_instance.jenkins[0].name",
+          "google_compute_instance.jenkins[0]",
+          "google_compute_instance.jenkins"
+         ]
+        }
+       }
+      },
+      "resources": [
+       {
+        "address": "google_compute_firewall.iap_ssh",
+        "count_expression": {
+         "references": [
+          "var.enabled"
+         ]
+        },
+        "expressions": {
+         "allow": [
+          {
+           "ports": {
+            "constant_value": [
+             "22"
+            ]
+           },
+           "protocol": {
+            "constant_value": "tcp"
+           }
+          }
+         ],
+         "direction": {
+          "constant_value": "INGRESS"
+         },
+         "name": {
+          "references": [
+           "var.instance_name"
+          ]
+         },
+         "network": {
+          "references": [
+           "var.network_self_link"
+          ]
+         },
+         "project": {
+          "references": [
+           "var.project_id"
+          ]
+         },
+         "source_ranges": {
+          "references": [
+           "var.ssh_source_ranges"
+          ]
+         },
+         "target_tags": {
+          "constant_value": [
+           "jenkins"
+          ]
+         }
+        },
+        "mode": "managed",
+        "name": "iap_ssh",
+        "provider_config_key": "google",
+        "schema_version": 1,
+        "type": "google_compute_firewall"
+       },
+       {
+        "address": "google_compute_instance.jenkins",
+        "count_expression": {
+         "references": [
+          "var.enabled"
+         ]
+        },
+        "expressions": {
+         "boot_disk": [
+          {
+           "initialize_params": [
+            {
+             "image": {
+              "references": [
+               "data.google_compute_image.ubuntu.self_link",
+               "data.google_compute_image.ubuntu"
+              ]
+             },
+             "size": {
+              "references": [
+               "var.boot_disk_size_gb"
+              ]
+             },
+             "type": {
+              "constant_value": "pd-balanced"
+             }
+            }
+           ]
+          }
+         ],
+         "deletion_protection": {
+          "references": [
+           "var.deletion_protection"
+          ]
+         },
+         "labels": {
+          "constant_value": {
+           "environment": "dev",
+           "managed_by": "terraform",
+           "project": "ewallet"
+          }
+         },
+         "machine_type": {
+          "references": [
+           "var.machine_type"
+          ]
+         },
+         "metadata": {
+          "constant_value": {
+           "block-project-ssh-keys": "TRUE",
+           "enable-oslogin": "TRUE"
+          }
+         },
+         "name": {
+          "references": [
+           "var.instance_name"
+          ]
+         },
+         "network_interface": [
+          {
+           "access_config": [
+            {}
+           ],
+           "network": {
+            "references": [
+             "var.network_self_link"
+            ]
+           },
+           "subnetwork": {
+            "references": [
+             "var.subnet_self_link"
+            ]
+           }
+          }
+         ],
+         "project": {
+          "references": [
+           "var.project_id"
+          ]
+         },
+         "service_account": [
+          {
+           "email": {
+            "references": [
+             "var.service_account_email"
+            ]
+           },
+           "scopes": {
+            "constant_value": [
+             "cloud-platform"
+            ]
+           }
+          }
+         ],
+         "shielded_instance_config": [
+          {
+           "enable_integrity_monitoring": {
+            "constant_value": true
+           },
+           "enable_secure_boot": {
+            "constant_value": true
+           },
+           "enable_vtpm": {
+            "constant_value": true
+           }
+          }
+         ],
+         "tags": {
+          "constant_value": [
+           "jenkins"
+          ]
+         },
+         "zone": {
+          "references": [
+           "var.zone"
+          ]
+         }
+        },
+        "mode": "managed",
+        "name": "jenkins",
+        "provider_config_key": "google",
+        "schema_version": 6,
+        "type": "google_compute_instance"
+       },
+       {
+        "address": "data.google_compute_image.ubuntu",
+        "expressions": {
+         "family": {
+          "constant_value": "ubuntu-2404-lts-amd64"
+         },
+         "project": {
+          "constant_value": "ubuntu-os-cloud"
+         }
+        },
+        "mode": "data",
+        "name": "ubuntu",
+        "provider_config_key": "google",
+        "schema_version": 0,
+        "type": "google_compute_image"
+       }
+      ],
+      "variables": {
+       "boot_disk_size_gb": {
+        "default": 50,
+        "description": "Balanced boot disk size."
+       },
+       "deletion_protection": {
+        "default": true,
+        "description": "Protect the VM until a separately reviewed cleanup plan disables it."
+       },
+       "enabled": {
+        "default": false,
+        "description": "Explicit cost gate for the Jenkins VM."
+       },
+       "instance_name": {
+        "description": "Jenkins VM name."
+       },
+       "machine_type": {
+        "default": "e2-standard-2",
+        "description": "CPU-only Jenkins machine type."
+       },
+       "network_self_link": {
+        "description": "VPC self link."
+       },
+       "project_id": {
+        "description": "GCP project that owns the VM."
+       },
+       "service_account_email": {
+        "description": "Dedicated CI identity attached to the VM."
+       },
+       "ssh_source_ranges": {
+        "default": [
+         "35.235.240.0/20"
+        ],
+        "description": "CIDRs allowed to reach SSH; default is Google IAP TCP forwarding."
+       },
+       "subnet_self_link": {
+        "description": "Subnet self link."
+       },
+       "zone": {
+        "description": "Compute zone."
+       }
+      }
+     },
+     "source": "../../modules/jenkins_vm"
+    },
+    "network": {
+     "depends_on": [
+      "module.project_services"
+     ],
+     "expressions": {
+      "network_name": {
+       "constant_value": "ewallet-dev-vpc"
+      },
+      "project_id": {
+       "references": [
+        "var.project_id"
+       ]
+      },
+      "region": {
+       "references": [
+        "var.region"
+       ]
+      },
+      "subnet_cidr": {
+       "references": [
+        "var.subnet_cidr"
+       ]
+      },
+      "subnet_name": {
+       "references": [
+        "var.region"
+       ]
+      }
+     },
+     "module": {
+      "outputs": {
+       "network_name": {
+        "description": "Custom VPC name.",
+        "expression": {
+         "references": [
+          "google_compute_network.platform.name",
+          "google_compute_network.platform"
+         ]
+        }
+       },
+       "network_self_link": {
+        "description": "Custom VPC self link.",
+        "expression": {
+         "references": [
+          "google_compute_network.platform.self_link",
+          "google_compute_network.platform"
+         ]
+        }
+       },
+       "subnet_name": {
+        "description": "Regional subnet name.",
+        "expression": {
+         "references": [
+          "google_compute_subnetwork.platform.name",
+          "google_compute_subnetwork.platform"
+         ]
+        }
+       },
+       "subnet_self_link": {
+        "description": "Regional subnet self link.",
+        "expression": {
+         "references": [
+          "google_compute_subnetwork.platform.self_link",
+          "google_compute_subnetwork.platform"
+         ]
+        }
+       }
+      },
+      "resources": [
+       {
+        "address": "google_compute_firewall.internal",
+        "expressions": {
+         "allow": [
+          {
+           "protocol": {
+            "constant_value": "tcp"
+           }
+          },
+          {
+           "protocol": {
+            "constant_value": "udp"
+           }
+          },
+          {
+           "protocol": {
+            "constant_value": "icmp"
+           }
+          }
+         ],
+         "direction": {
+          "constant_value": "INGRESS"
+         },
+         "name": {
+          "references": [
+           "var.network_name"
+          ]
+         },
+         "network": {
+          "references": [
+           "google_compute_network.platform.name",
+           "google_compute_network.platform"
+          ]
+         },
+         "project": {
+          "references": [
+           "var.project_id"
+          ]
+         },
+         "source_ranges": {
+          "references": [
+           "var.subnet_cidr"
+          ]
+         }
+        },
+        "mode": "managed",
+        "name": "internal",
+        "provider_config_key": "google",
+        "schema_version": 1,
+        "type": "google_compute_firewall"
+       },
+       {
+        "address": "google_compute_network.platform",
+        "expressions": {
+         "auto_create_subnetworks": {
+          "constant_value": false
+         },
+         "name": {
+          "references": [
+           "var.network_name"
+          ]
+         },
+         "project": {
+          "references": [
+           "var.project_id"
+          ]
+         },
+         "routing_mode": {
+          "constant_value": "REGIONAL"
+         }
+        },
+        "mode": "managed",
+        "name": "platform",
+        "provider_config_key": "google",
+        "schema_version": 0,
+        "type": "google_compute_network"
+       },
+       {
+        "address": "google_compute_subnetwork.platform",
+        "expressions": {
+         "ip_cidr_range": {
+          "references": [
+           "var.subnet_cidr"
+          ]
+         },
+         "name": {
+          "references": [
+           "var.subnet_name"
+          ]
+         },
+         "network": {
+          "references": [
+           "google_compute_network.platform.id",
+           "google_compute_network.platform"
+          ]
+         },
+         "private_ip_google_access": {
+          "constant_value": true
+         },
+         "project": {
+          "references": [
+           "var.project_id"
+          ]
+         },
+         "region": {
+          "references": [
+           "var.region"
+          ]
+         }
+        },
+        "mode": "managed",
+        "name": "platform",
+        "provider_config_key": "google",
+        "schema_version": 0,
+        "type": "google_compute_subnetwork"
+       }
+      ],
+      "variables": {
+       "network_name": {
+        "description": "Custom VPC name."
+       },
+       "project_id": {
+        "description": "GCP project that owns the network."
+       },
+       "region": {
+        "description": "Region for the platform subnet."
+       },
+       "subnet_cidr": {
+        "description": "Primary CIDR used by VMs and GKE nodes."
+       },
+       "subnet_name": {
+        "description": "Regional subnet name."
+       }
+      }
+     },
+     "source": "../../modules/network"
+    },
+    "project_services": {
+     "expressions": {
+      "project_id": {
+       "references": [
+        "var.project_id"
+       ]
+      },
+      "services": {
+       "references": [
+        "local.required_services"
+       ]
+      }
+     },
+     "module": {
+      "outputs": {
+       "enabled_services": {
+        "description": "Service APIs managed by this stack.",
+        "expression": {
+         "references": [
+          "google_project_service.required"
+         ]
+        }
+       }
+      },
+      "resources": [
+       {
+        "address": "google_project_service.required",
+        "expressions": {
+         "disable_dependent_services": {
+          "constant_value": false
+         },
+         "disable_on_destroy": {
+          "constant_value": false
+         },
+         "project": {
+          "references": [
+           "var.project_id"
+          ]
+         },
+         "service": {
+          "references": [
+           "each.value"
+          ]
+         }
+        },
+        "for_each_expression": {
+         "references": [
+          "var.services"
+         ]
+        },
+        "mode": "managed",
+        "name": "required",
+        "provider_config_key": "google",
+        "schema_version": 0,
+        "type": "google_project_service"
+       }
+      ],
+      "variables": {
+       "project_id": {
+        "description": "GCP project in which APIs are enabled."
+       },
+       "services": {
+        "description": "Service APIs required by the cloud platform."
+       }
+      }
+     },
+     "source": "../../modules/project_services"
+    },
+    "storage": {
+     "depends_on": [
+      "module.project_services"
+     ],
+     "expressions": {
+      "data_bucket_name": {
+       "references": [
+        "local.data_bucket_name"
+       ]
+      },
+      "project_id": {
+       "references": [
+        "var.project_id"
+       ]
+      },
+      "region": {
+       "references": [
+        "var.region"
+       ]
+      },
+      "temporary_bucket_name": {
+       "references": [
+        "local.temporary_bucket_name"
+       ]
+      }
+     },
+     "module": {
+      "outputs": {
+       "data_bucket_name": {
+        "description": "Canonical platform data bucket.",
+        "expression": {
+         "references": [
+          "google_storage_bucket.canonical.name",
+          "google_storage_bucket.canonical"
+         ]
+        }
+       },
+       "data_bucket_url": {
+        "description": "Canonical bucket URI used by runtime profiles.",
+        "expression": {
+         "references": [
+          "google_storage_bucket.canonical.url",
+          "google_storage_bucket.canonical"
+         ]
+        }
+       },
+       "temporary_bucket_name": {
+        "description": "Regenerable staging bucket.",
+        "expression": {
+         "references": [
+          "google_storage_bucket.temporary.name",
+          "google_storage_bucket.temporary"
+         ]
+        }
+       },
+       "temporary_bucket_url": {
+        "description": "Regenerable staging bucket URI.",
+        "expression": {
+         "references": [
+          "google_storage_bucket.temporary.url",
+          "google_storage_bucket.temporary"
+         ]
+        }
+       }
+      },
+      "resources": [
+       {
+        "address": "google_storage_bucket.canonical",
+        "expressions": {
+         "deletion_policy": {
+          "constant_value": "PREVENT"
+         },
+         "force_destroy": {
+          "constant_value": false
+         },
+         "location": {
+          "references": [
+           "var.region"
+          ]
+         },
+         "name": {
+          "references": [
+           "var.data_bucket_name"
+          ]
+         },
+         "project": {
+          "references": [
+           "var.project_id"
+          ]
+         },
+         "public_access_prevention": {
+          "constant_value": "enforced"
+         },
+         "storage_class": {
+          "constant_value": "STANDARD"
+         },
+         "uniform_bucket_level_access": {
+          "constant_value": true
+         },
+         "versioning": [
+          {
+           "enabled": {
+            "constant_value": true
+           }
+          }
+         ]
+        },
+        "mode": "managed",
+        "name": "canonical",
+        "provider_config_key": "google",
+        "schema_version": 4,
+        "type": "google_storage_bucket"
+       },
+       {
+        "address": "google_storage_bucket.temporary",
+        "expressions": {
+         "force_destroy": {
+          "constant_value": false
+         },
+         "lifecycle_rule": [
+          {
+           "action": [
+            {
+             "type": {
+              "constant_value": "Delete"
+             }
+            }
+           ],
+           "condition": [
+            {
+             "age": {
+              "references": [
+               "var.temporary_retention_days"
+              ]
+             }
+            }
+           ]
+          },
+          {
+           "action": [
+            {
+             "type": {
+              "constant_value": "AbortIncompleteMultipartUpload"
+             }
+            }
+           ],
+           "condition": [
+            {
+             "age": {
+              "constant_value": 1
+             }
+            }
+           ]
+          }
+         ],
+         "location": {
+          "references": [
+           "var.region"
+          ]
+         },
+         "name": {
+          "references": [
+           "var.temporary_bucket_name"
+          ]
+         },
+         "project": {
+          "references": [
+           "var.project_id"
+          ]
+         },
+         "public_access_prevention": {
+          "constant_value": "enforced"
+         },
+         "storage_class": {
+          "constant_value": "STANDARD"
+         },
+         "uniform_bucket_level_access": {
+          "constant_value": true
+         }
+        },
+        "mode": "managed",
+        "name": "temporary",
+        "provider_config_key": "google",
+        "schema_version": 4,
+        "type": "google_storage_bucket"
+       }
+      ],
+      "variables": {
+       "data_bucket_name": {
+        "description": "Canonical source, lakehouse, feature and ML artifact bucket."
+       },
+       "project_id": {
+        "description": "GCP project that owns platform storage."
+       },
+       "region": {
+        "description": "Single region for data locality and controlled cost."
+       },
+       "temporary_bucket_name": {
+        "description": "Regenerable staging and temporary artifact bucket."
+       },
+       "temporary_retention_days": {
+        "default": 7,
+        "description": "Age after which regenerable temporary objects are deleted."
+       }
+      }
+     },
+     "source": "../../modules/storage"
+    },
+    "vault_kms": {
+     "expressions": {
+      "enabled": {
+       "references": [
+        "var.enable_vault_kms"
+       ]
+      },
+      "project_id": {
+       "references": [
+        "var.project_id"
+       ]
+      }
+     },
+     "module": {
+      "outputs": {
+       "crypto_key_id": {
+        "description": "Full resource ID of the Vault unseal key.",
+        "expression": {
+         "references": [
+          "google_kms_crypto_key.vault_unseal"
+         ]
+        }
+       },
+       "seal": {
+        "description": "gcpckms seal parameters; null while the module is disabled.",
+        "expression": {
+         "references": [
+          "var.enabled",
+          "var.project_id",
+          "local.location",
+          "local.key_ring_name",
+          "local.crypto_key_name"
+         ]
+        }
+       },
+       "service_account_email": {
+        "description": "GSA for the Vault KSA annotation iam.gke.io/gcp-service-account.",
+        "expression": {
+         "references": [
+          "google_service_account.vault_unseal"
+         ]
+        }
+       },
+       "workload_identity_member": {
+        "description": "The Vault KSA's Workload Identity principal.",
+        "expression": {
+         "references": [
+          "var.enabled",
+          "var.project_id",
+          "local.vault_ksa"
+         ]
+        }
+       }
+      },
+      "resources": [
+       {
+        "address": "google_kms_crypto_key.vault_unseal",
+        "count_expression": {
+         "references": [
+          "local.enabled"
+         ]
+        },
+        "expressions": {
+         "deletion_policy": {
+          "constant_value": "PREVENT"
+         },
+         "destroy_scheduled_duration": {
+          "constant_value": "2592000s"
+         },
+         "key_ring": {
+          "references": [
+           "google_kms_key_ring.vault[0].id",
+           "google_kms_key_ring.vault[0]",
+           "google_kms_key_ring.vault"
+          ]
+         },
+         "name": {
+          "references": [
+           "local.crypto_key_name"
+          ]
+         },
+         "purpose": {
+          "constant_value": "ENCRYPT_DECRYPT"
+         },
+         "version_template": [
+          {
+           "algorithm": {
+            "constant_value": "GOOGLE_SYMMETRIC_ENCRYPTION"
+           },
+           "protection_level": {
+            "constant_value": "SOFTWARE"
+           }
+          }
+         ]
+        },
+        "mode": "managed",
+        "name": "vault_unseal",
+        "provider_config_key": "google",
+        "schema_version": 1,
+        "type": "google_kms_crypto_key"
+       },
+       {
+        "address": "google_kms_crypto_key_iam_member.vault_encrypter_decrypter",
+        "count_expression": {
+         "references": [
+          "local.enabled"
+         ]
+        },
+        "expressions": {
+         "crypto_key_id": {
+          "references": [
+           "google_kms_crypto_key.vault_unseal[0].id",
+           "google_kms_crypto_key.vault_unseal[0]",
+           "google_kms_crypto_key.vault_unseal"
+          ]
+         },
+         "member": {
+          "references": [
+           "google_service_account.vault_unseal[0].email",
+           "google_service_account.vault_unseal[0]",
+           "google_service_account.vault_unseal"
+          ]
+         },
+         "role": {
+          "constant_value": "roles/cloudkms.cryptoKeyEncrypterDecrypter"
+         }
+        },
+        "mode": "managed",
+        "name": "vault_encrypter_decrypter",
+        "provider_config_key": "google",
+        "schema_version": 0,
+        "type": "google_kms_crypto_key_iam_member"
+       },
+       {
+        "address": "google_kms_crypto_key_iam_member.vault_viewer",
+        "count_expression": {
+         "references": [
+          "local.enabled"
+         ]
+        },
+        "expressions": {
+         "crypto_key_id": {
+          "references": [
+           "google_kms_crypto_key.vault_unseal[0].id",
+           "google_kms_crypto_key.vault_unseal[0]",
+           "google_kms_crypto_key.vault_unseal"
+          ]
+         },
+         "member": {
+          "references": [
+           "google_service_account.vault_unseal[0].email",
+           "google_service_account.vault_unseal[0]",
+           "google_service_account.vault_unseal"
+          ]
+         },
+         "role": {
+          "constant_value": "roles/cloudkms.viewer"
+         }
+        },
+        "mode": "managed",
+        "name": "vault_viewer",
+        "provider_config_key": "google",
+        "schema_version": 0,
+        "type": "google_kms_crypto_key_iam_member"
+       },
+       {
+        "address": "google_kms_key_ring.vault",
+        "count_expression": {
+         "references": [
+          "local.enabled"
+         ]
+        },
+        "depends_on": [
+         "google_project_service.cloudkms"
+        ],
+        "expressions": {
+         "location": {
+          "references": [
+           "local.location"
+          ]
+         },
+         "name": {
+          "references": [
+           "local.key_ring_name"
+          ]
+         },
+         "project": {
+          "references": [
+           "var.project_id"
+          ]
+         }
+        },
+        "mode": "managed",
+        "name": "vault",
+        "provider_config_key": "google",
+        "schema_version": 0,
+        "type": "google_kms_key_ring"
+       },
+       {
+        "address": "google_project_service.cloudkms",
+        "count_expression": {
+         "references": [
+          "local.enabled"
+         ]
+        },
+        "expressions": {
+         "deletion_policy": {
+          "constant_value": "ABANDON"
+         },
+         "disable_dependent_services": {
+          "constant_value": false
+         },
+         "disable_on_destroy": {
+          "constant_value": false
+         },
+         "project": {
+          "references": [
+           "var.project_id"
+          ]
+         },
+         "service": {
+          "constant_value": "cloudkms.googleapis.com"
+         }
+        },
+        "mode": "managed",
+        "name": "cloudkms",
+        "provider_config_key": "google",
+        "schema_version": 0,
+        "type": "google_project_service"
+       },
+       {
+        "address": "google_service_account.vault_unseal",
+        "count_expression": {
+         "references": [
+          "local.enabled"
+         ]
+        },
+        "expressions": {
+         "account_id": {
+          "references": [
+           "local.service_account_id"
+          ]
+         },
+         "deletion_policy": {
+          "constant_value": "PREVENT"
+         },
+         "description": {
+          "constant_value": "Vault gcpckms seal: encrypt/decrypt with ewallet-vault/vault-unseal only"
+         },
+         "display_name": {
+          "constant_value": "E-Wallet Vault auto-unseal"
+         },
+         "project": {
+          "references": [
+           "var.project_id"
+          ]
+         }
+        },
+        "mode": "managed",
+        "name": "vault_unseal",
+        "provider_config_key": "google",
+        "schema_version": 0,
+        "type": "google_service_account"
+       },
+       {
+        "address": "google_service_account_iam_member.vault_workload_identity",
+        "count_expression": {
+         "references": [
+          "local.enabled"
+         ]
+        },
+        "expressions": {
+         "member": {
+          "references": [
+           "var.project_id",
+           "local.vault_ksa"
+          ]
+         },
+         "role": {
+          "constant_value": "roles/iam.workloadIdentityUser"
+         },
+         "service_account_id": {
+          "references": [
+           "google_service_account.vault_unseal[0].name",
+           "google_service_account.vault_unseal[0]",
+           "google_service_account.vault_unseal"
+          ]
+         }
+        },
+        "mode": "managed",
+        "name": "vault_workload_identity",
+        "provider_config_key": "google",
+        "schema_version": 0,
+        "type": "google_service_account_iam_member"
+       }
+      ],
+      "variables": {
+       "enabled": {
+        "default": false,
+        "description": "Create the Vault Cloud KMS resources (P4-B, separate owner approval). Off by default."
+       },
+       "project_id": {
+        "description": "GCP project that owns the key ring, key and Vault service account."
+       }
+      }
+     },
+     "source": "../../modules/vault_kms"
+    },
+    "workload_identity": {
+     "depends_on": [
+      "module.gke"
+     ],
+     "expressions": {
+      "enabled": {
+       "references": [
+        "var.enable_gke"
+       ]
+      },
+      "project_id": {
+       "references": [
+        "var.project_id"
+       ]
+      },
+      "service_account_emails": {
+       "references": [
+        "module.iam.service_account_emails",
+        "module.iam"
+       ]
+      }
+     },
+     "module": {
+      "outputs": {
+       "binding_ids": {
+        "description": "Workload Identity binding IDs, empty while GKE is disabled.",
+        "expression": {
+         "references": [
+          "google_service_account_iam_member.workload_identity"
+         ]
+        }
+       }
+      },
+      "resources": [
+       {
+        "address": "google_service_account_iam_member.workload_identity",
+        "expressions": {
+         "member": {
+          "references": [
+           "var.project_id",
+           "each.value"
+          ]
+         },
+         "role": {
+          "constant_value": "roles/iam.workloadIdentityUser"
+         },
+         "service_account_id": {
+          "references": [
+           "var.project_id",
+           "var.service_account_emails",
+           "each.key"
+          ]
+         }
+        },
+        "for_each_expression": {
+         "references": [
+          "var.enabled",
+          "local.workload_identity_ksa"
+         ]
+        },
+        "mode": "managed",
+        "name": "workload_identity",
+        "provider_config_key": "google",
+        "schema_version": 0,
+        "type": "google_service_account_iam_member"
+       }
+      ],
+      "variables": {
+       "enabled": {
+        "default": false,
+        "description": "Create GKE Workload Identity bindings only after the cluster pool exists."
+       },
+       "project_id": {
+        "description": "GCP project that owns the GKE workload pool and service accounts."
+       },
+       "service_account_emails": {
+        "description": "Google service-account emails keyed by workload responsibility."
+       }
+      }
+     },
+     "source": "../../modules/workload_identity"
+    }
+   },
+   "outputs": {
+    "artifact_registry_url": {
+     "description": "Docker image prefix used by CI.",
+     "expression": {
+      "references": [
+       "module.artifact_registry.repository_url",
+       "module.artifact_registry"
+      ]
+     }
+    },
+    "data_bucket_name": {
+     "description": "EWALLET_DATA_BUCKET value for dev/gcp runtime profiles.",
+     "expression": {
+      "references": [
+       "module.storage.data_bucket_name",
+       "module.storage"
+      ]
+     }
+    },
+    "dataproc_batch_runtime": {
+     "description": "Non-secret defaults for Serverless for Apache Spark submissions.",
+     "expression": {
+      "references": [
+       "module.dataproc.batch_runtime",
+       "module.dataproc"
+      ]
+     }
+    },
+    "gke_cluster_name": {
+     "description": "Cluster name, or null while GKE is cost-gated off.",
+     "expression": {
+      "references": [
+       "module.gke.cluster_name",
+       "module.gke"
+      ]
+     }
+    },
+    "jenkins_instance_name": {
+     "description": "Jenkins VM name, or null while the VM is cost-gated off.",
+     "expression": {
+      "references": [
+       "module.jenkins_vm.instance_name",
+       "module.jenkins_vm"
+      ]
+     }
+    },
+    "network_name": {
+     "description": "VPC name used by cloud batch and cluster workloads.",
+     "expression": {
+      "references": [
+       "module.network.network_name",
+       "module.network"
+      ]
+     }
+    },
+    "project_id": {
+     "description": "GCP project used by runtime configuration.",
+     "expression": {
+      "references": [
+       "var.project_id"
+      ]
+     }
+    },
+    "region": {
+     "description": "Primary GCP region.",
+     "expression": {
+      "references": [
+       "var.region"
+      ]
+     }
+    },
+    "service_account_emails": {
+     "description": "Workload identities keyed by responsibility.",
+     "expression": {
+      "references": [
+       "module.iam.service_account_emails",
+       "module.iam"
+      ]
+     }
+    },
+    "subnet_name": {
+     "description": "Regional subnet name used by cloud workloads.",
+     "expression": {
+      "references": [
+       "module.network.subnet_name",
+       "module.network"
+      ]
+     }
+    },
+    "temporary_bucket_name": {
+     "description": "Regenerable staging bucket.",
+     "expression": {
+      "references": [
+       "module.storage.temporary_bucket_name",
+       "module.storage"
+      ]
+     }
+    },
+    "vault_kms_seal": {
+     "description": "Vault gcpckms seal parameters (null while enable_vault_kms is false).",
+     "expression": {
+      "references": [
+       "module.vault_kms.seal",
+       "module.vault_kms"
+      ]
+     }
+    },
+    "vault_kms_service_account_email": {
+     "description": "GSA for the Vault KSA annotation (null while enable_vault_kms is false).",
+     "expression": {
+      "references": [
+       "module.vault_kms.service_account_email",
+       "module.vault_kms"
+      ]
+     }
+    }
+   },
+   "variables": {
+    "data_bucket_name": {
+     "default": null,
+     "description": "Optional globally unique override for canonical storage."
+    },
+    "dataproc_submitter_members": {
+     "default": [],
+     "description": "Optional user/group/service-account principals allowed to act as the Spark identity."
+    },
+    "enable_gke": {
+     "default": false,
+     "description": "Explicitly allow creation of billable GKE resources."
+    },
+    "enable_in_cluster_cd": {
+     "default": false,
+     "description": "Create the least-privilege Cloud Build identities for the in-cluster Jenkins controller."
+    },
+    "enable_jenkins_vm": {
+     "default": false,
+     "description": "Explicitly allow creation of the billable Jenkins VM."
+    },
+    "enable_vault_kms": {
+     "default": false,
+     "description": "Create the Vault auto-unseal key ring, key, GSA and IAM members (P4-B, owner approval)."
+    },
+    "gke_deletion_protection": {
+     "default": true,
+     "description": "Keep the GKE cluster protected until a separate cleanup plan turns this off."
+    },
+    "gke_machine_type": {
+     "default": "e2-standard-4",
+     "description": "CPU-only machine type used only when GKE is enabled."
+    },
+    "gke_master_authorized_cidrs": {
+     "default": [],
+     "description": "Administrator /32 CIDRs allowed to reach the GKE control plane when enabled."
+    },
+    "gke_max_nodes": {
+     "default": 3,
+     "description": "Maximum CPU node count when GKE is enabled."
+    },
+    "gke_min_nodes": {
+     "default": 0,
+     "description": "Minimum CPU node count when GKE is enabled."
+    },
+    "jenkins_deletion_protection": {
+     "default": true,
+     "description": "Keep the Jenkins VM protected until a separate cleanup plan turns this off."
+    },
+    "jenkins_machine_type": {
+     "default": "e2-standard-2",
+     "description": "CPU-only machine type used only when Jenkins is enabled."
+    },
+    "project_id": {
+     "default": "ewallet-data-ai-platform-hg26",
+     "description": "GCP project for the E-Wallet coursework platform."
+    },
+    "region": {
+     "default": "asia-southeast1",
+     "description": "Primary GCP region."
+    },
+    "subnet_cidr": {
+     "default": "10.20.0.0/20",
+     "description": "Primary CIDR for the development platform subnet."
+    },
+    "temporary_bucket_name": {
+     "default": null,
+     "description": "Optional globally unique override for temporary storage."
+    },
+    "zone": {
+     "default": "asia-southeast1-b",
+     "description": "Primary development zone."
+    }
+   }
+  }
+ },
+ "errored": false,
+ "format_version": "1.2",
+ "output_changes": {
+  "vault_kms_service_account_email": {
+   "actions": [
+    "create"
+   ],
+   "after": "ewallet-vault-unseal@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com",
+   "after_sensitive": false,
+   "after_unknown": false,
+   "before": null,
+   "before_sensitive": false
+  }
+ },
+ "planned_values": {
+  "outputs": {
+   "vault_kms_service_account_email": {
+    "sensitive": false,
+    "type": "string",
+    "value": "ewallet-vault-unseal@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com"
+   }
+  },
+  "root_module": {
+   "child_modules": [
+    {
+     "address": "module.vault_kms",
+     "resources": [
+      {
+       "address": "module.vault_kms.google_kms_crypto_key.vault_unseal[0]",
+       "identity": {
+        "key_ring": null,
+        "name": null
+       },
+       "identity_schema_version": 1,
+       "index": 0,
+       "mode": "managed",
+       "name": "vault_unseal",
+       "provider_name": "registry.terraform.io/hashicorp/google",
+       "schema_version": 1,
+       "sensitive_values": {
+        "effective_labels": {},
+        "primary": [],
+        "terraform_labels": {},
+        "version_template": [
+         {}
+        ]
+       },
+       "type": "google_kms_crypto_key",
+       "values": {
+        "deletion_policy": "PREVENT",
+        "destroy_scheduled_duration": "2592000s",
+        "effective_labels": {
+         "environment": "dev",
+         "goog-terraform-provisioned": "true",
+         "managed_by": "terraform",
+         "project": "ewallet"
+        },
+        "labels": null,
+        "name": "vault-unseal",
+        "purpose": "ENCRYPT_DECRYPT",
+        "rotation_period": null,
+        "skip_initial_version_creation": null,
+        "terraform_labels": {
+         "environment": "dev",
+         "goog-terraform-provisioned": "true",
+         "managed_by": "terraform",
+         "project": "ewallet"
+        },
+        "timeouts": null,
+        "version_template": [
+         {
+          "algorithm": "GOOGLE_SYMMETRIC_ENCRYPTION",
+          "protection_level": "SOFTWARE"
+         }
+        ]
+       }
+      },
+      {
+       "address": "module.vault_kms.google_kms_crypto_key_iam_member.vault_encrypter_decrypter[0]",
+       "index": 0,
+       "mode": "managed",
+       "name": "vault_encrypter_decrypter",
+       "provider_name": "registry.terraform.io/hashicorp/google",
+       "schema_version": 0,
+       "sensitive_values": {
+        "condition": []
+       },
+       "type": "google_kms_crypto_key_iam_member",
+       "values": {
+        "condition": [],
+        "member": "serviceAccount:ewallet-vault-unseal@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com",
+        "role": "roles/cloudkms.cryptoKeyEncrypterDecrypter"
+       }
+      },
+      {
+       "address": "module.vault_kms.google_kms_crypto_key_iam_member.vault_viewer[0]",
+       "index": 0,
+       "mode": "managed",
+       "name": "vault_viewer",
+       "provider_name": "registry.terraform.io/hashicorp/google",
+       "schema_version": 0,
+       "sensitive_values": {
+        "condition": []
+       },
+       "type": "google_kms_crypto_key_iam_member",
+       "values": {
+        "condition": [],
+        "member": "serviceAccount:ewallet-vault-unseal@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com",
+        "role": "roles/cloudkms.viewer"
+       }
+      },
+      {
+       "address": "module.vault_kms.google_kms_key_ring.vault[0]",
+       "identity": {
+        "location": null,
+        "name": null,
+        "project": null
+       },
+       "identity_schema_version": 1,
+       "index": 0,
+       "mode": "managed",
+       "name": "vault",
+       "provider_name": "registry.terraform.io/hashicorp/google",
+       "schema_version": 0,
+       "sensitive_values": {},
+       "type": "google_kms_key_ring",
+       "values": {
+        "location": "asia-southeast1",
+        "name": "ewallet-vault",
+        "project": "ewallet-data-ai-platform-hg26",
+        "timeouts": null
+       }
+      },
+      {
+       "address": "module.vault_kms.google_project_service.cloudkms[0]",
+       "identity": {
+        "project": null,
+        "service": null
+       },
+       "identity_schema_version": 1,
+       "index": 0,
+       "mode": "managed",
+       "name": "cloudkms",
+       "provider_name": "registry.terraform.io/hashicorp/google",
+       "schema_version": 0,
+       "sensitive_values": {},
+       "type": "google_project_service",
+       "values": {
+        "deletion_policy": "ABANDON",
+        "disable_dependent_services": false,
+        "disable_on_destroy": false,
+        "project": "ewallet-data-ai-platform-hg26",
+        "service": "cloudkms.googleapis.com",
+        "timeouts": null
+       }
+      },
+      {
+       "address": "module.vault_kms.google_service_account.vault_unseal[0]",
+       "identity": {
+        "email": null,
+        "project": null
+       },
+       "identity_schema_version": 1,
+       "index": 0,
+       "mode": "managed",
+       "name": "vault_unseal",
+       "provider_name": "registry.terraform.io/hashicorp/google",
+       "schema_version": 0,
+       "sensitive_values": {},
+       "type": "google_service_account",
+       "values": {
+        "account_id": "ewallet-vault-unseal",
+        "create_ignore_already_exists": null,
+        "deletion_policy": "PREVENT",
+        "description": "Vault gcpckms seal: encrypt/decrypt with ewallet-vault/vault-unseal only",
+        "disabled": false,
+        "display_name": "E-Wallet Vault auto-unseal",
+        "email": "ewallet-vault-unseal@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com",
+        "member": "serviceAccount:ewallet-vault-unseal@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com",
+        "project": "ewallet-data-ai-platform-hg26",
+        "timeouts": null
+       }
+      },
+      {
+       "address": "module.vault_kms.google_service_account_iam_member.vault_workload_identity[0]",
+       "index": 0,
+       "mode": "managed",
+       "name": "vault_workload_identity",
+       "provider_name": "registry.terraform.io/hashicorp/google",
+       "schema_version": 0,
+       "sensitive_values": {
+        "condition": []
+       },
+       "type": "google_service_account_iam_member",
+       "values": {
+        "condition": [],
+        "member": "serviceAccount:ewallet-data-ai-platform-hg26.svc.id.goog[ewallet-vault/vault]",
+        "role": "roles/iam.workloadIdentityUser"
+       }
+      }
+     ]
+    }
+   ]
+  }
+ },
+ "prior_state": {
+  "format_version": "1.0",
+  "terraform_version": "1.16.6",
+  "values": {
+   "outputs": {
+    "vault_kms_service_account_email": {
+     "sensitive": false,
+     "type": "string",
+     "value": "ewallet-vault-unseal@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com"
+    }
+   },
+   "root_module": {}
+  }
+ },
+ "relevant_attributes": [
+  {
+   "attribute": [
+    "id"
+   ],
+   "resource": "module.vault_kms.google_kms_crypto_key.vault_unseal[0]"
+  },
+  {
+   "attribute": [
+    "id"
+   ],
+   "resource": "module.vault_kms.google_kms_key_ring.vault[0]"
+  },
+  {
+   "attribute": [
+    "name"
+   ],
+   "resource": "module.vault_kms.google_service_account.vault_unseal[0]"
+  },
+  {
+   "attribute": [],
+   "resource": "module.vault_kms.google_service_account.vault_unseal"
+  },
+  {
+   "attribute": [
+    "email"
+   ],
+   "resource": "module.vault_kms.google_service_account.vault_unseal[0]"
+  }
+ ],
+ "resource_changes": [
+  {
+   "address": "module.vault_kms.google_kms_crypto_key.vault_unseal[0]",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "after": {
+     "deletion_policy": "PREVENT",
+     "destroy_scheduled_duration": "2592000s",
+     "effective_labels": {
+      "environment": "dev",
+      "goog-terraform-provisioned": "true",
+      "managed_by": "terraform",
+      "project": "ewallet"
+     },
+     "labels": null,
+     "name": "vault-unseal",
+     "purpose": "ENCRYPT_DECRYPT",
+     "rotation_period": null,
+     "skip_initial_version_creation": null,
+     "terraform_labels": {
+      "environment": "dev",
+      "goog-terraform-provisioned": "true",
+      "managed_by": "terraform",
+      "project": "ewallet"
+     },
+     "timeouts": null,
+     "version_template": [
+      {
+       "algorithm": "GOOGLE_SYMMETRIC_ENCRYPTION",
+       "protection_level": "SOFTWARE"
+      }
+     ]
+    },
+    "after_identity": {
+     "key_ring": null,
+     "name": null
+    },
+    "after_sensitive": {
+     "effective_labels": {},
+     "primary": [],
+     "terraform_labels": {},
+     "version_template": [
+      {}
+     ]
+    },
+    "after_unknown": {
+     "crypto_key_backend": true,
+     "effective_labels": {},
+     "id": true,
+     "import_only": true,
+     "key_ring": true,
+     "primary": true,
+     "terraform_labels": {},
+     "version_template": [
+      {}
+     ]
+    },
+    "before": null,
+    "before_sensitive": false
+   },
+   "index": 0,
+   "mode": "managed",
+   "module_address": "module.vault_kms",
+   "name": "vault_unseal",
+   "provider_name": "registry.terraform.io/hashicorp/google",
+   "type": "google_kms_crypto_key"
+  },
+  {
+   "address": "module.vault_kms.google_kms_crypto_key_iam_member.vault_encrypter_decrypter[0]",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "after": {
+     "condition": [],
+     "member": "serviceAccount:ewallet-vault-unseal@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com",
+     "role": "roles/cloudkms.cryptoKeyEncrypterDecrypter"
+    },
+    "after_sensitive": {
+     "condition": []
+    },
+    "after_unknown": {
+     "condition": [],
+     "crypto_key_id": true,
+     "etag": true,
+     "id": true
+    },
+    "before": null,
+    "before_sensitive": false
+   },
+   "index": 0,
+   "mode": "managed",
+   "module_address": "module.vault_kms",
+   "name": "vault_encrypter_decrypter",
+   "provider_name": "registry.terraform.io/hashicorp/google",
+   "type": "google_kms_crypto_key_iam_member"
+  },
+  {
+   "address": "module.vault_kms.google_kms_crypto_key_iam_member.vault_viewer[0]",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "after": {
+     "condition": [],
+     "member": "serviceAccount:ewallet-vault-unseal@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com",
+     "role": "roles/cloudkms.viewer"
+    },
+    "after_sensitive": {
+     "condition": []
+    },
+    "after_unknown": {
+     "condition": [],
+     "crypto_key_id": true,
+     "etag": true,
+     "id": true
+    },
+    "before": null,
+    "before_sensitive": false
+   },
+   "index": 0,
+   "mode": "managed",
+   "module_address": "module.vault_kms",
+   "name": "vault_viewer",
+   "provider_name": "registry.terraform.io/hashicorp/google",
+   "type": "google_kms_crypto_key_iam_member"
+  },
+  {
+   "address": "module.vault_kms.google_kms_key_ring.vault[0]",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "after": {
+     "location": "asia-southeast1",
+     "name": "ewallet-vault",
+     "project": "ewallet-data-ai-platform-hg26",
+     "timeouts": null
+    },
+    "after_identity": {
+     "location": null,
+     "name": null,
+     "project": null
+    },
+    "after_sensitive": {},
+    "after_unknown": {
+     "id": true
+    },
+    "before": null,
+    "before_sensitive": false
+   },
+   "index": 0,
+   "mode": "managed",
+   "module_address": "module.vault_kms",
+   "name": "vault",
+   "provider_name": "registry.terraform.io/hashicorp/google",
+   "type": "google_kms_key_ring"
+  },
+  {
+   "address": "module.vault_kms.google_project_service.cloudkms[0]",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "after": {
+     "deletion_policy": "ABANDON",
+     "disable_dependent_services": false,
+     "disable_on_destroy": false,
+     "project": "ewallet-data-ai-platform-hg26",
+     "service": "cloudkms.googleapis.com",
+     "timeouts": null
+    },
+    "after_identity": {
+     "project": null,
+     "service": null
+    },
+    "after_sensitive": {},
+    "after_unknown": {
+     "id": true
+    },
+    "before": null,
+    "before_sensitive": false
+   },
+   "index": 0,
+   "mode": "managed",
+   "module_address": "module.vault_kms",
+   "name": "cloudkms",
+   "provider_name": "registry.terraform.io/hashicorp/google",
+   "type": "google_project_service"
+  },
+  {
+   "address": "module.vault_kms.google_service_account.vault_unseal[0]",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "after": {
+     "account_id": "ewallet-vault-unseal",
+     "create_ignore_already_exists": null,
+     "deletion_policy": "PREVENT",
+     "description": "Vault gcpckms seal: encrypt/decrypt with ewallet-vault/vault-unseal only",
+     "disabled": false,
+     "display_name": "E-Wallet Vault auto-unseal",
+     "email": "ewallet-vault-unseal@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com",
+     "member": "serviceAccount:ewallet-vault-unseal@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com",
+     "project": "ewallet-data-ai-platform-hg26",
+     "timeouts": null
+    },
+    "after_identity": {
+     "email": null,
+     "project": null
+    },
+    "after_sensitive": {},
+    "after_unknown": {
+     "id": true,
+     "name": true,
+     "unique_id": true
+    },
+    "before": null,
+    "before_sensitive": false
+   },
+   "index": 0,
+   "mode": "managed",
+   "module_address": "module.vault_kms",
+   "name": "vault_unseal",
+   "provider_name": "registry.terraform.io/hashicorp/google",
+   "type": "google_service_account"
+  },
+  {
+   "address": "module.vault_kms.google_service_account_iam_member.vault_workload_identity[0]",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "after": {
+     "condition": [],
+     "member": "serviceAccount:ewallet-data-ai-platform-hg26.svc.id.goog[ewallet-vault/vault]",
+     "role": "roles/iam.workloadIdentityUser"
+    },
+    "after_sensitive": {
+     "condition": []
+    },
+    "after_unknown": {
+     "condition": [],
+     "etag": true,
+     "id": true,
+     "service_account_id": true
+    },
+    "before": null,
+    "before_sensitive": false
+   },
+   "index": 0,
+   "mode": "managed",
+   "module_address": "module.vault_kms",
+   "name": "vault_workload_identity",
+   "provider_name": "registry.terraform.io/hashicorp/google",
+   "type": "google_service_account_iam_member"
+  }
+ ],
+ "terraform_version": "1.16.6",
+ "timestamp": "2026-11-25T00:00:00Z",
+ "variables": {
+  "data_bucket_name": {
+   "value": null
+  },
+  "dataproc_submitter_members": {
+   "value": []
+  },
+  "enable_gke": {
+   "value": false
+  },
+  "enable_in_cluster_cd": {
+   "value": false
+  },
+  "enable_jenkins_vm": {
+   "value": false
+  },
+  "enable_vault_kms": {
+   "value": "true"
+  },
+  "gke_deletion_protection": {
+   "value": true
+  },
+  "gke_machine_type": {
+   "value": "e2-standard-4"
+  },
+  "gke_master_authorized_cidrs": {
+   "value": []
+  },
+  "gke_max_nodes": {
+   "value": 3
+  },
+  "gke_min_nodes": {
+   "value": 0
+  },
+  "jenkins_deletion_protection": {
+   "value": true
+  },
+  "jenkins_machine_type": {
+   "value": "e2-standard-2"
+  },
+  "project_id": {
+   "value": "ewallet-data-ai-platform-hg26"
+  },
+  "region": {
+   "value": "asia-southeast1"
+  },
+  "subnet_cidr": {
+   "value": "10.20.0.0/20"
+  },
+  "temporary_bucket_name": {
+   "value": null
+  },
+  "zone": {
+   "value": "asia-southeast1-b"
+  }
+ }
+}

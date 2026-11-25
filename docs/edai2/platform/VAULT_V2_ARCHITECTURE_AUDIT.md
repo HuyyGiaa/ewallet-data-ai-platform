@@ -909,3 +909,52 @@ it is listed here.
 | D-7 | §18 P4: KMS preflight gates | Not implemented (P4). On GKE the driver's `vault` phase refuses until they exist | P1–P3 are offline only |
 | D-8 | (new) | `scripts/vault/publish_ca.sh` publishes the one CA ConfigMap and refuses to overwrite one it did not publish. `scripts/vault/rehearsal/kind_cert_manager.sh` installs and removes cert-manager v1.16.2 for kind runs | Needed by §7.5 and by the kind campaign; kept as committed scripts, not ad-hoc commands |
 | D-9 | §14.2 K6/K7: the gateway on kind, the backend "mock or CPU vLLM" | The **real vLLM CPU image** with the staged Qwen3-0.6B model, plus the real agentgateway, through the real chart and the official overlay | The image and model were already on the kind node, so no mock was needed and the backend's own `--api-key` check is exercised |
+
+---
+
+## 23. P4-A: Cloud KMS as code, plan guard and preflight (appended; offline only)
+
+| | State |
+|---|---|
+| IMPLEMENTED SOURCE CODE | `infra/terraform/gcp/modules/vault_kms/`; `module.vault_kms` in `environments/dev` (`enable_vault_kms`, default `false`); `ops/gcp/vault_kms_terraform.py`; `scripts/vault/kms_preflight.py`; `scripts/vault/kms_offline_plan.sh`; the driver's GKE KMS gate |
+| OFFLINE TESTED | `terraform fmt` and backend-disabled `validate`; a **real `terraform plan`** of `-target=module.vault_kms` against an empty LOCAL state with the network black-holed (7 creates, nothing else); the guard on that plan and on its mutations; the preflight against a fake `gcloud` |
+| FUTURE CLOUD VERIFICATION | the real-backend plan and guard; apply; `kms_preflight.py --mode cloud`; Vault auto-unseal through KMS on GKE (Campaign A2) |
+| OWNER APPROVAL REQUIRED | every step of P4-B (VAULT_ESO_RUNBOOK.md step 0) and Campaign A2 |
+
+**What the module creates** (exactly the guard's allowlist): the Cloud KMS API, key ring `ewallet-vault`
+(`asia-southeast1`), key `vault-unseal` (ENCRYPT_DECRYPT, SOFTWARE, no rotation, 30-day destroy delay),
+GSA `ewallet-vault-unseal`, and three non-authoritative IAM members:
+
+- `cryptoKeyEncrypterDecrypter` on the key;
+- `cloudkms.viewer` on the key;
+- `iam.workloadIdentityUser` on the GSA for `ewallet-vault/vault`.
+
+Effective permissions of the GSA, all on that one key:
+
+- `useToEncrypt` and `useToDecrypt`;
+- `cryptoKeys.get`, together with metadata reads (get/list) of the key and its versions, which come with
+  `cloudkms.viewer`.
+
+That is slightly broader than the three permissions the seal needs: still no key material, use only, no
+change, disable or destroy. A three-permission custom role would be exact, at the cost of one more resource.
+
+**Decisions and deviations:**
+
+| # | Decision | Why |
+|---|---|---|
+| P4-1 | The Cloud KMS API is owned by `module.vault_kms`, not added to `module.project_services` | A plan targeted at the module then stays inside it. The project-services set is not touched (tested: one owner) |
+| P4-2 | `count` on every resource, gated by `enable_vault_kms = false` | The repository's cost-gate convention; an ordinary plan creates nothing |
+| P4-3 | `prevent_destroy` on the key ring, key and GSA, **and** `deletion_policy = "PREVENT"` on the key and GSA (provider 7.46.1) | `prevent_destroy` is configuration-level; `PREVENT` is enforced from state. Neither stops an out-of-band console, `gcloud` or API action: IAM must |
+| P4-4 | The Workload Identity principal is built from `var.project_id` and the fixed KSA, not from GKE outputs | No dependency on `module.gke` or `module.workload_identity`. The offline targeted plan proves the closure is the module alone |
+| P4-5 | The guard accepts an unknown scope attribute (`key_ring`, `crypto_key_id`, `service_account_id`) only when the plan's configuration derives it from the approved resource | These IDs are unknown before apply. Every role and member is known at plan time and must match exactly |
+| P4-6 | On GKE the driver's `vault` phase proceeds only after this run recorded `kms-preflight` PASS | Replaces P2's unconditional refusal; Campaign A2 still needs its own approvals |
+
+**Drift that remains** (not resolved; unverified until P4-B step 1):
+
+- The dev state records an earlier node pool.
+- A full plan proposes replacing it.
+- With `enable_gke = false` (the default) a full plan would even plan to **destroy** the cluster (inferred from the count gate in `modules/gke`).
+
+Only a targeted plan that the guard passes may be applied. The guard rejects every update, delete, replace,
+import or forget outside the seven creates. A synthetic or local-state plan proves the guard and the module
+closure, never the content of the real plan.

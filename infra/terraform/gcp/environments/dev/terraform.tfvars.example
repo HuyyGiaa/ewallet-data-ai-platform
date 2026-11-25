@@ -10,6 +10,9 @@ dataproc_submitter_members = []
 enable_gke        = false
 enable_jenkins_vm = false
 
+# Vault V2 Cloud KMS (P4-B only, owner approval, plan checked by ops/gcp/vault_kms_terraform.py guard).
+enable_vault_kms = false
+
 gke_deletion_protection     = true
 jenkins_deletion_protection = true
 

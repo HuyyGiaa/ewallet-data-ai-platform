@@ -1,0 +1,6 @@
+$ PYTHON_BIN=... bash ops/validation/validate_terraform_foundation.sh   (init -backend=false; google 7.46.1 from a local filesystem mirror)
+Success! The configuration is valid.
+Success! The configuration is valid.
+Ran 15 tests in 0.003s
+OK
+TERRAFORM FOUNDATION VALIDATION PASS

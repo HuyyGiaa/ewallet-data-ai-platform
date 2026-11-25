@@ -52,3 +52,13 @@ output "jenkins_instance_name" {
   description = "Jenkins VM name, or null while the VM is cost-gated off."
   value       = module.jenkins_vm.instance_name
 }
+
+output "vault_kms_seal" {
+  description = "Vault gcpckms seal parameters (null while enable_vault_kms is false)."
+  value       = module.vault_kms.seal
+}
+
+output "vault_kms_service_account_email" {
+  description = "GSA for the Vault KSA annotation (null while enable_vault_kms is false)."
+  value       = module.vault_kms.service_account_email
+}

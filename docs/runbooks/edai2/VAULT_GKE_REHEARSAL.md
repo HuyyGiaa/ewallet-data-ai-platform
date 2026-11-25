@@ -272,8 +272,9 @@ export FEATURE_IMAGE=$(helm --kube-context $CTX get values ewallet-serving -n ml
   - the second guarded sleep (block 6).
 - **Keep `$REHEARSAL_DIR/private` across the sleep:** it holds the synthetic operator token and recovery
   keys that `after-wake` needs (V2 needs no shares to unseal: Vault unseals itself through Cloud KMS). Cleanup removes it.
-- **V2 prerequisite:** the `vault` phase refuses on GKE until the P4 Cloud KMS resources and their read-only preflight
-  gates exist ([audit §8–§9](../../edai2/platform/VAULT_V2_ARCHITECTURE_AUDIT.md)). Until then block 2 stops at its first phase.
+- **V2 prerequisite:** on GKE, `preflight` (block 1) also runs `scripts/vault/kms_preflight.py --mode cloud`. The `vault`
+  phase proceeds only after this run recorded `kms-preflight` PASS, which requires P4-B to have created the Cloud KMS resources
+  ([runbook step 0](VAULT_ESO_RUNBOOK.md#0-cloud-kms-p4-b-separate-owner-approval-per-step-not-done)). Until then block 1 stops at the preflight.
 - **The mid-campaign manifest includes the rehearsal workloads** (Vault, ESO, `rehearsal-serving`,
   Redis), so the second wake restores them. The final manifest (block 6) is recorded after cleanup;
   Campaign B's G1 uses that one.

@@ -51,6 +51,7 @@ class TerraformLayoutContractTest(unittest.TestCase):
             "modules/workload_identity",
             "modules/dataproc",
             "modules/jenkins_vm",
+            "modules/vault_kms",
         }
         missing = [
             relative
@@ -72,6 +73,7 @@ class TerraformLayoutContractTest(unittest.TestCase):
             "workload_identity",
             "dataproc",
             "jenkins_vm",
+            "vault_kms",
         ):
             for filename in ("variables.tf", "main.tf", "outputs.tf"):
                 path = module_root / module / filename

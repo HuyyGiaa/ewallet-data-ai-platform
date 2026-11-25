@@ -1,0 +1,9 @@
+$ git diff --cached --check
+DIFF_CHECK_PASS
+
+$ secret scan of the added lines (private keys, Google/Vault/AWS tokens, JSON service-account keys, passwords)
+matches: 0
+(the only token-like string, the scratch placeholder access token, exists only in scripts/vault/kms_offline_plan.sh and is removed from every plan JSON; checked: 0 occurrences in the committed fixture)
+
+$ committed Terraform runtime files
+none

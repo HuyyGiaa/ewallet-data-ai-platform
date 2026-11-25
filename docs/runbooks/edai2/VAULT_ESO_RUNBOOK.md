@@ -15,7 +15,8 @@ Operating procedure for [VAULT.md](../../edai2/platform/VAULT.md). Each step is 
   [VAULT_V2_ARCHITECTURE_AUDIT.md](../../edai2/platform/VAULT_V2_ARCHITECTURE_AUDIT.md).
 - It is verified end to end on **kind only**, with auto-unseal **simulated** by a local transit seal
   (VAULT.md *Validation*).
-- **Nothing of V2 is deployed on GKE, and the Cloud KMS resources do not exist yet** (step 0, P4).
+- **Nothing of V2 is deployed on GKE, and the Cloud KMS resources do not exist yet.** Their Terraform, plan guard
+  and preflight are written and tested offline (P4-A); creating them is P4-B (step 0).
   Every GKE step needs a separately approved campaign. GKE is woken and put back to sleep only by
   that campaign's approved cloud-lab procedure, never by a command from this page.
 
@@ -35,26 +36,67 @@ V="python3 -m ops.vault.cli --ca-file $KEYDIR/ca.crt"   # talks to https://127.0
 OP=$KEYDIR/operator-token.json               # secret-operator token, created in step 4
 ```
 
-## 0. Cloud KMS prerequisite (MUTATING, GCP; P4, separate owner approval; NOT DONE)
+## 0. Cloud KMS (P4-B: separate owner approval per step; NOT DONE)
 
 `values-gke.yaml` configures `seal "gcpckms"`: project `ewallet-data-ai-platform-hg26`, region
-`asia-southeast1`, key ring `ewallet-vault`, key `vault-unseal`. It has no credentials file:
-Vault gets Application Default Credentials from Workload Identity.
+`asia-southeast1`, key ring `ewallet-vault`, key `vault-unseal`. It has no credentials file: Vault gets
+Application Default Credentials from Workload Identity. Until the KMS resources exist and pass the
+preflight, the rehearsal driver's `vault` phase refuses on GKE and Vault could not start.
 
-Before step 2 the following must exist ([audit §8.2, §9](../../edai2/platform/VAULT_V2_ARCHITECTURE_AUDIT.md)):
+**Implemented and offline-tested (P4-A), not applied:**
 
-- key ring `ewallet-vault` and key `vault-unseal`, SOFTWARE protection, **no scheduled rotation**,
-  protected from destroy;
-- GSA `ewallet-vault-unseal` with `roles/cloudkms.cryptoKeyEncrypterDecrypter` plus
-  `cloudkms.cryptoKeys.get`, both on the key only;
-- `roles/iam.workloadIdentityUser` for `serviceAccount:ewallet-data-ai-platform-hg26.svc.id.goog[ewallet-vault/vault]`
-  (the chart's Vault KSA, annotated in `values-gke.yaml`).
+- **Module** [`modules/vault_kms`](../../../infra/terraform/gcp/modules/vault_kms/main.tf), called from
+  `environments/dev` as `module.vault_kms` with `enable_vault_kms` (default `false`). It has no
+  `depends_on` and no input from `module.gke` or `module.workload_identity`.
+- **Plan guard** [`ops/gcp/vault_kms_terraform.py`](../../../ops/gcp/vault_kms_terraform.py): exactly seven
+  creates, each with its expected attributes, and nothing else anywhere in the plan.
+- **Preflight** [`scripts/vault/kms_preflight.py`](../../../scripts/vault/kms_preflight.py): read-only.
 
-Until then the rehearsal driver's `vault` phase refuses on GKE, and Vault itself could not start.
+| Address (`module.vault_kms.…[0]`) | What | Protection |
+|---|---|---|
+| `google_project_service.cloudkms` | Cloud KMS API | never disabled (`disable_on_destroy = false`, `deletion_policy = "ABANDON"`) |
+| `google_kms_key_ring.vault` | key ring `ewallet-vault`, `asia-southeast1` | `prevent_destroy`; Cloud KMS cannot delete key rings |
+| `google_kms_crypto_key.vault_unseal` | key `vault-unseal`, `ENCRYPT_DECRYPT`, SOFTWARE, **no rotation**, 30-day destroy delay | `prevent_destroy` + `deletion_policy = "PREVENT"` |
+| `google_service_account.vault_unseal` | GSA `ewallet-vault-unseal`, no key ever created | `prevent_destroy` + `deletion_policy = "PREVENT"` |
+| `google_kms_crypto_key_iam_member.vault_encrypter_decrypter` | `roles/cloudkms.cryptoKeyEncrypterDecrypter` **on the key** | non-authoritative member |
+| `google_kms_crypto_key_iam_member.vault_viewer` | `roles/cloudkms.viewer` **on the key** (`cryptoKeys.get`) | non-authoritative member |
+| `google_service_account_iam_member.vault_workload_identity` | `roles/iam.workloadIdentityUser` for `…svc.id.goog[ewallet-vault/vault]` **on the GSA** | non-authoritative member |
 
-**Never delete or disable the key or a key version** as part of a rehearsal, a cleanup or a
-rollback. A destroyed key version makes the Vault data unrecoverable, even from backups
-(HashiCorp, *Seal/Unseal*). A disabled version keeps Vault sealed at its next start.
+`prevent_destroy` and `deletion_policy = "PREVENT"` stop only Terraform. Neither stops a console, `gcloud` or
+API action by a principal with KMS admin rights. A destroyed key version is unrecoverable, so the key's
+safety also rests on IAM: no automation holds destroy rights.
+
+**P4-B procedure.** Each step is a stop point; nothing goes on automatically.
+
+1. **Read-only inspection** (owner approves cloud access):
+   - Run `python3 scripts/vault/kms_preflight.py --mode cloud`. Before P4-B every KMS gate must FAIL as
+     *not found*. Any existing key ring, key or GSA means **stop for an ownership or import decision**:
+     never adopt or overwrite it.
+   - Inspect the real state read-only (`terraform state list` with the real backend, no refresh) for any
+     `module.vault_kms` address.
+   - Confirm the GKE workload pool exists (the cluster exists; it may be asleep).
+2. **Saved plan** with the real backend:
+   `terraform plan -target=module.vault_kms -var enable_vault_kms=true -out=p4.tfplan`, plus the tfvars the
+   state was applied with (`ops.gcp.r2_terraform tfvars`). `-target` alone is **not** proof of a narrow
+   plan; the guard decides.
+3. **Guard**: `terraform show -json p4.tfplan > p4.plan.json` and
+   `python3 -m ops.gcp.vault_kms_terraform guard --plan p4.plan.json`. Only `VAULT_KMS_PLAN_GUARD_PASS`
+   continues. Any other action (for example the node-pool replacement the drifted state produces in a full
+   plan), an import or a drifted KMS address stops.
+4. **Owner review:**
+   - the seven addresses and three IAM grants;
+   - 7 creates, 0 updates, 0 deletes;
+   - the drift the guard lists outside the change;
+   - cost: about US$0.06 a month per active key version, while asleep too;
+   - recovery: the key can never be deleted.
+5. **Approved apply of that exact file:** `terraform apply p4.tfplan`, with no re-plan. Then
+   `kms_preflight.py --mode cloud --vault-chart …` must be `VAULT_KMS_PREFLIGHT_READY`. Record its gates.
+6. **Stop.** P4-B never wakes GKE; Campaign A2 is its own approval.
+
+If the apply fails part-way, do not run destroy, `state rm` or a re-apply. Inspect what exists (preflight,
+state list) and decide deliberately. No step here deletes or disables a key, a key version or the GSA.
+
+The offline record is in [`p4a_terraform_offline_20261125`](../../evidence/edai2/vault/p4a_terraform_offline_20261125/README.md).
 
 ## 1. Prerequisites (READ-ONLY)
 

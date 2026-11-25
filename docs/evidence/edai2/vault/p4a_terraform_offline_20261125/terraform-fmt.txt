@@ -1,0 +1,2 @@
+$ terraform fmt -recursive -check infra/terraform/gcp
+TERRAFORM_FORMAT_PASS (exit 0)

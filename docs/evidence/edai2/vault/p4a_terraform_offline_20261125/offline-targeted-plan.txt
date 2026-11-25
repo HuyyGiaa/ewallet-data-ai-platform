@@ -1,0 +1,11 @@
+Plan: 7 to add, 0 to change, 0 to destroy.
+OFFLINE_TARGETED_PLAN_WRITTEN <scratch>/targeted.plan.json (LOCAL EMPTY STATE: not the dev environment)
+exit 0
+  # module.vault_kms.google_kms_crypto_key.vault_unseal[0] will be created
+  # module.vault_kms.google_kms_crypto_key_iam_member.vault_encrypter_decrypter[0] will be created
+  # module.vault_kms.google_kms_crypto_key_iam_member.vault_viewer[0] will be created
+  # module.vault_kms.google_kms_key_ring.vault[0] will be created
+  # module.vault_kms.google_project_service.cloudkms[0] will be created
+  # module.vault_kms.google_service_account.vault_unseal[0] will be created
+  # module.vault_kms.google_service_account_iam_member.vault_workload_identity[0] will be created
+Plan: 7 to add, 0 to change, 0 to destroy.
