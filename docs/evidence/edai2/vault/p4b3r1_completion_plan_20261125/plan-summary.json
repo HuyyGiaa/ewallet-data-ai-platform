@@ -1,0 +1,53 @@
+{
+ "campaign": "p4b3r1-20261125T105200Z",
+ "plan_type": "saved, targeted (-target=module.vault_kms), normal refresh, real dev backend",
+ "command": "terraform plan -input=false -no-color -lock-timeout=0s -target=module.vault_kms -var enable_vault_kms=true -var-file=<private>/p4b3r1-private.tfvars -out=<private>/p4b3r1.tfplan",
+ "inputs": {
+  "enable_vault_kms": "true (-var)",
+  "enable_gke": "true (private tfvars, same as P4-B2)",
+  "others": "defaults"
+ },
+ "terraform_version": "1.16.6",
+ "plan_format": "1.2",
+ "applyable": true,
+ "errored": false,
+ "complete": false,
+ "counts": {
+  "create": 1,
+  "update": 0,
+  "delete": 0,
+  "replace": 0,
+  "import": 0,
+  "deferred": 0,
+  "no_op": 6,
+  "outside_module_vault_kms": 0
+ },
+ "terraform_output": "Plan: 1 to add, 0 to change, 0 to destroy.",
+ "the_create": {
+  "address": "module.vault_kms.google_kms_crypto_key_iam_member.vault_encrypter_decrypter[0]",
+  "role": "roles/cloudkms.cryptoKeyEncrypterDecrypter",
+  "member": "serviceAccount:ewallet-vault-unseal@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com",
+  "crypto_key_id": "projects/ewallet-data-ai-platform-hg26/locations/asia-southeast1/keyRings/ewallet-vault/cryptoKeys/vault-unseal (known at plan time)",
+  "condition": "none",
+  "unknown_after_plan": [
+   "etag",
+   "id"
+  ]
+ },
+ "existing_no_op": [
+  "module.vault_kms.google_project_service.cloudkms[0]",
+  "module.vault_kms.google_kms_key_ring.vault[0]",
+  "module.vault_kms.google_kms_crypto_key.vault_unseal[0]",
+  "module.vault_kms.google_service_account.vault_unseal[0]",
+  "module.vault_kms.google_kms_crypto_key_iam_member.vault_viewer[0]",
+  "module.vault_kms.google_service_account_iam_member.vault_workload_identity[0]"
+ ],
+ "resource_drift": {
+  "entries": 1,
+  "address": "module.vault_kms.google_kms_crypto_key.vault_unseal[0]",
+  "difference": "labels: null -> {} only (provider refresh normalisation); effective_labels, terraform_labels and every other attribute identical",
+  "guard": "tolerated narrowly and reported (normalised_drift_labels_null_to_empty); any other drift fails"
+ },
+ "prior_state_resources": 61,
+ "provider": "registry.terraform.io/hashicorp/google 7.46.1"
+}

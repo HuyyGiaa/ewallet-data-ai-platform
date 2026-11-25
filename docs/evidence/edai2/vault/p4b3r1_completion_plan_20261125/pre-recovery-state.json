@@ -1,0 +1,97 @@
+{
+ "checked": "2026-11-25 ~10:52Z, read-only",
+ "verdict": "P4B3R1_PARTIAL_STATE_VERIFIED",
+ "checks": [
+  {
+   "n": 1,
+   "check": "Cloud KMS API enabled",
+   "observed": "cloudkms.googleapis.com enabled",
+   "status": "PASS"
+  },
+  {
+   "n": 2,
+   "check": "KeyRing ewallet-vault",
+   "observed": "projects/ewallet-data-ai-platform-hg26/locations/asia-southeast1/keyRings/ewallet-vault (the only key ring)",
+   "status": "PASS"
+  },
+  {
+   "n": 3,
+   "check": "CryptoKey vault-unseal",
+   "observed": "ENCRYPT_DECRYPT, SOFTWARE, no rotation",
+   "status": "PASS"
+  },
+  {
+   "n": 4,
+   "check": "primary version",
+   "observed": "cryptoKeyVersions/1 ENABLED (1 version)",
+   "status": "PASS"
+  },
+  {
+   "n": 5,
+   "check": "Vault GSA",
+   "observed": "ewallet-vault-unseal exists, enabled",
+   "status": "PASS"
+  },
+  {
+   "n": 6,
+   "check": "no user-managed GSA keys",
+   "observed": 0,
+   "status": "PASS"
+  },
+  {
+   "n": 7,
+   "check": "KMS Viewer grant",
+   "observed": "key policy: 1 binding, roles/cloudkms.viewer -> the GSA only, unconditional",
+   "status": "PASS"
+  },
+  {
+   "n": 8,
+   "check": "Workload Identity grant",
+   "observed": "roles/iam.workloadIdentityUser -> serviceAccount:ewallet-data-ai-platform-hg26.svc.id.goog[ewallet-vault/vault] only",
+   "status": "PASS"
+  },
+  {
+   "n": 9,
+   "check": "Encrypter/Decrypter grant absent",
+   "observed": "absent on the key; key ring policy 0 bindings; no project-level roles/cloudkms.* and no project role for the GSA",
+   "status": "PASS"
+  },
+  {
+   "n": 10,
+   "check": "state holds the six",
+   "observed": [
+    "module.vault_kms.google_project_service.cloudkms[0]",
+    "module.vault_kms.google_kms_key_ring.vault[0]",
+    "module.vault_kms.google_kms_crypto_key.vault_unseal[0]",
+    "module.vault_kms.google_service_account.vault_unseal[0]",
+    "module.vault_kms.google_kms_crypto_key_iam_member.vault_viewer[0]",
+    "module.vault_kms.google_service_account_iam_member.vault_workload_identity[0]"
+   ],
+   "status": "PASS"
+  },
+  {
+   "n": 11,
+   "check": "state lacks the seventh",
+   "observed": "absent; state list identical to the P4-B3 post-apply list (61 addresses)",
+   "status": "PASS"
+  },
+  {
+   "n": 12,
+   "check": "no Terraform operation active",
+   "observed": "no lock object; state generation 1795603007838257/1 (as left by P4-B3)",
+   "status": "PASS"
+  },
+  {
+   "n": 13,
+   "check": "preflight",
+   "observed": "VAULT_KMS_PREFLIGHT_BLOCKED, blocking only kms-key-iam",
+   "status": "PASS"
+  },
+  {
+   "n": 14,
+   "check": "GKE",
+   "observed": "cluster RUNNING, workload pool unchanged, 0 node VMs",
+   "status": "PASS"
+  }
+ ]
+}

@@ -17,7 +17,8 @@ Operating procedure for [VAULT.md](../../edai2/platform/VAULT.md). Each step is 
   (VAULT.md *Validation*).
 - **Nothing of V2 is deployed on GKE.** The Cloud KMS resources are **partly provisioned** (P4-B3 stopped after 6
   of 7 creates; the GSA's encrypterDecrypter on the key is missing). The preflight is BLOCKED until an
-  owner-approved completion (step 0).
+  owner-approved completion (step 0). P4-B3R1 prepared it: a one-create saved plan that passed the guard's
+  completion mode; **P4-B3R2 (its apply) needs separate approval**.
   Every GKE step needs a separately approved campaign. GKE is woken and put back to sleep only by
   that campaign's approved cloud-lab procedure, never by a command from this page.
 
@@ -113,6 +114,18 @@ safety also rests on IAM: no automation holds destroy rights.
    - the saved plan is now stale;
    - completion needs a new owner decision: a one-create plan, a guard `complete` mode or a manual review,
      then a new approved apply.
+   **Recovery: the owner chose the guard completion mode (P4-B3R1):**
+   - record: [`p4b3r1_completion_plan_20261125`](../../evidence/edai2/vault/p4b3r1_completion_plan_20261125/README.md),
+     `VAULT_V2_P4B3R1_COMPLETION_PLAN_READY`;
+   - the same `terraform plan -target=module.vault_kms …` against the current state, then
+     `python3 -m ops.gcp.vault_kms_terraform guard --mode complete --plan p4.plan.json`. The mode is explicit
+     only. It passes exactly the missing `vault_encrypter_decrypter` create on the known existing key, on a
+     refreshed prior state that holds the six others with their approved values, unchanged, with nothing
+     else;
+   - the plan: 1/0/0, SHA-256 `d87d37d4…154cc72`, kept privately; **not applied**;
+   - **P4-B3R2** needs separate approval of that SHA-256. Before the apply: the SHA-256, the state generation
+     `1795603007838257` and the guard are re-checked. Apply that file once; then the preflight must be
+     READY; then stop.
 6. **Stop.** P4-B never wakes GKE; Campaign A2 is its own approval.
 
 If the apply fails part-way, do not run destroy, `state rm` or a re-apply. Inspect what exists (preflight,

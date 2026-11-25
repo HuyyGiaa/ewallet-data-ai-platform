@@ -1,0 +1,27 @@
+{
+ "state_object": "gs://ewallet-data-ai-platform-hg26-tfstate/terraform/dev/default.tfstate",
+ "before_plans": {
+  "generation": "1795603007838257",
+  "metageneration": "1"
+ },
+ "after_plans": {
+  "generation": "1795603007838257",
+  "metageneration": "1"
+ },
+ "verdict": "UNCHANGED (both plans)",
+ "lock": "none before or after (the plan locks only while running, -lock-timeout=0s, never bypassed)",
+ "objects_in_prefix": [
+  "default.tfstate"
+ ],
+ "commands_not_run": [
+  "apply",
+  "destroy",
+  "import",
+  "refresh-only apply",
+  "state rm/mv/push",
+  "force-unlock",
+  "init -reconfigure/-migrate-state",
+  "-refresh=false",
+  "-lock=false"
+ ]
+}

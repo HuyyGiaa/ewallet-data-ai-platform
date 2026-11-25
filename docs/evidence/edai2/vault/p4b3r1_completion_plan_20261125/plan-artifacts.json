@@ -1,0 +1,34 @@
+{
+ "private_directory": "~/ewallet-evidence/vault/p4b3r1_private_20261125T105200Z/ (mode 700)",
+ "plan": {
+  "file": "p4b3r1.tfplan",
+  "bytes": 54069,
+  "mode": "600",
+  "sha256": "d87d37d4b38fd51a8e3dcd328986975fa00f72b6e7d2fd79cfe9a5de9154cc72"
+ },
+ "plan_json": {
+  "file": "p4b3r1.plan.json",
+  "bytes": 164398,
+  "mode": "600",
+  "sha256": "72e65908568b5f003f711471aec2dde3ad9d7fd15ae9332263d8555b075d0690"
+ },
+ "created": {
+  "plan_start": "2026-11-25T11:01:24Z",
+  "plan_end": "2026-11-25T11:02:01Z"
+ },
+ "git_commit": "4860f0f096eeb0b375581983b10d3a919a782fe4 (clean tree)",
+ "terraform": "1.16.6",
+ "provider": "hashicorp/google 7.46.1 (lock file, local filesystem mirror)",
+ "backend": "GCS ewallet-data-ai-platform-hg26-tfstate, prefix terraform/dev, workspace default",
+ "superseded_attempt": {
+  "note": "a first plan from 68bf118b (same state, same 1 create) failed the completion guard on the two provider representations; the guard was fixed in 4860f0f0 and the plan regenerated. The first plan is kept privately in attempt1/ and must never be applied",
+  "state_generation": "unchanged by it"
+ },
+ "not_committed": [
+  "the binary plan",
+  "the plan JSON",
+  "the state",
+  "the tfvars",
+  "the plan log"
+ ]
+}

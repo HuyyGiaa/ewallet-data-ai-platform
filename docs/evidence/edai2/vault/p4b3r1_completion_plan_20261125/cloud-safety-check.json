@@ -1,0 +1,21 @@
+{
+ "after_plan": "read-only",
+ "key_iam_roles": [
+  "roles/cloudkms.viewer"
+ ],
+ "encrypter_decrypter": "still absent",
+ "preflight": "VAULT_KMS_PREFLIGHT_BLOCKED, blocking only kms-key-iam (kms-preflight-cloud-after-plan.jsonl)",
+ "gke": {
+  "node_vms": 0,
+  "cpu_pool": "RUNNING, GKE_METADATA, autoscaling disabled (unchanged)"
+ },
+ "not_done": [
+  "terraform apply",
+  "IAM change",
+  "KMS change",
+  "GKE wake",
+  "kubectl",
+  "Vault deploy",
+  "project IAM change"
+ ]
+}
