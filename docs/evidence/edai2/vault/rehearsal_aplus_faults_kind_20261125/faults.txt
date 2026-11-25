@@ -1,0 +1,34 @@
+=== retain-set (vault-rehearsal-20261125T043716Z)
+pv/pvc after fault: ["pvc-15b957b1 Bound Retain audit-vault-0","pvc-b29dff54 Bound Retain data-vault-0"] pvcs: persistentvolumeclaim/audit-vault-0 persistentvolumeclaim/data-vault-0 
+next phase refused: OK
+gate retain closed: OK
+{"stopped":"retain failed at fault-injected","volumes":["audit-vault-0:bound","data-vault-0:bound"],"problems":[],"next":"STOPPED; owner decision: F1 cleanup (VAULT_REHEARSAL_CLEANUP_APPROVED) then the final guarded sleep, or F2 guarded sleep as-is"}
+PASS retain-set: cleanup + verify-clean + gate clean in 176s; PVs left: 0
+=== pvc-deleted:audit-vault-0 (vault-rehearsal-20261125T044013Z)
+pv/pvc after fault: ["pvc-1fe30704 Bound Retain data-vault-0","pvc-6f245e6b Released Retain audit-vault-0"] pvcs: persistentvolumeclaim/data-vault-0 
+next phase refused: OK
+gate retain closed: OK
+{"stopped":"retain failed at fault-injected","volumes":["audit-vault-0:released","data-vault-0:bound"],"problems":[],"next":"STOPPED; owner decision: F1 cleanup (VAULT_REHEARSAL_CLEANUP_APPROVED) then the final guarded sleep, or F2 guarded sleep as-is"}
+PASS pvc-deleted:audit-vault-0: cleanup + verify-clean + gate clean in 175s; PVs left: 0
+=== pvcs-released (vault-rehearsal-20261125T044308Z)
+pv/pvc after fault: ["pvc-984a4933 Released Retain data-vault-0","pvc-b6677266 Released Retain audit-vault-0"] pvcs: 
+next phase refused: OK
+gate retain closed: OK
+{"stopped":"retain failed at fault-injected","volumes":["audit-vault-0:released","data-vault-0:released"],"problems":[],"next":"STOPPED; owner decision: F1 cleanup (VAULT_REHEARSAL_CLEANUP_APPROVED) then the final guarded sleep, or F2 guarded sleep as-is"}
+cleanup stopped at cleanup-reclaim-restored rc=1 (fault-injected)
+{"stopped":"retain failed at fault-injected","volumes":["audit-vault-0:released","data-vault-0:released"]}
+PASS pvcs-released: cleanup + verify-clean + gate clean in 187s; PVs left: 0
+=== claimref-removed:audit-vault-0 (vault-rehearsal-20261125T044615Z)
+pv/pvc after fault: ["pvc-55bfc876 Available Retain -","pvc-ede795a1 Released Retain data-vault-0"] pvcs: 
+next phase refused: OK
+gate retain closed: OK
+{"stopped":"retain failed at fault-injected","volumes":["audit-vault-0:unclaimed","data-vault-0:released"],"problems":[],"next":"STOPPED; owner decision: F1 cleanup (VAULT_REHEARSAL_CLEANUP_APPROVED) then the final guarded sleep, or F2 guarded sleep as-is"}
+cleanup finished the interrupted recovery first
+PASS claimref-removed:audit-vault-0: cleanup + verify-clean + gate clean in 179s; PVs left: 0
+=== rebound:audit-vault-0 (vault-rehearsal-20261125T044915Z)
+pv/pvc after fault: ["pvc-21d648b1 Released Retain data-vault-0","pvc-a193640c Bound Retain audit-vault-0"] pvcs: persistentvolumeclaim/audit-vault-0 
+next phase refused: OK
+gate retain closed: OK
+{"stopped":"retain failed at fault-injected","volumes":["audit-vault-0:bound","data-vault-0:released"],"problems":[],"next":"STOPPED; owner decision: F1 cleanup (VAULT_REHEARSAL_CLEANUP_APPROVED) then the final guarded sleep, or F2 guarded sleep as-is"}
+PASS rebound:audit-vault-0: cleanup + verify-clean + gate clean in 179s; PVs left: 0
+rc=0

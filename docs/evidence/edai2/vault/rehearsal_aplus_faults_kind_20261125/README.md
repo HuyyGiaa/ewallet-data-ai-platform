@@ -42,7 +42,7 @@ checked that:
 - `inspect` reported the state;
 - `cleanup`, `verify-clean` and `gate clean` passed, and none of the recorded PVs was left.
 
-The output is in [`faults.log`](faults.log) and every record in [`fault-results.jsonl`](fault-results.jsonl).
+The output is in [`faults.txt`](faults.txt) and every record in [`fault-results.jsonl`](fault-results.jsonl).
 
 | Fault point | State seen by `inspect` (audit / data) | Cleanup |
 |---|---|---|
