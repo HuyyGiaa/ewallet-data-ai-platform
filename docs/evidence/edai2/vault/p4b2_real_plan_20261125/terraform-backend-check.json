@@ -1,0 +1,12 @@
+{
+ "backend": {
+  "type": "gcs",
+  "bucket": "ewallet-data-ai-platform-hg26-tfstate",
+  "prefix": "terraform/dev"
+ },
+ "workspace": "default",
+ "terraform_root": "infra/terraform/gcp/environments/dev (branch experiment/edai2-vault-clustersecretstore)",
+ "init": "fresh init of a never-initialised directory with -backend-config bucket/prefix and -lockfile=readonly; no -reconfigure, no -migrate-state, no local state to migrate",
+ "provider": "hashicorp/google 7.46.1 from a local filesystem mirror; matches .terraform.lock.hcl (readonly lockfile accepted it)",
+ "concurrency": "no lock object before the plan; plan run with -lock-timeout=0s (it would stop, not wait); no lock object after"
+}

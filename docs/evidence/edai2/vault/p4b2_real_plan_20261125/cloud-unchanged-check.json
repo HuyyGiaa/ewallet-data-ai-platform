@@ -1,0 +1,8 @@
+{
+ "checked_after_the_plan": true,
+ "cloudkms_api": "not enabled (0 entries in the enabled-services filter)",
+ "key_ring": "KMS API still answers SERVICE_DISABLED (nothing could be created: the API is off)",
+ "vault_gsa": "IAM NOT_FOUND",
+ "iam": "no apply was run, so no binding could be created",
+ "gke": "0 node VMs; workload pool unchanged; no kubectl"
+}

@@ -1,0 +1,21 @@
+{
+ "command": "python3 -m ops.gcp.vault_kms_terraform guard --plan <private p4b2.plan.json>",
+ "guard_source": "ops/gcp/vault_kms_terraform.py at cd112b58 (unchanged since P4-A 100bb4e9)",
+ "exit_code": 0,
+ "verdict": "VAULT_KMS_PLAN_GUARD_PASS",
+ "approved_creates": 7,
+ "creates": [
+  "module.vault_kms.google_kms_crypto_key.vault_unseal[0]",
+  "module.vault_kms.google_kms_crypto_key_iam_member.vault_encrypter_decrypter[0]",
+  "module.vault_kms.google_kms_crypto_key_iam_member.vault_viewer[0]",
+  "module.vault_kms.google_kms_key_ring.vault[0]",
+  "module.vault_kms.google_project_service.cloudkms[0]",
+  "module.vault_kms.google_service_account.vault_unseal[0]",
+  "module.vault_kms.google_service_account_iam_member.vault_workload_identity[0]"
+ ],
+ "unrelated_mutations": 0,
+ "unchanged_or_read": 0,
+ "drift_outside_the_change": [],
+ "targeted_or_incomplete": true,
+ "rejected_operations": 0
+}

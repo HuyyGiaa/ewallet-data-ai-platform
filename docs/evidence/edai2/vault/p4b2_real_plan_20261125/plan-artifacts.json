@@ -1,0 +1,18 @@
+{
+ "private_directory": "~/ewallet-evidence/vault/p4b2_private_p4b2-20261125T102630Z",
+ "directory_mode": "0o700",
+ "artifacts": {
+  "p4b2.tfplan": {
+   "sha256": "19c7f9d853d144384e437c15197eb2237c21af0d85a7ab89cb508464da68df77",
+   "bytes": 51959,
+   "mode": "0o600"
+  },
+  "p4b2.plan.json": {
+   "sha256": "3b88b381dab543856782208b3f7294655fc882370dd65005955619c2b26c5b37",
+   "bytes": 146645,
+   "mode": "0o600"
+  }
+ },
+ "git_commit": "cd112b58fb11379e92a868c9d8562e78f9d2713a",
+ "retention": "kept for owner review and P4-B3; never committed or uploaded"
+}

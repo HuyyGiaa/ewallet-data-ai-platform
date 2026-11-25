@@ -1,0 +1,26 @@
+{
+ "state_object": "gs://ewallet-data-ai-platform-hg26-tfstate/terraform/dev/default.tfstate",
+ "before": {
+  "generation": "1794062463403448",
+  "metageneration": "1",
+  "updated": "2026-11-07T14:41:03+0000",
+  "size": "117679"
+ },
+ "after": {
+  "generation": "1794062463403448",
+  "metageneration": "1",
+  "updated": "2026-11-07T14:41:03+0000",
+  "size": "117679"
+ },
+ "verdict": "UNCHANGED",
+ "lock_after_plan": "none",
+ "commands_not_run": [
+  "apply",
+  "destroy",
+  "import",
+  "refresh",
+  "state rm/mv/push",
+  "force-unlock",
+  "init -reconfigure/-migrate-state"
+ ]
+}

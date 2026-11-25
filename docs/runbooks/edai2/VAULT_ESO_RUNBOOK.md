@@ -85,7 +85,9 @@ safety also rests on IAM: no automation holds destroy rights.
      - **GKE:** the cluster's `workloadIdentityConfig` read through the management API, never kubectl.
    - Any existing key ring, key or GSA, or any competing state address, means **stop for an ownership or
      import decision**: never adopt or overwrite it.
-2. **Saved plan** with the real backend:
+2. **Saved plan** (done: P4-B2,
+   [`p4b2_real_plan_20261125`](../../evidence/edai2/vault/p4b2_real_plan_20261125/README.md): 7 creates,
+   `VAULT_KMS_PLAN_GUARD_PASS`, plan SHA-256 `19c7f9d8…68df77`, kept privately; **not applied**) with the real backend:
    `terraform plan -target=module.vault_kms -var enable_vault_kms=true -out=p4.tfplan`, plus the tfvars the
    state was applied with (`ops.gcp.r2_terraform tfvars`). `-target` alone is **not** proof of a narrow
    plan; the guard decides.

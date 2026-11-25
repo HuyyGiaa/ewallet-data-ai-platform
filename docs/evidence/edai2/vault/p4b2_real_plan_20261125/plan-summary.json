@@ -1,0 +1,103 @@
+{
+ "campaign": "p4b2-20261125T102630Z",
+ "plan_type": "saved, targeted (-target=module.vault_kms)",
+ "terraform_version": "1.16.6",
+ "plan_format": "1.2",
+ "applyable": true,
+ "complete": false,
+ "errored": false,
+ "counts": {
+  "create": 7,
+  "update": 0,
+  "delete": 0,
+  "replace": 0,
+  "import": 0,
+  "deferred": 0,
+  "outside_module_vault_kms": 0
+ },
+ "resource_drift_entries": 0,
+ "prior_state_resources": 55,
+ "prior_state_has_module_vault_kms": false,
+ "inputs": {
+  "enable_vault_kms": "true (-var)",
+  "enable_gke": "true (private tfvars, reflects the live cluster)",
+  "project_id": "ewallet-data-ai-platform-hg26 (default)",
+  "region": "asia-southeast1 (default)",
+  "zone": "asia-southeast1-b (default)",
+  "other variables": "defaults; they feed modules outside the target only"
+ },
+ "resources": [
+  {
+   "address": "module.vault_kms.google_kms_crypto_key.vault_unseal[0]",
+   "type": "google_kms_crypto_key",
+   "action": "create",
+   "planned": {
+    "name": "vault-unseal",
+    "purpose": "ENCRYPT_DECRYPT",
+    "rotation_period": null,
+    "deletion_policy": "PREVENT",
+    "protection_level": "SOFTWARE"
+   }
+  },
+  {
+   "address": "module.vault_kms.google_kms_crypto_key_iam_member.vault_encrypter_decrypter[0]",
+   "type": "google_kms_crypto_key_iam_member",
+   "action": "create",
+   "planned": {
+    "role": "roles/cloudkms.cryptoKeyEncrypterDecrypter",
+    "member": "serviceAccount:ewallet-vault-unseal@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com"
+   }
+  },
+  {
+   "address": "module.vault_kms.google_kms_crypto_key_iam_member.vault_viewer[0]",
+   "type": "google_kms_crypto_key_iam_member",
+   "action": "create",
+   "planned": {
+    "role": "roles/cloudkms.viewer",
+    "member": "serviceAccount:ewallet-vault-unseal@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com"
+   }
+  },
+  {
+   "address": "module.vault_kms.google_kms_key_ring.vault[0]",
+   "type": "google_kms_key_ring",
+   "action": "create",
+   "planned": {
+    "project": "ewallet-data-ai-platform-hg26",
+    "name": "ewallet-vault",
+    "location": "asia-southeast1"
+   }
+  },
+  {
+   "address": "module.vault_kms.google_project_service.cloudkms[0]",
+   "type": "google_project_service",
+   "action": "create",
+   "planned": {
+    "project": "ewallet-data-ai-platform-hg26",
+    "service": "cloudkms.googleapis.com",
+    "deletion_policy": "ABANDON",
+    "disable_on_destroy": false
+   }
+  },
+  {
+   "address": "module.vault_kms.google_service_account.vault_unseal[0]",
+   "type": "google_service_account",
+   "action": "create",
+   "planned": {
+    "project": "ewallet-data-ai-platform-hg26",
+    "account_id": "ewallet-vault-unseal",
+    "email": "ewallet-vault-unseal@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com",
+    "member": "serviceAccount:ewallet-vault-unseal@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com",
+    "deletion_policy": "PREVENT"
+   }
+  },
+  {
+   "address": "module.vault_kms.google_service_account_iam_member.vault_workload_identity[0]",
+   "type": "google_service_account_iam_member",
+   "action": "create",
+   "planned": {
+    "role": "roles/iam.workloadIdentityUser",
+    "member": "serviceAccount:ewallet-data-ai-platform-hg26.svc.id.goog[ewallet-vault/vault]"
+   }
+  }
+ ]
+}
