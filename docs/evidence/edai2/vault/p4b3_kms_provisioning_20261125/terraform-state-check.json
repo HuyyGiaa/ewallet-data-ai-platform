@@ -1,0 +1,28 @@
+{
+ "state_object": "gs://ewallet-data-ai-platform-hg26-tfstate/terraform/dev/default.tfstate",
+ "before": {
+  "generation": "1794062463403448",
+  "metageneration": "1"
+ },
+ "after": {
+  "generation": "1795603007838257",
+  "metageneration": "1"
+ },
+ "lock_after": "none",
+ "addresses_before": 55,
+ "addresses_after": 61,
+ "pre_existing_55": "identical (address list diff empty)",
+ "new_addresses": [
+  "module.vault_kms.google_project_service.cloudkms[0]",
+  "module.vault_kms.google_service_account.vault_unseal[0]",
+  "module.vault_kms.google_service_account_iam_member.vault_workload_identity[0]",
+  "module.vault_kms.google_kms_key_ring.vault[0]",
+  "module.vault_kms.google_kms_crypto_key.vault_unseal[0]",
+  "module.vault_kms.google_kms_crypto_key_iam_member.vault_viewer[0]"
+ ],
+ "absent_from_state": [
+  "module.vault_kms.google_kms_crypto_key_iam_member.vault_encrypter_decrypter[0]"
+ ],
+ "state_matches_cloud": "yes: the 6 addresses in state are exactly the 6 resources that exist; the missing member is absent from both",
+ "state_contents_recorded": false
+}

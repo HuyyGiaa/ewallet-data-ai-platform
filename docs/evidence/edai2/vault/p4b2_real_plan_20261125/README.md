@@ -72,8 +72,10 @@ project service appears in the plan.
   (`W1_ACCEPT_AUDIT_EVIDENCE_WITH_RESIDUAL_RISK`). The KMS API could not confirm it, and a plan cannot either.
   If one existed anyway, the apply would stop with HTTP 409 after the API and GSA had been created. Then
   follow the partial-failure rule: inspect and decide; never destroy, `state rm` or re-apply blindly.
-- **W2:** the project-level `roles/owner` (one user) and `roles/editor` (the Compute Engine default SA) inherit
-  use of the new key. Key-scoped IAM cannot narrow this; it is a separate review.
+- **W2** ([corrected in P4-B3](../p4b3_kms_provisioning_20261125/README.md#w2-corrected-inherited-project-roles-official-role-definitions)): the project-level `roles/owner` (one user) inherits use of the new key. `roles/editor` (the
+  Compute Engine default SA) does not inherit direct use, but it inherits disable and delete rights over the
+  key versions and the GSA, and indirect paths to key use (a JSON key for the GSA, or a pod as the Vault
+  KSA). Key-scoped IAM cannot narrow this; it is a separate review.
 - **W3:** Terraform drift, as above.
 - **W4:** runtime Workload Identity is unverified until Campaign A2.
 

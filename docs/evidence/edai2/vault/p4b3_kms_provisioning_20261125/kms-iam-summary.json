@@ -1,0 +1,28 @@
+{
+ "note": "role names, the Vault GSA and counts only; no raw policy",
+ "key_vault_unseal": {
+  "bindings": 1,
+  "roles": [
+   {
+    "role": "roles/cloudkms.viewer",
+    "vault_gsa": true,
+    "other_members": 0,
+    "conditional": false
+   }
+  ],
+  "missing": [
+   "roles/cloudkms.cryptoKeyEncrypterDecrypter -> the Vault GSA (the failed create)"
+  ]
+ },
+ "gsa_ewallet_vault_unseal": {
+  "roles": [
+   {
+    "role": "roles/iam.workloadIdentityUser",
+    "members": [
+     "serviceAccount:ewallet-data-ai-platform-hg26.svc.id.goog[ewallet-vault/vault]"
+    ]
+   }
+  ]
+ },
+ "meaning": "fail-closed: the Vault GSA can describe the key but cannot encrypt or decrypt with it; Vault is not deployed. Project-level inheritance: see inherited-iam-roles.json"
+}

@@ -36,7 +36,7 @@ Verdict: **`VAULT_V2_P4B1_READY_WITH_WARNINGS`**.
 | GSA `ewallet-vault-unseal@…` | created by P4-B | IAM NOT_FOUND; none of the 11 service accounts matches; 0 IAM audit entries for the name | `CONFIRMED_ABSENT` |
 | Key IAM (encrypterDecrypter, viewer) | created by P4-B | the key cannot be read; the member GSA does not exist; no key IAM ever set (audit) | cannot exist yet |
 | Workload Identity member | created by P4-B | its GSA does not exist | `CONFIRMED_ABSENT` |
-| Inherited IAM | — | project level only (no organization): `roles/owner` 1 user, `roles/editor` 1 service account (the Compute Engine default SA), no `roles/cloudkms.*` | **warning:** both inherit key-use rights |
+| Inherited IAM | — | project level only (no organization): `roles/owner` 1 user, `roles/editor` 1 service account (the Compute Engine default SA), no `roles/cloudkms.*` | **warning:** owner inherits key use; editor inherits key and GSA administration rights but not key use ([corrected in P4-B3](../p4b3_kms_provisioning_20261125/README.md#w2-corrected-inherited-project-roles-official-role-definitions)) |
 | GKE workload pool | `ewallet-data-ai-platform-hg26.svc.id.goog` | `ewallet-data-ai-platform-hg26.svc.id.goog`; node pool `cpu-pool` `GKE_METADATA` | PASS |
 
 ## Terraform ownership
@@ -72,9 +72,13 @@ Verdict: **`VAULT_V2_P4B1_READY_WITH_WARNINGS`**.
   - Owner decision for P4-B2: accept the audit evidence, or approve enabling the API alone first. That
     would make absence API-confirmable, but it would also mean the plan's `google_project_service` create
     adopts an API that is already enabled.
-- **W2:** `roles/owner` (one user) and `roles/editor` (the Compute Engine default SA) carry Cloud KMS use
-  rights project-wide. Key-scoped IAM cannot narrow that. Removing the default editor grant is a separate
-  project decision.
+- **W2** ([corrected in P4-B3](../p4b3_kms_provisioning_20261125/README.md#w2-corrected-inherited-project-roles-official-role-definitions); the original wording was wrong for editor):
+  - `roles/owner` (one user) can use and administer the key project-wide.
+  - `roles/editor` (the Compute Engine default SA) cannot encrypt, decrypt or change the key's IAM. It can
+    disable key versions and disable or delete the GSA. Once the GSA holds encrypterDecrypter, it can also
+    reach key use indirectly: by creating a JSON key for the GSA, or by running a pod as the Vault KSA.
+  - Key-scoped IAM cannot narrow either role. Removing the default editor grant is a separate project
+    decision. `discovery.jsonl` keeps the original wording as recorded.
 - **W3:** the documented drift is still present, and was confirmed live where visible without reading
   state: `cpu-pool` autoscaling is **disabled**, while the state records 0–3. A full plan would replace or
   change the pool. Only a guard-approved `-target=module.vault_kms` saved plan may be applied (P4-B2).

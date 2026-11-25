@@ -1,0 +1,45 @@
+{
+ "checked": "2026-11-25, read-only gcloud describe/list after the apply",
+ "resources": [
+  {
+   "resource": "Cloud KMS API",
+   "observed": "cloudkms.googleapis.com enabled",
+   "status": "PRESENT"
+  },
+  {
+   "resource": "key ring",
+   "observed": "projects/ewallet-data-ai-platform-hg26/locations/asia-southeast1/keyRings/ewallet-vault",
+   "status": "PRESENT"
+  },
+  {
+   "resource": "crypto key",
+   "observed": {
+    "name": "vault-unseal",
+    "purpose": "ENCRYPT_DECRYPT",
+    "protection": "SOFTWARE",
+    "rotation": null,
+    "primary": "ENABLED"
+   },
+   "status": "PRESENT_AS_PLANNED"
+  },
+  {
+   "resource": "key versions",
+   "observed": {
+    "count": 1,
+    "states": [
+     "ENABLED"
+    ]
+   },
+   "status": "PRESENT"
+  },
+  {
+   "resource": "GSA",
+   "observed": {
+    "email": "ewallet-vault-unseal@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com",
+    "disabled": false,
+    "user_managed_keys": 0
+   },
+   "status": "PRESENT_AS_PLANNED"
+  }
+ ]
+}

@@ -11,10 +11,10 @@ trade-offs). Operating procedure: [VAULT_ESO_RUNBOOK.md](../../runbooks/edai2/VA
 
 | | State |
 |---|---|
-| **CURRENT GKE STATE** | **Nothing of V1 or V2 is deployed.** No Vault, ESO, store or ExternalSecret exists on `ewallet-dev` (Campaign A removed everything; disks proven deleted). No Cloud KMS key exists |
+| **CURRENT GKE STATE** | **Nothing of V1 or V2 is deployed.** No Vault, ESO, store or ExternalSecret exists on `ewallet-dev` (Campaign A removed everything; disks proven deleted). Cloud KMS is partly provisioned (P4-B3: API, key ring, key, GSA, viewer and Workload Identity exist; the GSA's encrypterDecrypter is missing, so the key is unusable by Vault) |
 | **EXPERIMENTAL SOURCE IMPLEMENTATION** | Branch `experiment/edai2-vault-clustersecretstore`: ClusterSecretStore `ewallet-vault`, one reader role, the `gcpckms` seal and recovery-key CLI, three credential groups (Feast Redis, vLLM key, gateway client key), opt-in consumer overlays |
 | **VERIFIED kind RESULTS** | The full V2 campaign on kind (*Validation*). Auto-unseal there is a local transit seal: **`SIMULATED_AUTO_UNSEAL`**, never a Cloud KMS result |
-| **PLANNED GKE DEPLOYMENT** | P4-A done offline: Terraform module, plan guard and read-only KMS preflight ([audit §23](VAULT_V2_ARCHITECTURE_AUDIT.md)). Next: P4-B (create the Cloud KMS key ring, key, GSA, IAM and Workload Identity; owner approval per step), then GKE Campaign A2 (synthetic), then Campaign B (real credentials, owner screenshots) |
+| **PLANNED GKE DEPLOYMENT** | P4-A done offline: Terraform module, plan guard and read-only KMS preflight ([audit §23](VAULT_V2_ARCHITECTURE_AUDIT.md)). P4-B3 applied the approved plan and stopped at 6/7 ([evidence](../../evidence/edai2/vault/p4b3_kms_provisioning_20261125/README.md)). Next: an owner decision to complete the one missing IAM member, then GKE Campaign A2 (synthetic), then Campaign B (real credentials, owner screenshots) |
 | **UNVERIFIED CLOUD BEHAVIOUR** | Cloud KMS, its IAM, Workload Identity for Vault, auto-unseal across a GKE sleep and wake, Vault's behaviour when KMS is unreachable: **NOT_VERIFIED_ON_GKE** |
 | `OWNER_EVIDENCE_COMPLETE` (row 54) | **No** |
 
@@ -214,7 +214,7 @@ writes, `CreatedOnce` + `immutable` + `creationPolicy: Orphan`. It is **not** im
     key_ring = "ewallet-vault", crypto_key = "vault-unseal" }`;
   - no credentials file: Application Default Credentials come from Workload Identity, through the KSA
     annotation for GSA `ewallet-vault-unseal`;
-  - the KMS resources and IAM are defined in `infra/terraform/gcp/modules/vault_kms` (P4-A) but do not exist yet (P4-B).
+  - the KMS resources and IAM are defined in `infra/terraform/gcp/modules/vault_kms` (P4-A) and exist except the GSA's encrypterDecrypter member (P4-B3 partial apply).
 - **kind configuration** ([values-local.yaml](../../../infra/kubernetes/vault/values-local.yaml)):
   - identical except the seal: a transit seal on a throwaway "unsealer" Vault
     ([unsealer.py](../../../scripts/vault/rehearsal/unsealer.py));

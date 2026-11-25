@@ -1,0 +1,69 @@
+{
+ "command": "terraform apply -input=false -no-color <private>/p4b2.tfplan (the approved saved plan, once)",
+ "started": "2026-11-25T10:36:13Z",
+ "ended": "2026-11-25T10:36:48Z",
+ "exit_code": 1,
+ "runs": 1,
+ "result": "PARTIAL: 6 of 7 creates completed, 1 failed",
+ "resources": [
+  {
+   "address": "module.vault_kms.google_project_service.cloudkms[0]",
+   "result": "created",
+   "seconds": 26
+  },
+  {
+   "address": "module.vault_kms.google_service_account.vault_unseal[0]",
+   "result": "created",
+   "seconds": 15
+  },
+  {
+   "address": "module.vault_kms.google_service_account_iam_member.vault_workload_identity[0]",
+   "result": "created",
+   "seconds": 6
+  },
+  {
+   "address": "module.vault_kms.google_kms_key_ring.vault[0]",
+   "result": "created",
+   "seconds": 0
+  },
+  {
+   "address": "module.vault_kms.google_kms_crypto_key.vault_unseal[0]",
+   "result": "created",
+   "seconds": 0
+  },
+  {
+   "address": "module.vault_kms.google_kms_crypto_key_iam_member.vault_viewer[0]",
+   "result": "created",
+   "seconds": 6
+  },
+  {
+   "address": "module.vault_kms.google_kms_crypto_key_iam_member.vault_encrypter_decrypter[0]",
+   "result": "FAILED",
+   "seconds": null
+  }
+ ],
+ "error": {
+  "address": "module.vault_kms.google_kms_crypto_key_iam_member.vault_encrypter_decrypter[0]",
+  "stage": "reading the key IAM policy (read-modify-write of a non-authoritative member)",
+  "http": 403,
+  "reason": "Cloud KMS API reported as not used or disabled; the message says to wait a few minutes if it was enabled recently",
+  "classification": "API_ENABLEMENT_PROPAGATION_403 (transient, eventual consistency right after enabling cloudkms.googleapis.com; the viewer member on the same key succeeded in parallel)",
+  "not": [
+   "409 already exists (W1)",
+   "permission denied for the caller",
+   "quota",
+   "state lock"
+  ]
+ },
+ "after_failure": {
+  "retry": false,
+  "second_apply": false,
+  "destroy": false,
+  "state_rm_mv_push": false,
+  "import": false,
+  "force_unlock": false,
+  "gcloud_mutation": false,
+  "iam_change": false
+ },
+ "saved_plan_now": "stale: the state changed, so Terraform refuses p4b2.tfplan; it can never be applied again"
+}

@@ -1,0 +1,50 @@
+{
+ "campaign": "p4b3-20261125T103555Z",
+ "verdict": "P4B3_PRE_APPLY_GATES_PASS",
+ "gates": [
+  {
+   "gate": "git",
+   "observed": "experiment/edai2-vault-clustersecretstore at 730b98f7, clean; no change to infra/terraform, ops/gcp/vault_kms_terraform.py since cd112b58",
+   "status": "PASS"
+  },
+  {
+   "gate": "plan-sha256",
+   "expected": "19c7f9d853d144384e437c15197eb2237c21af0d85a7ab89cb508464da68df77",
+   "observed": "19c7f9d853d144384e437c15197eb2237c21af0d85a7ab89cb508464da68df77",
+   "size_bytes": 51959,
+   "mode": "600 (directory 700)",
+   "status": "PASS"
+  },
+  {
+   "gate": "plan-json-reconversion",
+   "observed": "fresh terraform show -json of the saved plan is byte-identical to the reviewed p4b2.plan.json (sha256 3b88b381\u20266c5b37)",
+   "status": "PASS"
+  },
+  {
+   "gate": "guard-recheck",
+   "observed": "VAULT_KMS_PLAN_GUARD_PASS, 7 approved creates, 0 unrelated mutations",
+   "status": "PASS"
+  },
+  {
+   "gate": "backend",
+   "observed": "GCS ewallet-data-ai-platform-hg26-tfstate, prefix terraform/dev, workspace default; Terraform 1.16.6, hashicorp/google 7.46.1",
+   "status": "PASS"
+  },
+  {
+   "gate": "state-generation",
+   "expected": "1794062463403448/1",
+   "observed": "1794062463403448/1",
+   "status": "PASS"
+  },
+  {
+   "gate": "state-lock",
+   "observed": "no lock object",
+   "status": "PASS"
+  },
+  {
+   "gate": "cloud-preconditions",
+   "observed": "cloudkms.googleapis.com not enabled; GSA ewallet-vault-unseal NOT_FOUND",
+   "status": "PASS"
+  }
+ ]
+}

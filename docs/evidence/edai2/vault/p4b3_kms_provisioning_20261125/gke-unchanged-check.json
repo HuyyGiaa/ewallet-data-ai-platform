@@ -1,0 +1,16 @@
+{
+ "method": "management API only (gcloud container/compute), no kubectl, no wake",
+ "cluster": {
+  "name": "ewallet-dev",
+  "status": "RUNNING",
+  "workload_pool": "ewallet-data-ai-platform-hg26.svc.id.goog"
+ },
+ "node_pool": {
+  "name": "cpu-pool",
+  "status": "RUNNING",
+  "workload_metadata": "GKE_METADATA",
+  "autoscaling": "disabled (unchanged; the state drift W3 remains)"
+ },
+ "node_vms": 0,
+ "verdict": "GKE_UNCHANGED"
+}

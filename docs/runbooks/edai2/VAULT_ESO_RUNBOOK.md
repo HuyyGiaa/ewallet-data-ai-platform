@@ -15,8 +15,9 @@ Operating procedure for [VAULT.md](../../edai2/platform/VAULT.md). Each step is 
   [VAULT_V2_ARCHITECTURE_AUDIT.md](../../edai2/platform/VAULT_V2_ARCHITECTURE_AUDIT.md).
 - It is verified end to end on **kind only**, with auto-unseal **simulated** by a local transit seal
   (VAULT.md *Validation*).
-- **Nothing of V2 is deployed on GKE, and the Cloud KMS resources do not exist yet.** Their Terraform, plan guard
-  and preflight are written and tested offline (P4-A); creating them is P4-B (step 0).
+- **Nothing of V2 is deployed on GKE.** The Cloud KMS resources are **partly provisioned** (P4-B3 stopped after 6
+  of 7 creates; the GSA's encrypterDecrypter on the key is missing). The preflight is BLOCKED until an
+  owner-approved completion (step 0).
   Every GKE step needs a separately approved campaign. GKE is woken and put back to sleep only by
   that campaign's approved cloud-lab procedure, never by a command from this page.
 
@@ -36,7 +37,7 @@ V="python3 -m ops.vault.cli --ca-file $KEYDIR/ca.crt"   # talks to https://127.0
 OP=$KEYDIR/operator-token.json               # secret-operator token, created in step 4
 ```
 
-## 0. Cloud KMS (P4-B: separate owner approval per step; NOT DONE)
+## 0. Cloud KMS (P4-B: separate owner approval per step; PARTIAL, STOPPED)
 
 `values-gke.yaml` configures `seal "gcpckms"`: project `ewallet-data-ai-platform-hg26`, region
 `asia-southeast1`, key ring `ewallet-vault`, key `vault-unseal`. It has no credentials file: Vault gets
@@ -103,6 +104,15 @@ safety also rests on IAM: no automation holds destroy rights.
    - recovery: the key can never be deleted.
 5. **Approved apply of that exact file:** `terraform apply p4.tfplan`, with no re-plan. Then
    `kms_preflight.py --mode cloud --vault-chart …` must be `VAULT_KMS_PREFLIGHT_READY`. Record its gates.
+   **P4-B3 ran this once:**
+   - record: [`p4b3_kms_provisioning_20261125`](../../evidence/edai2/vault/p4b3_kms_provisioning_20261125/README.md),
+     `VAULT_V2_P4B3_PARTIAL_APPLY_STOPPED`;
+   - 6/7 created; `vault_encrypter_decrypter` failed with a 403 because the API had only just been enabled
+     (it had not propagated yet);
+   - the preflight is BLOCKED on `kms-key-iam` only;
+   - the saved plan is now stale;
+   - completion needs a new owner decision: a one-create plan, a guard `complete` mode or a manual review,
+     then a new approved apply.
 6. **Stop.** P4-B never wakes GKE; Campaign A2 is its own approval.
 
 If the apply fails part-way, do not run destroy, `state rm` or a re-apply. Inspect what exists (preflight,

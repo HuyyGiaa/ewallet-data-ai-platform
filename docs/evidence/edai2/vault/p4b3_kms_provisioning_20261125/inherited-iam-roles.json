@@ -1,0 +1,54 @@
+{
+ "source": "gcloud iam roles describe (official predefined/basic role definitions), 2026-11-25",
+ "project_holders": {
+  "roles/owner": "1 user",
+  "roles/editor": "1 service account (Compute Engine default SA)",
+  "roles/cloudkms.*": "none",
+  "organization_or_folder": "none"
+ },
+ "roles": {
+  "roles/owner": {
+   "cloudkms.cryptoKeyVersions.useToEncrypt": true,
+   "cloudkms.cryptoKeyVersions.useToDecrypt": true,
+   "cloudkms.cryptoKeys.setIamPolicy": true,
+   "cloudkms.cryptoKeys.update": true,
+   "cloudkms.cryptoKeyVersions.create": true,
+   "cloudkms.cryptoKeyVersions.update": true,
+   "cloudkms.cryptoKeyVersions.destroy": true,
+   "cloudkms.cryptoKeyVersions.restore": true,
+   "iam.serviceAccounts.actAs": true,
+   "iam.serviceAccounts.getAccessToken": false,
+   "iam.serviceAccounts.setIamPolicy": true,
+   "iam.serviceAccountKeys.create": true,
+   "iam.serviceAccounts.disable": true,
+   "iam.serviceAccounts.delete": true,
+   "container.pods.create": true,
+   "container.serviceAccounts.createToken": true,
+   "resourcemanager.projects.setIamPolicy": true
+  },
+  "roles/editor": {
+   "cloudkms.cryptoKeyVersions.useToEncrypt": false,
+   "cloudkms.cryptoKeyVersions.useToDecrypt": false,
+   "cloudkms.cryptoKeys.setIamPolicy": false,
+   "cloudkms.cryptoKeys.update": true,
+   "cloudkms.cryptoKeyVersions.create": true,
+   "cloudkms.cryptoKeyVersions.update": true,
+   "cloudkms.cryptoKeyVersions.destroy": false,
+   "cloudkms.cryptoKeyVersions.restore": false,
+   "iam.serviceAccounts.actAs": true,
+   "iam.serviceAccounts.getAccessToken": false,
+   "iam.serviceAccounts.setIamPolicy": false,
+   "iam.serviceAccountKeys.create": true,
+   "iam.serviceAccounts.disable": true,
+   "iam.serviceAccounts.delete": true,
+   "container.pods.create": true,
+   "container.serviceAccounts.createToken": false,
+   "resourcemanager.projects.setIamPolicy": false
+  }
+ },
+ "corrected_w2": {
+  "owner": "direct key use (encrypt/decrypt), key IAM administration, version destroy/restore, project IAM administration",
+  "editor": "NO direct key use and NO key IAM administration; but availability control (disable a key version, change the key, create versions; disable or delete the Vault GSA) and indirect paths to key use once the GSA holds encrypterDecrypter: create a JSON key for the Vault GSA, or create a pod running as the KSA ewallet-vault/vault on GKE (Workload Identity)",
+  "previous_wording": "P4-B1/P4-B2: owner and editor 'carry/inherit Cloud KMS use rights' \u2014 incorrect for editor"
+ }
+}
