@@ -1,23 +1,30 @@
 #!/usr/bin/env bash
-# Vault + ESO technical rehearsal (Campaign A), one phase per call.
+# Vault V2 + ESO rehearsal (Campaign A2 on GKE, the V2 kind campaign locally), one phase per call.
 # Procedure, approvals and PASS conditions: docs/runbooks/edai2/VAULT_GKE_REHEARSAL.md.
 #
 #   REHEARSAL_CONTEXT=<kind-* | the pinned GKE context>  REHEARSAL_ID=vault-rehearsal-<UTC yyyymmddThhmmssZ>
 #   REHEARSAL_DIR=<directory outside the repository>     CHARTS=<directory with the two pinned chart archives>
-#   bash scripts/vault/gke_rehearsal.sh <preflight|vault|init|configure|eso|consumer|negative|lifecycle|cleanup|verify-clean>
+#   bash scripts/vault/gke_rehearsal.sh <preflight|vault|init|configure|ceremony|seal|eso|consumer|negative|lifecycle|cleanup|verify-clean>
 #   bash scripts/vault/gke_rehearsal.sh inspect | gate <retain|after-wake|clean>      (READ-ONLY, §9 of the runbook)
 #
-# Campaign A+ phases (docs/runbooks/edai2/VAULT_GKE_REHEARSAL.md §9), in this order after `consumer`:
-#   feature-api  switch  negative  rollback  lifecycle  retain  [GKE: approved sleep + wake]  after-wake
-# They need FEATURE_IMAGE=<the Feature API image pinned by digest> and run the real serving chart as
-# release `rehearsal-serving` in vault-rehearsal (post-renderer scripts/vault/rehearsal/serving_post_render.py).
+# Order: preflight vault init configure ceremony seal (kind only) eso consumer feature-api switch negative rollback
+#   agents (kind only) lifecycle retain [GKE: approved sleep + wake] after-wake cleanup verify-clean.
+# feature-api.. need FEATURE_IMAGE=<the Feature API image pinned by digest> and run the real serving chart
+# as release `rehearsal-serving` in vault-rehearsal (post-renderer scripts/vault/rehearsal/serving_post_render.py).
+# agents (kind only) runs the real llm-agent-platform chart (agentgateway + real vLLM CPU, staged model)
+# as release `rehearsal-agents` in vault-rehearsal-agents (post-renderer scripts/vault/rehearsal/agents_post_render.py).
 #
-# What it deploys: the official Vault and ESO charts with the repository values, certificate,
-# NetworkPolicy and bootstrap (the same names as the official campaign: ewallet-vault,
-# external-secrets, releases vault and external-secrets). The consumer side lives only in the
-# temporary namespace vault-rehearsal: a synthetic Redis, a SecretStore and ExternalSecret, and
-# a redis-cli consumer Job. No object is created in ml-platform, ewallet-agents or any other
-# existing namespace; feast-online-redis and the Feature API are never read or changed.
+# Vault V2 (docs/edai2/platform/VAULT_V2_ARCHITECTURE_AUDIT.md): the official Vault and ESO charts with the
+# repository values, certificate, NetworkPolicy and bootstrap (names as in the official campaign:
+# ewallet-vault, external-secrets, releases vault and external-secrets). Auto-unseal: on kind a throwaway
+# transit "unsealer" Vault in ewallet-vault stands in for Cloud KMS (every such result is labelled
+# SIMULATED_AUTO_UNSEAL, never a KMS result); on GKE the gcpckms seal needs the P4 KMS resources, and the
+# vault phase refuses until P4 exists. Stores: the rehearsal's own ClusterSecretStore ewallet-vault-rehearsal
+# (exact namespaces vault-rehearsal, vault-rehearsal-agents) logs in as the official reader identity
+# external-secrets/eso-vault-reader through the narrower role eso-vault-rehearsal. On kind only, the official
+# ClusterSecretStore ewallet-vault is also created from the committed file, to prove it Ready. Consumers live
+# only in the temporary rehearsal namespaces. No object is created in ml-platform, ewallet-agents or any other
+# existing namespace; feast-online-redis, the Feature API and the Agent Platform are never changed.
 #
 # Safety:
 # - preflight refuses if any of those namespaces, releases, ESO CRDs, chart cluster objects or
@@ -43,6 +50,10 @@ GKE_KUBECONFIG=$HOME/.cache/ewallet-cloud-lab/kubeconfig
 PROJECT=ewallet-data-ai-platform-hg26
 CTX=${REHEARSAL_CONTEXT:?REHEARSAL_CONTEXT} ID=${REHEARSAL_ID:?REHEARSAL_ID} DIR=${REHEARSAL_DIR:?REHEARSAL_DIR}
 VNS=ewallet-vault ENS=external-secrets RNS=vault-rehearsal LABEL=ewallet.io/vault-rehearsal PORT=${REHEARSAL_PORT:-18233}
+ANS=vault-rehearsal-agents DNS=vault-rehearsal-denied SANDBOX=ewallet-sandbox STORE=ewallet-vault-rehearsal OFFICIAL=ewallet-vault
+UPORT=${REHEARSAL_UNSEALER_PORT:-18235} GPORT=${REHEARSAL_GATEWAY_PORT:-18236} AGENTS=rehearsal-agents MODELPV=vault-rehearsal-staged-models
+SEED_SECRET=feast-online-redis-vault RPATH=ml-platform/rehearsal-redis
+VPATH=agent-platform/rehearsal-vllm-api-key CPATH=agent-platform/rehearsal-agentgateway-client-key
 CLUSTER_KINDS=clusterrole,clusterrolebinding,validatingwebhookconfiguration,mutatingwebhookconfiguration
 SERVING=rehearsal-serving LEGACY=rehearsal-feast-online-redis FPORT=${REHEARSAL_FEATURE_PORT:-18234}
 REDIS_IMAGE=docker.io/library/redis:7.4.2-alpine@sha256:02419de7eddf55aa5bcf49efb74e88fa8d931b4d77c07eff8a6b2144472b6952
@@ -60,7 +71,7 @@ else refuse "context $CTX is neither kind-* nor $GKE_CONTEXT"; fi
 case "$phase" in preflight|verify-clean|inspect) ;;
   gate) case "$arg" in retain|after-wake|clean) ;; *) refuse "gate needs retain, after-wake or clean" ;; esac ;;
   cleanup) [ -n "$KIND" ] || [ "${VAULT_REHEARSAL_CLEANUP_APPROVED:-}" = "$ID" ] || refuse "cleanup needs VAULT_REHEARSAL_CLEANUP_APPROVED=$ID" ;;
-  vault|init|configure|eso|consumer|negative|lifecycle|feature-api|switch|rollback|retain|after-wake)
+  vault|init|ceremony|seal|configure|eso|consumer|negative|lifecycle|feature-api|switch|rollback|agents|retain|after-wake)
     [ -n "$KIND" ] || [ "${VAULT_REHEARSAL_APPROVED:-}" = "$ID" ] || refuse "$phase needs VAULT_REHEARSAL_APPROVED=$ID" ;;
   *) refuse "unknown phase $phase" ;;
 esac
@@ -97,6 +108,17 @@ sha() { printf '%s' "$1" | sha256sum | cut -c1-12; }
 secret_sha() { k -n "$1" get secret "$2" -o go-template="{{index .data \"$3\"}}" | base64 -d | sha256sum | cut -c1-12; }
 conn() { printf 'redis.%s.svc.cluster.local:6379,password=%s' "$RNS" "$1"; }
 synthetic() { sed -n "s/^$1=//p" "$PRIV/synthetic.env"; }   # a synthetic value saved by the consumer phase
+set_synthetic() { (umask 077; sed -i "/^$1=/d" "$PRIV/synthetic.env"; printf '%s=%s\n' "$1" "$2" >> "$PRIV/synthetic.env"); }
+seal_kind() { [ -n "$KIND" ] && echo transit || echo gcpckms; }
+AUTO=$([ -n "$KIND" ] && echo SIMULATED_AUTO_UNSEAL || echo KMS_GKE)   # the evidence label of every auto-unseal result
+wait_unsealed() {  # [seconds]: auto-unseal, never a manual unseal; prints the status
+  local s
+  for _ in $(seq "${1:-120}"); do
+    s=$(vault status 2>/dev/null) && [ "$(jq -r '"\(.initialized) \(.sealed)"' <<<"$s")" = "true false" ] && { printf '%s' "$s"; return 0; }
+    sleep 1
+  done
+  return 1
+}
 mine() { [ "$(k get ns "$1" -o jsonpath="{.metadata.labels.ewallet\.io/vault-rehearsal}" 2>/dev/null)" = "$ID" ]; }
 
 forward=
@@ -104,6 +126,11 @@ stop_forward() { [ -z "$forward" ] || kill "$forward" 2>/dev/null || true; forwa
 ffwd=
 stop_ffwd() { [ -z "$ffwd" ] || kill "$ffwd" 2>/dev/null || true; ffwd=; }
 trap 'stop_forward; stop_ffwd' EXIT
+open_forward_nowait() {  # a port-forward that may not answer yet (Vault without a listener during a seal outage)
+  stop_forward
+  kubectl --context "$CTX" -n "$VNS" port-forward pod/vault-0 "$PORT:8200" >/dev/null 2>&1 & forward=$!
+  sleep 2
+}
 open_forward() {  # Vault through a port-forward (enters the pod's network namespace; TLS verified with vault-ca)
   for _ in $(seq 15); do
     stop_forward
@@ -144,43 +171,53 @@ es_error() {  # <object> [since]: the cause class from the ESO controller log (e
     *) echo unclassified ;;
   esac
 }
-force_sync() { k -n "$RNS" annotate externalsecret "$1" "force-sync=$(date +%s%N)" --overwrite >/dev/null; }
-synced_after() {  # <es> <previous syncedResourceVersion>: a NEW reconciliation, not a stale Ready=True
+force_sync() { k -n "${2:-$RNS}" annotate externalsecret "$1" "force-sync=$(date +%s%N)" --overwrite >/dev/null; }   # <es> [ns]
+synced_after() {  # <es> <previous syncedResourceVersion> [ns]: a NEW reconciliation, not a stale Ready=True
+  local ns=${3:-$RNS}
   for _ in $(seq 120); do
-    local rv; rv=$(es_synced_rv "$RNS" "$1")
-    [ -n "$rv" ] && [ "$rv" != "$2" ] && [ "$(es_condition "$RNS" "$1")" = "True SecretSynced" ] && { printf '%s' "$rv"; return 0; }
+    local rv; rv=$(es_synced_rv "$ns" "$1")
+    [ -n "$rv" ] && [ "$rv" != "$2" ] && [ "$(es_condition "$ns" "$1")" = "True SecretSynced" ] && { printf '%s' "$rv"; return 0; }
     sleep 1
   done
   return 1
 }
-negative() {  # <step> <externalsecret> <expected class>: unsynced, no target Secret, and the specific cause
-  local class=
-  es_wait "$RNS" "$2" False 90 || fail "$1" "ExternalSecret $2 did not report a failure"
-  if k -n "$RNS" get secret "$2" >/dev/null 2>&1; then fail "$1" "target Secret $2 exists"; fi
+negative() {  # <step> <externalsecret> <expected class> [ns]: unsynced, no target Secret, and the specific cause
+  local class= ns=${4:-$RNS}
+  es_wait "$ns" "$2" False 90 || fail "$1" "ExternalSecret $2 did not report a failure"
+  if k -n "$ns" get secret "$2" >/dev/null 2>&1; then fail "$1" "target Secret $2 exists"; fi
   for _ in $(seq 30); do class=$(es_error "$2"); [ "$class" = "$3" ] && break; sleep 2; done
   [ "$class" = "$3" ] || fail "$1" "expected $3, observed $class"
-  record "$1" "$(jq -cn --arg c "$(es_condition "$RNS" "$2")" --arg e "$class" \
-    '{result: "denied", condition: $c, error_class: $e, target_secret: "absent"}')"
+  record "$1" "$(jq -cn --arg c "$(es_condition "$ns" "$2")" --arg e "$class" --arg n "$ns" \
+    '{result: "denied", namespace: $n, condition: $c, error_class: $e, target_secret: "absent"}')"
 }
-external_secret() {  # <name> <store> <key> <property> [extra label]: target Secret has the same name
-  own <<YAML | python3 -c 'import sys,yaml; d=yaml.safe_load(sys.stdin); l=sys.argv[1]; (l and d["metadata"]["labels"].update({l: "true"})); yaml.safe_dump(d, sys.stdout)' "${5:-}" | k create -f - >/dev/null
+negative_namespace() {  # <step> <ns> <externalsecret> <store>: the store's namespace conditions refuse it before any Vault call
+  local msg
+  es_wait "$2" "$3" False 90 || fail "$1" "ExternalSecret $2/$3 did not report a failure"
+  if k -n "$2" get secret "$3" >/dev/null 2>&1; then fail "$1" "target Secret $2/$3 exists"; fi
+  msg=$(k -n "$2" get externalsecret "$3" -o jsonpath='{.status.conditions[?(@.type=="Ready")].message}')
+  case "$msg" in *"$4"*"not allowed"*|*"$4"*"denied by spec.condition"*) ;; *) fail "$1" "unexpected cause: ${msg:0:200}" ;; esac
+  record "$1" "$(jq -cn --arg n "$2" --arg m "$msg" --arg s "$4" \
+    '{result: "denied", namespace: $n, store: $s, error_class: "store-not-allowed-in-namespace", message: $m, target_secret: "absent"}')"
+}
+external_secret() {  # <ns> <name> <target> <store kind> <store> <key> <property> [extra label]
+  own <<YAML | python3 -c 'import sys,yaml; d=yaml.safe_load(sys.stdin); l=sys.argv[1]; (l and d["metadata"]["labels"].update({l: "true"})); yaml.safe_dump(d, sys.stdout)' "${8:-}" | k create -f - >/dev/null
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret
-metadata: {name: $1, namespace: $RNS}
+metadata: {name: $2, namespace: $1}
 spec:
   refreshInterval: 1h
-  secretStoreRef: {kind: SecretStore, name: $2}
-  target: {name: $1, creationPolicy: Owner, deletionPolicy: Retain}
+  secretStoreRef: {kind: $4, name: $5}
+  target: {name: $3, creationPolicy: Owner, deletionPolicy: Retain}
   data:
-    - secretKey: $4
-      remoteRef: {key: $3, property: $4}
+    - secretKey: $7
+      remoteRef: {key: $6, property: $7}
 YAML
 }
-secret_store() {  # <name> <service account> <audience> <role> <ca configmap>
+secret_store() {  # <name> <service account> <audience> <role> <ca configmap>: a namespaced store in vault-rehearsal (negative tests)
   create <<YAML
 apiVersion: external-secrets.io/v1
 kind: SecretStore
-metadata: {name: $1, namespace: $RNS, labels: {ewallet.io/vault-rehearsal-negative: "${6:-false}"}}
+metadata: {name: $1, namespace: $RNS, labels: {ewallet.io/vault-rehearsal-negative: "true"}}
 spec:
   provider:
     vault:
@@ -195,10 +232,49 @@ spec:
           serviceAccountRef: {name: $2, audiences: [$3]}
 YAML
 }
+cluster_store() {  # <name> <audience> <role> <ca configmap in external-secrets> <namespaces json> [negative=false]
+  create <<YAML
+apiVersion: external-secrets.io/v1
+kind: ClusterSecretStore
+metadata: {name: $1, labels: {ewallet.io/vault-rehearsal-negative: "${6:-false}"}}
+spec:
+  conditions:
+    - namespaces: $5
+  provider:
+    vault:
+      server: https://vault.$VNS.svc.cluster.local:8200
+      path: ewallet
+      version: v2
+      caProvider: {type: ConfigMap, name: $4, key: ca.crt, namespace: $ENS}
+      auth:
+        kubernetes:
+          mountPath: kubernetes
+          role: $3
+          serviceAccountRef: {name: eso-vault-reader, namespace: $ENS, audiences: [$2]}
+YAML
+}
+store_ready() { k get clustersecretstore "$1" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status} {.status.conditions[?(@.type=="Ready")].reason}' 2>/dev/null; }
+reader_probe() {  # <role>: log in as the official reader identity and try what it must and must not do (status codes only)
+  local hdr=$PRIV/reader-header code out='{}' body
+  k -n "$ENS" create token eso-vault-reader --audience vault --duration 10m \
+    | vault login --role "$1" --token-out "$PRIV/reader-$1.json" >/dev/null || fail reader-login "login as $1 failed"
+  (umask 077; printf 'X-Vault-Token: %s\n' "$(jq -r .token "$PRIV/reader-$1.json")" > "$hdr")
+  for c in "GET ewallet/data/$RPATH" "GET ewallet/data/mcp-platform/out-of-prefix-probe" "GET ewallet/metadata/$RPATH" \
+           "LIST ewallet/metadata/ml-platform" "POST ewallet/data/$RPATH" "GET sys/policies/acl" "POST sys/policies/acl/intruder" \
+           "GET auth/kubernetes/role?list=true" "POST sys/generate-root/attempt"; do
+    body=(); [ "${c%% *}" != POST ] || body=(--data '{"data": {"x": "y"}, "policy": "path \"*\" {capabilities = [\"sudo\"]}"}')
+    code=$(curl -s -o /dev/null -w '%{http_code}' --cacert "$PRIV/ca.crt" -H "@$hdr" -X "${c%% *}" "${body[@]}" \
+      "https://127.0.0.1:$PORT/v1/${c#* }") || code=000
+    out=$(jq -c --arg c "$c" --arg s "$code" '. + {($c): $s}' <<<"$out")
+  done
+  curl -s -o /dev/null --cacert "$PRIV/ca.crt" -H "@$hdr" -X POST "https://127.0.0.1:$PORT/v1/auth/token/revoke-self" || true
+  rm -f "$hdr" "$PRIV/reader-$1.json"
+  printf '%s' "$out"
+}
 restricted='securityContext: {runAsNonRoot: true, runAsUser: 999, runAsGroup: 999, seccompProfile: {type: RuntimeDefault}}'
 container_security='securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}'
-consume() {  # one real authenticated Redis round trip with the ESO-managed Secret; prints OK, AUTH_FAILED or UNREACHABLE
-  local job state
+consume() {  # [secret]: one real authenticated Redis round trip (default: the ESO-managed Secret); prints OK, AUTH_FAILED or UNREACHABLE
+  local job state secret=${1:-feast-online-redis-vault}
   job=$(own <<YAML | k create -f - -o name
 apiVersion: batch/v1
 kind: Job
@@ -215,7 +291,7 @@ spec:
         - name: consumer
           image: $REDIS_IMAGE
           $container_security
-          env: [{name: CONN, valueFrom: {secretKeyRef: {name: feature-api-redis-vault, key: connection_string}}}]
+          env: [{name: CONN, valueFrom: {secretKeyRef: {name: $secret, key: connection_string}}}]
           command: [sh, -c]
           args:
             - |
@@ -243,28 +319,38 @@ YAML
 }
 collisions() {  # JSON of every pre-existing object the rehearsal would own; fails closed on any query error
   local ns crds rel objs pvs
-  ns=$(k get ns -o json | jq -c --arg a "$VNS" --arg b "$ENS" --arg c "$RNS" '[.items[].metadata.name | select(. == $a or . == $b or . == $c)]') || return 1
+  # ewallet-sandbox is a rehearsal namespace on kind only (the official store's excluded-namespace test); on GKE it is production.
+  ns=$(k get ns -o json | jq -c --argjson want "$(rehearsal_namespaces | jq -R . | jq -cs .)" '[.items[].metadata.name | select(IN($want[]))]') || return 1
   crds=$(k get crd -o json | jq -c '[.items[].metadata.name | select(endswith(".external-secrets.io"))] | length') || return 1
-  rel=$(h list -A -a -o json | jq -c '[.[] | select(.name == "vault" or .name == "external-secrets" or .name == "rehearsal-serving") | "\(.namespace)/\(.name)"]') || return 1
+  rel=$(h list -A -a -o json | jq -c '[.[] | select(.name == "vault" or .name == "external-secrets" or .name == "rehearsal-serving" or .name == "rehearsal-agents") | "\(.namespace)/\(.name)"]') || return 1
   objs=$(k get "$CLUSTER_KINDS" -l 'app.kubernetes.io/instance in (vault,external-secrets)' -o json | jq -c '[.items[] | "\(.kind)/\(.metadata.name)"]') || return 1
-  pvs=$(k get pv -o json | jq -c --arg a "$VNS" --arg c "$RNS" '[.items[] | select(.spec.claimRef.namespace == $a or .spec.claimRef.namespace == $c) | .metadata.name]') || return 1
+  pvs=$(k get pv -o json | jq -c --arg a "$VNS" --arg c "$RNS" --arg g "$ANS" --arg m "$MODELPV" '[.items[] | select(.spec.claimRef.namespace == $a or .spec.claimRef.namespace == $c
+    or .spec.claimRef.namespace == $g or .metadata.name == $m) | .metadata.name]') || return 1
   jq -cn --argjson ns "$ns" --argjson crds "$crds" --argjson rel "$rel" --argjson objs "$objs" --argjson pvs "$pvs" \
     '{namespaces: $ns, eso_crds: $crds, releases: $rel, chart_cluster_objects: $objs, vault_volumes: $pvs}'
 }
+rehearsal_namespaces() { printf '%s\n' "$VNS" "$ENS" "$RNS" "$ANS" "$DNS"; [ -z "$KIND" ] || printf '%s\n' "$SANDBOX"; }
 none_found() { jq -e '(.namespaces + .releases + .chart_cluster_objects + .vault_volumes | length) == 0 and .eso_crds == 0' <<<"$1" >/dev/null; }
 snapshot() {  # production state the rehearsal must not change (names and versions only; its own releases excluded)
   # The Feature API is compared by its pod template (image, Secret reference), not metadata.generation:
   # a guarded sleep scales Deployments to zero, which raises generation without changing the configuration.
-  local rel feast fapi lbs gw
-  rel=$(h list -A -a -o json | jq -c '[.[] | select(.name != "vault" and .name != "external-secrets" and .name != "rehearsal-serving") | {name, namespace, revision, status}]
+  local rel feast fapi lbs gw agents
+  rel=$(h list -A -a -o json | jq -c '[.[] | select(.name != "vault" and .name != "external-secrets" and .name != "rehearsal-serving" and .name != "rehearsal-agents") | {name, namespace, revision, status}]
     | sort_by(.namespace, .name)') || return 1
   feast=$(k -n ml-platform get secret feast-online-redis --ignore-not-found -o jsonpath='{.metadata.resourceVersion}') || return 1
   fapi=$(k -n ml-platform get deploy feature-api --ignore-not-found -o json | jq -cs '.[0] | if . == null then null else
     {image: .spec.template.spec.containers[0].image, redis_secret: ([.spec.template.spec.containers[0].env[]? | select(.name == "EWALLET_REDIS_CONNECTION_STRING") | .valueFrom.secretKeyRef.name][0])} end') || return 1
   lbs=$(k get svc -A -o json | jq -c '[.items[] | select(.spec.type == "LoadBalancer") | "\(.metadata.namespace)/\(.metadata.name)"] | sort') || return 1
   gw=$(k -n ewallet-ingress get svc ewallet-edge-gateway --ignore-not-found -o jsonpath='{.spec.type}') || return 1
-  jq -cn --argjson rel "$rel" --arg feast "$feast" --argjson fapi "$fapi" --argjson lbs "$lbs" --arg gw "$gw" \
-    '{helm_releases: $rel, feast_online_redis_resource_version: $feast, feature_api: $fapi, loadbalancer_services: $lbs, edge_gateway_service_type: $gw}'
+  # The live Agent Platform credentials and their consumer: resourceVersions and Secret references only, by name.
+  agents=$(for s in vllm-api-key agentgateway-client-key; do
+      printf '{"secret": "%s", "resource_version": "%s"}\n' "$s" "$(k -n ewallet-agents get secret "$s" --ignore-not-found -o jsonpath='{.metadata.resourceVersion}')"
+    done; k -n ewallet-agents get deploy agentgateway --ignore-not-found -o json | jq -c 'select(. != null)
+      | {deployment: .metadata.name, secrets: [.spec.template.spec.containers[].env[]?.valueFrom.secretKeyRef.name // empty]}') || return 1
+  agents=$(jq -cs . <<<"$agents") || return 1
+  jq -cn --argjson rel "$rel" --arg feast "$feast" --argjson fapi "$fapi" --argjson lbs "$lbs" --arg gw "$gw" --argjson agents "${agents:-[]}" \
+    '{helm_releases: $rel, feast_online_redis_resource_version: $feast, feature_api: $fapi, loadbalancer_services: $lbs, edge_gateway_service_type: $gw,
+      agent_platform_credentials: $agents}'
 }
 
 compare_production() {  # <step>: the production snapshot must equal baseline.json; any drift stops the run
@@ -272,7 +358,7 @@ compare_production() {  # <step>: the production snapshot must equal baseline.js
   [ -f "$DIR/baseline.json" ] || fail "$1" "no baseline.json: run preflight first"
   now=$(snapshot) || fail "$1" "snapshot query failed"
   if jq -e --argjson now "$now" '. == $now' "$DIR/baseline.json" >/dev/null; then
-    record "$1" '{"result": "PASS", "compared": ["helm releases and revisions", "feast-online-redis resourceVersion", "feature-api image and Secret", "LoadBalancer Services", "edge gateway Service type"]}'
+    record "$1" '{"result": "PASS", "compared": ["helm releases and revisions", "feast-online-redis resourceVersion", "feature-api image and Secret", "LoadBalancer Services", "edge gateway Service type", "ewallet-agents vllm-api-key, agentgateway-client-key and agentgateway Secret references"]}'
   else
     printf '%s\n' "$now" > "$DIR/snapshot-differs-$1.json"
     fail "$1" "production differs from baseline in: $(jq -rn --argjson b "$(cat "$DIR/baseline.json")" --argjson n "$now" \
@@ -345,15 +431,19 @@ YAML
 fault() {  # <point>: kind fault-injection tests stop here (REHEARSAL_FAULT is refused on GKE)
   [ "${REHEARSAL_FAULT:-}" != "$1" ] || fail fault-injected "stopped at $1 (kind fault-injection test)"
 }
-check_eso_scope() {  # ESO may only be serving the rehearsal: no store or ExternalSecret elsewhere, no inventory drift
-  local where objs
-  where=$(k get externalsecret,secretstore,pushsecret -A -o json | jq -c --arg r "$RNS" '[.items[] | select(.metadata.namespace != $r) | "\(.kind) \(.metadata.namespace)/\(.metadata.name)"]') \
+check_eso_scope() {  # ESO may only be serving the rehearsal: no store or ExternalSecret elsewhere, every cluster store ours, no inventory drift
+  local where objs stores
+  where=$(k get externalsecret,secretstore,pushsecret -A -o json | jq -c --argjson ok "$(rehearsal_namespaces | jq -R . | jq -cs .)" \
+    '[.items[] | select(.metadata.namespace | IN($ok[]) | not) | "\(.kind) \(.metadata.namespace)/\(.metadata.name)"]') \
     || fail eso-scope "ExternalSecret/SecretStore query failed"
-  [ "$where" = "[]" ] || fail eso-scope "ESO objects outside $RNS: $where"
+  [ "$where" = "[]" ] || fail eso-scope "ESO objects outside the rehearsal namespaces: $where"
+  stores=$(k get clustersecretstore -o json | jq -c --arg l "$LABEL" --arg id "$ID" '[.items[] | select(.metadata.labels[$l] != $id) | .metadata.name]') \
+    || fail eso-scope "ClusterSecretStore query failed"
+  [ "$stores" = "[]" ] || fail eso-scope "ClusterSecretStores not created by this rehearsal: $stores (never deleted)"
   objs=$(k get "$CLUSTER_KINDS" -l app.kubernetes.io/instance=external-secrets -o json | jq -c '[.items[] | "\(.kind)/\(.metadata.name)"] | sort') \
     || fail eso-scope "cluster object query failed"
   [ "$objs" = "$(jq -c '.cluster_objects | sort' "$DIR/eso-cluster-objects.json")" ] || fail eso-scope "ESO cluster objects differ from the recorded inventory: $objs"
-  record eso-scope '{"result": "PASS", "externalsecrets_and_stores": "only in vault-rehearsal", "cluster_objects": "as recorded"}'
+  record eso-scope '{"result": "PASS", "externalsecrets_and_stores": "only in the rehearsal namespaces", "cluster_secret_stores": "all labelled with this id", "cluster_objects": "as recorded"}'
 }
 
 # ---- Campaign A+: the real Feature API (serving chart as a Helm release) on the ESO-managed Secret
@@ -453,7 +543,7 @@ spec:
             - {name: HOME, value: /tmp}
             - {name: FEAST_USAGE, value: "False"}
             - name: EWALLET_REDIS_CONNECTION_STRING
-              valueFrom: {secretKeyRef: {name: $LEGACY, key: connection_string}}
+              valueFrom: {secretKeyRef: {name: $SEED_SECRET, key: connection_string}}
           volumeMounts: [{name: registry, mountPath: /registry}, {name: tmp, mountPath: /tmp}]
       volumes: [{name: registry, emptyDir: {}}, {name: tmp, emptyDir: {}}]
 YAML
@@ -465,7 +555,7 @@ YAML
   [ "${state%%/*}" = 1 ] || fail feast-seed "seed Job did not succeed ($state): $(k -n "$RNS" logs "$job" --tail=2 2>&1 | tail -1 | cut -c1-200)"
   out=$(k -n "$RNS" logs "$job" | tail -1)
   jq -r .registry_b64 <<<"$out" | base64 -d > "$DIR/registry.db" || fail feast-seed "no registry in the seed output"
-  if grep -qaF "$(synthetic P1)" "$DIR/registry.db"; then fail feast-seed "the registry contains the Redis password"; fi
+  if grep -qaF "$(synthetic P1)" "$DIR/registry.db" || grep -qaF "$(synthetic PCUR)" "$DIR/registry.db"; then fail feast-seed "the registry contains the Redis password"; fi
   k -n "$RNS" create configmap feast-registry --from-file=registry.db="$DIR/registry.db" --dry-run=client -o yaml | own \
     | { if k -n "$RNS" get configmap feast-registry >/dev/null 2>&1; then k replace -f -; else k create -f -; fi; } >/dev/null
   jq -c .feature_names <<<"$out"
@@ -499,8 +589,84 @@ phase_preflight() {  # READ-ONLY
     feature_api: .feature_api, edge_gateway_service_type: .edge_gateway_service_type}' <<<"$base")"
 }
 
+unsealer_up() {  # kind only: the throwaway transit Vault that stands in for Cloud KMS (SIMULATED_AUTO_UNSEAL)
+  local out pf
+  create <<YAML
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata: {name: vault-unsealer-tls, namespace: $VNS}
+spec:
+  secretName: vault-unsealer-tls
+  duration: 24h
+  privateKey: {algorithm: ECDSA, size: 256}
+  dnsNames: [vault-unsealer, vault-unsealer.$VNS.svc, vault-unsealer.$VNS.svc.cluster.local, localhost]
+  ipAddresses: ["127.0.0.1"]
+  issuerRef: {name: vault-ca, kind: Issuer}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: vault-unsealer-config, namespace: $VNS}
+data:
+  unsealer.hcl: |
+    ui = false
+    disable_mlock = true
+    listener "tcp" {
+      address         = "[::]:8200"
+      tls_cert_file   = "/tls/tls.crt"
+      tls_key_file    = "/tls/tls.key"
+      tls_min_version = "tls12"
+    }
+    storage "inmem" {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: vault-unsealer, namespace: $VNS}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app.kubernetes.io/name: vault-unsealer}}
+  template:
+    metadata: {labels: {app.kubernetes.io/name: vault-unsealer}}
+    spec:
+      automountServiceAccountToken: false
+      securityContext: {runAsNonRoot: true, runAsUser: 100, runAsGroup: 1000, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: vault
+          image: hashicorp/vault:2.0.4@sha256:5be49781ecf78bfe775c5309c6a4d9f4e9e040b6c885c99eb2b12fb69855e1a2
+          command: [vault, server, -config=/config/unsealer.hcl]
+          $container_security
+          ports: [{containerPort: 8200}]
+          readinessProbe: {tcpSocket: {port: 8200}, periodSeconds: 2}
+          resources: {requests: {cpu: 20m, memory: 64Mi}, limits: {cpu: 200m, memory: 128Mi}}
+          volumeMounts: [{name: config, mountPath: /config}, {name: tls, mountPath: /tls}, {name: tmp, mountPath: /tmp}]
+      volumes:
+        - {name: config, configMap: {name: vault-unsealer-config}}
+        - {name: tls, secret: {secretName: vault-unsealer-tls}}
+        - {name: tmp, emptyDir: {}}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: vault-unsealer, namespace: $VNS}
+spec:
+  selector: {app.kubernetes.io/name: vault-unsealer}
+  ports: [{port: 8200, targetPort: 8200}]
+YAML
+  k -n "$VNS" wait --for=condition=Ready certificate/vault-unsealer-tls --timeout=120s >/dev/null || fail unsealer "certificate not issued"
+  k -n "$VNS" rollout status deploy/vault-unsealer --timeout=180s >/dev/null || fail unsealer "unsealer not running"
+  kubectl --context "$CTX" -n "$VNS" port-forward deploy/vault-unsealer "$UPORT:8200" >/dev/null 2>&1 & pf=$!
+  for _ in $(seq 20); do curl -s --cacert "$PRIV/ca.crt" -o /dev/null "https://127.0.0.1:$UPORT/v1/sys/health" && break; sleep 1; done
+  out=$(python3 "$root/scripts/vault/rehearsal/unsealer.py" bootstrap --address "https://127.0.0.1:$UPORT" --ca-file "$PRIV/ca.crt" \
+    --keys-out "$PRIV/unsealer-keys.json" --token-out "$PRIV/unsealer-token.json") || { kill "$pf"; fail unsealer "bootstrap failed"; }
+  kill "$pf" 2>/dev/null || true
+  jq -j .token "$PRIV/unsealer-token.json" | k -n "$VNS" create secret generic vault-unsealer-token --from-file=token=/dev/stdin \
+    --dry-run=client -o yaml | create
+  record unsealer "$(jq -c '{result: "PASS"} + . + {note: "kind stand-in for Cloud KMS: transit key autounseal, token limited to encrypt/decrypt"}' <<<"$out")"
+}
+
 phase_vault() {  # MUTATING (Kubernetes): RB step 2 with the official files, in a namespace proven new
   local found pvcs pvs image sans out
+  # GKE needs the P4 Cloud KMS key ring, key, GSA and bindings and their read-only preflight gates (not implemented):
+  # without them the gcpckms seal cannot start Vault. Refuse before creating anything.
+  [ -n "$KIND" ] || fail kms-prerequisite "Vault V2 on GKE needs the P4 Cloud KMS resources and preflight gates; nothing was created"
   found=$(collisions) || fail collisions "a query failed"; none_found "$found" || fail collisions "already present: $found"
   create < "$root/infra/kubernetes/vault/namespace.yaml"
   create < "$root/infra/kubernetes/vault/certificate.yaml"
@@ -512,6 +678,7 @@ phase_vault() {  # MUTATING (Kubernetes): RB step 2 with the official files, in 
   sans=$(openssl x509 -in "$PRIV/server.crt" -noout -ext subjectAltName | tail -1 | tr -d ' ')
   case ",$sans," in *",DNS:vault.$VNS.svc.cluster.local,"*) ;; *) fail certificates "SANs miss the ESO server name" ;; esac
   record certificates "$(jq -cn --arg s "$sans" '{result: "PASS", chain: "vault-server-tls <- vault-ca", sans: ($s | split(","))}')"
+  [ -z "$KIND" ] || unsealer_up
   h install vault "$CHARTS/vault-0.34.1.tgz" -n "$VNS" -f "$root/infra/kubernetes/vault/values-gke.yaml" \
     ${KIND:+-f "$root/infra/kubernetes/vault/values-local.yaml"} >/dev/null
   create < "$root/infra/kubernetes/vault/network-policy.yaml"
@@ -532,23 +699,129 @@ phase_vault() {  # MUTATING (Kubernetes): RB step 2 with the official files, in 
   jq -e '.services | all(.type == "ClusterIP")' <<<"$(tail -1 "$EV")" >/dev/null || fail vault-services "a non-ClusterIP Vault Service"
   [ "$(k -n "$VNS" get pdb -o json | jq '.items | length')" = 0 ] || fail vault-pdb "a PodDisruptionBudget exists"
   open_forward
-  record vault-uninitialised "$(status_is false true)"
+  out=$(status_is false true)
+  [ "$(jq -r .seal_type <<<"$out")" = "$(seal_kind)" ] || fail vault-seal "seal type $(jq -r .seal_type <<<"$out"), expected $(seal_kind)"
+  k -n "$VNS" wait --for=condition=Ready pod/vault-0 --timeout=120s >/dev/null || fail vault-ready "an uninitialised Vault must be Ready (uninitcode=204)"
+  record vault-uninitialised "$(jq -c --arg l "$AUTO" --arg r "$(pod_ready)" '. + {pod_ready: $r, label: $l}' <<<"$out")"
   out=$(curl -s --cacert "$PRIV/ca.crt" -o /dev/null -w '{"https_status": %{http_code}, "ssl_verify_result": %{ssl_verify_result}}' \
     "https://127.0.0.1:$PORT/v1/sys/health?uninitcode=200&sealedcode=200") || fail vault-tls "HTTPS with the vault-ca CA failed"
   jq -e '.https_status == 200 and .ssl_verify_result == 0' <<<"$out" >/dev/null || fail vault-tls "$out"
   record vault-tls "$out"
 }
 
-phase_init() {  # MUTATING (Vault): RB step 3 with SYNTHETIC recovery material in REHEARSAL_DIR/private
-  local out
+phase_init() {  # MUTATING (Vault): RB step 3 with SYNTHETIC recovery material in REHEARSAL_DIR/private; no manual unseal
+  local out s
   open_forward
   status_is false true >/dev/null
   out=$(vault init --keys-out "$PRIV/vault-keys.json") || fail vault-init "init failed: read the REFUSED line; never re-run init blindly"
-  record vault-init "$out"
-  record pod-ready-while-sealed "$(jq -cn --arg r "$(pod_ready)" --argjson s "$(status_is true true)" \
-    '{pod_ready: $r, initialized: $s.initialized, sealed: $s.sealed, note: "Pod Ready does not mean unsealed"}')"
-  out=$(vault unseal --keys-file "$PRIV/vault-keys.json") || fail vault-unseal "unseal failed"
-  record vault-unsealed "$(status_is true false)"
+  jq -e '.key_type == "recovery" and .shares == 3 and .threshold == 2' <<<"$out" >/dev/null || fail vault-init "not a 3/2 recovery-key init: $out"
+  record vault-init "$(jq -c --arg l "$AUTO" '. + {label: $l}' <<<"$out")"
+  [ "$(jq '.recovery_keys_base64 | length' "$PRIV/vault-keys.json")" = 3 ] && [ "$(jq '.keys_base64 | length' "$PRIV/vault-keys.json")" = 0 ] \
+    || fail vault-init "the key file does not hold exactly 3 recovery keys and no unseal key"
+  s=$(wait_unsealed 120) || fail auto-unseal "Vault did not unseal itself within 120 s of init"
+  k -n "$VNS" wait --for=condition=Ready pod/vault-0 --timeout=120s >/dev/null || fail auto-unseal "unsealed but the pod is not Ready"
+  record auto-unsealed "$(jq -c --arg l "$AUTO" --arg r "$(pod_ready)" '{result: "PASS", initialized, sealed, seal_type, recovery_seal, pod_ready: $r,
+    manual_unseal: "none", label: $l}' <<<"$s")"
+  if vault unseal --keys-file "$PRIV/vault-keys.json" >/dev/null 2>"$PRIV/probe.err"; then fail unseal-refused "manual unseal ran on an auto-unseal Vault"; fi
+  grep -q "vault_auto_unseal" "$PRIV/probe.err" || fail unseal-refused "unexpected failure: $(head -c 200 "$PRIV/probe.err")"
+  record manual-unseal-refused '{"result": "denied", "cli": "REFUSED vault_auto_unseal", "keys_submitted": 0}'
+}
+
+phase_ceremony() {  # MUTATING (Vault): K15, the authenticated root-generation ceremony with RECOVERY keys
+  local out K=$PRIV/vault-keys.json
+  open_forward; status_is true false >/dev/null
+  k -n "$VNS" create token vault-admin --audience vault --duration 10m \
+    | vault login --role vault-admin --token-out "$PRIV/admin-login.json" >/dev/null || fail admin-login "vault-admin login failed"
+  (umask 077; jq '{seal_type, keys_base64: [], recovery_keys_base64: [.recovery_keys_base64[0]]}' "$K" > "$PRIV/one-recovery-key.json"
+   # A forged share is only detectable at the threshold: one forged share plus one genuine share.
+   jq '{seal_type, keys_base64: [], recovery_keys_base64: [(.recovery_keys_base64[0] | @base64d | explode | map(255 - .) | implode | @base64),
+     .recovery_keys_base64[1]]}' "$K" > "$PRIV/invalid-recovery-key.json")
+  if vault generate-root --keys-file "$PRIV/one-recovery-key.json" --token-file "$PRIV/admin-login.json" \
+       --token-out "$PRIV/root-one.json" >/dev/null 2>"$PRIV/probe.err"; then fail one-key "one recovery key generated a root token"; fi
+  grep -q vault_generate_root_incomplete "$PRIV/probe.err" && [ ! -e "$PRIV/root-one.json" ] || fail one-key "unexpected: $(head -c 200 "$PRIV/probe.err")"
+  record one-recovery-key-insufficient '{"result": "denied", "keys": 1, "threshold": 2, "attempt": "cancelled", "token": "none"}'
+  if vault generate-root --keys-file "$PRIV/invalid-recovery-key.json" --token-file "$PRIV/admin-login.json" \
+       --token-out "$PRIV/root-bad.json" >/dev/null 2>"$PRIV/probe.err"; then fail invalid-key "an invalid recovery key generated a root token"; fi
+  [ ! -e "$PRIV/root-bad.json" ] && grep -qE "returned (400|500)" "$PRIV/probe.err" || fail invalid-key "unexpected: $(head -c 200 "$PRIV/probe.err")"
+  record invalid-recovery-key-rejected "$(jq -cn --arg s "$(grep -oE 'returned [0-9]+' "$PRIV/probe.err" | head -1)" \
+    '{result: "denied", shares: "1 forged + 1 genuine (threshold reached)", vault: $s, token: "none"}')"
+  out=$(vault generate-root --keys-file "$K" --token-file "$PRIV/admin-login.json" --token-out "$PRIV/root-ceremony.json") \
+    || fail ceremony "two recovery keys did not complete the ceremony"
+  vault describe --token-file "$PRIV/root-ceremony.json" > "$PRIV/describe-ceremony.json" || fail ceremony "the generated root cannot read the configuration"
+  out=$(vault retire-root --token-file "$PRIV/root-ceremony.json") || fail ceremony "retire-root failed"
+  if vault configure --token-file "$PRIV/root-ceremony.json" >/dev/null 2>"$PRIV/probe.err"; then fail ceremony "the retired root still works"; fi
+  grep -q "returned 403" "$PRIV/probe.err" || fail ceremony "unexpected: $(head -c 200 "$PRIV/probe.err")"
+  rm -f "$PRIV/one-recovery-key.json" "$PRIV/invalid-recovery-key.json" "$PRIV/root-ceremony.json" "$PRIV/describe-ceremony.json" "$PRIV/admin-login.json"
+  record recovery-key-ceremony '{"result": "PASS", "recovery_keys": 3, "threshold": 2, "login": "vault-admin (Kubernetes auth)",
+    "generated_root": "read the configuration, then retired and rejected (403)", "temporary_files": "removed", "label": "'"$AUTO"'"}'
+}
+
+restart_vault() {  # [noforward]: delete vault-0; reopen the port-forward once the new pod runs (Ready is NOT awaited: it means unsealed)
+  stop_forward
+  k -n "$VNS" delete pod vault-0 --wait=true >/dev/null
+  k -n "$VNS" wait --for=jsonpath='{.status.phase}'=Running pod/vault-0 --timeout=300s >/dev/null || fail restart "vault-0 not Running again"
+  [ "${1:-}" = noforward ] || open_forward
+}
+unsealer_offline() {  # kind only: the stand-in for "Cloud KMS unreachable" (the unsealer pod and its key stay alive)
+  k -n "$VNS" patch service vault-unsealer -p '{"spec":{"selector":{"app.kubernetes.io/name":"vault-unsealer-offline"}}}' >/dev/null
+  [ -z "$(k -n "$VNS" get endpointslice -l kubernetes.io/service-name=vault-unsealer -o jsonpath='{.items[*].endpoints[*].addresses[*]}')" ] \
+    || fail unsealer-offline "the unsealer Service still has endpoints"
+}
+unsealer_online() { k -n "$VNS" patch service vault-unsealer -p '{"spec":{"selector":{"app.kubernetes.io/name":"vault-unsealer"}}}' >/dev/null; }
+restarts() { k -n "$VNS" get pod vault-0 -o jsonpath='{.status.containerStatuses[0].restartCount}'; }
+seal_down_observed() {  # <seconds>: with its seal unreachable Vault never serves unsealed and never reports Ready
+  # Observed on kind (Vault 2.0.4, transit seal): the listener never opens; after ~110 s the process exits with
+  # "error parsing Seal configuration: context deadline exceeded" and kubelet restarts it with back-off.
+  local before seen_exit=false api=unreachable s
+  before=$(restarts)
+  for _ in $(seq "$1"); do
+    [ "$(pod_ready)" != True ] || fail seal-down "Vault reports Ready although its seal is unreachable"
+    if s=$(curl -s --max-time 2 --cacert "$PRIV/ca.crt" "https://127.0.0.1:$PORT/v1/sys/seal-status" 2>/dev/null) && [ -n "$s" ]; then
+      [ "$(jq -r .sealed <<<"$s")" = true ] || fail seal-down "Vault unsealed although its seal is unreachable"; api=sealed
+    fi
+    sleep 1
+  done
+  if [ "$(restarts)" -gt "$before" ] && k -n "$VNS" logs vault-0 --previous 2>/dev/null | grep -q "error parsing Seal configuration"; then seen_exit=true; fi
+  jq -cn --arg a "$api" --arg r "$(pod_ready)" --argjson b "$before" --argjson n "$(restarts)" --argjson x "$seen_exit" \
+    '{api: $a, pod_ready: $r, container_restarts: ($n - $b), exited_on_seal_setup: $x}'
+}
+recover_from_outage() {  # after unsealer_online: kubelet's next start must unseal by itself; one pod restart only if it never does.
+  # Sets RECOVERED (JSON). Never call it inside $(...): it opens the port-forward, whose PID must stay in this shell.
+  local s restarted=false before
+  before=$(restarts)
+  if ! k -n "$VNS" wait --for=condition=Ready pod/vault-0 --timeout=360s >/dev/null 2>&1; then
+    restarted=true; restart_vault noforward
+    k -n "$VNS" wait --for=condition=Ready pod/vault-0 --timeout=360s >/dev/null || fail seal-recovered "Vault did not unseal after the seal came back"
+  fi
+  open_forward
+  s=$(status_is true false)
+  RECOVERED=$(jq -c --argjson r "$restarted" --argjson n "$(( $(restarts) - before ))" '{initialized, sealed, manual_pod_delete: $r,
+    kubelet_restarts_while_recovering: $n, manual_unseal: "none"}' <<<"$s")
+}
+
+phase_seal() {  # MUTATING (Vault, kind: the unsealer Service): K13/K14 at the Vault level, before any consumer exists
+  local out s OP=$PRIV/operator-token.json
+  [ -n "$KIND" ] || fail seal-kind-only "the unsealer outage drill is kind-only; never applied to Cloud KMS"
+  open_forward; status_is true false >/dev/null
+  out=$(printf 'synthetic-canary-%s' "$(openssl rand -hex 8)" | vault put --token-file "$OP" --path ml-platform/rehearsal-seal-canary --key value --stdin) \
+    || fail canary "put failed"
+  restart_vault
+  s=$(wait_unsealed 120) || fail restart-auto-unseal "Vault did not unseal itself after a restart"
+  k -n "$VNS" wait --for=condition=Ready pod/vault-0 --timeout=120s >/dev/null || fail restart-auto-unseal "unsealed but not Ready"
+  [ "$(vault versions --token-file "$OP" --path ml-platform/rehearsal-seal-canary | jq -r .current_version)" = 1 ] \
+    || fail restart-auto-unseal "data or operator token lost across the restart"
+  record restart-auto-unsealed "$(jq -c --arg l "$AUTO" --arg r "$(pod_ready)" '{result: "PASS", initialized, sealed, pod_ready: $r,
+    manual_unseal: "none", raft_data: "canary version 1 and operator token intact", label: $l}' <<<"$s")"
+  unsealer_offline
+  restart_vault noforward
+  open_forward_nowait
+  s=$(seal_down_observed 150)
+  [ "$(jq -r .exited_on_seal_setup <<<"$s")" = true ] || fail seal-down "Vault did not fail its seal setup within 150 s: $s"
+  record seal-unreachable-never-unsealed "$(jq -c --arg l "$AUTO" '{result: "PASS"} + . + {observed_seconds: 150, label: $l}' <<<"$s")"
+  unsealer_online
+  recover_from_outage; out=$RECOVERED
+  [ "$(vault versions --token-file "$OP" --path ml-platform/rehearsal-seal-canary | jq -r .current_version)" = 1 ] || fail seal-recovered "data lost"
+  record seal-back-auto-unsealed "$(jq -c --arg l "$AUTO" '{result: "PASS"} + . + {raft_data: "canary version 1", label: $l}' <<<"$out")"
 }
 
 phase_configure() {  # MUTATING (Vault): RB step 4, then the rehearsal role; root retired at the end
@@ -559,8 +832,10 @@ phase_configure() {  # MUTATING (Vault): RB step 4, then the rehearsal role; roo
   record configure-rehearsal "$out"
   vault describe --keys-file "$K" > "$DIR/vault-describe.json" || fail describe "describe failed"
   jq -e '.secret_engines["ewallet/"] == {type: "kv", version: "2"} and .auth_methods["kubernetes/"] == "kubernetes"
-         and .kubernetes_roles["eso-vault-rehearsal"].bound_service_account_namespaces == ["vault-rehearsal"]
-         and .kubernetes_roles["eso-ml-platform"].audience == "vault"' "$DIR/vault-describe.json" >/dev/null \
+         and (.kubernetes_roles | keys) == ["eso-ewallet-reader", "eso-vault-rehearsal", "vault-admin"]
+         and .kubernetes_roles["eso-vault-rehearsal"].bound_service_account_namespaces == ["external-secrets"]
+         and .kubernetes_roles["eso-ewallet-reader"].bound_service_account_namespaces == ["external-secrets"]
+         and .kubernetes_roles["eso-ewallet-reader"].audience == "vault"' "$DIR/vault-describe.json" >/dev/null \
     || fail describe "live configuration differs from the bootstrap"
   record describe "$(jq -c '{result: "PASS", engines: .secret_engines, auth: .auth_methods, audit: .audit_devices,
     roles: (.kubernetes_roles | keys), policies: (.acl_policies | keys)}' "$DIR/vault-describe.json")"
@@ -1032,7 +1307,7 @@ phase_inspect() {  # READ-ONLY: the state after any stop, and the decision it le
 }
 
 case "$phase" in
-  vault|init|configure|eso|consumer|negative|lifecycle|feature-api|switch|rollback|retain|after-wake)
+  vault|init|ceremony|seal|configure|eso|consumer|negative|lifecycle|feature-api|switch|rollback|agents|retain|after-wake)
     why=$(halt_reason)
     [ -z "$why" ] || refuse "this run has stopped ($why): only inspect, cleanup and verify-clean may run (VAULT_GKE_REHEARSAL.md §9 Failure)"
     record phase-start '{"result": "STARTED"}'

@@ -296,7 +296,7 @@ def init_fake(tmp_path, *, initialise, after=False):
 def test_init_stores_the_material_in_a_file_created_before_vault_initialises(tmp_path, monkeypatch, capsys):
     fake, out = init_fake(tmp_path, initialise=lambda: (200, INIT_MATERIAL))
     code, printed = run_cli(monkeypatch, capsys, fake, "init", "--keys-out", str(out))
-    assert code == 0 and json.loads(out.read_text()) == INIT_MATERIAL
+    assert code == 0 and json.loads(out.read_text()) == {"seal_type": "shamir", **INIT_MATERIAL}
     assert "share-1" not in printed.out + printed.err and "root-token-value" not in printed.out + printed.err
 
 
@@ -361,3 +361,186 @@ def test_describe_reads_configuration_only(tmp_path, monkeypatch, capsys):
     assert {m for m, _, _, _ in fake.calls} == {"GET"}
     assert not any(p.startswith("ewallet/") for _, p, _, _ in fake.calls)       # no secret path is read
     assert "root-token-value" not in printed.out + printed.err
+
+
+# ---- Vault V2: auto-unseal (gcpckms on GKE, transit on kind) and recovery keys
+
+RECOVERY = {"keys": [], "keys_base64": [], "recovery_keys": ["r1", "r2", "r3"],
+            "recovery_keys_base64": ["rec-1", "rec-2", "rec-3"], "root_token": "root-token-value"}
+
+
+def test_auto_unseal_init_requests_recovery_keys_and_stores_them_safely(tmp_path, monkeypatch, capsys):
+    out = tmp_path / "vault-keys.json"
+    fake = Fake({("GET", "sys/seal-status"): (200, {"initialized": False, "sealed": True, "type": "gcpckms", "recovery_seal": True}),
+                 ("POST", "sys/init"): (200, RECOVERY)})
+    code, printed = run_cli(monkeypatch, capsys, fake, "init", "--keys-out", str(out))
+    assert code == 0 and out.stat().st_mode & 0o777 == 0o600
+    (payload,) = [p for m, path, _, p in fake.calls if path == "sys/init"]
+    assert payload == {"recovery_shares": 3, "recovery_threshold": 2}           # never secret_shares under auto-unseal
+    stored = json.loads(out.read_text())
+    assert stored["seal_type"] == "gcpckms" and stored["recovery_keys_base64"] == ["rec-1", "rec-2", "rec-3"]
+    assert json.loads(printed.out) == {"initialized": True, "seal_type": "gcpckms", "key_type": "recovery", "shares": 3, "threshold": 2}
+    assert not any(secret in printed.out + printed.err for secret in ("rec-1", "r1", "root-token-value"))
+
+
+def test_auto_unseal_init_with_an_unexpected_answer_stops_after_storing_it(tmp_path, monkeypatch, capsys):
+    out = tmp_path / "vault-keys.json"
+    short = {**RECOVERY, "recovery_keys_base64": ["rec-1"]}
+    fake = Fake({("GET", "sys/seal-status"): (200, {"initialized": False, "sealed": True, "type": "transit"}),
+                 ("POST", "sys/init"): (200, short)})
+    code, printed = run_cli(monkeypatch, capsys, fake, "init", "--keys-out", str(out))
+    assert code == 2 and "vault_init_shares_unexpected" in printed.err and "never run init again" in printed.err
+    assert json.loads(out.read_text())["recovery_keys_base64"] == ["rec-1"]    # what Vault returned is kept, never discarded
+
+
+def test_unseal_refuses_an_auto_unseal_vault_before_reading_or_sending_any_key(tmp_path, monkeypatch, capsys):
+    fake = Fake({("GET", "sys/seal-status"): (200, {"initialized": True, "sealed": True, "type": "gcpckms"})})
+    missing = tmp_path / "no-such-file.json"
+    code, printed = run_cli(monkeypatch, capsys, fake, "unseal", "--keys-file", str(missing))
+    assert code == 2 and "vault_auto_unseal" in printed.err and "gcpckms" in printed.err
+    assert [(m, p) for m, p, _, _ in fake.calls] == [("GET", "sys/seal-status")]   # no sys/unseal, no file read
+
+
+def test_recovery_keys_are_never_submitted_as_unseal_keys(tmp_path, monkeypatch, capsys):
+    keys = tmp_path / "vault-keys.json"
+    cli.write_keys_file(keys, {"seal_type": "transit", **RECOVERY})
+    fake = Fake({("GET", "sys/seal-status"): (200, {"initialized": True, "sealed": True})})   # a Shamir Vault
+    code, printed = run_cli(monkeypatch, capsys, fake, "unseal", "--keys-file", str(keys))
+    assert code == 2 and "vault_no_unseal_keys" in printed.err
+    assert not any(path == "sys/unseal" for _, path, _, _ in fake.calls)
+
+
+def test_status_reports_the_seal_type(monkeypatch, capsys):
+    fake = Fake({("GET", "sys/seal-status"): (200, {"initialized": True, "sealed": False, "t": 2, "n": 3,
+                                                    "type": "transit", "recovery_seal": True, "version": "2.0.4"})})
+    code, printed = run_cli(monkeypatch, capsys, fake, "status")
+    assert code == 0 and json.loads(printed.out) == {"initialized": True, "sealed": False, "t": 2, "n": 3,
+                                                      "version": "2.0.4", "seal_type": "transit", "recovery_seal": True}
+
+
+def recovery_keys_file(tmp_path, keys):
+    path = tmp_path / f"recovery-{len(keys)}.json"
+    cli.write_keys_file(path, {"seal_type": "gcpckms", "keys_base64": [], "recovery_keys_base64": keys})
+    return path
+
+
+def test_root_generation_with_recovery_keys_stops_at_the_threshold(tmp_path, monkeypatch, capsys):
+    fake = Fake(ceremony())
+    out = tmp_path / "admin-token.json"
+    code, printed = run_cli(monkeypatch, capsys, fake, "generate-root", "--keys-file",
+                            str(recovery_keys_file(tmp_path, ["rec-1", "rec-2", "rec-3"])),
+                            "--token-file", str(admin_login_file(tmp_path)), "--token-out", str(out))
+    assert code == 0 and cli.read_token_file(out) == "hvs.generated-root-token-0123"
+    updates = [payload["key"] for method, path, _, payload in fake.calls if path == "sys/generate-root/update"]
+    assert updates == ["rec-1", "rec-2"]                                       # threshold 2, the third is never sent
+    assert not any(s in printed.out + printed.err for s in ("rec-1", "rec-2", "hvs.generated-root-token-0123"))
+
+
+def test_one_recovery_key_cannot_complete_and_the_attempt_is_cancelled(tmp_path, monkeypatch, capsys):
+    fake = Fake(ceremony(complete_after=2))
+    out = tmp_path / "admin-token.json"
+    code, printed = run_cli(monkeypatch, capsys, fake, "generate-root", "--keys-file", str(recovery_keys_file(tmp_path, ["rec-1"])),
+                            "--token-file", str(admin_login_file(tmp_path)), "--token-out", str(out))
+    assert code == 2 and "vault_generate_root_incomplete" in printed.err and not out.exists()
+    assert [(m, p) for m, p, _, _ in fake.calls][-1] == ("DELETE", "sys/generate-root/attempt")
+
+
+def test_an_invalid_recovery_key_fails_closed_without_a_token(tmp_path, monkeypatch, capsys):
+    answers = ceremony()
+    answers[("POST", "sys/generate-root/update")] = (400, {"errors": ["recovery key verification failed"]})
+    fake = Fake(answers)
+    out = tmp_path / "admin-token.json"
+    code, printed = run_cli(monkeypatch, capsys, fake, "generate-root", "--keys-file", str(recovery_keys_file(tmp_path, ["bogus"])),
+                            "--token-file", str(admin_login_file(tmp_path)), "--token-out", str(out))
+    assert code == 2 and "returned 400" in printed.err and not out.exists() and "bogus" not in printed.err
+
+
+def test_an_empty_key_file_is_refused_before_any_call(tmp_path, monkeypatch, capsys):
+    fake = Fake(ceremony())
+    code, printed = run_cli(monkeypatch, capsys, fake, "generate-root", "--keys-file", str(recovery_keys_file(tmp_path, [])),
+                            "--token-file", str(admin_login_file(tmp_path)), "--token-out", str(tmp_path / "t.json"))
+    assert code == 2 and "vault_no_key_shares" in printed.err and fake.calls == []
+
+
+def _raft_config(path):
+    import yaml
+    return yaml.safe_load((ROOT / path).read_text())["server"]["ha"]["raft"]["config"]
+
+
+def test_gke_vault_auto_unseals_with_cloud_kms_and_workload_identity_only():
+    import re
+    import yaml
+    values = yaml.safe_load((ROOT / "infra/kubernetes/vault/values-gke.yaml").read_text())
+    config = _raft_config("infra/kubernetes/vault/values-gke.yaml")
+    (seal,) = re.findall(r'seal "(\w+)" \{([^}]*)\}', config)
+    assert seal[0] == "gcpckms"
+    fields = dict(re.findall(r'(\w+)\s*=\s*"([^"]*)"', seal[1]))
+    assert fields == {"project": "ewallet-data-ai-platform-hg26", "region": "asia-southeast1",
+                      "key_ring": "ewallet-vault", "crypto_key": "vault-unseal"}             # no credentials: ADC via Workload Identity
+    assert "credentials" not in config and "GOOGLE_APPLICATION_CREDENTIALS" not in yaml.safe_dump(values)
+    assert values["server"]["serviceAccount"]["annotations"] == {
+        "iam.gke.io/gcp-service-account": "ewallet-vault-unseal@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com"}
+    assert values["global"]["tlsDisable"] is False and "tls_disable" not in config and 'tls_min_version = "tls12"' in config
+    assert values["server"]["readinessProbe"]["path"] == "/v1/sys/health?standbyok=true&uninitcode=204"   # sealed -> 503 -> NotReady
+    assert "extraSecretEnvironmentVars" not in values["server"] and "transit" not in config
+
+
+def test_kind_replaces_only_the_seal_with_a_local_transit_seal():
+    import re
+    import yaml
+    gke, local = _raft_config("infra/kubernetes/vault/values-gke.yaml"), _raft_config("infra/kubernetes/vault/values-local.yaml")
+    strip = lambda text: re.sub(r'seal "\w+" \{[^}]*\}\n', "", text)
+    assert strip(gke) == strip(local) and strip(gke) != gke                        # everything else is identical
+    (seal,) = re.findall(r'seal "(\w+)" \{([^}]*)\}', local)
+    fields = dict(re.findall(r'(\w+)\s*=\s*"([^"]*)"', seal[1]))
+    assert seal[0] == "transit" and fields["address"].startswith("https://") and "token" not in fields
+    assert fields["tls_ca_cert"] == "/vault/userconfig/vault-server-tls/ca.crt"
+    values = yaml.safe_load((ROOT / "infra/kubernetes/vault/values-local.yaml").read_text())
+    assert values["server"]["extraSecretEnvironmentVars"] == [
+        {"envName": "VAULT_TOKEN", "secretName": "vault-unsealer-token", "secretKey": "token"}]
+    assert values["server"]["serviceAccount"]["annotations"] is None
+
+
+def _unsealer():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("unsealer", ROOT / "scripts/vault/rehearsal/unsealer.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_kind_unsealer_token_may_only_encrypt_and_decrypt_with_its_key_and_its_root_is_revoked(tmp_path, capsys):
+    import re
+    unsealer = _unsealer()
+    sealed = {"v": True}
+    fake = Fake({
+        ("GET", "sys/seal-status"): (200, {"initialized": False, "sealed": True}),
+        ("POST", "sys/init"): (200, {"keys_base64": ["u-share"], "root_token": "u-root"}),
+        ("POST", "sys/unseal"): lambda payload: (200, {"sealed": False}),
+        ("GET", "sys/mounts"): (200, {"data": {}}),
+        ("POST", "auth/token/create-orphan"): (200, {"auth": {"client_token": "seal-token"}}),
+    })
+    status = unsealer.bootstrap("https://127.0.0.1:1", fake, tmp_path / "u-keys.json", tmp_path / "u-token.json")
+    assert status["root_token"] == "revoked" and status["label"] == "SIMULATED_AUTO_UNSEAL"
+    calls = [(m, p) for m, p, _, _ in fake.calls]
+    assert calls[-1] == ("POST", "auth/token/revoke-self") and fake.calls[-1][2] == "u-root"
+    (policy,) = [payload["policy"] for m, p, _, payload in fake.calls if p == "sys/policies/acl/autounseal"]
+    grants = dict(re.findall(r'path "([^"]+)"\s*\{\s*capabilities\s*=\s*\[([^\]]*)\]', policy))
+    assert grants == {"transit/encrypt/autounseal": '"update"', "transit/decrypt/autounseal": '"update"'}
+    (token,) = [payload for m, p, _, payload in fake.calls if p == "auth/token/create-orphan"]
+    assert token["policies"] == ["autounseal"] and token["period"] == "24h"
+    for name in ("u-keys.json", "u-token.json"):
+        assert (tmp_path / name).stat().st_mode & 0o777 == 0o600
+    assert cli.read_token_file(tmp_path / "u-token.json") == "seal-token"
+    assert "seal-token" not in capsys.readouterr().out + json.dumps(status)
+
+
+def test_kind_unsealer_never_bootstraps_twice_or_inside_the_repository(tmp_path):
+    unsealer = _unsealer()
+    fake = Fake({("GET", "sys/seal-status"): (200, {"initialized": True})})
+    with pytest.raises(VaultError) as caught:
+        unsealer.bootstrap("https://127.0.0.1:1", fake, tmp_path / "k.json", tmp_path / "t.json")
+    assert caught.value.code == "unsealer_initialized" and not (tmp_path / "k.json").exists()
+    with pytest.raises(VaultError) as caught:
+        unsealer.bootstrap("https://127.0.0.1:1", Fake(), ROOT / "k.json", tmp_path / "t2.json")
+    assert caught.value.code == "vault_keys_location" and Fake().calls == []

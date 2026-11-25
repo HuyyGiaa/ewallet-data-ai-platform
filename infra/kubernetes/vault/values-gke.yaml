@@ -1,9 +1,14 @@
 # Official HashiCorp chart vault-0.34.1 (sha256 df4c37fa...64c4), Vault 2.0.4.
 # Integrated Raft storage on a Persistent Disk, TLS listener, audit log on its own
 # disk. One replica fits the on-demand cloud lab; Raft quorum needs 3 for real HA.
-# Shamir unseal is deliberate: KMS auto-unseal is a new billable resource and needs
-# new IAM. Every restart, including a cluster wake, leaves Vault sealed until
-# `ops/vault/cli.py unseal` runs.
+# Vault V2 (docs/edai2/platform/VAULT_V2_ARCHITECTURE_AUDIT.md §8): Google Cloud KMS auto-unseal.
+# Vault decrypts its root key with key ewallet-vault/vault-unseal at every start, so a restart,
+# drain or cluster wake needs no manual unseal. Credentials come from Workload Identity (ADC via
+# the GKE metadata server): no JSON key, no `credentials` parameter. The key ring, key, GSA and IAM
+# bindings are created by the separately approved P4 step; until they exist Vault cannot start here.
+# Initialise a FRESH Vault only (`ops/vault/cli.py init` creates recovery keys, 3 shares, threshold 2);
+# never point this configuration at Raft data initialised under Shamir (that needs the official seal
+# migration, audit §8.6). kind replaces the seal with a local transit seal (values-local.yaml).
 global:
   tlsDisable: false
 injector:
@@ -18,6 +23,12 @@ server:
     tag: 2.0.4@sha256:5be49781ecf78bfe775c5309c6a4d9f4e9e040b6c885c99eb2b12fb69855e1a2
   authDelegator:
     enabled: true
+  # KSA ewallet-vault/vault -> GSA ewallet-vault-unseal (roles/iam.workloadIdentityUser, P4). The GSA
+  # holds roles/cloudkms.cryptoKeyEncrypterDecrypter plus cloudkms.cryptoKeys.get on the key only.
+  serviceAccount:
+    create: true
+    annotations:
+      iam.gke.io/gcp-service-account: ewallet-vault-unseal@ewallet-data-ai-platform-hg26.iam.gserviceaccount.com
   resources:
     requests: {cpu: 100m, memory: 256Mi}
     limits: {cpu: 500m, memory: 512Mi}
@@ -42,9 +53,13 @@ server:
     storageClass: standard-rwo
   extraVolumes:
     - {type: secret, name: vault-server-tls}
+  # Ready = unsealed, once initialised. An UNINITIALISED Vault is reported Ready (204) so the bootstrap can
+  # proceed; an initialised but SEALED Vault answers 503 and is NotReady (auto-unseal failed: KMS
+  # unreachable, IAM removed or key version disabled), so the Service sends ESO nowhere and the GKE
+  # Workloads page shows the problem. V1 accepted sealed (sealedcode=204) because every wake sealed it.
   readinessProbe:
     enabled: true
-    path: /v1/sys/health?standbyok=true&sealedcode=204&uninitcode=204
+    path: /v1/sys/health?standbyok=true&uninitcode=204
   ha:
     enabled: true
     replicas: 1
@@ -52,7 +67,7 @@ server:
     # cannot protect availability and only blocks every drain. The cloud-lab sleep tool's PDB
     # check (ops/gcp/cloud_lab.py evaluate_pdbs) looks at minAvailable only, so that budget
     # would pass its gate and then stall the resize to zero for up to an hour per node.
-    # Without it a drain evicts vault-0, which restarts sealed: the designed wake behaviour.
+    # Without it a drain evicts vault-0, which restarts and auto-unseals through Cloud KMS.
     disruptionBudget:
       enabled: false
     raft:
@@ -70,5 +85,11 @@ server:
         }
         storage "raft" {
           path = "/vault/data"
+        }
+        seal "gcpckms" {
+          project    = "ewallet-data-ai-platform-hg26"
+          region     = "asia-southeast1"
+          key_ring   = "ewallet-vault"
+          crypto_key = "vault-unseal"
         }
         service_registration "kubernetes" {}

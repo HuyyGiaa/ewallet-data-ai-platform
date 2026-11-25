@@ -1,14 +1,17 @@
 """Bootstrap and operate Vault without placing key material in the repository.
 
-``init`` writes the unseal keys and root token to one mode-0600 file that must lie
-outside the Git work tree. Token lifecycle:
+``init`` writes the key shares and root token to one mode-0600 file that must lie
+outside the Git work tree. The seal decides which shares: under Shamir they are unseal keys
+(``keys_base64``); under an auto-unseal seal (Vault V2: ``gcpckms`` on GKE, ``transit`` on kind)
+they are recovery keys (``recovery_keys_base64``), which never unseal Vault and only authorise
+root generation. ``unseal`` refuses on an auto-unseal Vault. Token lifecycle:
 
 - the initial root token (``--keys-file``) applies the bootstrap and creates an
   orphan ``secret-operator`` token (``operator-token``), then is revoked (``retire-root``);
 - day-to-day writes and metadata reads use that token (``--token-file``);
 - policy or role changes use a short-lived root token from ``generate-root``: the owner
   logs in as Kubernetes role ``vault-admin`` (``login``, policy root-generation only), then
-  feeds the unseal shares; the root token is revoked right after (``retire-root --token-file``).
+  feeds the unseal or recovery shares; the root token is revoked right after (``retire-root --token-file``).
 
 Token files are mode 0600, outside the repository, created exclusively. ``VAULT_TOKEN``
 is the fallback. Reach Vault through a port-forward and pass ``--ca-file``. Every
@@ -87,10 +90,20 @@ def _root_token(args: argparse.Namespace) -> str | None:
     return str(read_keys_file(keys_file)["root_token"]) if keys_file else None
 
 
+SHAMIR = "shamir"
+
+
+def seal_type(state: dict[str, object]) -> str:
+    """The live seal type from sys/seal-status: shamir, gcpckms, transit, ..."""
+    return str(state.get("type") or SHAMIR)
+
+
 def cmd_status(args: argparse.Namespace) -> int:
-    """Print seal state without needing a token."""
+    """Print seal state without needing a token, including the seal type."""
     state = admin_for(args).seal_status()
-    print(json.dumps({key: state.get(key) for key in ("initialized", "sealed", "t", "n", "version")}))
+    shown = {key: state.get(key) for key in ("initialized", "sealed", "t", "n", "version")}
+    shown.update({"seal_type": seal_type(state), "recovery_seal": bool(state.get("recovery_seal"))})
+    print(json.dumps(shown))
     return 0
 
 
@@ -107,11 +120,14 @@ def cmd_init(args: argparse.Namespace) -> int:
     Vault initialised. Both leave an initialised Vault without usable shares.
     """
     admin = admin_for(args)
-    if admin.seal_status().get("initialized"):
+    state = admin.seal_status()
+    if state.get("initialized"):
         raise VaultError("vault_already_initialized", "Vault is already initialised")
+    kind = seal_type(state)
+    recovery = kind != SHAMIR
     handle = open_keys_file(args.keys_out)
     try:
-        material = admin.initialise(shares=args.shares, threshold=args.threshold)
+        material = admin.initialise(shares=args.shares, threshold=args.threshold, recovery=recovery)
     except Exception as error:
         handle.close()
         args.keys_out.unlink()          # empty placeholder: no material was received
@@ -126,13 +142,20 @@ def cmd_init(args: argparse.Namespace) -> int:
                              f"Vault IS initialised but no key material was received ({error}). "
                              f"{STOP_NEVER_REINIT}") from error
         raise
+    shares_field = "recovery_keys_base64" if recovery else "keys_base64"
     try:
-        _store(handle, material)
+        _store(handle, {"seal_type": kind, **material})
     except OSError as error:
         raise VaultError("vault_initialised_keys_not_stored",
                          f"Vault IS initialised but the key file could not be written "
                          f"({error.strerror}). {STOP_NEVER_REINIT}") from error
-    print(json.dumps({"initialized": True, "shares": args.shares, "threshold": args.threshold}))
+    if len(material.get(shares_field) or []) != args.shares:
+        raise VaultError("vault_init_shares_unexpected",
+                         f"Vault IS initialised and the answer was stored, but it does not hold {args.shares} "
+                         f"{shares_field}: check the key file before anything else. {STOP_NEVER_REINIT}")
+    print(json.dumps({"initialized": True, "seal_type": kind,
+                      "key_type": "recovery" if recovery else "unseal",
+                      "shares": args.shares, "threshold": args.threshold}))
     return 0
 
 
@@ -143,9 +166,20 @@ def cmd_describe(args: argparse.Namespace) -> int:
 
 
 def cmd_unseal(args: argparse.Namespace) -> int:
-    """Submit threshold key shares until Vault reports unsealed."""
-    material = read_keys_file(args.keys_file)
+    """Submit threshold key shares until Vault reports unsealed (Shamir only).
+
+    An auto-unseal Vault unseals itself through its seal (KMS on GKE, transit on kind) and
+    refuses manual unseal; recovery keys can never unseal it, so they are never submitted.
+    """
     admin = admin_for(args)
+    kind = seal_type(admin.seal_status())
+    if kind != SHAMIR:
+        raise VaultError("vault_auto_unseal", f"Vault uses the {kind} seal: it unseals itself, and recovery "
+                         "keys cannot unseal it. A sealed auto-unseal Vault means its seal is unreachable "
+                         "(runbook: auto-unseal failure); nothing was submitted")
+    material = read_keys_file(args.keys_file)
+    if not material.get("keys_base64"):
+        raise VaultError("vault_no_unseal_keys", "the key file holds no unseal keys (recovery keys never unseal)")
     state: dict[str, object] = {}
     for key in material["keys_base64"]:
         state = admin.unseal(str(key))
@@ -232,11 +266,16 @@ def cmd_login(args: argparse.Namespace) -> int:
 
 
 def cmd_generate_root(args: argparse.Namespace) -> int:
-    """Generate a temporary root token from the unseal shares, for policy or role changes."""
+    """Generate a temporary root token from the unseal or recovery shares, for policy or role changes."""
     _new_token_file(args.token_out)
     if not args.token_file:
         raise VaultError("vault_admin_login_required", "pass --token-file from 'login --role vault-admin'")
-    keys = [str(key) for key in read_keys_file(args.keys_file)["keys_base64"]]
+    material = read_keys_file(args.keys_file)
+    # The shares this Vault expects: unseal keys under Shamir, recovery keys under auto-unseal.
+    # A file holds exactly one kind (init writes it); Vault rejects the other kind anyway.
+    keys = [str(key) for key in (material.get("recovery_keys_base64") or material.get("keys_base64") or [])]
+    if not keys:
+        raise VaultError("vault_no_key_shares", "the key file holds neither unseal nor recovery keys")
     token = admin_for(args, token=read_token_file(args.token_file)).generate_root(keys)
     write_keys_file(args.token_out, {"token": token})
     print(json.dumps({"root_token_generated": True, "revoke_with": "retire-root --token-file"}))

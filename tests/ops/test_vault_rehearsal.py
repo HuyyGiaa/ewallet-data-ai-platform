@@ -246,6 +246,8 @@ if "get" in args and "ns" in args and "-o" not in args:
     sys.exit(0)
 if "externalsecret,secretstore,pushsecret" in text:
     out({"items": s["eso_objects"]})
+if "get clustersecretstore" in text:
+    out({"items": s.get("cluster_stores", [{"metadata": {"name": "ewallet-vault-rehearsal", "labels": {"ewallet.io/vault-rehearsal": s["id"]}}}])})
 if "clusterrole," in text:
     out({"items": [{"kind": o.split("/")[0], "metadata": {"name": o.split("/")[1]}} for o in s["cluster_objects"]]})
 if "get ns -o json" in text or "get crd -o json" in text:
@@ -322,7 +324,7 @@ def test_cleanup_never_passes_when_disk_absence_is_not_proven(tmp_path, after, r
     ({"live_volumes": [dict(VOLUMES[0], disk=DISK.format("other")), VOLUMES[1]]}, "differs from the recorded"),
     ({"live_volumes": [dict(VOLUMES[0], name="pvc-x"), VOLUMES[1]]}, "bound to pvc-x, not the recorded pvc-a"),
     ({"eso_objects": [{"kind": "ExternalSecret", "metadata": {"namespace": "ml-platform", "name": "feature-api-redis"}}]},
-     "ESO objects outside vault-rehearsal"),
+     "ESO objects outside the rehearsal namespaces"),
     ({"recorded_eso": ["ClusterRole/external-secrets-controller"]}, "differ from the recorded inventory"),
 ], ids=["unexpected-reclaim-policy", "disk-handle-changed", "pvc-bound-to-other-pv", "eso-used-elsewhere", "eso-inventory-drift"])
 def test_cleanup_refuses_before_any_deletion(tmp_path, change, reason):
@@ -613,7 +615,10 @@ def test_a_plus_lookups_pass_only_on_a_real_business_result_and_drift_ignores_sl
     assert "metadata.generation" not in snapshot.split("\n", 3)[-1] and "image: .spec.template.spec.containers[0].image" in snapshot
     assert 'or .name == "rehearsal-serving"' in TEXT.split("collisions() {")[1].split("none_found()")[0]
     seed = TEXT.split("seed_registry() {")[1].split("\n}\n")[0]
-    assert "the registry contains the Redis password" in seed and "secretKeyRef: {name: $LEGACY" in seed
+    # V2: the seed follows the ESO-managed Secret (after the real Redis rotation the original credential is retired);
+    # the registry must contain neither the original nor the current synthetic password.
+    assert "the registry contains the Redis password" in seed and "secretKeyRef: {name: $SEED_SECRET" in seed
+    assert 'synthetic P1' in seed and 'synthetic PCUR' in seed and "SEED_SECRET=feast-online-redis-vault" in TEXT
 
 
 def test_the_gke_procedure_is_fail_fast_and_gated():
@@ -632,3 +637,12 @@ def test_the_gke_procedure_is_fail_fast_and_gated():
     assert "--also-approve" in helper and "verify --expect sleep" in helper
     failure = runbook.split("### Failure")[1]
     assert "$R inspect" in failure and "**F1**" in failure and "**F2**" in failure and "Never re-run a failed mutating phase" in failure
+
+
+def test_cleanup_refuses_a_cluster_secret_store_it_did_not_create(tmp_path):
+    """Vault V2: a ClusterSecretStore is cluster-scoped; cleanup never deletes one without this rehearsal's label."""
+    foreign = [{"metadata": {"name": "ewallet-vault-rehearsal", "labels": {"ewallet.io/vault-rehearsal": ID}}},
+               {"metadata": {"name": "ewallet-vault", "labels": {"app.kubernetes.io/part-of": "ewallet-platform"}}}]
+    done, calls, results = stubbed(tmp_path, "cleanup", cluster_stores=foreign)
+    assert done.returncode != 0 and results[-1]["step"] == "eso-scope" and "ewallet-vault" in results[-1]["detail"]
+    assert " delete " not in f" {calls} " and " patch " not in f" {calls} "

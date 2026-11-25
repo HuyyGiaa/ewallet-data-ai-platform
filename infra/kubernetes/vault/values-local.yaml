@@ -1,4 +1,36 @@
-# Disposable kind validation: same chart and configuration, kind storage class.
+# Disposable kind validation only: same chart and configuration, kind storage class, and a LOCAL
+# TRANSIT SEAL instead of Cloud KMS (results are labelled SIMULATED_AUTO_UNSEAL, never a KMS result).
+# The "unsealer" is a second, throwaway Vault in ewallet-vault (scripts/vault/rehearsal/unsealer.py,
+# created by scripts/vault/gke_rehearsal.sh on kind only) with one transit key, autounseal. Its token
+# (transit encrypt/decrypt on that key only) reaches the pod as VAULT_TOKEN from Secret
+# vault-unsealer-token, created at run time; no token is in this file.
+# The config below must equal values-gke.yaml's except for the seal stanza (tests/ops/test_vault_tools.py).
 server:
   dataStorage: {storageClass: standard}
   auditStorage: {storageClass: standard}
+  serviceAccount:
+    annotations: null            # no Workload Identity on kind
+  extraSecretEnvironmentVars:
+    - {envName: VAULT_TOKEN, secretName: vault-unsealer-token, secretKey: token}
+  ha:
+    raft:
+      config: |
+        ui = false
+        disable_mlock = true
+        listener "tcp" {
+          address         = "[::]:8200"
+          cluster_address = "[::]:8201"
+          tls_cert_file   = "/vault/userconfig/vault-server-tls/tls.crt"
+          tls_key_file    = "/vault/userconfig/vault-server-tls/tls.key"
+          tls_min_version = "tls12"
+        }
+        storage "raft" {
+          path = "/vault/data"
+        }
+        seal "transit" {
+          address     = "https://vault-unsealer.ewallet-vault.svc.cluster.local:8200"
+          key_name    = "autounseal"
+          mount_path  = "transit/"
+          tls_ca_cert = "/vault/userconfig/vault-server-tls/ca.crt"
+        }
+        service_registration "kubernetes" {}

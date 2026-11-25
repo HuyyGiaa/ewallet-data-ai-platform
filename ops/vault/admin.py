@@ -57,11 +57,14 @@ class VaultAdmin:
         """Return the raw health status code and body."""
         return self._call("GET", "sys/health")
 
-    def initialise(self, *, shares: int, threshold: int) -> dict[str, Any]:
-        """Initialise Vault once; the result holds the unseal keys and root token."""
-        return self._require(
-            "POST", "sys/init", {"secret_shares": shares, "secret_threshold": threshold}
-        )
+    def initialise(self, *, shares: int, threshold: int, recovery: bool = False) -> dict[str, Any]:
+        """Initialise Vault once; the result holds the root token and either the Shamir unseal
+        keys (``keys_base64``) or, with an auto-unseal seal, the recovery keys
+        (``recovery_keys_base64``). Recovery keys cannot unseal Vault; they authorise root
+        generation and rekeying only."""
+        payload = ({"recovery_shares": shares, "recovery_threshold": threshold} if recovery
+                   else {"secret_shares": shares, "secret_threshold": threshold})
+        return self._require("POST", "sys/init", payload)
 
     def unseal(self, key: str) -> dict[str, Any]:
         """Submit one unseal key share."""
@@ -127,7 +130,8 @@ class VaultAdmin:
         return str(body["auth"]["client_token"])
 
     def generate_root(self, keys: list[str]) -> str:
-        """Generate a new root token from unseal shares (one-time-password flow).
+        """Generate a new root token from key shares (one-time-password flow): the unseal
+        shares under Shamir, the recovery shares under auto-unseal (Vault chooses).
 
         Vault 2.x requires an authenticated caller (policy root-generation). Cancels any
         unfinished attempt first, submits shares until Vault reports completion and returns
@@ -142,7 +146,7 @@ class VaultAdmin:
             if progress.get("complete"):
                 return decode_root_token(str(progress["encoded_token"]), otp)
         self._require("DELETE", "sys/generate-root/attempt")
-        raise VaultError("vault_generate_root_incomplete", "not enough unseal shares to generate a root token")
+        raise VaultError("vault_generate_root_incomplete", "not enough key shares to generate a root token")
 
     def describe(self, auth_mount: str) -> dict[str, Any]:
         """Read the live configuration for evidence: engine types, auth methods, audit devices,
