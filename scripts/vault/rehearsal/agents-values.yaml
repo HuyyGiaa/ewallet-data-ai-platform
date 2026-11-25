@@ -1,0 +1,11 @@
+# kind-only Vault V2 rehearsal release of infra/helm/llm-agent-platform (release `rehearsal-agents`,
+# namespace vault-rehearsal-agents), layered on the chart's own values-local.yaml (real vLLM CPU image,
+# the staged Qwen3-0.6B model). Used with scripts/vault/rehearsal/agents_post_render.py. The defaults
+# reference the rehearsal's "existing" Secrets vllm-api-key and agentgateway-client-key; the official
+# overlay infra/helm/llm-agent-platform/values-vault-eso.yaml switches all three references, unchanged.
+namespace: {create: false, name: vault-rehearsal-agents}
+vllm:
+  primary: {replicas: 1}
+  fallback: {replicas: 0}
+agentgateway:
+  replicas: 1

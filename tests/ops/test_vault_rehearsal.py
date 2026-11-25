@@ -132,7 +132,9 @@ def test_consumer_side_uses_the_platform_redis_image_and_restricted_pods():
     platform = (ROOT / "infra/kubernetes/feast-online/redis.yaml").read_text()
     digest = re.search(r"REDIS_IMAGE=\S+@(sha256:[0-9a-f]{64})", TEXT).group(1)
     assert digest in platform
-    assert "pod-security.kubernetes.io/enforce: restricted" in TEXT and "runAsNonRoot: true" in TEXT
+    assert "pod-security.kubernetes.io/enforce: %s" in TEXT and '"${2:-restricted}"' in TEXT and "runAsNonRoot: true" in TEXT
+    # Only the agents namespace enforces baseline (as the chart's own ewallet-agents: the vLLM CPU image runs as root).
+    assert TEXT.count("new_namespace \"$ANS\" baseline") == 1 and "baseline" not in TEXT.split("new_namespace \"$ANS\" baseline")[0].split("new_namespace() {")[1].split("\n}")[1]
 
 
 # ---- regression: the real cleanup and verify-clean code against stub kubectl/helm/gcloud (no cluster)

@@ -190,14 +190,34 @@ negative() {  # <step> <externalsecret> <expected class> [ns]: unsynced, no targ
   record "$1" "$(jq -cn --arg c "$(es_condition "$ns" "$2")" --arg e "$class" --arg n "$ns" \
     '{result: "denied", namespace: $n, condition: $c, error_class: $e, target_secret: "absent"}')"
 }
-negative_namespace() {  # <step> <ns> <externalsecret> <store>: the store's namespace conditions refuse it before any Vault call
-  local msg
+negative_store() {  # <step> <externalsecret> <cluster store> <expected class>: ESO validates a ClusterSecretStore by logging in itself,
+  # so a login failure makes the STORE NotReady (cause in the log lines naming the store) and the ExternalSecret refused
+  local class= ready
+  es_wait "$RNS" "$2" False 90 || fail "$1" "ExternalSecret $2 did not report a failure"
+  if k -n "$RNS" get secret "$2" >/dev/null 2>&1; then fail "$1" "target Secret $2 exists"; fi
+  ready=$(store_ready "$3")
+  [ "${ready%% *}" = False ] || fail "$1" "store $3 is $ready"
+  case "$(k -n "$RNS" get externalsecret "$2" -o json | jq -r '.status.conditions[0].message // ""')" in *"could not get secret data from provider"*) ;;
+    *) fail "$1" "ExternalSecret $2 failed for another reason" ;; esac
+  for _ in $(seq 30); do class=$(es_error "$3"); [ "$class" = "$4" ] && break; sleep 2; done
+  [ "$class" = "$4" ] || fail "$1" "expected $4 for store $3, observed $class"
+  record "$1" "$(jq -cn --arg c "$(es_condition "$RNS" "$2")" --arg s "$3" --arg r "$ready" --arg e "$class" \
+    '{result: "denied", externalsecret: $c, store: $s, store_ready: $r, error_class: $e, target_secret: "absent"}')"
+}
+negative_namespace() {  # <step> <ns> <externalsecret> <store>: the store's namespace condition refuses it before any Vault call
+  # The cause is in the controller log (the ExternalSecret status is generic): using cluster store "<store>" is not allowed
+  # from namespace "<ns>": denied by spec.condition
+  local msg=
   es_wait "$2" "$3" False 90 || fail "$1" "ExternalSecret $2/$3 did not report a failure"
   if k -n "$2" get secret "$3" >/dev/null 2>&1; then fail "$1" "target Secret $2/$3 exists"; fi
-  msg=$(k -n "$2" get externalsecret "$3" -o jsonpath='{.status.conditions[?(@.type=="Ready")].message}')
-  case "$msg" in *"$4"*"not allowed"*|*"$4"*"denied by spec.condition"*) ;; *) fail "$1" "unexpected cause: ${msg:0:200}" ;; esac
+  for _ in $(seq 30); do
+    msg=$(k -n "$ENS" logs deploy/external-secrets --since=10m 2>/dev/null | grep -F "\"$3\"" | jq -r 'select(.namespace? == "'"$2"'") | .error // empty' 2>/dev/null \
+      | grep -oE "using cluster store \"$4\" is not allowed from namespace \"$2\": denied by spec.condition" | tail -1) || msg=
+    [ -n "$msg" ] && break; sleep 2
+  done
+  [ -n "$msg" ] || fail "$1" "no 'not allowed from namespace' cause for $2/$3 and store $4"
   record "$1" "$(jq -cn --arg n "$2" --arg m "$msg" --arg s "$4" \
-    '{result: "denied", namespace: $n, store: $s, error_class: "store-not-allowed-in-namespace", message: $m, target_secret: "absent"}')"
+    '{result: "denied", namespace: $n, store: $s, error_class: "store-not-allowed-in-namespace", cause: $m, target_secret: "absent"}')"
 }
 external_secret() {  # <ns> <name> <target> <store kind> <store> <key> <property> [extra label]
   own <<YAML | python3 -c 'import sys,yaml; d=yaml.safe_load(sys.stdin); l=sys.argv[1]; (l and d["metadata"]["labels"].update({l: "true"})); yaml.safe_dump(d, sys.stdout)' "${8:-}" | k create -f - >/dev/null
@@ -853,30 +873,76 @@ phase_configure() {  # MUTATING (Vault): RB step 4, then the rehearsal role; roo
   record tls-wrong-ca-rejected '{"result": "denied"}'
 }
 
-phase_eso() {  # MUTATING (Kubernetes): RB step 6 with the official values; the consumer namespace is new
-  local deploys objs
-  printf 'apiVersion: v1\nkind: Namespace\nmetadata: {name: %s, labels: {pod-security.kubernetes.io/enforce: restricted, pod-security.kubernetes.io/warn: restricted}}\n' "$RNS" | create
-  k -n "$RNS" create configmap vault-ca --from-file=ca.crt="$PRIV/ca.crt" --dry-run=client -o yaml | create
+new_namespace() {  # <name> [enforce level]: restricted, or baseline for the agents namespace (as the chart's ewallet-agents: vLLM runs as root)
+  printf 'apiVersion: v1\nkind: Namespace\nmetadata: {name: %s, labels: {pod-security.kubernetes.io/enforce: %s, pod-security.kubernetes.io/warn: restricted, pod-security.kubernetes.io/audit: restricted}}\n' \
+    "$1" "${2:-restricted}" | create
+}
+manifest_doc() { python3 -c 'import sys,yaml; [yaml.safe_dump(d, sys.stdout) for d in yaml.safe_load_all(open(sys.argv[1])) if d and d["kind"] == sys.argv[2]]' "$@"; }
+
+phase_eso() {  # MUTATING (Kubernetes): RB step 6 with the official values; the consumer namespaces are new
+  local deploys objs args out
+  for ns in "$RNS" "$DNS"; do new_namespace "$ns"; done
+  new_namespace "$ANS" baseline
+  if [ -n "$KIND" ]; then new_namespace "$SANDBOX"; fi        # kind only: the official store's excluded namespace
+  k -n "$RNS" create configmap vault-ca --from-file=ca.crt="$PRIV/ca.crt" --dry-run=client -o yaml | create   # namespaced negative stores only
   create < "$root/infra/kubernetes/external-secrets/namespace.yaml"
   h install external-secrets "$CHARTS/external-secrets-2.14.0.tgz" -n "$ENS" -f "$root/infra/kubernetes/external-secrets/values.yaml" \
     --wait --timeout 5m >/dev/null || fail eso-install "helm install failed"
   deploys=$(k -n "$ENS" get deploy -o json | jq -c '[.items[] | {name: .metadata.name, available: (.status.availableReplicas // 0)}]')
   [ "$(jq '[.[] | select(.available > 0)] | length' <<<"$deploys")" = 3 ] || fail eso-runtime "not 3 available deployments: $deploys"
+  args=$(k -n "$ENS" get deploy external-secrets -o json | jq -c '.spec.template.spec.containers[0].args')
+  jq -e 'index("--enable-cluster-store-reconciler=false") == null and index("--enable-cluster-external-secret-reconciler=false") != null
+    and index("--enable-push-secret-reconciler=false") != null and index("--enable-cluster-push-secret-reconciler=false") != null' <<<"$args" >/dev/null \
+    || fail eso-flags "controller flags differ from values.yaml: $args"
   objs=$(k get "$CLUSTER_KINDS" -l app.kubernetes.io/instance=external-secrets -o json | jq -c '[.items[] | "\(.kind)/\(.metadata.name)"]')
   jq -cn --argjson o "$objs" --argjson c "$(k get crd -o json | jq -c '[.items[].metadata.name | select(endswith(".external-secrets.io"))]')" \
     '{cluster_objects: $o, crds: $c}' > "$DIR/eso-cluster-objects.json"
   record eso-runtime "$(jq -cn --argjson d "$deploys" --argjson o "$objs" --argjson n "$(jq '.crds | length' "$DIR/eso-cluster-objects.json")" \
-    --argjson cs "$(k get clustersecretstore,clusterexternalsecret -o json | jq '.items | length')" \
-    '{result: "PASS", deployments: $d, crds: $n, cluster_objects: $o, cluster_scoped_stores: $cs}')"
+    '{result: "PASS", deployments: $d, crds: $n, cluster_objects: $o, cluster_store_reconciler: "on",
+      cluster_external_secret_push_secret_cluster_push_secret: "off"}')"
+  # The official reader identity and the one CA, from the committed files and helper.
+  manifest_doc "$root/infra/kubernetes/external-secrets/cluster-secret-store.yaml" ServiceAccount | create
+  out=$(bash "$root/scripts/vault/publish_ca.sh" "$CTX" "$LABEL=$ID") || fail publish-ca "publish_ca.sh failed"
+  [ "$out" = CA_PUBLISHED ] || fail publish-ca "expected CA_PUBLISHED, got $out"
+  [ "$(bash "$root/scripts/vault/publish_ca.sh" "$CTX" "$LABEL=$ID")" = CA_UNCHANGED ] || fail publish-ca "a second publish changed the CA"
+  record vault-ca-published '{"result": "PASS", "configmap": "external-secrets/vault-ca", "first": "CA_PUBLISHED", "second": "CA_UNCHANGED"}'
+  if [ -n "$KIND" ]; then   # K3 with the committed manifest itself (on GKE the official store is created only by the campaign)
+    manifest_doc "$root/infra/kubernetes/external-secrets/cluster-secret-store.yaml" ClusterSecretStore | create
+    k wait --for=condition=Ready "clustersecretstore/$OFFICIAL" --timeout=120s >/dev/null || fail official-store "$OFFICIAL not Ready"
+    record official-store-ready "$(jq -cn --arg s "$(store_ready "$OFFICIAL")" --argjson c "$(k get clustersecretstore "$OFFICIAL" -o json | jq -c '.spec.conditions')" \
+      '{result: "PASS", store: "ewallet-vault (committed manifest)", ready: $s, conditions: $c, role: "eso-ewallet-reader", identity: "external-secrets/eso-vault-reader"}')"
+  fi
+  cluster_store "$STORE" vault eso-vault-rehearsal vault-ca "[$RNS, $ANS]"
+  k wait --for=condition=Ready "clustersecretstore/$STORE" --timeout=120s >/dev/null || fail rehearsal-store "$STORE not Ready"
+  record rehearsal-store-ready "$(jq -cn --arg s "$(store_ready "$STORE")" --argjson c "$(k get clustersecretstore "$STORE" -o json | jq -c '.spec.conditions')" \
+    '{result: "PASS", store: "ewallet-vault-rehearsal", ready: $s, conditions: $c, role: "eso-vault-rehearsal", identity: "external-secrets/eso-vault-reader"}')"
 }
 
-phase_consumer() {  # MUTATING: synthetic Vault entry -> ESO -> Secret -> real Redis authentication
-  local p1 out owner keys
+synced_secret() {  # <ns> <es> <target> <key> <expected value>: synced, owned by the ExternalSecret, exactly one key, equal to Vault
+  local owner keys
+  es_wait "$1" "$2" True 120 || fail sync "$1/$2 not synced: $(es_error "$2")"
+  owner=$(k -n "$1" get secret "$3" -o jsonpath='{.metadata.ownerReferences[0].kind}/{.metadata.ownerReferences[0].name}')
+  keys=$(k -n "$1" get secret "$3" -o json | jq -c '.data | keys')
+  [ "$owner" = "ExternalSecret/$2" ] || fail sync "$1/$3 owned by $owner"
+  [ "$keys" = "[\"$4\"]" ] || fail sync "$1/$3 has keys $keys"
+  [ "$(secret_sha "$1" "$3" "$4")" = "$(sha "$5")" ] || fail sync "$1/$3 differs from Vault"
+  jq -cn --arg n "$1" --arg t "$3" --arg o "$owner" --argjson k "$keys" --arg c "$(es_condition "$1" "$2")" \
+    '{namespace: $n, target: $t, externalsecret: $c, owner: $o, keys: $k, value: "equal to Vault (hash prefix)"}'
+}
+
+phase_consumer() {  # MUTATING: synthetic Vault entries -> ESO (one store, two namespaces) -> Secrets -> real Redis authentication
+  local p1 out a b c
   open_forward; status_is true false >/dev/null
   [ -f "$PRIV/synthetic.env" ] && fail synthetic "consumer phase already ran"
-  p1=$(openssl rand -hex 20); (umask 077; printf 'P1=%s\nP2=%s\n' "$p1" "$(openssl rand -hex 20)" > "$PRIV/synthetic.env")
-  out=$(conn "$p1" | vault put --token-file "$PRIV/operator-token.json" --path feature-api/rehearsal-redis --key connection_string --stdin) \
-    || fail seed "put failed"; record seed "$out"
+  p1=$(openssl rand -hex 20)
+  (umask 077; printf 'P1=%s\nP2=%s\nP3=%s\nPCUR=%s\nVK1=%s\nVK2=%s\nCK1=%s\nCK2=%s\n' "$p1" "$(openssl rand -hex 20)" "$(openssl rand -hex 20)" "$p1" \
+    "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" > "$PRIV/synthetic.env")
+  out=$(conn "$p1" | vault put --token-file "$PRIV/operator-token.json" --path "$RPATH" --key connection_string --stdin) || fail seed "put failed"
+  record seed "$out"
+  out=$(synthetic VK1 | vault put --token-file "$PRIV/operator-token.json" --path "$VPATH" --key api-key --stdin) || fail seed "put failed"
+  record seed "$out"
+  out=$(synthetic CK1 | vault put --token-file "$PRIV/operator-token.json" --path "$CPATH" --key api-key --stdin) || fail seed "put failed"
+  record seed "$out"
   printf '%s' "$p1" | k -n "$RNS" create secret generic rehearsal-redis-server --from-file=password=/dev/stdin --dry-run=client -o yaml | create
   create <<YAML
 apiVersion: apps/v1
@@ -908,47 +974,59 @@ metadata: {name: redis, namespace: $RNS}
 spec:
   selector: {app.kubernetes.io/name: rehearsal-redis}
   ports: [{port: 6379, targetPort: 6379}]
----
-apiVersion: v1
-kind: ServiceAccount
-metadata: {name: eso-vault-reader, namespace: $RNS}
-automountServiceAccountToken: false
 YAML
-  secret_store vault eso-vault-reader vault eso-vault-rehearsal vault-ca
-  external_secret feature-api-redis-vault vault feature-api/rehearsal-redis connection_string
-  k -n "$RNS" wait --for=condition=Ready secretstore/vault --timeout=120s >/dev/null || fail store "SecretStore not Ready: $(es_error vault)"
-  es_wait "$RNS" feature-api-redis-vault True 120 || fail sync "not synced: $(es_error feature-api-redis-vault)"
-  owner=$(k -n "$RNS" get secret feature-api-redis-vault -o jsonpath='{.metadata.ownerReferences[0].kind}/{.metadata.ownerReferences[0].name}')
-  keys=$(k -n "$RNS" get secret feature-api-redis-vault -o json | jq -c '.data | keys')
-  [ "$owner" = ExternalSecret/feature-api-redis-vault ] || fail sync "target owned by $owner"
-  [ "$(secret_sha "$RNS" feature-api-redis-vault connection_string)" = "$(sha "$(conn "$p1")")" ] || fail sync "synced value differs from Vault v1"
-  record secret-synced "$(jq -cn --arg c "$(es_condition "$RNS" feature-api-redis-vault)" --arg o "$owner" --argjson k "$keys" \
-    --arg s "$(k -n "$RNS" get secretstore vault -o jsonpath='{.status.conditions[0].reason}')" \
-    '{result: "PASS", store: $s, externalsecret: $c, owner: $o, keys: $k, value: "equal to Vault v1 (hash prefix)"}')"
+  external_secret "$RNS" feast-online-redis feast-online-redis-vault ClusterSecretStore "$STORE" "$RPATH" connection_string
+  external_secret "$ANS" vllm-api-key vllm-api-key-vault ClusterSecretStore "$STORE" "$VPATH" api-key
+  external_secret "$ANS" agentgateway-client-key agentgateway-client-key-vault ClusterSecretStore "$STORE" "$CPATH" api-key
+  a=$(synced_secret "$RNS" feast-online-redis feast-online-redis-vault connection_string "$(conn "$p1")")
+  b=$(synced_secret "$ANS" vllm-api-key vllm-api-key-vault api-key "$(synthetic VK1)")
+  c=$(synced_secret "$ANS" agentgateway-client-key agentgateway-client-key-vault api-key "$(synthetic CK1)")
+  record secrets-synced "$(jq -cn --argjson a "$a" --argjson b "$b" --argjson c "$c" --arg s "$STORE" \
+    '{result: "PASS", store: $s, reader: "one identity, two namespaces", secrets: [$a, $b, $c]}')"
   k -n "$RNS" rollout status deploy/redis --timeout=180s >/dev/null || fail redis "synthetic Redis not Ready"
   out=$(consume); [ "$out" = OK ] || fail consumer "consumer result $out with the ESO Secret"
   record consumer '{"result": "PASS", "check": "redis-cli PING + SET/GET round trip with the ESO-managed connection_string"}'
 }
 
-phase_negative() {  # MUTATING (test objects only, label ewallet.io/vault-rehearsal-negative=true)
-  local code
+phase_negative() {  # MUTATING (test objects only, label ewallet.io/vault-rehearsal-negative=true): K8, the V2 trust model
+  local code probe
+  open_forward; status_is true false >/dev/null
+  k -n "$ENS" create configmap rehearsal-untrusted-ca --from-file=ca.crt="$PRIV/untrusted.crt" --dry-run=client -o yaml | create
   k -n "$RNS" create configmap rehearsal-untrusted-ca --from-file=ca.crt="$PRIV/untrusted.crt" --dry-run=client -o yaml | create
   printf 'apiVersion: v1\nkind: ServiceAccount\nmetadata: {name: rehearsal-intruder, namespace: %s}\nautomountServiceAccountToken: false\n' "$RNS" | create
-  secret_store neg-wrong-sa rehearsal-intruder vault eso-vault-rehearsal vault-ca true
-  secret_store neg-wrong-role eso-vault-reader vault eso-ml-platform vault-ca true
-  secret_store neg-wrong-aud eso-vault-reader kubernetes eso-vault-rehearsal vault-ca true
-  secret_store neg-wrong-ca eso-vault-reader vault eso-vault-rehearsal rehearsal-untrusted-ca true
-  external_secret neg-path vault feature-api/feast-redis connection_string ewallet.io/vault-rehearsal-negative
-  external_secret neg-missing-key vault feature-api/rehearsal-redis no_such_property ewallet.io/vault-rehearsal-negative
-  for s in wrong-sa wrong-role wrong-aud wrong-ca; do
-    external_secret "neg-$s" "neg-$s" feature-api/rehearsal-redis connection_string ewallet.io/vault-rehearsal-negative
-  done
-  negative unauthorized-path neg-path vault-permission-denied
+  # Same name as the real reader, in a consumer namespace: the roles bind external-secrets only.
+  printf 'apiVersion: v1\nkind: ServiceAccount\nmetadata: {name: eso-vault-reader, namespace: %s}\nautomountServiceAccountToken: false\n' "$RNS" | create
+  secret_store neg-wrong-sa rehearsal-intruder vault eso-vault-rehearsal vault-ca
+  secret_store neg-wrong-ns eso-vault-reader vault eso-vault-rehearsal vault-ca
+  cluster_store "$STORE-neg-aud" kubernetes eso-vault-rehearsal vault-ca "[$RNS]" true
+  cluster_store "$STORE-neg-ca" vault eso-vault-rehearsal rehearsal-untrusted-ca "[$RNS]" true
+  L=ewallet.io/vault-rehearsal-negative
+  external_secret "$RNS" neg-path neg-path ClusterSecretStore "$STORE" ml-platform/feast-online-redis connection_string "$L"
+  external_secret "$RNS" neg-missing-key neg-missing-key ClusterSecretStore "$STORE" "$RPATH" no_such_property "$L"
+  external_secret "$RNS" neg-wrong-sa neg-wrong-sa SecretStore neg-wrong-sa "$RPATH" connection_string "$L"
+  external_secret "$RNS" neg-wrong-ns neg-wrong-ns SecretStore neg-wrong-ns "$RPATH" connection_string "$L"
+  external_secret "$RNS" neg-wrong-aud neg-wrong-aud ClusterSecretStore "$STORE-neg-aud" "$RPATH" connection_string "$L"
+  external_secret "$RNS" neg-wrong-ca neg-wrong-ca ClusterSecretStore "$STORE-neg-ca" "$RPATH" connection_string "$L"
+  external_secret "$DNS" neg-denied-namespace neg-denied-namespace ClusterSecretStore "$STORE" "$RPATH" connection_string "$L"
+  if [ -n "$KIND" ]; then
+    external_secret "$SANDBOX" neg-sandbox neg-sandbox ClusterSecretStore "$OFFICIAL" ml-platform/feast-online-redis connection_string "$L"
+  fi
+  negative out-of-policy-path neg-path vault-permission-denied
   negative missing-key neg-missing-key vault-key-missing
   negative wrong-service-account neg-wrong-sa service-account-not-bound-to-role
-  negative role-of-another-namespace neg-wrong-role role-bound-to-other-namespace
-  negative wrong-audience neg-wrong-aud token-audience-rejected
-  negative untrusted-ca neg-wrong-ca tls-untrusted-ca
+  negative same-named-reader-other-namespace neg-wrong-ns role-bound-to-other-namespace
+  negative_store wrong-audience neg-wrong-aud "$STORE-neg-aud" token-audience-rejected
+  negative_store untrusted-ca neg-wrong-ca "$STORE-neg-ca" tls-untrusted-ca
+  negative_namespace unapproved-namespace "$DNS" neg-denied-namespace "$STORE"
+  if [ -n "$KIND" ]; then negative_namespace sandbox-excluded-from-official-store "$SANDBOX" neg-sandbox "$OFFICIAL"; fi
+  # The official reader's own token: what it may and may not do (HTTP status codes only; values are never read into evidence).
+  probe=$(reader_probe eso-ewallet-reader)
+  jq -e --arg r "GET ewallet/data/$RPATH" --arg m "GET ewallet/metadata/$RPATH" --arg w "POST ewallet/data/$RPATH" '
+    .[$r] == "200" and .["GET ewallet/data/mcp-platform/out-of-prefix-probe"] == "403" and .[$m] == "403"
+    and .["LIST ewallet/metadata/ml-platform"] == "403" and .[$w] == "403" and .["GET sys/policies/acl"] == "403"
+    and .["POST sys/policies/acl/intruder"] == "403" and .["GET auth/kubernetes/role?list=true"] == "403"
+    and .["POST sys/generate-root/attempt"] == "403"' <<<"$probe" >/dev/null || fail reader-scope "unexpected reader capabilities: $probe"
+  record reader-token-scope "$(jq -c '{result: "PASS", role: "eso-ewallet-reader", identity: "external-secrets/eso-vault-reader", http_status: .}' <<<"$probe")"
   # NetworkPolicy: a pod in the rehearsal namespace must not reach Vault (only the ESO controller may).
   # BusyBox nc has no -z: `nc -w 5 HOST PORT </dev/null` exits 0 on connect, 1 on refusal, timeout or DNS error.
   # The same pod must first reach the rehearsal Redis, so a DNS or tooling failure never counts as BLOCKED.
@@ -972,48 +1050,290 @@ YAML
   record networkpolicy-blocks-other-pods '{"result": "denied", "from": "vault-rehearsal pod", "to": "vault:8200", "observed": "BLOCKED", "control": "same pod reached redis:6379"}'
   record no-public-endpoint "$(jq -cn --argjson v "$(k -n "$VNS" get svc -o json | jq -c '[.items[].spec.type] | unique')" \
     '{result: (if $v == ["ClusterIP"] then "PASS" else "FAIL" end), vault_service_types: $v}')"
-  k -n "$RNS" delete externalsecret,secretstore,pod,serviceaccount,configmap -l ewallet.io/vault-rehearsal-negative=true --wait=true >/dev/null
-  k -n "$RNS" delete serviceaccount rehearsal-intruder configmap rehearsal-untrusted-ca --ignore-not-found >/dev/null
+  for ns in "$RNS" "$DNS" $([ -z "$KIND" ] || echo "$SANDBOX"); do
+    k -n "$ns" delete externalsecret,secretstore,pod -l ewallet.io/vault-rehearsal-negative=true --wait=true >/dev/null
+  done
+  k delete clustersecretstore -l "ewallet.io/vault-rehearsal-negative=true,$LABEL=$ID" --wait=true >/dev/null
+  k -n "$RNS" delete serviceaccount rehearsal-intruder eso-vault-reader configmap rehearsal-untrusted-ca --ignore-not-found >/dev/null
+  k -n "$ENS" delete configmap rehearsal-untrusted-ca --ignore-not-found >/dev/null
+  [ -z "$(k get clustersecretstore -l ewallet.io/vault-rehearsal-negative=true -o name)" ] || fail negative-cleanup "negative stores remain"
   record negative-objects-removed '{"result": "PASS"}'
 }
 
-phase_lifecycle() {  # MUTATING (Vault: synthetic versions; Kubernetes: one Vault pod restart)
-  local rv out p1 p2 before
+rotate_redis() {  # <old> <new>: a REAL rotation of the synthetic Redis server password (CONFIG SET, data kept), then its Secret
+  local job state
+  { printf 'old=%s\n' "$1"; printf 'new=%s\n' "$2"; } | k -n "$RNS" create secret generic rehearsal-redis-rotate --from-env-file=/dev/stdin \
+    --dry-run=client -o yaml | create
+  job=$(own <<YAML | k create -f - -o name
+apiVersion: batch/v1
+kind: Job
+metadata: {generateName: rehearsal-redis-rotate-, namespace: $RNS}
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      $restricted
+      containers:
+        - name: rotate
+          image: $REDIS_IMAGE
+          $container_security
+          env:
+            - {name: REDISCLI_AUTH, valueFrom: {secretKeyRef: {name: rehearsal-redis-rotate, key: old}}}
+            - {name: NEW, valueFrom: {secretKeyRef: {name: rehearsal-redis-rotate, key: new}}}
+          command: [sh, -c]
+          args:
+            - |
+              h=redis.$RNS.svc.cluster.local
+              [ "\$(redis-cli -h \$h --no-auth-warning CONFIG SET requirepass "\$NEW")" = OK ] || { echo ROTATE_FAILED; exit 1; }
+              [ "\$(REDISCLI_AUTH=\$NEW redis-cli -h \$h --no-auth-warning PING)" = PONG ] && echo ROTATED || { echo NEW_PASSWORD_REJECTED; exit 1; }
+YAML
+)
+  for _ in $(seq 90); do state=$(k -n "$RNS" get "$job" -o jsonpath='{.status.succeeded}/{.status.failed}'); case "$state" in 1/*|*/1) break ;; esac; sleep 1; done
+  [ "$(k -n "$RNS" logs "$job" 2>/dev/null | tail -1)" = ROTATED ] || fail redis-rotate "the server password was not rotated ($state)"
+  k -n "$RNS" delete secret rehearsal-redis-rotate >/dev/null
+  # A later Redis restart (simulated wake) must come back with the new password.
+  printf '%s' "$2" | k -n "$RNS" create secret generic rehearsal-redis-server --from-file=password=/dev/stdin --dry-run=client -o yaml | own | k replace -f - >/dev/null
+}
+
+phase_lifecycle() {  # MUTATING (Vault: synthetic versions; Kubernetes: Vault pod restarts, synthetic Redis rotation; kind: unsealer outage)
+  local rv out p1 p2 p3 before s OP=$PRIV/operator-token.json ES=feast-online-redis T=feast-online-redis-vault serving=
   open_forward; status_is true false >/dev/null
-  p1=$(synthetic P1); p2=$(synthetic P2); OP=$PRIV/operator-token.json
+  p1=$(synthetic P1); p2=$(synthetic P2); p3=$(synthetic P3)
+  if h status "$SERVING" -n "$RNS" >/dev/null 2>&1; then serving=1; fi
   # 1. A new KV version reaches the Secret and the consumer (v2: a wrong password, so the effect is visible).
-  rv=$(es_synced_rv "$RNS" feature-api-redis-vault)
-  out=$(conn "$p2" | vault put --token-file "$OP" --path feature-api/rehearsal-redis --key connection_string --stdin) || fail kv-v2 "put failed"
-  force_sync feature-api-redis-vault; rv=$(synced_after feature-api-redis-vault "$rv") || fail kv-v2 "no new reconciliation"
-  [ "$(secret_sha "$RNS" feature-api-redis-vault connection_string)" = "$(sha "$(conn "$p2")")" ] || fail kv-v2 "Secret not at v2"
+  rv=$(es_synced_rv "$RNS" "$ES")
+  out=$(conn "$p2" | vault put --token-file "$OP" --path "$RPATH" --key connection_string --stdin) || fail kv-v2 "put failed"
+  force_sync "$ES"; rv=$(synced_after "$ES" "$rv") || fail kv-v2 "no new reconciliation"
+  [ "$(secret_sha "$RNS" "$T" connection_string)" = "$(sha "$(conn "$p2")")" ] || fail kv-v2 "Secret not at v2"
   [ "$(consume)" = AUTH_FAILED ] || fail kv-v2 "the consumer did not use the new version"
   record kv-v2-propagated "$(jq -c '{result: "PASS", version: .version, consumer: "AUTH_FAILED (v2 is deliberately wrong: the new value was used)"}' <<<"$out")"
-  out=$(conn "$p1" | vault put --token-file "$OP" --path feature-api/rehearsal-redis --key connection_string --stdin) || fail kv-v3 "put failed"
-  force_sync feature-api-redis-vault; rv=$(synced_after feature-api-redis-vault "$rv") || fail kv-v3 "no new reconciliation"
+  out=$(conn "$p1" | vault put --token-file "$OP" --path "$RPATH" --key connection_string --stdin) || fail kv-v3 "put failed"
+  force_sync "$ES"; rv=$(synced_after "$ES" "$rv") || fail kv-v3 "no new reconciliation"
   [ "$(consume)" = OK ] || fail kv-v3 "the consumer did not recover with v3"
-  record kv-v3-restored "$(jq -cn --argjson o "$out" --argjson m "$(vault versions --token-file "$OP" --path feature-api/rehearsal-redis)" \
+  record kv-v3-restored "$(jq -cn --argjson o "$out" --argjson m "$(vault versions --token-file "$OP" --path "$RPATH")" \
     '{result: "PASS", version: $o.version, metadata: $m, consumer: "OK"}')"
-  # 2. Restart: Vault comes back sealed (Pod still Ready), ESO fails but keeps the Secret, manual unseal restores sync.
-  before=$(secret_sha "$RNS" feature-api-redis-vault connection_string)
-  stop_forward
-  k -n "$VNS" delete pod vault-0 --wait=true >/dev/null
-  k -n "$VNS" wait --for=condition=Ready pod/vault-0 --timeout=300s >/dev/null || fail restart "vault-0 not back"
-  open_forward
-  record restarted-sealed "$(jq -cn --arg r "$(pod_ready)" --argjson s "$(status_is true true)" '{result: "PASS", pod_ready: $r, sealed: $s.sealed}')"
-  force_sync feature-api-redis-vault
-  es_wait "$RNS" feature-api-redis-vault False 90 || fail sealed-sync "ESO did not report the sealed Vault"
-  for _ in $(seq 30); do [ "$(es_error feature-api-redis-vault 3m)" = vault-sealed ] && break; sleep 2; done
-  [ "$(secret_sha "$RNS" feature-api-redis-vault connection_string)" = "$before" ] || fail sealed-sync "the Secret changed while sealed"
-  [ "$(consume)" = OK ] || fail sealed-sync "the consumer lost access while Vault was sealed"
-  if h status "$SERVING" -n "$RNS" >/dev/null 2>&1; then open_feature_forward; expect_lookup while-sealed; fi
-  record sealed-keeps-secret "$(jq -cn --arg c "$(es_condition "$RNS" feature-api-redis-vault)" --arg e "$(es_error feature-api-redis-vault 3m)" \
-    '{result: "PASS", externalsecret: $c, error_class: $e, target_secret: "unchanged", consumer: "OK"}')"
-  vault unseal --keys-file "$PRIV/vault-keys.json" >/dev/null || fail unseal "unseal failed"
-  status_is true false >/dev/null
-  rv=$(es_synced_rv "$RNS" feature-api-redis-vault); force_sync feature-api-redis-vault
-  synced_after feature-api-redis-vault "$rv" >/dev/null || fail unseal-sync "ESO did not recover after unseal"
-  [ "$(consume)" = OK ] || fail unseal-sync "consumer failed after unseal"
-  record unsealed-sync-recovered "$(jq -cn --arg c "$(es_condition "$RNS" feature-api-redis-vault)" '{result: "PASS", externalsecret: $c, consumer: "OK"}')"
+  # 2. K11: a real credential rotation. The server password changes first (CONFIG SET), then Vault, ESO, the consumers.
+  rotate_redis "$p1" "$p3"
+  out=$(conn "$p3" | vault put --token-file "$OP" --path "$RPATH" --key connection_string --stdin) || fail rotation "put failed"
+  force_sync "$ES"; rv=$(synced_after "$ES" "$rv") || fail rotation "no new reconciliation"
+  [ "$(secret_sha "$RNS" "$T" connection_string)" = "$(sha "$(conn "$p3")")" ] || fail rotation "Secret not at the rotated version"
+  set_synthetic PCUR "$p3"
+  [ "$(consume)" = OK ] || fail rotation "the consumer failed with the rotated credential"
+  [ "$(consume "$LEGACY")" = AUTH_FAILED ] || fail rotation "the retired credential (the original Secret) still authenticates"
+  if [ -n "$serving" ]; then
+    k -n "$RNS" rollout restart deploy/feature-api >/dev/null
+    k -n "$RNS" rollout status deploy/feature-api --timeout=600s >/dev/null || fail rotation "Feature API rollout failed"
+    open_feature_forward; expect_lookup after-rotation
+  fi
+  record credential-rotated "$(jq -cn --argjson o "$out" --arg f "$([ -n "$serving" ] && echo BASELINE_OK || echo 'not deployed')" \
+    '{result: "PASS", server_password: "rotated (CONFIG SET, data kept)", vault_version: $o.version, eso: "new reconciliation, value equal",
+      consumer: "OK with the new credential", retired_credential: "AUTH_FAILED", feature_api_after_restart: $f}')"
+  # 3. K13: restart -> Vault unseals itself (no manual unseal), ESO resumes, the consumer keeps working.
+  restart_vault
+  s=$(wait_unsealed 120) || fail restart-auto-unseal "Vault did not unseal itself after the restart"
+  k -n "$VNS" wait --for=condition=Ready pod/vault-0 --timeout=120s >/dev/null || fail restart-auto-unseal "not Ready"
+  force_sync "$ES"; rv=$(synced_after "$ES" "$rv") || fail restart-auto-unseal "ESO did not reconcile after the restart"
+  [ "$(consume)" = OK ] || fail restart-auto-unseal "consumer failed after the restart"
+  record restart-auto-unsealed-eso-resumed "$(jq -c --arg l "$AUTO" '{result: "PASS", initialized, sealed, manual_unseal: "none",
+    externalsecret: "SecretSynced (new reconciliation)", consumer: "OK", label: $l}' <<<"$s")"
+  # 4. K14 (kind only): the seal becomes unreachable; synced Secrets and consumers survive; the seal returns, Vault recovers by itself.
+  if [ -n "$KIND" ]; then
+    before=$(secret_sha "$RNS" "$T" connection_string)
+    unsealer_offline
+    restart_vault noforward
+    open_forward_nowait
+    s=$(seal_down_observed 150)
+    [ "$(jq -r .exited_on_seal_setup <<<"$s")" = true ] || fail seal-down "Vault did not fail its seal setup: $s"
+    force_sync "$ES"
+    es_wait "$RNS" "$ES" False 120 || fail seal-down-sync "ESO did not report the unavailable Vault"
+    out=$(es_error "$ES" 4m)
+    case "$out" in vault-unreachable|vault-sealed) ;; *) fail seal-down-sync "unexpected cause $out" ;; esac
+    [ "$(secret_sha "$RNS" "$T" connection_string)" = "$before" ] || fail seal-down-sync "the Secret changed while Vault was down"
+    [ "$(consume)" = OK ] || fail seal-down-sync "the consumer lost access while Vault was down"
+    if [ -n "$serving" ]; then
+      k -n "$RNS" rollout restart deploy/feature-api >/dev/null       # a consumer that STARTS during the outage, on the retained Secret
+      k -n "$RNS" rollout status deploy/feature-api --timeout=600s >/dev/null || fail seal-down-sync "Feature API did not start on the retained Secret"
+      open_feature_forward; expect_lookup while-vault-down
+    fi
+    record seal-unreachable-consumers-keep-working "$(jq -c --arg c "$(es_condition "$RNS" "$ES")" --arg e "$out" --arg l "$AUTO" \
+      --arg f "$([ -n "$serving" ] && echo 'restarted, BASELINE_OK' || echo 'not deployed')" \
+      '{result: "PASS", vault: ., externalsecret: $c, error_class: $e, target_secret: "unchanged", consumer: "OK", feature_api: $f, label: $l}' <<<"$s")"
+    unsealer_online
+    recover_from_outage
+    rv=$(es_synced_rv "$RNS" "$ES"); force_sync "$ES"
+    synced_after "$ES" "$rv" >/dev/null || fail seal-recovered "ESO did not recover"
+    [ "$(consume)" = OK ] || fail seal-recovered "consumer failed after the recovery"
+    record seal-back-eso-recovered "$(jq -c --arg l "$AUTO" '{result: "PASS", vault: ., externalsecret: "SecretSynced (new reconciliation)", consumer: "OK", label: $l}' <<<"$RECOVERED")"
+  fi
+  compare_production production-unchanged
+}
+
+# ---- K6/K7 (kind only): the real Agent Gateway and real vLLM on the ESO-managed keys
+agents() {  # <install|upgrade> [extra helm args]: the llm-agent-platform chart through the agents post-renderer
+  local verb=$1; shift
+  REHEARSAL_NAMESPACE=$ANS REHEARSAL_ID=$ID h "$verb" "$AGENTS" "$root/infra/helm/llm-agent-platform" -n "$ANS" \
+    --post-renderer "$root/scripts/vault/rehearsal/agents_post_render.py" --wait --timeout 25m "$@" >/dev/null
+}
+agents_ready() {  # helm --wait is not enough: with maxUnavailable 1 a one-replica vLLM counts as ready with no pod
+  local d
+  for d in vllm-primary agentgateway; do
+    k -n "$ANS" rollout status "deploy/$d" --timeout=25m >/dev/null || fail agents-ready "$d did not roll out"
+    [ "$(k -n "$ANS" get deploy "$d" -o jsonpath='{.status.readyReplicas}/{.status.updatedReplicas}/{.spec.replicas}')" = 1/1/1 ] \
+      || fail agents-ready "$d is not 1/1 ready and updated"
+  done
+}
+agent_refs() {  # the effective Secret references of the validator, the clients and the backend (names only)
+  jq -cn --argjson g "$(k -n "$ANS" get deploy agentgateway -o json | jq -c '[.spec.template.spec.containers[0].env[] | select(.valueFrom.secretKeyRef) | {(.name): .valueFrom.secretKeyRef.name}] | add')" \
+    --arg v "$(k -n "$ANS" get deploy vllm-primary -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="VLLM_API_KEY")].valueFrom.secretKeyRef.name}')" \
+    --arg m "$(k -n "$ANS" get modelconfig ewallet-global-llm -o jsonpath='{.spec.apiKeySecret}')" \
+    '{agentgateway: $g, vllm_primary: $v, modelconfig: $m}'
+}
+open_gateway_forward() {  # <svc> <port>: agentgateway (3000) or vllm-primary (8000), reopened after every rollout
+  for _ in $(seq 30); do
+    stop_ffwd
+    kubectl --context "$CTX" -n "$ANS" port-forward "svc/$1" "$GPORT:$2" >/dev/null 2>&1 & ffwd=$!
+    sleep 2
+    [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "http://127.0.0.1:$GPORT/v1/models")" != 000 ] && return 0
+  done
+  fail gateway-forward "svc/$1 did not answer on 127.0.0.1:$GPORT"
+}
+llm_call() {  # <key: a synthetic name, wrong or none> <model>: one real chat completion; prints the HTTP status (body never recorded)
+  local hdr=$PRIV/llm-header code
+  (umask 077; case "$1" in none) : > "$hdr" ;; wrong) printf 'Authorization: Bearer wrong-%s\n' "$(openssl rand -hex 16)" > "$hdr" ;;
+    *) printf 'Authorization: Bearer %s\n' "$(synthetic "$1")" > "$hdr" ;; esac)
+  code=$(curl -s -o "$PRIV/llm-body.json" -D "$PRIV/llm-headers" -w '%{http_code}' --max-time 300 -H "@$hdr" -H 'Content-Type: application/json' \
+    -d '{"model": "'"$2"'", "messages": [{"role": "user", "content": "Reply with the word OK."}], "max_tokens": 4}' \
+    "http://127.0.0.1:$GPORT/v1/chat/completions") || code=000
+  rm -f "$hdr"
+  if [ "$code" = 200 ] && ! jq -e '.choices[0].message' "$PRIV/llm-body.json" >/dev/null 2>&1; then code=200-without-completion; fi
+  printf '%s' "$code"
+}
+expect_llm() {  # <step> <key> <expected status> [model]
+  local got; got=$(llm_call "$2" "${4:-ewallet-fraud-llm}")
+  [ "$got" = "$3" ] || fail "$1" "key $2: HTTP $got, expected $3"
+  printf '%s' "$got"
+}
+gateway_matrix() {  # <step> <valid client key> <backend key>: valid 200 from real vLLM through the gateway; wrong, missing, backend key 401.
+  # Sets MATRIX (JSON). Never call it inside $(...): it opens the port-forward, whose PID must stay in this shell.
+  local backend
+  open_gateway_forward agentgateway 3000
+  expect_llm "$1" "$2" 200 >/dev/null
+  backend=$(tr -d '\r' < "$PRIV/llm-headers" | sed -n 's/^x-ewallet-backend: //Ip')
+  [ "$backend" = primary ] || fail "$1" "the completion was not served by vllm-primary (x-ewallet-backend: ${backend:-none})"
+  expect_llm "$1" wrong 401 >/dev/null; expect_llm "$1" none 401 >/dev/null; expect_llm "$1" "$3" 401 >/dev/null
+  MATRIX=$(jq -cn --arg k "$2" --arg b "$backend" '{valid_client_key: "200 (\($k))", served_by: $b, wrong_key: 401, missing_key: 401, backend_key_as_client: 401}')
+}
+vllm_matrix() {  # <step> <accepted backend key> <rejected backend key>: the real vLLM's own --api-key check, called directly; sets MATRIX
+  open_gateway_forward vllm-primary 8000
+  expect_llm "$1" "$2" 200 ewallet-fraud-llm-v1 >/dev/null; expect_llm "$1" "$3" 401 ewallet-fraud-llm-v1 >/dev/null
+  expect_llm "$1" none 401 ewallet-fraud-llm-v1 >/dev/null
+  MATRIX=$(jq -cn --arg a "$2" --arg r "$3" '{accepted: "200 (\($a))", rejected: "401 (\($r))", missing: 401}')
+}
+
+phase_agents() {  # MUTATING (kind only, vault-rehearsal-agents): K6/K7/K9-K12 for the Agent Platform's two keys
+  local out refs m1 m2 rev rv_v rv_c OP=$PRIV/operator-token.json
+  [ -n "$KIND" ] || fail agents-kind-only "the real vLLM rehearsal runs on kind only (staged model); on GKE the Agent Platform is the production step"
+  open_forward; status_is true false >/dev/null
+  # Laptop budget (kind node: 4 CPUs, 9 GiB): park the rehearsal Feature API while vLLM runs; restored at the end of the phase.
+  if h status "$SERVING" -n "$RNS" >/dev/null 2>&1; then k -n "$RNS" scale deploy feature-api --replicas=0 >/dev/null; fi
+  # The rehearsal's "existing" Secrets, the stand-ins for ewallet-agents/vllm-api-key and agentgateway-client-key.
+  printf '%s' "$(synthetic VK1)" | k -n "$ANS" create secret generic vllm-api-key --from-file=api-key=/dev/stdin --dry-run=client -o yaml | create
+  printf '%s' "$(synthetic CK1)" | k -n "$ANS" create secret generic agentgateway-client-key --from-file=api-key=/dev/stdin --dry-run=client -o yaml | create
+  rv_v=$(k -n "$ANS" get secret vllm-api-key -o jsonpath='{.metadata.resourceVersion}'); rv_c=$(k -n "$ANS" get secret agentgateway-client-key -o jsonpath='{.metadata.resourceVersion}')
+  m1=$(bash "$root/scripts/vault/shadow_compare.sh" "$CTX" "$ANS" vllm-api-key vllm-api-key-vault api-key) || fail agents-shadow "vllm-api-key: $m1"
+  m2=$(bash "$root/scripts/vault/shadow_compare.sh" "$CTX" "$ANS" agentgateway-client-key agentgateway-client-key-vault api-key) || fail agents-shadow "agentgateway-client-key: $m2"
+  record agents-shadow-compare "$(jq -cn --arg a "$m1" --arg b "$m2" '{result: "PASS", "vllm-api-key": $a, "agentgateway-client-key": $b, script: "scripts/vault/shadow_compare.sh"}')"
+  # The staged model, read-only, from the kind node (the same hostPath as infra/kubernetes/llm-agent-local/model-pv.yaml).
+  create <<YAML
+apiVersion: v1
+kind: PersistentVolume
+metadata: {name: $MODELPV}
+spec:
+  capacity: {storage: 4Gi}
+  accessModes: [ReadOnlyMany]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  claimRef: {namespace: $ANS, name: vllm-model-staged}
+  hostPath: {path: /staged-models, type: Directory}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: vllm-model-staged, namespace: $ANS}
+spec:
+  accessModes: [ReadOnlyMany]
+  storageClassName: ""
+  volumeName: $MODELPV
+  resources: {requests: {storage: 4Gi}}
+YAML
+  printf '{"pv": "%s"}\n' "$MODELPV" > "$DIR/agents-volume.json"
+  agents install -f "$root/infra/helm/llm-agent-platform/values-local.yaml" -f "$root/scripts/vault/rehearsal/agents-values.yaml" \
+    || fail agents-install "helm install $AGENTS failed"
+  agents_ready
+  refs=$(agent_refs)
+  jq -e '.agentgateway == {"VLLM_API_KEY": "vllm-api-key", "GATEWAY_CLIENT_KEY": "agentgateway-client-key"} and .vllm_primary == "vllm-api-key"
+    and .modelconfig == "agentgateway-client-key"' <<<"$refs" >/dev/null || fail agents-install "unexpected references: $refs"
+  gateway_matrix agents-baseline CK1 VK1; out=$MATRIX
+  record agents-baseline "$(jq -cn --argjson r "$refs" --argjson m "$out" '{result: "PASS", references: $r, gateway: $m}')"
+  rev=$(h -n "$ANS" history "$AGENTS" --max 1 -o json | jq -r '.[0].revision'); printf '%s\n' "$rev" > "$DIR/agents-revision-before-switch"
+  # K10: the official overlay, unchanged: validator, clients and backend move together.
+  agents upgrade --reuse-values -f "$root/infra/helm/llm-agent-platform/values-vault-eso.yaml" || fail agents-switch "helm upgrade failed"
+  agents_ready
+  refs=$(agent_refs)
+  jq -e '.agentgateway == {"VLLM_API_KEY": "vllm-api-key-vault", "GATEWAY_CLIENT_KEY": "agentgateway-client-key-vault"}
+    and .vllm_primary == "vllm-api-key-vault" and .modelconfig == "agentgateway-client-key-vault"' <<<"$refs" >/dev/null || fail agents-switch "references: $refs"
+  if h get manifest "$AGENTS" -n "$ANS" | grep -qF -e "$(synthetic VK1)" -e "$(synthetic CK1)"; then fail agents-switch "a key appears in the rendered manifest"; fi
+  [ "$(k -n "$ANS" get secret vllm-api-key -o jsonpath='{.metadata.resourceVersion}')/$(k -n "$ANS" get secret agentgateway-client-key -o jsonpath='{.metadata.resourceVersion}')" = "$rv_v/$rv_c" ] \
+    || fail agents-switch "an existing Secret changed"
+  gateway_matrix agents-switched CK1 VK1; out=$MATRIX
+  record agents-switched "$(jq -cn --argjson r "$refs" --argjson m "$out" '{result: "PASS", references: $r, gateway: $m, existing_secrets: "unchanged",
+    rendered_manifest: "no key material"}')"
+  # K11: rotate the client key in Vault. The gateway reads it at start-up, so it changes at the restart, not before.
+  out=$(synthetic CK2 | vault put --token-file "$OP" --path "$CPATH" --key api-key --stdin) || fail agents-rotate "put failed"
+  rv=$(es_synced_rv "$ANS" agentgateway-client-key); force_sync agentgateway-client-key "$ANS"
+  synced_after agentgateway-client-key "$rv" "$ANS" >/dev/null || fail agents-rotate "no new reconciliation"
+  [ "$(secret_sha "$ANS" agentgateway-client-key-vault api-key)" = "$(sha "$(synthetic CK2)")" ] || fail agents-rotate "target not at the new key"
+  open_gateway_forward agentgateway 3000; expect_llm agents-rotate CK1 200 >/dev/null      # still the old key until the restart
+  k -n "$ANS" rollout restart deploy/agentgateway >/dev/null; agents_ready
+  gateway_matrix agents-rotated CK2 VK1; out=$MATRIX
+  open_gateway_forward agentgateway 3000; expect_llm agents-rotated CK1 401 >/dev/null
+  record agents-client-key-rotated "$(jq -cn --argjson m "$out" '{result: "PASS", vault_version: 2, before_restart: "old key still accepted (env read at start-up)",
+    after_restart: $m, old_client_key: 401}')"
+  # K7 + K12: rotate the backend key and restart only the gateway: vLLM still enforces the old key, so the pair breaks.
+  out=$(synthetic VK2 | vault put --token-file "$OP" --path "$VPATH" --key api-key --stdin) || fail agents-backend "put failed"
+  rv=$(es_synced_rv "$ANS" vllm-api-key); force_sync vllm-api-key "$ANS"
+  synced_after vllm-api-key "$rv" "$ANS" >/dev/null || fail agents-backend "no new reconciliation"
+  k -n "$ANS" rollout restart deploy/agentgateway >/dev/null; agents_ready
+  open_gateway_forward agentgateway 3000
+  m1=$(llm_call CK2 ewallet-fraud-llm); [ "$m1" != 200 ] || fail agents-backend "a mismatched backend key still produced a completion"
+  vllm_matrix agents-backend VK1 VK2; m2=$MATRIX
+  record vllm-enforces-its-own-key "$(jq -cn --arg g "$m1" --argjson v "$m2" '{result: "PASS", gateway_with_new_backend_key: $g,
+    vllm_direct: $v, meaning: "vLLM authenticates the backend key itself; a half-rotated pair fails"}')"
+  rev=$(cat "$DIR/agents-revision-before-switch")
+  h rollback "$AGENTS" "$rev" -n "$ANS" --wait --timeout 25m >/dev/null || fail agents-rollback "helm rollback failed"
+  agents_ready
+  refs=$(agent_refs)
+  jq -e '.agentgateway.GATEWAY_CLIENT_KEY == "agentgateway-client-key" and .vllm_primary == "vllm-api-key" and .modelconfig == "agentgateway-client-key"' <<<"$refs" >/dev/null \
+    || fail agents-rollback "references after rollback: $refs"
+  gateway_matrix agents-rollback CK1 VK1; out=$MATRIX
+  [ "$(vault versions --token-file "$OP" --path "$CPATH" | jq -r .current_version)/$(vault versions --token-file "$OP" --path "$VPATH" | jq -r .current_version)" = 2/2 ] \
+    || fail agents-rollback "Vault version history changed"
+  record agents-rolled-back "$(jq -cn --argjson r "$refs" --argjson m "$out" '{result: "PASS", references: $r, gateway: $m, existing_secrets: "unchanged",
+    vault_versions: "2 and 2 kept"}')"
+  agents upgrade --reuse-values -f "$root/infra/helm/llm-agent-platform/values-vault-eso.yaml" || fail agents-reupgrade "helm upgrade failed"
+  agents_ready
+  gateway_matrix agents-reupgraded CK2 VK2; out=$MATRIX
+  vllm_matrix agents-reupgraded VK2 VK1; m2=$MATRIX
+  record agents-reupgraded "$(jq -cn --argjson r "$(agent_refs)" --argjson m "$out" --argjson v "$m2" '{result: "PASS", references: $r, gateway: $m, vllm_direct: $v}')"
+  stop_ffwd
+  k -n "$ANS" scale deploy vllm-primary --replicas=0 >/dev/null          # frees the kind node; the release stays for cleanup
+  if h status "$SERVING" -n "$RNS" >/dev/null 2>&1; then
+    k -n "$RNS" scale deploy feature-api --replicas=1 >/dev/null
+    k -n "$RNS" rollout status deploy/feature-api --timeout=600s >/dev/null || fail agents-parked "Feature API did not come back"
+    open_feature_forward; expect_lookup after-agents
+  fi
+  record agents-parked '{"result": "PASS", "vllm_primary": "scaled to 0 (laptop budget)", "release": "kept until cleanup", "feature_api": "back, BASELINE_OK"}'
   compare_production production-unchanged
 }
 
@@ -1027,7 +1347,7 @@ phase_feature_api() {  # MUTATING (rehearsal namespace only): the "before" state
   printf '%s' "$(conn "$p1")" | k -n "$RNS" create secret generic "$LEGACY" --from-file=connection_string=/dev/stdin \
     --dry-run=client -o yaml | create
   rv=$(k -n "$RNS" get secret "$LEGACY" -o jsonpath='{.metadata.resourceVersion}'); printf '%s\n' "$rv" > "$DIR/legacy-resource-version"
-  out=$(bash "$root/scripts/vault/shadow_compare.sh" "$CTX" "$RNS" "$LEGACY" feature-api-redis-vault) \
+  out=$(bash "$root/scripts/vault/shadow_compare.sh" "$CTX" "$RNS" "$LEGACY" feast-online-redis-vault) \
     || fail shadow-compare "shadow_compare.sh: $out"
   record shadow-compare "$(jq -cn --arg s "$out" '{result: "PASS", status: $s, script: "scripts/vault/shadow_compare.sh"}')"
   names=$(seed_registry)
@@ -1049,7 +1369,7 @@ phase_switch() {  # MUTATING: the official G8 command, an upgrade with --reuse-v
   before=$(h -n "$RNS" history "$SERVING" --max 1 -o json | jq -r '.[0].revision')
   printf '%s\n' "$before" > "$DIR/serving-revision-before-switch"
   serving upgrade --reuse-values -f "$root/infra/helm/ewallet-serving/values-vault-eso.yaml" || fail switch "helm upgrade failed"
-  [ "$(secret_ref)" = feature-api-redis-vault ] || fail switch "Feature API reads $(secret_ref)"
+  [ "$(secret_ref)" = feast-online-redis-vault ] || fail switch "Feature API reads $(secret_ref)"
   if k -n "$RNS" get deploy feature-api -o json | jq -e '[.spec.template.spec.containers[0].env[].name] | any(startswith("EWALLET_VAULT_"))' >/dev/null; then
     fail switch "the pod would talk to Vault directly"; fi
   [ "$(k -n "$RNS" get secret "$LEGACY" -o jsonpath='{.metadata.resourceVersion}')" = "$(cat "$DIR/legacy-resource-version")" ] \
@@ -1057,7 +1377,7 @@ phase_switch() {  # MUTATING: the official G8 command, an upgrade with --reuse-v
   open_feature_forward
   expect_lookup switch
   record switched "$(jq -cn --arg b "$before" --arg a "$(h -n "$RNS" history "$SERVING" --max 1 -o json | jq -r '.[0].revision')" \
-    '{result: "PASS", revision_before: $b, revision_after: $a, secret: "feature-api-redis-vault", g9_class: "BUSINESS_LOOKUP_PASS"}')"
+    '{result: "PASS", revision_before: $b, revision_after: $a, secret: "feast-online-redis-vault", g9_class: "BUSINESS_LOOKUP_PASS"}')"
 }
 
 phase_rollback() {  # MUTATING: the official G11 drill (RB 9 rollback, RB 8 again) and the final-state checks
@@ -1068,18 +1388,18 @@ phase_rollback() {  # MUTATING: the official G11 drill (RB 9 rollback, RB 8 agai
   open_feature_forward
   expect_lookup g11-rollback
   serving upgrade --reuse-values -f "$root/infra/helm/ewallet-serving/values-vault-eso.yaml" || fail reupgrade "helm upgrade failed"
-  [ "$(secret_ref)" = feature-api-redis-vault ] || fail reupgrade "after re-upgrade the Feature API reads $(secret_ref)"
+  [ "$(secret_ref)" = feast-online-redis-vault ] || fail reupgrade "after re-upgrade the Feature API reads $(secret_ref)"
   open_feature_forward
   expect_lookup g11-reupgrade
   # Final state after G11 (acceptance plan §4)
-  [ "$(k -n "$RNS" get secretstore vault -o jsonpath='{.status.conditions[?(@.type=="Ready")].reason}')" = Valid ] || fail final-state "SecretStore not Valid"
-  [ "$(es_condition "$RNS" feature-api-redis-vault)" = "True SecretSynced" ] || fail final-state "ExternalSecret not SecretSynced"
+  [ "$(store_ready "$STORE")" = "True Valid" ] || fail final-state "ClusterSecretStore $STORE not Ready/Valid: $(store_ready "$STORE")"
+  [ "$(es_condition "$RNS" feast-online-redis)" = "True SecretSynced" ] || fail final-state "ExternalSecret not SecretSynced"
   [ "$(k -n "$RNS" get secret "$LEGACY" -o jsonpath='{.metadata.resourceVersion}')" = "$(cat "$DIR/legacy-resource-version")" ] \
     || fail final-state "the existing Secret changed"
   [ -z "$(k -n "$RNS" get externalsecret,secretstore,serviceaccount -l ewallet.io/vault-rehearsal-negative=true -o name)" ] \
     || fail final-state "negative-test objects remain"
   record final-state "$(jq -cn --argjson h "$(h -n "$RNS" history "$SERVING" -o json | jq -c '[.[] | {revision, description}]')" \
-    '{result: "PASS", consumer: "feature-api-redis-vault", store: "Valid", externalsecret: "SecretSynced", existing_secret: "unchanged",
+    '{result: "PASS", consumer: "feast-online-redis-vault", store: "ewallet-vault-rehearsal Ready/Valid", externalsecret: "SecretSynced", existing_secret: "unchanged",
       negative_objects: "none", lookup: "BASELINE_OK", serving_history: $h}')"
   compare_production production-unchanged
 }
@@ -1088,7 +1408,7 @@ phase_retain() {  # MUTATING: Retain, an accidental PVC deletion, and the runboo
   local kv v claim rv
   open_forward; status_is true false >/dev/null
   check_volumes_before_delete bound
-  kv=$(vault versions --token-file "$PRIV/operator-token.json" --path feature-api/rehearsal-redis | jq -r .current_version)
+  kv=$(vault versions --token-file "$PRIV/operator-token.json" --path "$RPATH" | jq -r .current_version)
   printf '%s\n' "$kv" > "$DIR/kv-version"
   for v in $(jq -r '.[].name' "$DIR/volumes.json"); do
     k patch pv "$v" -p '{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}' >/dev/null
@@ -1122,16 +1442,15 @@ phase_retain() {  # MUTATING: Retain, an accidental PVC deletion, and the runboo
     fault "rebound:$claim"
   done
   k -n "$VNS" scale statefulset vault --replicas=1 >/dev/null
-  k -n "$VNS" wait --for=condition=Ready pod/vault-0 --timeout=300s >/dev/null || fail retain "vault-0 not back"
+  # Ready means unsealed: the re-bound data was decrypted through the seal, with no manual unseal.
+  k -n "$VNS" wait --for=condition=Ready pod/vault-0 --timeout=300s >/dev/null || fail retain "vault-0 not back (unsealed)"
   open_forward
   # An uninitialised Vault here would mean the data did not come back.
-  record rebound-initialised-sealed "$(jq -c '{result: "PASS", initialized, sealed}' <<<"$(status_is true true)")"
-  vault unseal --keys-file "$PRIV/vault-keys.json" >/dev/null || fail retain "unseal failed"
-  status_is true false >/dev/null
-  [ "$(vault versions --token-file "$PRIV/operator-token.json" --path feature-api/rehearsal-redis | jq -r .current_version)" = "$kv" ] \
+  record rebound-initialised-auto-unsealed "$(jq -c --arg l "$AUTO" '{result: "PASS", initialized, sealed, manual_unseal: "none", label: $l}' <<<"$(status_is true false)")"
+  [ "$(vault versions --token-file "$PRIV/operator-token.json" --path "$RPATH" | jq -r .current_version)" = "$kv" ] \
     || fail retain "KV version differs after the recovery"
-  rv=$(es_synced_rv "$RNS" feature-api-redis-vault); force_sync feature-api-redis-vault
-  synced_after feature-api-redis-vault "$rv" >/dev/null || fail retain "ESO did not sync after the recovery"
+  rv=$(es_synced_rv "$RNS" feast-online-redis); force_sync feast-online-redis
+  synced_after feast-online-redis "$rv" >/dev/null || fail retain "ESO did not sync after the recovery"
   [ "$(consume)" = OK ] || fail retain "consumer failed after the recovery"
   open_feature_forward; expect_lookup after-retain-recovery
   record released-pv-recovered "$(jq -cn --arg kv "$kv" '{result: "PASS", kv_current_version: ($kv | tonumber), operator_token: "valid",
@@ -1142,20 +1461,19 @@ phase_after_wake() {  # MUTATING (unseal, reseed): after the approved GKE sleep 
   local s kv rv
   k -n "$VNS" wait --for=jsonpath='{.status.phase}'=Running pod/vault-0 --timeout=600s >/dev/null || fail after-wake "vault-0 not Running"
   open_forward
-  s=$(vault status) || fail after-wake "status failed"
-  record vault-after-wake "$(jq -c '{result: "PASS", initialized, sealed}' <<<"$s")"
-  [ "$(jq -r .initialized <<<"$s")" = true ] || fail after-wake "Vault is not initialised: the data did not survive"
-  if [ "$(jq -r .sealed <<<"$s")" = true ]; then vault unseal --keys-file "$PRIV/vault-keys.json" >/dev/null || fail after-wake "unseal failed"; fi
-  status_is true false >/dev/null
+  # No manual unseal after a wake: Vault must unseal itself through its seal (Cloud KMS on GKE, transit on kind).
+  s=$(wait_unsealed 300) || fail after-wake "Vault did not unseal itself after the wake (initialised: $(vault status | jq -r .initialized))"
+  record vault-after-wake "$(jq -c --arg l "$AUTO" '{result: "PASS", initialized, sealed, seal_type, manual_unseal: "none", label: $l}' <<<"$s")"
+  k -n "$VNS" wait --for=condition=Ready pod/vault-0 --timeout=120s >/dev/null || fail after-wake "unsealed but not Ready"
   kv=$(cat "$DIR/kv-version")
-  [ "$(vault versions --token-file "$PRIV/operator-token.json" --path feature-api/rehearsal-redis | jq -r .current_version)" = "$kv" ] \
+  [ "$(vault versions --token-file "$PRIV/operator-token.json" --path "$RPATH" | jq -r .current_version)" = "$kv" ] \
     || fail after-wake "KV version differs after the wake"
   for v in $(jq -r '.[].name' "$DIR/volumes.json"); do
     [ "$(k get pv "$v" -o jsonpath='{.status.phase}/{.spec.persistentVolumeReclaimPolicy}')" = Bound/Retain ] || fail after-wake "PV $v not Bound/Retain"
   done
-  rv=$(es_synced_rv "$RNS" feature-api-redis-vault); force_sync feature-api-redis-vault
-  synced_after feature-api-redis-vault "$rv" >/dev/null || fail after-wake "ESO did not sync after the wake"
-  [ "$(secret_sha "$RNS" feature-api-redis-vault connection_string)" = "$(sha "$(conn "$(synthetic P1)")")" ] || fail after-wake "synced value differs"
+  rv=$(es_synced_rv "$RNS" feast-online-redis); force_sync feast-online-redis
+  synced_after feast-online-redis "$rv" >/dev/null || fail after-wake "ESO did not sync after the wake"
+  [ "$(secret_sha "$RNS" feast-online-redis-vault connection_string)" = "$(sha "$(conn "$(synthetic PCUR)")")" ] || fail after-wake "synced value differs"
   # The synthetic Redis keeps nothing across a restart: seed it again, then restart the Feature API on the new registry.
   seed_registry >/dev/null
   k -n "$RNS" rollout restart deploy/feature-api >/dev/null
@@ -1168,10 +1486,18 @@ phase_after_wake() {  # MUTATING (unseal, reseed): after the approved GKE sleep 
 }
 
 phase_cleanup() {  # MUTATING, destructive for rehearsal objects only: synthetic Vault data, ESO CRDs, test namespaces
-  local pvs left claim st unfinished
-  for ns in "$RNS" "$ENS" "$VNS"; do
+  local pvs left claim st unfinished model
+  for ns in $(rehearsal_namespaces); do
     if k get ns "$ns" >/dev/null 2>&1 && ! mine "$ns"; then fail ownership "namespace $ns exists without $LABEL=$ID: not this rehearsal's"; fi
   done
+  model=
+  if [ -e "$DIR/agents-volume.json" ]; then        # kind only: the read-only model PV, by its recorded name and this rehearsal's label
+    model=$(jq -r .pv "$DIR/agents-volume.json")
+    [ "$model" = "$MODELPV" ] || fail ownership "agents-volume.json names $model, not $MODELPV"
+    if [ -n "$(k get pv "$model" -o name --ignore-not-found)" ] && [ "$(k get pv "$model" -o jsonpath="{.metadata.labels.ewallet\.io/vault-rehearsal}")" != "$ID" ]; then
+      fail ownership "PV $model is not labelled with this rehearsal id"
+    fi
+  fi
   record ownership "$(jq -cn --argjson v "$(cat "$DIR/volumes.json" 2>/dev/null || echo null)" --argjson e "$(cat "$DIR/eso-cluster-objects.json" 2>/dev/null || echo null)" \
     '{result: "PASS", namespaces: "labelled with this rehearsal id or absent", volumes: $v, eso_cluster_objects: ($e.cluster_objects // [])}')"
   # Everything is checked before the first deletion; a resumed cleanup skips what is already gone.
@@ -1215,6 +1541,21 @@ phase_cleanup() {  # MUTATING, destructive for rehearsal objects only: synthetic
     k -n "$RNS" delete externalsecret,secretstore --all --wait=true >/dev/null 2>&1 || true   # owned Secrets are collected
     k delete ns "$RNS" --wait=true --timeout=300s >/dev/null
   fi
+  if mine "$ANS"; then
+    if h status "$AGENTS" -n "$ANS" >/dev/null 2>&1; then h uninstall "$AGENTS" -n "$ANS" --wait --timeout 5m >/dev/null; fi
+    k -n "$ANS" delete externalsecret --all --wait=true >/dev/null 2>&1 || true
+    k delete ns "$ANS" --wait=true --timeout=300s >/dev/null
+  fi
+  if mine "$DNS"; then k delete ns "$DNS" --wait=true --timeout=300s >/dev/null; fi
+  if [ -n "$KIND" ]; then   # created on kind only; on GKE ewallet-sandbox is production and is never touched
+    if mine "$SANDBOX"; then k delete ns "$SANDBOX" --wait=true --timeout=300s >/dev/null; fi
+  fi
+  # Cluster-scoped stores: only those labelled with this id (check_eso_scope refused any other), never a bare kind-wide delete.
+  if k get crd clustersecretstores.external-secrets.io >/dev/null 2>&1; then
+    k delete clustersecretstore -l "$LABEL=$ID" --wait=true >/dev/null
+  fi
+  # The model PV is a read-only hostPath (Retain): deleting the object leaves the node's /staged-models untouched.
+  if [ -n "$model" ] && [ -n "$(k get pv "$model" -o name --ignore-not-found)" ]; then k delete pv "$model" --wait=true >/dev/null; fi
   if mine "$ENS"; then
     if h status external-secrets -n "$ENS" >/dev/null 2>&1; then h uninstall external-secrets -n "$ENS" --wait --timeout 5m >/dev/null; fi
     k delete ns "$ENS" --wait=true --timeout=300s >/dev/null
@@ -1242,7 +1583,8 @@ phase_cleanup() {  # MUTATING, destructive for rehearsal objects only: synthetic
   fi
   rm -rf "$PRIV"
   record cleanup "$(jq -cn --arg d "$([ -z "$KIND" ] && echo 'confirmed absent (gcloud compute disks describe: HTTP 404 naming each recorded disk)' || echo 'kind local-path: removed')" \
-    '{result: "PASS", namespaces_deleted: ["vault-rehearsal", "external-secrets", "ewallet-vault"], releases_uninstalled: ["rehearsal-serving", "external-secrets", "vault"],
+    '{result: "PASS", namespaces_deleted: ["vault-rehearsal", "vault-rehearsal-agents", "vault-rehearsal-denied", "ewallet-sandbox (kind only)", "external-secrets", "ewallet-vault"],
+      cluster_secret_stores_deleted: "those labelled with this id", releases_uninstalled: ["rehearsal-serving", "rehearsal-agents", "external-secrets", "vault"],
       vault_volumes: "deleted", disks: $d, synthetic_private_material: "removed"}')"
 }
 

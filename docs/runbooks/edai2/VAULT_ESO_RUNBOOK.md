@@ -1,21 +1,25 @@
-# Vault and External Secrets Operator: deployment, migration and recovery
+# Vault and External Secrets Operator: deployment, migration and recovery (Vault V2)
 
 Operating procedure for [VAULT.md](../../edai2/platform/VAULT.md). Each step is labelled:
 
 - **READ-ONLY:** reads state; changes nothing.
 - **MUTATING (Kubernetes):** creates or changes cluster objects.
 - **MUTATING (Vault):** changes Vault state or secret data.
+- **MUTATING (GCP):** creates or changes Google Cloud resources.
 - **OWNER-ONLY:** handles recovery material; the owner runs it personally, at the laptop.
 
-**Status:** implemented in Git and verified end to end on kind with
-`scripts/vault/eso_local_validate.sh` (*Local validation*). **Not deployed on GKE, and not
-yet accepted as row 54 evidence.** A GKE run needs a separately approved campaign: GKE is woken
-and put back to sleep only by that campaign's approved cloud-lab procedure, never by a command
-from this page. The synthetic technical rehearsal ([VAULT_GKE_REHEARSAL.md](VAULT_GKE_REHEARSAL.md))
-runs these steps 2–7 through `scripts/vault/gke_rehearsal.sh` before the official campaign
-([VAULT_GKE_ACCEPTANCE_CAMPAIGN.md](VAULT_GKE_ACCEPTANCE_CAMPAIGN.md)).
+**Status:**
 
-Never print, paste or commit a Vault token, an unseal share, a private key or a secret value.
+- Vault V2 is implemented on branch `experiment/edai2-vault-clustersecretstore`. That means one
+  ClusterSecretStore, Cloud KMS auto-unseal, and three credential groups. The design is in
+  [VAULT_V2_ARCHITECTURE_AUDIT.md](../../edai2/platform/VAULT_V2_ARCHITECTURE_AUDIT.md).
+- It is verified end to end on **kind only**, with auto-unseal **simulated** by a local transit seal
+  (VAULT.md *Validation*).
+- **Nothing of V2 is deployed on GKE, and the Cloud KMS resources do not exist yet** (step 0, P4).
+  Every GKE step needs a separately approved campaign. GKE is woken and put back to sleep only by
+  that campaign's approved cloud-lab procedure, never by a command from this page.
+
+Never print, paste or commit a Vault token, a recovery key, a private key or a secret value.
 Do not use `set -x`. Values go into Vault on stdin (`put --stdin`) or a hidden prompt, never as an argument.
 
 ## Variables
@@ -31,9 +35,30 @@ V="python3 -m ops.vault.cli --ca-file $KEYDIR/ca.crt"   # talks to https://127.0
 OP=$KEYDIR/operator-token.json               # secret-operator token, created in step 4
 ```
 
+## 0. Cloud KMS prerequisite (MUTATING, GCP; P4, separate owner approval; NOT DONE)
+
+`values-gke.yaml` configures `seal "gcpckms"`: project `ewallet-data-ai-platform-hg26`, region
+`asia-southeast1`, key ring `ewallet-vault`, key `vault-unseal`. It has no credentials file:
+Vault gets Application Default Credentials from Workload Identity.
+
+Before step 2 the following must exist ([audit §8.2, §9](../../edai2/platform/VAULT_V2_ARCHITECTURE_AUDIT.md)):
+
+- key ring `ewallet-vault` and key `vault-unseal`, SOFTWARE protection, **no scheduled rotation**,
+  protected from destroy;
+- GSA `ewallet-vault-unseal` with `roles/cloudkms.cryptoKeyEncrypterDecrypter` plus
+  `cloudkms.cryptoKeys.get`, both on the key only;
+- `roles/iam.workloadIdentityUser` for `serviceAccount:ewallet-data-ai-platform-hg26.svc.id.goog[ewallet-vault/vault]`
+  (the chart's Vault KSA, annotated in `values-gke.yaml`).
+
+Until then the rehearsal driver's `vault` phase refuses on GKE, and Vault itself could not start.
+
+**Never delete or disable the key or a key version** as part of a rehearsal, a cleanup or a
+rollback. A destroyed key version makes the Vault data unrecoverable, even from backups
+(HashiCorp, *Seal/Unseal*). A disabled version keeps Vault sealed at its next start.
+
 ## 1. Prerequisites (READ-ONLY)
 
-Run the committed preflight first. It checks every item below that can be checked, and runs
+Run the committed preflight first. It checks every item below that it can, and runs
 only read-only commands. A query that fails or returns unreadable data is FAIL, never PASS:
 
 ```bash
@@ -41,19 +66,32 @@ python3 scripts/vault/gke_preflight.py --mode preinstall --kubeconfig $KUBECONFI
 # last line: {"mode": "preinstall", "verdict": "VAULT_GKE_PREFLIGHT_READY", "blocking": [], "not_checked": [...]}
 ```
 
-Before the consumer switch (step 8), run `--mode consumer-switch` instead. That mode expects Vault
-and ESO to exist, and checks the synced ExternalSecret, its ESO-owned target, `SHADOW_MATCH`, the
-current Feature API, and the release drift and overlay scope.
+Before a consumer switch (step 8), run `--mode consumer-switch` instead. It expects Vault and ESO
+to exist, and checks:
 
-It refuses (BLOCKED) if an earlier Vault or ESO namespace, CRD, release or PVC exists, or if
-the `ewallet-serving` release differs from the repository chart. It also refuses if the overlay
-would change anything besides the Feature API Secret name. While the node pool is at 0,
-`cert-manager-ready` stays NOT_CHECKED; rerun the preflight after the wake.
+- the synced `ml-platform/ExternalSecret/feast-online-redis` and its ESO-owned target `feast-online-redis-vault`;
+- `SHADOW_MATCH`;
+- the current Feature API;
+- the release drift and the overlay scope.
+
+The Cloud KMS gates (key enabled, primary version enabled, the three IAM bindings) are part of P4
+and not implemented yet. Until they are, check step 0 by hand, read-only.
+
+The preflight refuses (BLOCKED) if any of these is true:
+
+- an earlier Vault or ESO namespace, CRD, release or PVC exists;
+- the `ewallet-serving` release differs from the repository chart;
+- the overlay would change anything besides the Feature API Secret name.
+
+While the node pool is at 0, `cert-manager-ready` stays NOT_CHECKED; rerun the preflight after the wake.
 
 - Approved campaign, GKE awake, laptop on the approved network.
 - cert-manager running: `kubectl --context $CTX get crd certificates.cert-manager.io && kubectl --context $CTX -n cert-manager get pods`.
 - No earlier installation: `kubectl --context $CTX get ns ewallet-vault external-secrets` returns NotFound for both.
-- The Secrets being shadowed exist (names only): `kubectl --context $CTX -n ml-platform get secret feast-online-redis -o name`.
+  **No Raft data initialised under Shamir may be reused with the gcpckms configuration.** That would need the
+  official seal migration (audit §8.6); this procedure never does it.
+- The Secrets being shadowed exist (names only): `kubectl --context $CTX -n ml-platform get secret feast-online-redis -o name`,
+  `kubectl --context $CTX -n ewallet-agents get secret vllm-api-key agentgateway-client-key -o name`.
 - StorageClass `standard-rwo` exists (Vault data 5 GiB and audit 1 GiB Persistent Disks).
 - Charts, digests checked:
 
@@ -71,16 +109,20 @@ would change anything besides the Feature API Secret name. While the node pool i
 ## 2. Vault server (MUTATING, Kubernetes)
 
 ```bash
-kubectl --context $CTX apply -f infra/kubernetes/vault/namespace.yaml -f infra/kubernetes/vault/certificate.yaml
+kubectl --context $CTX create -f infra/kubernetes/vault/namespace.yaml -f infra/kubernetes/vault/certificate.yaml
 kubectl --context $CTX -n ewallet-vault wait --for=condition=Ready certificate/vault-server-tls --timeout=120s
 helm --kube-context $CTX install vault $CHARTS/vault-0.34.1.tgz -n ewallet-vault -f infra/kubernetes/vault/values-gke.yaml
-kubectl --context $CTX apply -f infra/kubernetes/vault/network-policy.yaml -f infra/kubernetes/vault/admin-serviceaccount.yaml
+kubectl --context $CTX create -f infra/kubernetes/vault/network-policy.yaml -f infra/kubernetes/vault/admin-serviceaccount.yaml
 kubectl --context $CTX -n ewallet-vault wait --for=jsonpath='{.status.phase}'=Running pod/vault-0 --timeout=240s
+kubectl --context $CTX -n ewallet-vault get sa vault -o jsonpath='{.metadata.annotations.iam\.gke\.io/gcp-service-account}'   # ewallet-vault-unseal@…
 kubectl --context $CTX -n ewallet-vault get pvc        # READ-ONLY: data-vault-0 (5Gi) and audit-vault-0 (1Gi) Bound
 kubectl --context $CTX -n ewallet-vault port-forward pod/vault-0 8200:8200 &   # keep open; restart it after a Vault restart
 kubectl --context $CTX -n ewallet-vault get secret vault-ca -o jsonpath='{.data.ca\.crt}' | base64 -d > $KEYDIR/ca.crt
-$V status        # READ-ONLY: {"initialized": false, "sealed": true, ...}
+$V status        # READ-ONLY: {"initialized": false, "sealed": true, ..., "seal_type": "gcpckms", "recovery_seal": true}
 ```
+
+`seal_type` must be `gcpckms`. If Vault does not start (`kubectl logs vault-0`: `error parsing Seal
+configuration`), it cannot reach or use the key. Stop and check step 0; never fall back to Shamir.
 
 **PersistentVolume retention (recommended, owner approval, before step 3).** `standard-rwo` has
 `reclaimPolicy: Delete`: deleting a Vault PVC, or the `ewallet-vault` namespace, deletes the
@@ -95,141 +137,141 @@ done
 kubectl --context $CTX get pv -o custom-columns=PV:.metadata.name,RECLAIM:.spec.persistentVolumeReclaimPolicy,CLAIM:.spec.claimRef.name | grep vault-0   # Retain, Retain
 ```
 
-- **Protects against:** deleting a Vault PVC or the namespace (including `kubectl delete ns` and
-  StatefulSet PVC cleanup). The PV becomes `Released` and the disk stays.
+- **Protects against:** deleting a Vault PVC or the namespace. The PV becomes `Released` and the disk stays.
 - **Does not protect against:**
-  - deleting the disk itself (`gcloud compute disks delete`, the console, project deletion or the
-    end of the free trial);
-  - deleting the PV object; the disk still remains then, but must be re-imported;
-  - data loss inside Vault (`kv delete`/`destroy`, a wrong `put`);
+  - deleting the disk itself;
+  - deleting data inside Vault;
   - corruption;
-  - losing the unseal shares: the disk is useless without 2 of them.
-- **Cost:** a retained disk keeps costing money until it is deleted on purpose.
-- **Recovery of a Released PV** (owner approval). Make it bindable again, then recreate the PVC with
-  the same name and `volumeName`, so `vault-0` attaches it:
-  `kubectl --context $CTX patch pv <pv> --type json -p '[{"op":"remove","path":"/spec/claimRef"}]'`,
-  then apply a PVC `data-vault-0` (or `audit-vault-0`) in `ewallet-vault` with `storageClassName:
-  standard-rwo`, the original size and `volumeName: <pv>`. If the PV object itself was deleted,
-  create a static PV whose `csi.volumeHandle` is the disk's
-  `projects/<project>/zones/asia-southeast1-b/disks/<disk>`, recorded with the PV names above.
-- **Permanent deletion** needs its own owner decision, after a Raft snapshot: delete the PV, then
-  the disk (`gcloud compute disks delete <disk> --zone asia-southeast1-b`). Never as part of a
-  sleep or a rollback.
+  - losing the Cloud KMS key: without it a retained disk is unreadable.
+- **Recovery of a Released PV** (owner approval):
+  1. `kubectl --context $CTX patch pv <pv> --type json -p '[{"op":"remove","path":"/spec/claimRef"}]'`;
+  2. recreate PVC `data-vault-0` (or `audit-vault-0`) in `ewallet-vault` with `storageClassName:
+     standard-rwo`, the original size and `volumeName: <pv>`.
 
-The readiness probe treats sealed and uninitialised as Ready (`sealedcode=204&uninitcode=204`).
-Without that, the port-forward needed for `init` could never open. **Pod Ready therefore does
-not mean usable.** Every gate below checks `initialized: true, sealed: false` from `$V status`.
+  Vault then starts and unseals itself through Cloud KMS. Proven on kind with the transit seal:
+  VAULT.md *Validation*, phase `retain`.
+- **Permanent deletion** needs its own owner decision, after a Raft snapshot.
+
+**Readiness.** An uninitialised Vault is Ready (`uninitcode=204`), so the bootstrap can proceed.
+After `init`, **Ready means unsealed**: an initialised but sealed Vault answers 503 and is NotReady.
+V1 was different: it treated sealed as Ready because every wake sealed it.
 
 ## 3. Initialise (MUTATING, Vault; OWNER-ONLY)
 
 ```bash
-$V init --keys-out $KEYDIR/vault-keys.json     # 3 shares, threshold 2; refuses an existing file or a path in the repo
+$V init --keys-out $KEYDIR/vault-keys.json     # auto-unseal: 3 RECOVERY keys, threshold 2; refuses an existing file or a path in the repo
+$V status                                      # within a minute: initialized true, sealed false, seal_type gcpckms (no unseal command)
 ```
 
-`init` creates `vault-keys.json` (exclusive, mode 0600, outside the repository) and keeps it open
-**before** it asks Vault to initialise, then writes the material and forces it to disk before it
-reports `{"initialized": true, …}`. If Vault initialised but the material could not be stored, or
-the answer was lost, it reports `REFUSED vault_initialised_keys_not_stored`; if even the seal
-status is unreadable afterwards, `REFUSED vault_init_outcome_unknown`. Both mean: **stop, do not
-run `init` again**, check `$V status` (*Recovery* below).
+`init` reads the seal type first:
 
-`vault-keys.json` (mode 0600) holds **all three unseal shares and the initial root token**.
-It is the most sensitive file in the project:
+- under `gcpckms` it requests `recovery_shares=3, recovery_threshold=2` and stores
+  `recovery_keys_base64` together with the seal type;
+- under Shamir (V1) it would store unseal keys.
+
+Safety rules:
+
+- The file is created exclusively, mode 0600, outside the repository, **before** Vault is asked,
+  and forced to disk before success is reported.
+- `REFUSED vault_initialised_keys_not_stored`, `vault_init_outcome_unknown` or
+  `vault_init_shares_unexpected` all mean: **stop, never run `init` again**, check `$V status`
+  (*Recovery* below).
+
+`vault-keys.json` holds **the three recovery keys and the initial root token**:
 
 1. Copy it at once to the two offline encrypted media. Never to cloud sync, chat, Git or evidence.
 2. The root token inside it is used only for step 4, then revoked (*Token lifecycle*).
-3. Optional: give each share to a different holder. With one owner, the shares sit together,
-   so Shamir protects against loss of the cluster, not against loss of that file. This is a
-   known limitation of the single-owner lab (*Recovery material* in VAULT.md).
+3. **Recovery keys never unseal Vault.** They only authorise the root-generation ceremony and
+   rekeying. `$V unseal` refuses on an auto-unseal Vault (`REFUSED vault_auto_unseal`) and never
+   submits a key.
 
-Losing the shares means losing the Vault data; there is no recovery path. Never initialise
-again over existing data: `init` refuses an initialised Vault.
+## 4. Configure (MUTATING, Vault)
 
-## 4. Unseal and configure (MUTATING, Vault)
+There is no unseal step: Vault unsealed itself in step 3.
 
 ```bash
-$V unseal --keys-file $KEYDIR/vault-keys.json       # {"sealed": false}
 $V status                                           # gate: initialized true, sealed false
 $V configure --keys-file $KEYDIR/vault-keys.json    # audit, KV v2 "ewallet", Kubernetes auth, policies, roles
 $V describe --keys-file $KEYDIR/vault-keys.json     # READ-ONLY: live engines, auth, audit, roles, policy text; no secret data
-```
-
-`describe` needs a root token, so it runs now, before the root token is retired. Its output is
-the evidence for the live configuration (acceptance campaign E3).
-
-Then replace the root token with the scoped operator token, and revoke root:
-
-```bash
 $V operator-token --keys-file $KEYDIR/vault-keys.json --token-out $OP   # orphan, policy secret-operator, TTL 720h
 $V retire-root --keys-file $KEYDIR/vault-keys.json                      # {"root_token_revoked": true}
-$V configure --keys-file $KEYDIR/vault-keys.json    # must now fail with "returned 403" (idempotent if root were still valid)
+$V configure --keys-file $KEYDIR/vault-keys.json    # must now fail with "returned 403"
 ```
 
 `configure` applies [bootstrap.json](../../../infra/kubernetes/vault/bootstrap.json) idempotently:
 
-| Vault role | Bound identity | Policy reads |
+| Vault role | Bound identity | Policy |
 |---|---|---|
-| `eso-ml-platform` | `ml-platform/eso-vault-reader`, audience `vault` | `ewallet/data/feature-api/feast-redis` |
-| `eso-ewallet-agents` (staged) | `ewallet-agents/eso-vault-reader`, audience `vault` | `ewallet/data/agent-platform/agentgateway-client-key` |
-| `feature-api`, `fraud-api` | direct-loader roles, kept, not used by ESO | their own path |
+| `eso-ewallet-reader` | `external-secrets/eso-vault-reader`, audience `vault`, 5 min | read `ewallet/data/ml-platform/*` and `ewallet/data/agent-platform/*`; no list, metadata, write or `sys/` |
 | `vault-admin` | `ewallet-vault/vault-admin` (the owner's admin login), 15 min | nothing: policy `root-generation` only |
 
-## 5. Seed Vault from the existing Secret (MUTATING, Vault)
+Retired in V2: the per-namespace readers `eso-ml-platform` and `eso-ewallet-agents`, and the
+direct-loader roles `feature-api` and `fraud-api`.
 
-The value goes from the existing Secret straight into Vault on stdin, without being printed:
+## 5. Seed Vault from the existing Secrets (MUTATING, Vault)
+
+Each value goes from the existing Secret straight into Vault on stdin, without being printed. There is
+one Vault record per underlying credential; the Feature API and the Fraud API share the first one.
 
 ```bash
 kubectl --context $CTX -n ml-platform get secret feast-online-redis -o jsonpath='{.data.connection_string}' | base64 -d \
-  | $V put --token-file $OP --path feature-api/feast-redis --key connection_string --stdin
-$V versions --token-file $OP --path feature-api/feast-redis   # metadata only: current_version 1
+  | $V put --token-file $OP --path ml-platform/feast-online-redis --key connection_string --stdin
+kubectl --context $CTX -n ewallet-agents get secret vllm-api-key -o jsonpath='{.data.api-key}' | base64 -d \
+  | $V put --token-file $OP --path agent-platform/vllm-api-key --key api-key --stdin
+kubectl --context $CTX -n ewallet-agents get secret agentgateway-client-key -o jsonpath='{.data.api-key}' | base64 -d \
+  | $V put --token-file $OP --path agent-platform/agentgateway-client-key --key api-key --stdin
+$V versions --token-file $OP --path ml-platform/feast-online-redis     # metadata only: current_version 1
 ```
 
-Staged Agent Platform path (only if that part is approved). Use a **new synthetic** key, never the live gateway key:
+Each Agent Platform record is seeded only once its consumer switch (step 8b) is approved.
+
+## 6. External Secrets Operator and the shared store (MUTATING, Kubernetes)
 
 ```bash
-openssl rand -hex 24 | $V put --token-file $OP --path agent-platform/agentgateway-client-key --key api-key --stdin
-```
-
-## 6. External Secrets Operator (MUTATING, Kubernetes)
-
-```bash
-kubectl --context $CTX -n ml-platform create configmap vault-ca --from-file=ca.crt=$KEYDIR/ca.crt
-kubectl --context $CTX apply -f infra/kubernetes/external-secrets/namespace.yaml
+kubectl --context $CTX create -f infra/kubernetes/external-secrets/namespace.yaml
 helm --kube-context $CTX install external-secrets $CHARTS/external-secrets-2.14.0.tgz -n external-secrets \
   -f infra/kubernetes/external-secrets/values.yaml --wait --timeout 5m
 kubectl --context $CTX -n external-secrets get deploy      # READ-ONLY: 3 deployments, 1/1 each
+bash scripts/vault/publish_ca.sh $CTX                      # CA_PUBLISHED: external-secrets/vault-ca (ca.crt only)
+kubectl --context $CTX create -f infra/kubernetes/external-secrets/cluster-secret-store.yaml
+kubectl --context $CTX wait --for=condition=Ready clustersecretstore/ewallet-vault --timeout=120s
 ```
 
-ESO processes only namespaced `SecretStore`s. Cluster-wide stores and PushSecrets are ignored
-(`values.yaml`). Vault's NetworkPolicy admits the ESO controller pod and no other pod in `external-secrets`.
+ESO configuration:
+
+- **Processed:** namespaced SecretStores, and the one ClusterSecretStore.
+- **Off:** ClusterExternalSecret, PushSecret and ClusterPushSecret (`values.yaml`). ESO never writes to Vault.
+- **Who may use `ewallet-vault`:** only ExternalSecrets in `ml-platform` and `ewallet-agents` (exact names).
+  The store logs in as `external-secrets/eso-vault-reader`, an identity with no pod, no RBAC and no
+  mounted token.
+- **Network:** Vault's NetworkPolicy admits the ESO controller pod only.
+- **`publish_ca.sh`:** never overwrites a ConfigMap that it did not publish.
 
 ## 7. Shadow synchronisation (MUTATING, Kubernetes)
 
-ESO creates a **new** Secret. The Feature API still reads `feast-online-redis`.
+ESO creates **new** Secrets. Every consumer still reads its original Secret.
 
 ```bash
 kubectl --context $CTX create -f infra/kubernetes/external-secrets/ml-platform.yaml   # create: fails rather than overwrites
-kubectl --context $CTX -n ml-platform wait --for=condition=Ready secretstore/vault --timeout=120s
-kubectl --context $CTX -n ml-platform wait --for=condition=Ready externalsecret/feature-api-redis --timeout=120s
-```
-
-Read-only validation. The comparison prints one status, never a value or a hash:
-
-```bash
-kubectl --context $CTX -n ml-platform get externalsecret feature-api-redis      # STATUS SecretSynced, READY True
-kubectl --context $CTX -n ml-platform get secret feature-api-redis-vault -o json | jq -c '.data | keys'   # ["connection_string"]
-bash scripts/vault/shadow_compare.sh $CTX ml-platform feast-online-redis feature-api-redis-vault
+kubectl --context $CTX -n ml-platform wait --for=condition=Ready externalsecret/feast-online-redis --timeout=120s
+bash scripts/vault/shadow_compare.sh $CTX ml-platform feast-online-redis feast-online-redis-vault
+# Agent Platform (with step 8b only):
+kubectl --context $CTX create -f infra/kubernetes/external-secrets/ewallet-agents.yaml
+bash scripts/vault/shadow_compare.sh $CTX ewallet-agents vllm-api-key vllm-api-key-vault api-key
+bash scripts/vault/shadow_compare.sh $CTX ewallet-agents agentgateway-client-key agentgateway-client-key-vault api-key
 ```
 
 [`shadow_compare.sh`](../../../scripts/vault/shadow_compare.sh) exits 0 only with
-`SHADOW_MATCH`: both Secrets exist, both have a non-empty `connection_string`, every kubectl,
+`SHADOW_MATCH`: both Secrets exist, both have a non-empty value under the key, every kubectl,
 jq and base64 step succeeded, and the values are equal. Anything else prints its own status and
 exits 1: `SHADOW_MISMATCH`, `SHADOW_<EXISTING|SHADOW>_SECRET_MISSING`, `…_KEY_MISSING`,
-`…_VALUE_EMPTY` or `…_READ_FAILED` (for example, an API error).
+`…_VALUE_EMPTY` or `…_READ_FAILED`. It prints one status, never a value or a hash.
 
-**Gate:** proceed only on `SHADOW_MATCH` with exit code 0.
+**Gate:** proceed only on `SHADOW_MATCH` with exit code 0, for every pair being switched.
 
-## 8. Consumer switch (MUTATING, Kubernetes; production release)
+## 8. Consumer switch (MUTATING, Kubernetes; production releases, one group at a time)
+
+**8a. Feature API, then Fraud API** (the same Secret `feast-online-redis-vault`):
 
 ```bash
 python3 scripts/vault/gke_preflight.py --mode consumer-switch --kubeconfig $KUBECONFIG --context $CTX   # must end READY
@@ -237,80 +279,97 @@ helm --kube-context $CTX -n ml-platform history ewallet-serving --max 1      # n
 helm upgrade ewallet-serving infra/helm/ewallet-serving --kube-context $CTX -n ml-platform --reuse-values \
   -f infra/helm/ewallet-serving/values-vault-eso.yaml
 kubectl --context $CTX -n ml-platform rollout status deployment/feature-api --timeout=300s
-kubectl --context $CTX -n ml-platform get deploy feature-api \
-  -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="EWALLET_REDIS_CONNECTION_STRING")].valueFrom.secretKeyRef.name}'
-# feature-api-redis-vault
+# after one real lookup (acceptance plan §4):
+kubectl --context $CTX -n ml-platform patch deployment fraud-api --type=strategic \
+  --patch-file infra/kubernetes/fraud-serving/fraud-api-eso.patch.yaml
+kubectl --context $CTX -n ml-platform rollout status deployment/fraud-api --timeout=300s
 ```
 
-The readiness probe (`/health/ready`) reads the Feast registry and Redis, so Ready already
-shows the credential works. Then run one real lookup through the edge or a port-forward
-(the public Feature API endpoint is described in [EXTERNAL_GATEWAY_ARCHITECTURE.md §5.6](../../edai2/gateway/EXTERNAL_GATEWAY_ARCHITECTURE.md#56-minimal-public-exposure-of-the-feature-api)).
-The overlay keeps `featureApi.vault.enabled=false`: the pod never talks to Vault.
+**8b. Agent Platform** (`vllm-api-key` and `agentgateway-client-key`, one upgrade):
+
+```bash
+helm --kube-context $CTX -n <llm-agent release namespace> history llm-agent --max 1      # note the revision
+helm upgrade llm-agent infra/helm/llm-agent-platform --kube-context $CTX -n <namespace> --reuse-values \
+  -f infra/helm/llm-agent-platform/values-vault-eso.yaml
+```
+
+The overlay moves the backend (`vllm.apiKeySecret`), the validator (`agentgateway.clientKeySecret`)
+and every client (`modelConfig.apiKeySecret`: ModelConfig and the BYO agents) together.
+
+- **Why it is safe:** the values are identical (`SHADOW_MATCH`), so the rollout changes nothing at
+  runtime.
+- **What it leaves untouched:** the MCP credential releases (`mcp-token-*`, `mcp-auth-*`) and the
+  Coordinator idempotency Secret (tested).
+- **Afterwards:** check a gateway call (200 with the key, 401 wrong or missing), and kagent chat.
+
+The overlays keep the pods away from Vault: no Vault token, address or CA in any pod.
 
 ## 9. Rollback (MUTATING, Kubernetes)
 
 ```bash
-helm --kube-context $CTX -n ml-platform rollback ewallet-serving <REVISION-FROM-STEP-8>
-# or: helm upgrade ewallet-serving infra/helm/ewallet-serving --kube-context $CTX -n ml-platform --reuse-values \
-#       --set featureApi.redisSecret.name=feast-online-redis
-kubectl --context $CTX -n ml-platform rollout status deployment/feature-api --timeout=300s
+helm --kube-context $CTX -n ml-platform rollback ewallet-serving <REVISION-FROM-STEP-8a>
+kubectl --context $CTX -n ml-platform rollout undo deployment/fraud-api
+helm --kube-context $CTX -n <namespace> rollback llm-agent <REVISION-FROM-STEP-8b>
 ```
 
-`feast-online-redis` is never changed by this procedure, so rollback restores the exact
-earlier state. Leave the ExternalSecret in place, or delete it after rollback: it owns
-`feature-api-redis-vault` and deleting it deletes that Secret. Never delete
-`feast-online-redis`. After a real Redis password rotation, update `feast-online-redis` too,
-or it stops being a valid rollback target.
+Rollback rules:
+
+- The original Secrets are never changed by this procedure, so rollback restores the exact earlier state.
+- Leave the ExternalSecrets in place, or delete them after rollback: each owns its `*-vault` Secret,
+  and deleting it deletes that Secret.
+- Never delete an original Secret.
+- After a real rotation (step 11), the original Secret holds the retired credential and is no longer
+  a valid rollback target.
 
 ## 10. Verification after deployment (READ-ONLY, except the negative test objects)
 
 | Check | Command | Expected |
 |---|---|---|
-| Vault runtime | `$V status` | `initialized: true`, `sealed: false` |
-| KV metadata | `$V versions --token-file $OP --path feature-api/feast-redis` | version and time, no value |
-| ACL | `configure` output lists the applied policies; the text is `infra/kubernetes/vault/policies/eso-*.hcl` | one `read` path plus the two self-token paths; enforcement is shown by the denied-access row |
-| Store | `kubectl -n ml-platform get secretstore vault` | `Valid`, Ready `True` |
-| Sync | `kubectl -n ml-platform get externalsecret feature-api-redis` | `SecretSynced`, Ready `True` |
-| Consumer | `secretKeyRef` of `deployment/feature-api`, one lookup | `feature-api-redis-vault`, HTTP 200 |
+| Vault runtime | `$V status` | `initialized: true`, `sealed: false`, `seal_type: gcpckms` |
+| KV metadata | `$V versions --token-file $OP --path ml-platform/feast-online-redis` | version and time, no value |
+| ACL | `describe` output (step 4) | `eso-ewallet-reader`: two `read` prefixes plus the two self-token paths |
+| Store | `kubectl get clustersecretstore ewallet-vault` | Ready `True`, `Valid` |
+| Sync | `kubectl -n ml-platform get externalsecret feast-online-redis` | `SecretSynced`, Ready `True` |
+| Consumers | `secretKeyRef` of `deployment/feature-api` and `deployment/fraud-api`, one lookup | `feast-online-redis-vault`, HTTP 200 |
 | Denied access | create the labelled test objects from [`negative-tests.yaml`](../../../infra/kubernetes/external-secrets/negative-tests.yaml) (`sed "s/__CID__/$CID/g" … \| kubectl create -f -`), then read each cause in `kubectl -n external-secrets logs deploy/external-secrets` (ESO events are generic); procedure in [VAULT_GKE_ACCEPTANCE_CAMPAIGN.md §5](VAULT_GKE_ACCEPTANCE_CAMPAIGN.md#5-g10-negative-tests-vault-v2-five-cases-created-and-removed-by-label) | `vault-neg-out-of-prefix` `permission denied`, `vault-neg-wrong-sa` `service account name not authorized`, `vault-neg-wrong-ns` `namespace not authorized`, `vault-neg-wrong-aud` `invalid audience`, `vault-neg-sandbox` store not allowed in the namespace; Ready `False`; no target Secret; afterwards `delete … -l ewallet.io/vault-campaign=$CID` leaves nothing |
 
 ## 11. Rotation (MUTATING, Vault and Kubernetes)
 
-1. Write the new value as a new KV version: `… | $V put --token-file $OP --path feature-api/feast-redis --key connection_string --stdin`.
-2. ESO picks it up within `refreshInterval` (1h), or at once:
-   `kubectl --context $CTX -n ml-platform annotate externalsecret feature-api-redis force-sync=$(date +%s) --overwrite`.
-3. Check that ESO synced: `kubectl … get externalsecret feature-api-redis` shows `SecretSynced` after the force-sync, and `$V versions --token-file $OP …` shows the new version. Until `feast-online-redis` is updated too, `shadow_compare.sh` reports `SHADOW_MISMATCH`, which is correct.
-4. The Feature API reads the variable at start-up: `kubectl --context $CTX -n ml-platform rollout restart deployment/feature-api`.
+A new KV version reaches the target Secret within `refreshInterval` (1 h), or at once with
+`kubectl … annotate externalsecret <name> force-sync=$(date +%s) --overwrite`. Every consumer
+reads its credential at start-up, so each rotation ends with a restart:
 
-Changing the real Redis password is a separate, coordinated step (Redis, every client Secret,
-then restarts). This runbook does not rotate it.
+- **Feast Redis:** change the server password first (Redis `CONFIG SET requirepass`, then the
+  server's own Secret, `feature-store/redis`, which V2 does not manage). Then:
+  1. `put` the new connection string;
+  2. force-sync;
+  3. restart the Feature API and the Fraud API.
+
+  The original Secret now holds the retired credential. Rehearsed on kind with a synthetic Redis
+  (phase `lifecycle`).
+- **Gateway client key:** `put`, force-sync, then restart agentgateway **and** every agent that
+  reads the ModelConfig. The gateway accepts one key, so clients that have not restarted are
+  refused (rehearsed on kind: old key 200 until the gateway restart, 401 after).
+- **vLLM backend key:** `put`, force-sync, then restart vLLM **and** agentgateway together.
+  Restarting only one side breaks the pair (rehearsed on kind: the real vLLM refuses the other key).
+
+Production rotation of the Agent Platform keys is deferred: it needs a coordinated restart window
+(audit §13).
 
 ## Token lifecycle and later administration
 
-Vault 2.0 requires authentication for root generation, to stop key-update requests with bogus
-key fragments (HashiCorp, *Important changes*: "Previously unauthenticated endpoints require
-authentication"). This deployment keeps that default: `values-gke.yaml` has **no** `enable_unauthenticated_access`.
+Vault 2.0 requires authentication for root generation. This deployment keeps that default:
+`values-gke.yaml` has **no** `enable_unauthenticated_access`.
 
 | Credential | Created by | Used for | Ends |
 |---|---|---|---|
-| Unseal shares (in `vault-keys.json`) | `init` | unseal after every restart; completing a root-generation ceremony (2 of 3) | never; offline copies |
-| Initial root token (in `vault-keys.json`) | `init` | step 4 only: `configure`, `operator-token` | `retire-root --keys-file` at the end of step 4 |
-| Operator token (`$OP`) | `operator-token` | `put` (create or rotate), `versions` (metadata) | TTL 720 h, not renewable |
+| Recovery keys (in `vault-keys.json`) | `init` | completing a root-generation ceremony (2 of 3); never unsealing | never; offline copies |
+| Initial root token (in `vault-keys.json`) | `init` | step 4 only | `retire-root --keys-file` at the end of step 4 |
+| Operator token (`$OP`) | `operator-token` | `put` (create or rotate), `versions` (metadata) under `ml-platform/` and `agent-platform/` | TTL 720 h, not renewable |
 | Admin login (`$KEYDIR/admin-login.json`) | `login --role vault-admin` with a ServiceAccount token from `kubectl create token` | starting and feeding a root-generation ceremony, nothing else | 15 min |
-| Temporary root (`$KEYDIR/admin-token.json`) | `generate-root` (admin login + 2 shares) | policy and role changes, a new operator token | `retire-root --token-file` right after use |
+| Temporary root (`$KEYDIR/admin-token.json`) | `generate-root` (admin login + 2 recovery keys) | policy and role changes, a new operator token | `retire-root --token-file` right after use |
 
-Who can do what:
-
-- The operator token (orphan, `secret-operator` only) writes values and reads metadata under
-  `feature-api/`, `fraud-api/` and `agent-platform/`. It cannot read values, change policies,
-  roles or auth methods, or generate a root token.
-- The admin login can only run the root-generation ceremony (`policies/root-generation.hcl`).
-  Finishing it needs 2 unseal shares. Getting the login needs permission to create tokens for
-  `ewallet-vault/vault-admin`, which cluster administrators have. That identity never expires,
-  so there is no dependency cycle.
-- ESO reader roles and application roles have no `sys/` path at all (tested).
-
-**Policy or role change** (for example, after editing `bootstrap.json` or a policy file). Needs Vault unsealed:
+**Policy or role change:**
 
 ```bash
 kubectl --context $CTX -n ewallet-vault create token vault-admin --audience vault --duration 10m \
@@ -321,114 +380,83 @@ $V retire-root --token-file $KEYDIR/admin-token.json
 rm $KEYDIR/admin-login.json $KEYDIR/admin-token.json
 ```
 
-`generate-root` cancels any unfinished attempt first. If the shares run out it cancels its own
-attempt and fails, and every API error stops it.
+`generate-root` behaviour:
+
+- it submits the recovery keys and stops at the threshold;
+- one key cannot finish: it cancels its attempt and fails;
+- a forged share is rejected by Vault (HTTP 400) when the threshold is reached;
+- every API error stops it.
+
+All of this is rehearsed on kind (phase `ceremony`).
 
 **Operator token expired or lost:** run the first two commands above, then
 `$V operator-token --token-file $KEYDIR/admin-token.json --token-out $KEYDIR/operator-token-<date>.json`,
-then `retire-root --token-file` and the `rm`. Token files are never overwritten, so each new
-token gets a new file name. A lost token stays valid until its TTL ends, unless an operator
-revokes it through the Vault API (`auth/token/revoke`) with the temporary root. This CLI has no command for that.
+then `retire-root --token-file` and the `rm`. Token files are never overwritten.
 
-**After a long GKE sleep:** tokens expire by wall-clock time, so the operator token may have
-expired while the cluster slept. Unseal (step 12), then replace the operator token as above.
-The admin login does not depend on any stored token. ESO is unaffected: it logs in afresh for every sync.
-
-**Break-glass (owner approval required; not part of normal operation).** Use this only if the
-admin login itself cannot work, for example if Vault's Kubernetes auth configuration is broken
-or the `vault-admin` role was deleted. In that case no authenticated identity can start root generation:
-
-1. Record the approval and the reason in the campaign evidence.
-2. Temporarily allow unauthenticated root generation:
-   `helm --kube-context $CTX upgrade vault $CHARTS/vault-0.34.1.tgz -n ewallet-vault -f infra/kubernetes/vault/values-gke.yaml -f <break-glass.yaml>`.
-   `<break-glass.yaml>` is a local, uncommitted copy of the `server.ha.raft.config` block with
-   `enable_unauthenticated_access = ["generate-root"]` added. Then restart the pod
-   (`kubectl --context $CTX -n ewallet-vault delete pod vault-0`), and unseal.
-3. Generate a root token with the shares. The direct Vault API (`sys/generate-root/attempt`
-   and `sys/generate-root/update`) is used here, because this CLI always requires an admin
-   login. Repair Kubernetes auth or the role with `configure --token-file`, then `retire-root`.
-4. **Restore the secure configuration at once:** `helm upgrade` with `values-gke.yaml` only,
-   restart `vault-0`, unseal, and confirm that `sys/generate-root/attempt` without a token
-   answers 403.
-
-This path has not been exercised on kind. The behaviour of the setting itself was checked on
-a disposable Vault 2.0.4 container: without a token, 403 when the setting is absent; started
-when it is present.
-
-Token files live only in `$KEYDIR` (mode 0600; the CLI refuses a path inside the repository).
-No command prints a token.
+**Break-glass** (owner approval; only if the admin login cannot work, for example broken Kubernetes
+auth): as in V1, a local uncommitted override with `enable_unauthenticated_access = ["generate-root"]`,
+the ceremony with the recovery keys through the direct API, repair, then restore the secure
+configuration at once. Not exercised.
 
 ## 12. GKE sleep and wake
 
-- **Sleep:** use the campaign's approved cloud-lab sleep procedure. Nothing Vault-specific is
-  added to it. Vault has no PodDisruptionBudget (`server.ha.disruptionBudget.enabled: false`).
-  The chart's default budget for one replica is `maxUnavailable: 0`, which the sleep tool's
-  check (`evaluate_pdbs`, `minAvailable` only) would not flag, and which would then stall the
-  resize to zero. The drain therefore evicts `vault-0` like any other pod. Vault seals as it
-  stops; Raft data is on the PVC. The ESO Deployments have no budget either. **Never delete the
-  `ewallet-vault` namespace or its PVCs while sleeping**, and do not `helm uninstall` Vault or
-  ESO: sleep keeps both installed.
-- **Disks while asleep:** the data (5 GiB) and audit (1 GiB) disks are zonal in
-  `asia-southeast1-b`, the only zone of `cpu-pool`, so after a wake `vault-0` reattaches them on
-  any new node. Check after the sleep: `kubectl --context $CTX -n ewallet-vault get pvc` shows both Bound.
-- **Wake:** Vault comes back **sealed**. Until it is unsealed, ESO cannot sync (`ExternalSecret`
-  Ready `False`), but the synced Secrets stay in place. The Feature API therefore starts and
-  serves normally, unlike the direct loader, which fails closed while Vault is sealed. After the
-  wake, open the port-forward and run `$V unseal --keys-file $KEYDIR/vault-keys.json` and `$V status`,
-  then force a sync (step 11.2) and check `SecretSynced`. If the operator token expired during
-  the sleep, replace it (*Token lifecycle*).
-- A retained Secret is not proof that ESO is syncing. Check the ExternalSecret condition.
-- **Certificate renewal:** cert-manager renews `vault-server-tls` 15 days before its 90-day
-  expiry, but a running Vault keeps serving the certificate it loaded at start-up. Each wake
-  restarts Vault, so this matters only if Vault runs for more than 75 days without a restart.
-  Check `kubectl --context $CTX -n ewallet-vault get certificate vault-server-tls` (`Ready`, renewal
-  time). After a renewal, restart `vault-0` and unseal it. The `vault-ca` CA lasts one year;
-  when it is renewed, re-publish `ca.crt` to the `vault-ca` ConfigMaps (step 6).
+- **Sleep:** the campaign's approved cloud-lab sleep procedure. Nothing Vault-specific is added.
+  Vault has no PodDisruptionBudget: the chart's one-replica budget (`maxUnavailable: 0`) would stall
+  the resize to zero. **Never delete the `ewallet-vault` namespace or its PVCs while sleeping**.
+- **Wake: Vault unseals itself** through Cloud KMS once its pod starts: no unseal command, no recovery
+  key. Check `$V status` (`sealed: false`) and `kubectl -n ewallet-vault get pod vault-0` (Ready).
+  Then force a sync and check `SecretSynced`. If the operator token expired during the sleep, replace it.
+- **Auto-unseal failure** (Cloud KMS unreachable, IAM binding removed, key version disabled):
+  - Expected behaviour, observed on kind with the transit seal: `vault-0` never becomes Ready and
+    never serves, and after about 110 s it exits with `error parsing Seal configuration` and kubelet
+    restarts it.
+  - Synced Secrets stay in place, so consumers keep running and even start.
+  - Fix the cause (step 0). Kubelet's next start unseals Vault by itself.
+  - Recovery keys cannot help here, and `$V unseal` refuses.
+  - The exact GKE behaviour is NOT_VERIFIED_ON_GKE.
+- **Certificate renewal:** cert-manager renews `vault-server-tls` 15 days before its 90-day expiry.
+  A running Vault keeps the certificate it loaded, so restart `vault-0` after a renewal; it
+  auto-unseals. When the `vault-ca` CA is renewed, run `scripts/vault/publish_ca.sh $CTX`
+  (`CA_UPDATED`).
 
 ## 13. Safe cleanup (MUTATING, Kubernetes)
 
 Only on a separate decision; the order matters:
 
-1. Roll the consumer back (step 9).
-2. `kubectl --context $CTX delete -f infra/kubernetes/external-secrets/ml-platform.yaml` (deletes `feature-api-redis-vault`).
-3. `helm --kube-context $CTX uninstall external-secrets -n external-secrets`. The chart owns the
-   ESO CRDs (`installCRDs: true`), so uninstalling deletes them, and with them **every**
-   SecretStore and ExternalSecret in every namespace. Kubernetes then garbage-collects every
-   Secret those ExternalSecrets own (`creationPolicy: Owner`). Never uninstall ESO while a
-   workload still reads an ESO-owned Secret. `helm upgrade` keeps the CRDs and the objects.
-4. `helm --kube-context $CTX uninstall vault -n ewallet-vault`. **The PVCs remain.** Deleting
-   them, or the namespace, destroys all Vault data: that needs its own owner decision, after a
-   Raft snapshot.
-5. Only after a complete removal: `python3 scripts/vault/gke_preflight.py --mode preinstall …` must
-   report READY. It also fails on a `Released` Vault PV and on leftover chart ClusterRoles,
-   bindings or webhooks.
+1. Roll the consumers back (step 9).
+2. `kubectl --context $CTX delete -f infra/kubernetes/external-secrets/ml-platform.yaml -f infra/kubernetes/external-secrets/ewallet-agents.yaml`.
+3. `kubectl --context $CTX delete clustersecretstore ewallet-vault` (by name; never all stores).
+4. `helm --kube-context $CTX uninstall external-secrets -n external-secrets`. The chart owns the
+   ESO CRDs (`installCRDs: true`). Uninstalling deletes them and every store and ExternalSecret,
+   and then every Secret those ExternalSecrets own. Never uninstall ESO while a workload still
+   reads an ESO-owned Secret.
+5. `helm --kube-context $CTX uninstall vault -n ewallet-vault`. **The PVCs remain.** Deleting them
+   destroys all Vault data: its own owner decision, after a Raft snapshot.
+6. **The Cloud KMS key stays.** Destroying it is a separate owner decision (step 0).
 
 ## Recovery from an incomplete installation
 
 | Where it stopped | State | Recovery |
 |---|---|---|
-| Step 2: Vault install or Certificate | No data yet | Fix the cause; `helm uninstall vault -n ewallet-vault`; delete the empty PVCs only if `$V status` never showed `initialized: true`; retry |
+| Step 2: Vault does not start (`error parsing Seal configuration`) | No data yet | Step 0 is incomplete (key, IAM, Workload Identity). Fix it; the pod restarts by itself |
 | Step 3: `init` failed with any other error | `$V status` shows `initialized: false`; the empty key file was removed | Retry `init` |
-| Step 3: `vault_initialised_keys_not_stored` or `vault_init_outcome_unknown` | Vault may be initialised without stored shares | **Stop; never run `init` again.** Check `$V status`. If `initialized: true` and no complete `vault-keys.json` exists, the data is unrecoverable by design. Vault holds no secret yet, so the owner may decide to uninstall, delete the PVCs and start again |
-| Step 4: `configure` stopped part-way | Some policies or roles applied | Re-run `configure`: every step is idempotent. If root is already retired, use the admin path (*Token lifecycle*) |
-| Step 4: root retired before the operator token was created | No routine token | Admin path, then `operator-token` |
-| Step 6: ESO install failed | Partial release | `helm uninstall external-secrets -n external-secrets` (nothing depends on it yet), then retry |
-| Step 7: ExternalSecret not `SecretSynced` | No target Secret; Feature API unchanged | Read the cause in `kubectl -n external-secrets logs deploy/external-secrets` (ESO events are generic); fix the store, policy or value; force a sync. Do not switch the consumer |
-| Step 8: Feature API not Ready after the switch | Old pods still serve, or the rollout is stuck | Rollback (step 9) |
+| Step 3: `vault_initialised_keys_not_stored`, `vault_init_outcome_unknown` or `vault_init_shares_unexpected` | Vault may be initialised without stored recovery keys | **Stop; never run `init` again.** Vault holds no secret yet, so the owner may decide to uninstall, delete the PVCs and start again |
+| Step 4: `configure` stopped part-way | Some policies or roles applied | Re-run `configure`: every step is idempotent. If root is already retired, use the admin path |
+| Step 6: ESO install failed | Partial release | `helm uninstall external-secrets -n external-secrets`, then retry |
+| Step 6: `ewallet-vault` not Ready | No sync | Read the cause in `kubectl -n external-secrets logs deploy/external-secrets` (CA, role, audience) |
+| Step 7: ExternalSecret not `SecretSynced` | No target Secret; consumers unchanged | Read the cause in the ESO log; fix the store, policy or value; force a sync. Do not switch the consumer |
+| Step 8: a consumer not Ready after the switch | Old pods still serve, or the rollout is stuck | Rollback (step 9) |
 
-## Local validation
+## Local validation (kind)
 
-```bash
-helm pull vault --repo https://helm.releases.hashicorp.com --version 0.34.1 -d <dir>
-helm pull external-secrets --repo https://charts.external-secrets.io --version 2.14.0 -d <dir>
-docker build -f ai_platform/inference/Dockerfile -t localhost:5001/ewallet-inference:vault-eso-local . && docker push localhost:5001/ewallet-inference:vault-eso-local
-# seed image, local only: the same image plus tests/ (the Feast fixtures)
-printf 'FROM localhost:5001/ewallet-inference:vault-eso-local\nCOPY tests /app/tests\n' \
-  | docker build -f - -t localhost:5001/ewallet-feast-seed:vault-eso-local . && docker push localhost:5001/ewallet-feast-seed:vault-eso-local
-bash scripts/vault/eso_local_validate.sh <dir>/vault-0.34.1.tgz <dir>/external-secrets-2.14.0.tgz \
-  localhost:5001/ewallet-inference@sha256:<digest> localhost:5001/ewallet-feast-seed@sha256:<digest> <evidence-dir>
-```
+The kind campaign is the same driver as the GKE rehearsal, `scripts/vault/gke_rehearsal.sh`, with
+`REHEARSAL_CONTEXT=kind-*`. On kind it adds:
 
-The script refuses a non-kind context (default `kind-llm-agent-local`). It also refuses
-pre-existing `ewallet-vault`, `external-secrets` or `ml-platform` namespaces, and removes
-everything it created on exit.
+- the transit "unsealer" (`SIMULATED_AUTO_UNSEAL`);
+- the official store `ewallet-vault` from the committed file;
+- the `seal` drill;
+- the `agents` phase: the real agentgateway and the real vLLM CPU image with the staged model.
+
+The phase order and the published runs are in [VAULT_GKE_REHEARSAL.md §10](VAULT_GKE_REHEARSAL.md#10-vault-v2-on-kind).
+cert-manager v1.16.2 is installed for the run and removed afterwards with
+`scripts/vault/rehearsal/kind_cert_manager.sh install|remove kind-llm-agent-local`.

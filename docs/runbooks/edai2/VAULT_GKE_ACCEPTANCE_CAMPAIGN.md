@@ -5,6 +5,17 @@ Gate-by-gate plan for deploying the existing Vault + External Secrets Operator i
 Commands come from [VAULT_ESO_RUNBOOK.md](VAULT_ESO_RUNBOOK.md) (cited as *RB step N*) and
 `ops/gcp/cloud_lab.py`.
 
+> **Vault V2 (branch `experiment/edai2-vault-clustersecretstore`): this plan is only partly revised.**
+> Already V2:
+> - §5 (G10 negative tests, against the shared ClusterSecretStore);
+> - the operating commands it cites ([VAULT_ESO_RUNBOOK.md](VAULT_ESO_RUNBOOK.md) is V2).
+>
+> Still V1, revised in roadmap phase P6 after the approved P4 (Cloud KMS) and the GKE Campaign A2
+> ([audit §15, §18](../../edai2/platform/VAULT_V2_ARCHITECTURE_AUDIT.md)):
+> - the gates G3/G4 (Shamir init and manual unseal; V2 uses recovery keys and Cloud KMS auto-unseal);
+> - the namespaced `SecretStore` in G6/G7;
+> - the screenshot list E1–E9.
+
 **Status: Stage A (preparation) complete; Stage B (live) not started.** Nothing here runs without
 the owner's explicit approval of the campaign. Every **[OWNER]** step is performed by the owner
 personally. Nothing in this page wakes GKE.
@@ -214,7 +225,7 @@ store `vault-neg-wrong-aud`, and ExternalSecrets `vault-neg-out-of-prefix`, `vau
 | Case | ExternalSecret | Expected cause | Target Secret |
 |---|---|---|---|
 | Path outside the reader's prefixes: `ewallet-vault` asks for `mcp-platform/out-of-prefix-probe` | `ml-platform/vault-neg-out-of-prefix` | `permission denied` (ESO log) | must not exist |
-| Namespace not in the store's list | `ewallet-sandbox/vault-neg-sandbox` | the store is not allowed in the namespace (ExternalSecret status; no Vault call); exact text recorded by the kind run | must not exist |
+| Namespace not in the store's list | `ewallet-sandbox/vault-neg-sandbox` | ESO log: `using cluster store "ewallet-vault" is not allowed from namespace "ewallet-sandbox": denied by spec.condition` (no Vault call; the ExternalSecret status only says `could not get secret data from provider`) | must not exist |
 | Wrong ServiceAccount: `vault-neg-intruder` logs in to role `eso-ewallet-reader` | `ml-platform/vault-neg-wrong-sa` | `service account name not authorized` | must not exist |
 | Same-named reader in a consumer namespace: `ml-platform/eso-vault-reader` | `ml-platform/vault-neg-wrong-ns` | `namespace not authorized` | must not exist |
 | Wrong JWT audience: the real reader with audience `kubernetes` | `ml-platform/vault-neg-wrong-aud` | `invalid audience` | must not exist |
@@ -240,7 +251,7 @@ for pair in "vault-neg-out-of-prefix:permission denied" "vault-neg-wrong-sa:serv
   got=$(grep -F "\"$n\"" <<<"$logs" | grep -oE 'permission denied|service account name not authorized|namespace not authorized|invalid audience' | sort -u | paste -sd,)
   [ "$got" = "$want" ] && echo "$n: $want" || echo "$n: MISSING or WRONG cause (got: ${got:-none})"
 done
-kubectl --context $CTX -n ewallet-sandbox get externalsecret vault-neg-sandbox -o jsonpath='{.status.conditions[0].message}'; echo
+grep -F '"vault-neg-sandbox"' <<<"$logs" | grep -c 'is not allowed from namespace \\"ewallet-sandbox\\": denied by spec.condition'   # >= 1
 kubectl --context $CTX -n ml-platform get secret $N; kubectl --context $CTX -n ewallet-sandbox get secret vault-neg-sandbox   # NotFound each
 # -> pause: E8a, E8b
 # 4. Cleanup (MUTATING): only this campaign's objects, then prove nothing is left
@@ -253,8 +264,7 @@ kubectl --context $CTX get clustersecretstore -l ewallet.io/vault-campaign=$CID 
 ```
 
 PASS: the precheck prints nothing; each ExternalSecret reaches Ready `False`; the loop prints each
-name with exactly its expected cause; the sandbox ExternalSecret reports that the store is not
-allowed in its namespace; all five target Secrets are NotFound; cleanup leaves nothing with the
+name with exactly its expected cause; the sandbox ExternalSecret's log lines carry `denied by spec.condition`; all five target Secrets are NotFound; cleanup leaves nothing with the
 label. **Any target Secret that appears, or a missing or different cause, is a failure:** capture
 it, delete the test objects, roll the consumer back (RB 9) and stop. An unrelated failure (for
 example Vault unreachable or sealed) never counts as a denial. The real
@@ -366,21 +376,21 @@ scrolled to `status`: condition `Ready: True`, reason `SecretSynced`, `refreshTi
 `syncedResourceVersion`, and `spec.target.name: feature-api-redis-vault`. Then the same for
 `SecretStore` `ml-platform/vault`: `Ready: True`, reason `Valid`. These objects hold references,
 never values. **Never open the `Secret` kind in the Object Browser.** PASS: both Ready True. Doc:
-VAULT.md *SecretStore and ExternalSecret*.
+VAULT.md *ClusterSecretStore and ExternalSecrets*.
 
 **E5b Shadow equality without values.** Terminal:
 `kubectl --context $CTX -n ml-platform get secretstore,externalsecret`,
 `kubectl --context $CTX -n ml-platform get secret feature-api-redis-vault -o json | jq -c '.data | keys'`,
 `bash scripts/vault/shadow_compare.sh $CTX ml-platform feast-online-redis feature-api-redis-vault; echo exit=$?`.
 Expected: `Valid`/`SecretSynced`, `["connection_string"]`, `SHADOW_MATCH`, `exit=0`. PASS: all
-four. Doc: VAULT.md *SecretStore and ExternalSecret*.
+four. Doc: VAULT.md *ClusterSecretStore and ExternalSecrets*.
 
 **E6 The Feature API reads the ESO-managed Secret.** Console → Kubernetes Engine → Workloads →
 *Namespace: ml-platform* → `feature-api` → *YAML*, scrolled to `env` →
 `EWALLET_REDIS_CONNECTION_STRING` → `valueFrom.secretKeyRef.name: feature-api-redis-vault`; and the
 *Revision history* tab showing the new revision rolled out. Check before capturing that no env
 entry on screen carries a literal credential `value:`. PASS: the reference and a completed
-rollout. Doc: VAULT.md *Feature API integration*.
+rollout. Doc: VAULT.md *Feature API and Fraud API integration*.
 
 **E7 Business lookup through Swagger.** `kubectl --context $CTX -n ml-platform port-forward svc/feature-api 18080:80`,
 browser `http://127.0.0.1:18080/docs` (the public edge serves only the lookup and returns 404 for
@@ -390,7 +400,7 @@ browser `http://127.0.0.1:18080/docs` (the public edge serves only the lookup an
 `oldest_feature_timestamp`, `correlation_id`. PASS: the G9 class from §4. If the class is
 `SECRET_INTEGRATION_PASS_BUSINESS_LOOKUP_UNAVAILABLE`, the screenshot shows the same non-200 code
 as G1 and the caption says so; HTTP 424 is never presented as a business success. Hide: nothing
-secret (entity IDs come from the synthetic dataset). Doc: VAULT.md *Feature API integration*.
+secret (entity IDs come from the synthetic dataset). Doc: VAULT.md *Feature API and Fraud API integration*.
 
 **E8a Unauthorized access denied, from the controller log.** Before deleting the G10 objects:
 Console → Logging → *Logs Explorer*, last 30 minutes, query

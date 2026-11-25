@@ -888,3 +888,24 @@ Repository files are cited inline. External sources:
 - Google Cloud KMS, roles and permissions: https://docs.cloud.google.com/kms/docs/reference/permissions-and-roles
 - Google Cloud KMS pricing: https://cloud.google.com/kms/pricing (figures in §19 must be confirmed on this page)
 - Reference: https://github.com/itsmekhoathekid/RecSys-MLops at `6bd6e99f`
+
+---
+
+## 22. Implementation record and deviations (P1–P3, appended after implementation)
+
+Sections 1–21 above are the original decision record (commit `0d22f643`) and are not rewritten.
+P1 (`e8c31dce`), P2 (`46bef874`) and P3 implemented them on this branch, offline only. Where the
+implementation differs from the text above, or a stated assumption turned out differently on kind,
+it is listed here.
+
+| # | Audit text | Implemented / observed | Why |
+|---|---|---|---|
+| D-1 | §7.3, O4: remove the direct-loader roles if safe | **Removed.** The roles `feature-api` and `fraud-api`, their policies and their NetworkPolicy entries are gone. `ai_platform/inference/vault.py`, `featureApi.vault` and `fraud-api-vault.patch.yaml` stay, marked "V1, not supported by the V2 bootstrap" | The offline dependency audit found no deploy script or default that uses them |
+| D-2 | §8.5 [ASSUMPTION]: with the seal unavailable, a restarting Vault "stays sealed" | **Observed (kind, transit seal):** Vault never opens its listener. After ≈110 s it exits with `error parsing Seal configuration: context deadline exceeded`, and kubelet restarts it with back-off. Once the seal is back, the next start unseals by itself; no pod delete and no unseal are needed. Synced Secrets and consumers are unaffected, and consumers can even start | The behaviour was learned offline. For `gcpckms` it is expected to be similar, but that stays NOT_VERIFIED_ON_GKE. The runbook and the driver check exactly this behaviour |
+| D-3 | §15: a rehearsal store with paths under `rehearsal/*` | The rehearsal store `ewallet-vault-rehearsal` uses role `eso-vault-rehearsal`, bound to the **official** reader identity. Its exact paths are `ml-platform/rehearsal-redis`, `agent-platform/rehearsal-vllm-api-key` and `agent-platform/rehearsal-agentgateway-client-key` | The unchanged `secret-operator` token can seed them with the official workflow, and the narrower policy still cannot read the real records (tested) |
+| D-4 | §14.1: negative causes read from the ESO log per ExternalSecret | For a ClusterSecretStore, ESO validates the store by logging in itself. A login failure (wrong audience, untrusted CA) is logged under the **store's** name; the ExternalSecret only reports "could not get secret data from provider" | The driver checks three things: the ExternalSecret is refused, the store is NotReady, and the store's log lines carry the cause. In the Campaign B template the test store and its ExternalSecret share one name, so the documented grep still finds the cause. A side effect: `Ready=True` on a store proves a real login |
+| D-5 | §14.1: modify the A+ seed assertion | The Feast seed Job reads the ESO-managed Secret, not the original one | After the real Redis rotation (K11) the original credential is retired. The "registry contains no password" check now covers both the original and the current password |
+| D-6 | §18 P3: extend `eso_local_validate.sh` | `eso_local_validate.sh` and the direct-loader `local_validate.sh` were **removed**. `gke_rehearsal.sh` in kind mode is the V2 end-to-end driver | Both validators hard-wired the V1 objects (namespaced stores, direct-loader roles). Their evidence runs and Git history remain |
+| D-7 | §18 P4: KMS preflight gates | Not implemented (P4). On GKE the driver's `vault` phase refuses until they exist | P1–P3 are offline only |
+| D-8 | (new) | `scripts/vault/publish_ca.sh` publishes the one CA ConfigMap and refuses to overwrite one it did not publish. `scripts/vault/rehearsal/kind_cert_manager.sh` installs and removes cert-manager v1.16.2 for kind runs | Needed by §7.5 and by the kind campaign; kept as committed scripts, not ad-hoc commands |
+| D-9 | §14.2 K6/K7: the gateway on kind, the backend "mock or CPU vLLM" | The **real vLLM CPU image** with the staged Qwen3-0.6B model, plus the real agentgateway, through the real chart and the official overlay | The image and model were already on the kind node, so no mock was needed and the backend's own `--api-key` check is exercised |

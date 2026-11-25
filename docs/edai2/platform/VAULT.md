@@ -1,393 +1,346 @@
-# Centralized secret management: HashiCorp Vault and External Secrets Operator
+# Centralized secret management: HashiCorp Vault and External Secrets Operator (Vault V2)
 
 E-Wallet keeps application credentials in one HashiCorp Vault. The External Secrets Operator
-(ESO) copies each credential into the namespace that uses it, as an ordinary Kubernetes
-Secret. Applications keep reading Secrets exactly as before; Vault becomes the source of
-truth, with per-namespace identities, least-privilege policies, versioning and an audit log.
+(ESO) copies each credential into the namespace that uses it, as an ordinary Kubernetes Secret,
+through **one shared ClusterSecretStore**. Applications keep reading Secrets exactly as before.
+Vault is the source of truth, with one read-only reader identity, versioned values, an audit
+log and, on GKE, **Cloud KMS auto-unseal**.
 
-Operating procedure: [VAULT_ESO_RUNBOOK.md](../../runbooks/edai2/VAULT_ESO_RUNBOOK.md).
+Design record: [VAULT_V2_ARCHITECTURE_AUDIT.md](VAULT_V2_ARCHITECTURE_AUDIT.md) (decisions, inventory,
+trade-offs). Operating procedure: [VAULT_ESO_RUNBOOK.md](../../runbooks/edai2/VAULT_ESO_RUNBOOK.md).
 
-| Status | State |
+| | State |
 |---|---|
-| `IMPLEMENTED` (in Git) | Yes: Vault chart values, bootstrap (policies, roles), token lifecycle, ESO installation, SecretStores, ExternalSecrets, Feature API overlay |
-| `LOCAL_VALIDATED` (on kind) | Yes: full chain with the real charts and the real Feature API (*Validation*) |
-| `GKE_DEPLOYED` | **No**: no Vault, ESO, SecretStore or ExternalSecret exists on GKE (read-only preflight 2026-11-24: `VAULT_GKE_PREFLIGHT_READY`; campaign plan in [VAULT_GKE_ACCEPTANCE_CAMPAIGN.md](../../runbooks/edai2/VAULT_GKE_ACCEPTANCE_CAMPAIGN.md)) |
-| `GKE_RUNTIME_VERIFIED` | No |
-| `OWNER_EVIDENCE_COMPLETE` (row 54) | **No**: not yet accepted as row 54 evidence; that needs the approved GKE campaign and the owner's evidence |
+| **CURRENT GKE STATE** | **Nothing of V1 or V2 is deployed.** No Vault, ESO, store or ExternalSecret exists on `ewallet-dev` (Campaign A removed everything; disks proven deleted). No Cloud KMS key exists |
+| **EXPERIMENTAL SOURCE IMPLEMENTATION** | Branch `experiment/edai2-vault-clustersecretstore`: ClusterSecretStore `ewallet-vault`, one reader role, the `gcpckms` seal and recovery-key CLI, three credential groups (Feast Redis, vLLM key, gateway client key), opt-in consumer overlays |
+| **VERIFIED kind RESULTS** | The full V2 campaign on kind (*Validation*). Auto-unseal there is a local transit seal: **`SIMULATED_AUTO_UNSEAL`**, never a Cloud KMS result |
+| **PLANNED GKE DEPLOYMENT** | P4 (Cloud KMS key ring, key, GSA, IAM, Workload Identity; owner approval), then GKE Campaign A2 (synthetic), then Campaign B (real credentials, owner screenshots) |
+| **UNVERIFIED CLOUD BEHAVIOUR** | Cloud KMS, its IAM, Workload Identity for Vault, auto-unseal across a GKE sleep and wake, Vault's behaviour when KMS is unreachable: **NOT_VERIFIED_ON_GKE** |
+| `OWNER_EVIDENCE_COMPLETE` (row 54) | **No** |
+
+The V1 design (namespaced SecretStores, Shamir unseal) is described in this file's Git history up to
+`f5ebe77b` and stays on branch `feature/edai2-vault-eso`. Its evidence is listed under *History*.
 
 ## Why centralize secrets
 
-Without Vault, the manifests and charts in this repository expect every credential as a
-Kubernetes Secret, created by a script or by hand in the namespace that uses it: for example
-`ml-platform/feast-online-redis`, `ewallet-agents/agentgateway-client-key` and
-`ewallet-agents/vllm-api-key`. That works, but:
+Without Vault, every credential is a Kubernetes Secret created by a script or by hand in the namespace
+that uses it, for example `ml-platform/feast-online-redis`, `ewallet-agents/vllm-api-key` and
+`ewallet-agents/agentgateway-client-key`. That works, but:
 
-- there is no single place that says which credentials exist, who may read them and which version is live;
-- a rotation means finding and editing every copy by hand;
-- Secrets carry no version history and no audit trail of who read them.
+- no single place says which credentials exist, who may read them and which version is live;
+- a rotation means finding and editing every copy;
+- Secrets carry no version history and no audit trail.
 
-Vault provides one store with versioned values (KV v2), identity-based access (Kubernetes
-authentication), per-path policies and an audit log. ESO delivers those values to workloads
-without changing the workloads.
+Vault adds one store with versioned values (KV v2), identity-based access (Kubernetes authentication),
+path policies and an audit log. ESO delivers the values without changing the workloads.
 
-## Why Vault, and why this shape
+## Why this shape
 
 | Choice | Reason |
 |---|---|
-| HashiCorp Vault, official chart `vault-0.34.1` (Vault 2.0.4, image pinned by digest) | The industry-standard secret store, runnable inside the cluster at no licence cost; not dev mode |
-| One server, integrated Raft on a 5 GiB PVC, audit log on a 1 GiB PVC | Vault is stateful and its data survives restarts. Three-node HA would triple cost for a cluster that sleeps most of the day |
-| Internal TLS from a namespace-scoped cert-manager CA | Clients verify Vault with one published CA (`vault-ca`); no plaintext listener, no public endpoint |
-| Manual Shamir unseal (3 shares, threshold 2) | Cloud KMS auto-unseal would add a billable resource, new IAM and a cloud dependency |
-| ESO for delivery, not the Vault Agent Injector or CSI driver | Workloads already consume `secretKeyRef`; ESO needs no sidecar, no webhook in the pod path and no application change |
-| Namespaced `SecretStore`s, not one `ClusterSecretStore` | Each namespace logs in with its own identity, so one namespace's store cannot read another namespace's paths (*Namespace isolation*) |
-
-The reference project (RecSys-MLops) uses Vault HA with KMS auto-unseal and one
-`ClusterSecretStore` whose single ESO identity can read every path. E-Wallet keeps the same
-delivery idea (Vault → ESO → namespace-local Secret) but stays smaller (one Vault, manual
-unseal) and narrows access per namespace.
+| HashiCorp Vault, official chart `vault-0.34.1` (Vault 2.0.4, image pinned by digest), one replica | One Vault for the whole platform. Raft on a 5 GiB PVC, audit log on a 1 GiB PVC. HA would triple cost for a lab that sleeps most of the day |
+| Internal TLS from a namespace-scoped cert-manager CA | No plaintext listener, no public endpoint; ESO verifies Vault with one published CA |
+| **Cloud KMS auto-unseal** (`seal "gcpckms"`), Workload Identity, no JSON key | Every restart, drain or wake unseals by itself. The V1 manual Shamir unseal after every wake was the main operational burden |
+| **One ClusterSecretStore** `ewallet-vault`, exact namespace list | One provider configuration, one reader identity, one role. A new consumer needs one ExternalSecret, not five objects |
+| One Vault record per underlying credential | The Feature API and the Fraud API share one Feast Redis credential, so they share one record (V1 had two copies) |
+| ESO, not the Vault Agent Injector or the CSI driver | Workloads already consume `secretKeyRef`; no sidecar, no webhook in the pod path, no application change |
+| MCP credentials stay Kubernetes-only (MCP-A) | Their release-based lifecycle (transition and final server sets) is the rotation mechanism; Vault must not override it (audit §11) |
 
 ## Architecture
 
 ```text
-                 ewallet-vault namespace (restricted Pod Security, no public route)
-              ┌────────────────────────────────────────────────────────┐
-              │ Vault 2.0.4, 1 replica      KV v2 mount "ewallet"       │
-              │ Raft PVC + audit PVC        Kubernetes auth "kubernetes"│
-              │ TLS (cert-manager CA)       ACL policies, Shamir seal   │
-              └───────────────▲────────────────────────────────────────┘
-                              │ HTTPS :8200, NetworkPolicy: the ESO controller
-                              │ (plus the two direct-loader serving pods)
-              ┌───────────────┴───────────────┐
-              │ external-secrets namespace     │ ESO v2.14.0: controller, webhook,
-              │ one ESO installation           │ cert-controller (only the controller calls Vault)
-              └───────┬────────────────┬──────┘
-  login as ml-platform/│                │ login as ewallet-agents/
-  eso-vault-reader     │                │ eso-vault-reader (staged)
-  (audience "vault")   ▼                ▼
-  ml-platform: SecretStore vault         ewallet-agents: SecretStore vault
-    ExternalSecret feature-api-redis       ExternalSecret agentgateway-client-key-vault
-    → Secret feature-api-redis-vault       → Secret agentgateway-client-key-vault (no consumer yet)
-    → Feature API (secretKeyRef) → Redis
+             Google Cloud KMS  ewallet-vault / vault-unseal (asia-southeast1)      [GKE, P4; kind: transit stand-in]
+                         ^  decrypt the root key at every start (Workload Identity: GSA ewallet-vault-unseal)
+  ewallet-vault  ┌───────┴──────────────────────────────────────────────────┐
+                 │ Vault 2.0.4 x1   KV v2 "ewallet"   Kubernetes auth        │
+                 │ Raft PVC + audit PVC   TLS (cert-manager)   ACL policies  │
+                 └───────▲──────────────────────────────────────────────────┘
+                         │ HTTPS :8200 (NetworkPolicy: the ESO controller only)
+  external-secrets       │ ESO v2.14.0. Login: role eso-ewallet-reader as SA eso-vault-reader (audience "vault"),
+                         │ CA: ConfigMap external-secrets/vault-ca
+                 ClusterSecretStore ewallet-vault   conditions.namespaces = [ml-platform, ewallet-agents]
+               ┌─────────┴───────────────┐
+  ml-platform  ES feast-online-redis      ewallet-agents  ES vllm-api-key           ES agentgateway-client-key
+               → feast-online-redis-vault                 → vllm-api-key-vault      → agentgateway-client-key-vault
+               → Feature API, Fraud API                   → vLLM, agentgateway      → agentgateway validator,
+                                                            (backend)                 ModelConfig → agents
+  excluded: ewallet-sandbox, ewallet-ci, ewallet-ingress, ewallet-mcp (MCP credentials stay Kubernetes-only)
 ```
 
 Trust boundaries:
 
-- **Vault ↔ ESO:** ESO verifies Vault's certificate against `vault-ca`. Vault verifies ESO's
-  ServiceAccount token through the Kubernetes TokenReview API and maps it to one role.
-- **ESO ↔ namespace:** ESO writes only the Secret named by an ExternalSecret in the same
-  namespace as its SecretStore.
-- **Application ↔ Secret:** the application sees an ordinary Secret. It holds no Vault token,
-  no Vault address and no CA, and never connects to Vault.
+- **Vault ↔ ESO:** ESO verifies Vault's certificate against `vault-ca`. Vault verifies the reader's
+  ServiceAccount token through TokenReview, and maps it to one role (name, namespace and audience must match).
+- **ESO ↔ namespaces:** an ExternalSecret may use `ewallet-vault` only from a listed namespace. ESO writes
+  only the target Secret named by the ExternalSecret, in the ExternalSecret's namespace.
+- **Application ↔ Secret:** the application sees an ordinary Secret. It holds no Vault token, address or
+  CA, and never connects to Vault.
 
 ## Secret lifecycle
 
-1. **Create:** an operator writes a value into Vault on stdin (`ops/vault/cli.py put --token-file <operator token> --stdin`).
-   It is never a command-line argument, and nothing is printed.
-2. **Deliver:** ESO logs in with the namespace's reader identity, reads the mapped key and
-   writes the target Secret. It refreshes every hour (`refreshInterval: 1h`), or at once on a
-   `force-sync` annotation.
+1. **Create:** an operator writes a value on stdin (`ops/vault/cli.py put --token-file <operator token> --stdin`). It is never an argument, and nothing is printed.
+2. **Deliver:** ESO logs in as the reader, reads the mapped key and writes the target Secret. It refreshes every hour, or at once on a `force-sync` annotation.
 3. **Consume:** the workload reads the Secret through `secretKeyRef` at start-up.
-4. **Rotate:** write a new KV version; ESO updates the Secret; restart the workload (*Rotation and recovery*).
-5. **Revoke:** remove the path from the namespace policy, or delete the role. ESO's next sync
-   fails and the Secret keeps its last value until removed.
+4. **Rotate:** write a new KV version; ESO updates the Secret; restart the consumers (*Rotation and recovery*).
+5. **Revoke:** remove the prefix from the reader policy, or delete the ExternalSecret. A failed sync keeps the last value (`deletionPolicy: Retain`).
 
 ## Kubernetes authentication, roles and policies
 
-ESO never holds a long-lived Vault token. For each sync it:
+For each sync, ESO:
 
-1. requests a short-lived token (audience `vault`) for the namespace's `eso-vault-reader` ServiceAccount;
-2. logs in to Vault role `eso-<namespace>`. Vault checks the token through TokenReview (Vault's
-   ServiceAccount has `system:auth-delegator`), and checks that the account name, namespace and
-   audience match the role;
-3. receives a Vault token with a 5-minute TTL and only that role's policy (`token_no_default_policy`);
-4. reads the mapped path, then revokes the token.
+1. requests a short-lived token (audience `vault`) for `external-secrets/eso-vault-reader`;
+2. logs in to role `eso-ewallet-reader`;
+3. receives a 5-minute Vault token with that role's policy only (`token_no_default_policy`);
+4. reads, then revokes the token.
 
-| Vault role | Bound identity | Policy | Readable |
+| Vault role | Bound identity | Policy | May |
 |---|---|---|---|
-| `eso-ml-platform` | `ml-platform/eso-vault-reader` | `eso-ml-platform` | `ewallet/data/feature-api/feast-redis` |
-| `eso-ewallet-agents` | `ewallet-agents/eso-vault-reader` | `eso-ewallet-agents` | `ewallet/data/agent-platform/agentgateway-client-key` |
-| `feature-api`, `fraud-api` | the serving accounts (direct loader) | same names | each its own `…/feast-redis` |
-| none: orphan operator token (*Vault tokens*) | — | `secret-operator` | writes values and reads metadata, never reads values |
-| `vault-admin` | `ewallet-vault/vault-admin` (owner's admin login) | `root-generation` | nothing; may only run the root-generation ceremony |
+| `eso-ewallet-reader` | `external-secrets/eso-vault-reader`, audience `vault` | `eso-ewallet-reader` | `read` `ewallet/data/ml-platform/*` and `ewallet/data/agent-platform/*`; `lookup-self`, `revoke-self`. No list, no metadata, no write, no `sys/` |
+| `vault-admin` | `ewallet-vault/vault-admin` (owner's admin login) | `root-generation` | only the root-generation ceremony, completed with 2 recovery keys |
+| none: orphan operator token | — | `secret-operator` | create and update values, read metadata, under the same two prefixes; never read values |
 
-Each reader policy grants `read` on exactly the paths its namespace's ExternalSecrets map,
-plus `lookup-self` and `revoke-self` for its own token. There is no `list` and no metadata
-access, so a reader cannot discover other paths. `eso-vault-reader` is an identity only:
-no pod runs as it, it has no RBAC and it mounts no token. Source:
-[bootstrap.json](../../../infra/kubernetes/vault/bootstrap.json) and
-[policies/](../../../infra/kubernetes/vault/policies/).
+Source: [bootstrap.json](../../../infra/kubernetes/vault/bootstrap.json), [policies/](../../../infra/kubernetes/vault/policies/).
+`eso-vault-reader` is an identity only: no pod runs as it, it has no RBAC and it mounts no token.
+
+Retired in V2:
+
+- the per-namespace readers `eso-ml-platform` and `eso-ewallet-agents`;
+- the direct-loader roles `feature-api` and `fraud-api`, which no deployed manifest used.
+  Their code (`ai_platform/inference/vault.py`) and opt-in switches remain, but they cannot log in to a V2 Vault.
 
 ## External Secrets Operator
 
-[values.yaml](../../../infra/kubernetes/external-secrets/values.yaml) installs the official
-chart `external-secrets 2.14.0`. All three images are pinned by digest, and the namespace has
-restricted Pod Security. ESO processes only namespaced `SecretStore`s:
-`ClusterSecretStore`, `ClusterExternalSecret` and `PushSecret` processing is switched off,
-so nobody can create a store that bypasses the per-namespace identities, and ESO never writes
-back to Vault. The controller's chart RBAC lets it read and write Secrets, and create tokens
-for ServiceAccounts, which is how it obtains each namespace's reader token.
+[values.yaml](../../../infra/kubernetes/external-secrets/values.yaml) installs the official chart
+`external-secrets 2.14.0`, all images pinned by digest, in a restricted-Pod-Security namespace.
 
-### SecretStore and ExternalSecret
+- **Processed:** namespaced SecretStores, and ClusterSecretStores
+  (`processClusterStore: true`; the rendered controller has no `--enable-cluster-store-reconciler=false`).
+- **Off:** ClusterExternalSecret, PushSecret and ClusterPushSecret. Nobody can fan a Secret out to
+  every namespace, and ESO never writes to Vault.
 
-[ml-platform.yaml](../../../infra/kubernetes/external-secrets/ml-platform.yaml):
+### ClusterSecretStore and ExternalSecrets
 
-- `SecretStore vault`: `https://vault.ewallet-vault.svc.cluster.local:8200`, mount `ewallet`,
-  KV `v2`, CA from ConfigMap `vault-ca`, Kubernetes auth with role `eso-ml-platform` and
-  ServiceAccount `eso-vault-reader`, audience `vault`.
-- `ExternalSecret feature-api-redis`: one key, `connection_string` from
-  `feature-api/feast-redis`, into the **new** Secret `feature-api-redis-vault`.
-  `creationPolicy: Owner`: ESO owns that Secret, and deleting the ExternalSecret deletes it.
-  `deletionPolicy: Retain`: if the Vault entry disappears, the Secret keeps its last value.
+[cluster-secret-store.yaml](../../../infra/kubernetes/external-secrets/cluster-secret-store.yaml):
+`ewallet-vault`, server `https://vault.ewallet-vault.svc.cluster.local:8200`, mount `ewallet`, KV `v2`.
+The CA is ConfigMap `vault-ca` in `external-secrets`, published by
+[publish_ca.sh](../../../scripts/vault/publish_ca.sh), which never overwrites a ConfigMap it did not
+publish. Kubernetes auth uses role `eso-ewallet-reader` and SA `external-secrets/eso-vault-reader`
+with audience `vault`.
 
-The existing `feast-online-redis` is not adopted, changed or deleted, so it stays a clean rollback target.
+| ExternalSecret | Vault record | Target (new Secret) | Consumers |
+|---|---|---|---|
+| `ml-platform/feast-online-redis` | `ml-platform/feast-online-redis#connection_string` | `feast-online-redis-vault` | Feature API, Fraud API |
+| `ewallet-agents/vllm-api-key` | `agent-platform/vllm-api-key#api-key` | `vllm-api-key-vault` | vLLM (server), agentgateway (towards vLLM) |
+| `ewallet-agents/agentgateway-client-key` | `agent-platform/agentgateway-client-key#api-key` | `agentgateway-client-key-vault` | agentgateway (validator), ModelConfig → agents |
+
+Each uses `creationPolicy: Owner` on a **new** name (deleting the ExternalSecret deletes the target) and
+`deletionPolicy: Retain` (a vanished Vault entry keeps the last value). No original Secret is adopted,
+changed or deleted, so each stays a clean rollback target.
 
 ## Namespace isolation
 
-Every namespace that receives secrets has its own reader ServiceAccount, Vault role and
-policy. A store in `ewallet-agents` cannot log in as `eso-ml-platform` (the role is bound to
-the `ml-platform` namespace). Neither reader can read the other's paths, nor the Fraud API's.
-The local run tests each of these denials (*Validation*). Adding a namespace means adding
-one reader policy, one role in `bootstrap.json` and one manifest like `ml-platform.yaml`.
+The trust model of V2 (audit §7.4):
 
-One shared `ClusterSecretStore`, as in the reference project, would be simpler, but its single
-identity could read every path. With the namespaced stores, a mistake in one namespace's
-ExternalSecret cannot reach another namespace's secrets.
+- **The store's condition** decides which namespaces may use `ewallet-vault`: exactly `ml-platform` and
+  `ewallet-agents`. It uses names, not labels, because whoever may label a namespace would otherwise join.
+  `ewallet-sandbox`, `ewallet-ci`, `ewallet-ingress` and `ewallet-mcp` are excluded.
+- **The reader's policy** decides which paths can be read: the two prefixes, nothing else.
+- **Kubernetes RBAC** decides who may create ExternalSecrets in the two namespaces. The condition does not
+  limit which path an allowed ExternalSecret requests.
 
-## Feature API integration
+**Retired invariant:** V1 proved that the ml-platform reader could not read agent-platform paths. With one
+reader for both trusted namespaces this is intentionally gone (decision O1). An ExternalSecret in
+`ml-platform` *could* request `agent-platform/vllm-api-key`. What remains is tested on kind (*Validation*):
 
-The Feature API already reads its Redis connection string from `secretKeyRef`
-(`featureApi.redisSecret`). The opt-in overlay
-[values-vault-eso.yaml](../../../infra/helm/ewallet-serving/values-vault-eso.yaml) changes only
-the Secret name to `feature-api-redis-vault`, and keeps `featureApi.vault.enabled=false`. No
-template or Python change is needed, and the pod gets no Vault token, address or CA. The chart
-defaults are unchanged: without the overlay the Feature API reads `feast-online-redis`.
+- an unapproved namespace and the sandbox are refused by the store;
+- a path outside the prefixes is refused by Vault;
+- a wrong ServiceAccount, a same-named reader in a consumer namespace, a wrong audience and an untrusted CA all fail to log in;
+- the reader's own token cannot list, read metadata, write or reach `sys/`;
+- a non-ESO pod cannot reach Vault (NetworkPolicy).
 
-Migration order: (1) shadow sync, Feature API unchanged; (2) read-only check that the new
-Secret equals the old one (`scripts/vault/shadow_compare.sh`: only `SHADOW_MATCH` passes; a missing, empty or unreadable value fails); (3) switch with the overlay; (4) real lookup; (5) rollback is the
-previous Helm revision. The commands are in the runbook, steps 7–9.
+## Feature API and Fraud API integration
 
-### Existing direct loader
+Both read their Redis connection string through `secretKeyRef`:
 
-The earlier integration, [`ai_platform/inference/vault.py`](../../../ai_platform/inference/vault.py),
-lets a pod log in to Vault itself with its own projected token and load the value into its
-environment at start-up (`featureApi.vault.enabled`, Fraud API patch
-`fraud-api-vault.patch.yaml`). It is kept and still tested, but it is **superseded by ESO for
-new consumers**:
+- **Feature API:** the opt-in overlay [values-vault-eso.yaml](../../../infra/helm/ewallet-serving/values-vault-eso.yaml)
+  changes only the Secret name to `feast-online-redis-vault`.
+- **Fraud API:** the strategic-merge patch [fraud-api-eso.patch.yaml](../../../infra/kubernetes/fraud-serving/fraud-api-eso.patch.yaml)
+  changes only that one env reference (tested: every other env var and mount unchanged).
 
-- With the direct loader, every consumer needs Vault code, a CA mount and a Vault role, and it
-  cannot start while Vault is sealed.
-- With ESO, consumers need nothing new, and a sealed Vault only pauses synchronisation.
+No template or Python change. The chart defaults are unchanged: without the overlay, both read
+`feast-online-redis`.
 
-The direct-loader roles stay in `bootstrap.json` so the existing Fraud API package keeps
-working, but nothing deployed uses them.
+Migration order:
 
-## Agent Platform extension
+1. shadow sync;
+2. `shadow_compare.sh` = `SHADOW_MATCH`;
+3. switch the Feature API, then a real lookup;
+4. switch the Fraud API;
+5. rollback is the previous Helm revision, or `rollout undo`.
 
-[ewallet-agents.yaml](../../../infra/kubernetes/external-secrets/ewallet-agents.yaml) is
-**staged and opt-in**. It has its own store, reader identity and policy, and syncs one
-representative credential path (`agent-platform/agentgateway-client-key`) into a shadow
-Secret, `agentgateway-client-key-vault`, that no workload reads.
+## Agent Platform integration
 
-The Agent Platform's current credentials are deliberately not migrated:
+The opt-in overlay [values-vault-eso.yaml](../../../infra/helm/llm-agent-platform/values-vault-eso.yaml) moves the
+three references in **one** Helm upgrade:
 
-| Credential | Owner and lifecycle | Why not now |
-|---|---|---|
-| `agentgateway-client-key` | Helm values, read by agentgateway and every agent | Clients and gateway must switch together |
-| `vllm-api-key` | read by vLLM and agentgateway | Same coordinated switch |
-| `mcp-token-*`, `mcp-auth-*-<release>` | versioned, immutable credential releases with their own rotation | Their release IDs are the rotation mechanism; ESO must not override them |
-| ModelConfig `apiKeySecret` | kagent CR reference | Changes agent start-up |
+- `vllm.apiKeySecret`: vLLM primary, fallback and candidate, and agentgateway's backend credential;
+- `agentgateway.clientKeySecret`: the gateway's `apiKey` validator;
+- `modelConfig.apiKeySecret`: ModelConfig `ewallet-global-llm`, and through it every BYO agent's gateway key.
 
-Moving one of them is a separate, approved change: seed Vault, shadow-sync, switch every
-consumer in one release, keep the old Secret for rollback. For the MCP releases, ESO would
-need one immutable ExternalSecret per release version, as in the reference project.
+A client and its validator therefore never disagree. On the deployed agent profile (g3 + AGI BYO agents),
+the render test proves:
+
+- every gateway-key reference moves;
+- the MCP credential releases and the Coordinator idempotency Secret do not move.
+
+The switch is safe only after `SHADOW_MATCH` for both pairs. Rotation needs coordinated restarts:
+
+- the gateway accepts one client key, so agents must restart with it;
+- vLLM and the gateway must restart together for a new backend key.
+
+Both behaviours were observed on kind with the real images (*Validation*).
+
+## MCP credentials
+
+Preserved unchanged (MCP-A): `ops/llm_agent/g3_mcp_credentials.py` keeps generating immutable,
+release-scoped client Secrets and server tables, and Helm keeps selecting them by `serverSet` and
+`clientRelease`. A Vault-backed variant is specified (MCP-B, audit §11): explicit release paths, create-only
+writes, `CreatedOnce` + `immutable` + `creationPolicy: Orphan`. It is **not** implemented.
+
+## Auto-unseal and recovery keys
+
+- **GKE configuration** ([values-gke.yaml](../../../infra/kubernetes/vault/values-gke.yaml)):
+  - the seal: `seal "gcpckms" { project = "ewallet-data-ai-platform-hg26", region = "asia-southeast1",
+    key_ring = "ewallet-vault", crypto_key = "vault-unseal" }`;
+  - no credentials file: Application Default Credentials come from Workload Identity, through the KSA
+    annotation for GSA `ewallet-vault-unseal`;
+  - the KMS resources and IAM are P4 and do not exist yet.
+- **kind configuration** ([values-local.yaml](../../../infra/kubernetes/vault/values-local.yaml)):
+  - identical except the seal: a transit seal on a throwaway "unsealer" Vault
+    ([unsealer.py](../../../scripts/vault/rehearsal/unsealer.py));
+  - the unsealer's token may only encrypt and decrypt with one key;
+  - results there are `SIMULATED_AUTO_UNSEAL`.
+- **Initialisation** (`ops/vault/cli.py init`) reads the seal type. Under auto-unseal it creates
+  **3 recovery keys, threshold 2**, and stores them with the initial root token in one mode-0600 file
+  outside the repository.
+  - Recovery keys **cannot unseal** Vault; `unseal` refuses on an auto-unseal Vault and submits nothing.
+  - They authorise the root-generation ceremony (with the `vault-admin` login) and rekeying.
+- **Readiness:** an uninitialised Vault is Ready (bootstrap); afterwards **Ready means unsealed**.
+- **When the seal is unreachable** (KMS down, IAM removed, key version disabled; on kind: the unsealer
+  Service without endpoints):
+  - Vault never becomes Ready and never serves: its listener never opens;
+  - after about 110 s it exits (`error parsing Seal configuration: context deadline exceeded`), and kubelet
+    restarts it with back-off;
+  - when the seal returns, the next start unseals by itself;
+  - synced Secrets stay in place, and consumers keep running and even start.
+
+  This was observed on kind with the transit seal; the GKE behaviour is NOT_VERIFIED_ON_GKE.
+- **Key lifecycle:**
+  - no scheduled key rotation in V2.0, because each rotation adds a billable version that must stay enabled;
+  - the key must never be disabled or destroyed: a destroyed version is unrecoverable, even from backups;
+  - rehearsal cleanup never touches KMS.
 
 ## Rotation and recovery
 
-- **Rotation:** `put` writes version N+1, and older versions stay readable by an operator.
-  ESO updates the Secret within an hour, or at once with `force-sync`. The workload reads the
-  value at start-up, so a rollout restart completes the rotation. Changing the actual Redis
-  password is a separate coordinated step (Redis, every client Secret, restarts).
-- **Vault restart or cluster wake:** Vault comes back sealed. ESO syncs fail (the
-  ExternalSecret reports `Ready False`), but the synced Secrets remain, so the Feature API
-  restarts and serves normally. **A retained Secret is not proof that ESO is syncing**:
-  always check the ExternalSecret condition. After a manual unseal, the next sync succeeds.
-- **Persistence:** Raft data lives on two Persistent Disks (PVCs `data-vault-0`, `audit-vault-0`).
-  A Vault restart or the node pool scaling to 0 loses nothing: the disks stay and reattach in zone b.
-  What deletion does depends on the PV reclaim policy:
-  - `Delete` (the `standard-rwo` default; used by the rehearsal on purpose): deleting a PVC or the
-    namespace deletes the disk, and every secret on it.
-  - `Retain` (set on both PVs before `init` in the official campaign): the PV becomes `Released`
-    and the disk stays; it can be bound again (runbook step 2). It does **not** protect against
-    deleting the disk itself, deleting data inside Vault, or corruption. It is not a backup.
-  - Without 2 of the 3 unseal shares, a retained disk is unreadable: there is no other recovery path.
+- **Rotation:**
+  - `put` writes version N+1; older versions stay;
+  - ESO updates the target within an hour, or at once with `force-sync`;
+  - consumers read at start-up, so a restart completes the rotation.
+
+  A real Redis rotation changes the server password first. Rehearsed on kind: the server password is
+  rotated with `CONFIG SET` and the data kept, then Vault, ESO and the consumers follow, and the retired
+  credential is refused.
+- **Vault restart, drain or wake:** Vault unseals itself, with no manual step; ESO resumes on its next reconcile.
+- **Persistence:**
+  - Raft data and the audit log are on two Persistent Disks (`data-vault-0`, `audit-vault-0`);
+  - `Retain` on both PVs keeps the disks if a PVC is deleted, and the runbook re-binds them (proven on kind);
+  - it is not a backup, and a retained disk is unreadable without the KMS key.
 
 ### Vault tokens
-
-Nobody keeps using the initial root token, and root generation stays authenticated. That is the
-Vault 2.0 default, introduced "to prevent attackers from sending key-update requests with bogus
-key fragments" (HashiCorp, *Important changes*). The server config has no `enable_unauthenticated_access`.
 
 | Credential | Purpose | Lifetime |
 |---|---|---|
 | Initial root | applies the bootstrap and creates the operator token, once | revoked right after (`retire-root`) |
-| Operator token (`operator-token`) | writes and rotates values, reads metadata; policy `secret-operator` only | orphan, non-renewable, 720 h; it survives the root token's revocation |
-| Admin login (`login --role vault-admin`) | starts and feeds a root-generation ceremony; policy `root-generation` only | 15 min; obtained from a `kubectl create token` for `ewallet-vault/vault-admin` |
-| Temporary root (`generate-root`) | later policy or role changes and a new operator token | needs the admin login **and** 2 unseal shares; revoked right after use |
+| Operator token | writes and rotates values, reads metadata; policy `secret-operator` | orphan, non-renewable, 720 h |
+| Admin login | starts and feeds a root-generation ceremony; policy `root-generation` only | 15 min, from `kubectl create token` for `ewallet-vault/vault-admin` |
+| Temporary root | later policy or role changes, a new operator token | needs the admin login **and** 2 recovery keys; revoked right after use |
 | ESO tokens | one sync each | 5 min, revoked after use |
 
-So routine work never needs root. Administration needs two things: the owner's cluster-admin
-access (to obtain the admin login) and two unseal shares. Neither of them expires, so an
-expired operator token or a long GKE sleep never locks the owner out. ESO readers and
-applications have no `sys/` capability.
+Routine work never needs root, and root generation stays authenticated (the Vault 2.0 default; no
+`enable_unauthenticated_access`).
 
-If Vault's Kubernetes auth itself breaks, no admin login is possible. The runbook then
-describes an owner-approved break-glass step: temporarily allow unauthenticated root
-generation, repair, and restore the secure configuration at once.
-
-Token files are mode 0600, outside the repository, never overwritten, and never printed. The
-local run checks every step:
-- root generation without a token is rejected (403), and so is the operator token;
-- an ESO reader cannot log in as `vault-admin`, and the admin login can do nothing but root generation;
-- one share cannot finish a ceremony; the authenticated ceremony with two shares succeeds;
-- the generated root re-applies the bootstrap and issues a replacement operator token, then is retired and rejected;
-- a short-lived operator token expires and is rejected.
-
-### Shamir unseal and recovery material
-
-`ops/vault/cli.py init` writes all three unseal shares and the initial root token to one
-mode-0600 file outside the repository (it refuses a path inside it, and never overwrites a
-file). Unsealing needs two of the three shares. That file is recovery material:
-
-- keep it on two offline encrypted media, never in Git, cloud sync or evidence;
-- the root token inside it is retired after bootstrap (*Vault tokens*); `generate-root` makes a temporary one from the shares;
-- losing the shares loses the data; there is no other recovery path.
-
-**Known limitation:** with a single owner, all shares sit in one file. Shamir then protects
-against losing the cluster, not against someone obtaining that file. Distributing shares to
-separate holders would fix this; it is a people decision, not a code change. The seal type
-is never migrated: Shamir stays, and KMS auto-unseal is out of scope.
+**Known limitation:** with one owner, the three recovery keys sit in one file on the owner's two offline media.
 
 ## Security controls
 
 | Control | Where |
 |---|---|
-| Root generation is authenticated (admin login, policy `root-generation`) and needs two unseal shares; no endpoint is opened without a token | `values-gke.yaml`, `policies/root-generation.hcl`, role `vault-admin` |
-| No public endpoint; `ui: false`; ClusterIP only | `values-gke.yaml`; no HTTPRoute or VirtualService names Vault (test) |
-| TLS 1.2+ with a pinned CA; ESO verifies it; an untrusted CA is refused (tested) | `certificate.yaml`, SecretStore `caProvider` |
-| NetworkPolicy: port 8200 only from the ESO controller and the two serving pods | `network-policy.yaml` |
-| Per-namespace identity, role and policy; no wildcards, no `list` | `bootstrap.json`, `policies/eso-*.hcl` |
-| ESO uses short-lived tokens (5 min), revoked after use, and no static token. The only long-lived token is the human operator's, scoped to `secret-operator` and expiring after 720 h | role TTLs, ESO Kubernetes auth, `operator-token` |
-| Audit device on its own PVC; values are HMAC-ed, not logged | `apply_audit`; the local run counts 0 plaintext matches |
-| Restricted Pod Security for Vault and ESO; images pinned by digest | `namespace.yaml` files, chart values |
-| Values only on stdin; key and token files mode 0600 outside the repo; the shadow comparison prints a status, never a value | `ops/vault/cli.py`, `scripts/vault/shadow_compare.sh` |
+| No public endpoint, `ui: false`, ClusterIP only | `values-gke.yaml`; no HTTPRoute or VirtualService names Vault (test) |
+| TLS 1.2+ with a pinned CA; an untrusted CA is refused (tested) | `certificate.yaml`, store `caProvider` |
+| NetworkPolicy: port 8200 only from the ESO controller | `network-policy.yaml` |
+| One reader, two read-only prefixes, no list, metadata, write or `sys/` (tested live) | `policies/eso-ewallet-reader.hcl` |
+| Store limited to an exact namespace list (tested: unapproved namespace, sandbox) | `cluster-secret-store.yaml` |
+| Cloud KMS auto-unseal with Workload Identity, no JSON key; recovery keys never unseal | `values-gke.yaml`, `ops/vault/cli.py` |
+| Short-lived tokens; root retired; authenticated root generation | role TTLs, `operator-token`, `root-generation.hcl` |
+| Audit device on its own PVC; values HMAC-ed | `apply_audit` |
+| Restricted Pod Security; images pinned by digest | namespace files, chart values |
+| Values only on stdin; key and token files mode 0600 outside the repo; comparisons print a status, never a value | `ops/vault/cli.py`, `scripts/vault/shadow_compare.sh` |
 
 ## Operational limitations
 
-- **Single replica:** while Vault is down or sealed, no new secret can be delivered. Existing
-  Secrets keep working.
-- **Manual unseal after every Vault restart**, including each GKE wake. Until then,
-  ExternalSecrets report `Ready False`.
-- **Pod Ready does not mean unsealed.** The readiness probe accepts a sealed or uninitialised
-  Vault (otherwise `init` could never reach it), so the GKE Workloads page shows `vault-0` Ready
-  while it is sealed. Only `ops/vault/cli.py status` (`sealed: false`) proves Vault is usable.
-- **An initialisation whose answer is lost cannot be recovered.** `init` creates the key file
-  before asking Vault and forces the shares to disk, but if Vault initialises and the answer never
-  arrives, no client can obtain the shares. The CLI reports this as
-  `vault_initialised_keys_not_stored`; the only way forward is a fresh Vault, before any secret is stored.
-- **Refresh is not instant:** one hour by default, so rotations use `force-sync` and a rollout restart.
-- **No PodDisruptionBudget for Vault.** With one replica, the chart's budget (`maxUnavailable: 0`) could only
-  block node drains, including the cloud-lab resize to zero. A drain or node upgrade therefore restarts
-  Vault sealed, and it needs a manual unseal.
-- **Owner-held recovery material**, as described above.
-- **ESO is trusted to mint tokens.** Its chart RBAC lets the controller create ServiceAccount
-  tokens and write Secrets in every namespace. A namespaced store can only use a
-  ServiceAccount in its own namespace, so the isolation above also relies on Kubernetes RBAC:
-  only platform operators may create `SecretStore` and `ExternalSecret` objects.
-- Vault and the three ESO pods add about 140m CPU and 384 MiB memory in requests, plus
-  6 GiB of Persistent Disk.
+- **Single replica:** while Vault is down, no new value is delivered. Synced Secrets keep working.
+- **Auto-unseal depends on Cloud KMS:** a disabled key version, a removed IAM binding or a KMS outage keeps
+  Vault down at its next start (until fixed). Never destroy the key.
+- **The shared reader** can read both prefixes for both trusted namespaces (retired invariant above).
+- **Refresh is not instant** (1 h): rotations use `force-sync` and a restart.
+- **No PodDisruptionBudget for Vault:** a drain restarts it; it auto-unseals.
+- **ESO is trusted to mint tokens** for the reader identity and to write Secrets in every namespace (chart RBAC).
+- **Not covered by V2.0:** the Redis server password (`feature-store/redis`), MLflow, Grafana, Jenkins,
+  edge basic-auth, the Coordinator idempotency Redis and all MCP credentials (audit §4).
+- On GKE, Vault and ESO add about 140m CPU and 384 MiB memory in requests, plus 6 GiB
+  of Persistent Disk. The Cloud KMS key costs about US$0.06 a month per active version, also while asleep.
 
 ## Validation and evidence
 
-Local end-to-end validation: [`scripts/vault/eso_local_validate.sh`](../../../scripts/vault/eso_local_validate.sh)
-on kind. It uses the official Vault and ESO charts with the repository values, the repository
-bootstrap, NetworkPolicy and manifests, a password-protected Redis, and the real Feature API
-image rendered from the serving chart with the overlay. All values are synthetic, and only
-SHA-256 prefixes are recorded.
+All V2 results are **kind** results (`ENVIRONMENT=kind`) with **simulated** auto-unseal
+(`AUTO_UNSEAL=SIMULATED_AUTO_UNSEAL`). None is a GKE or Cloud KMS result. The driver is
+[`gke_rehearsal.sh`](../../../scripts/vault/gke_rehearsal.sh) in kind mode; the phase order is in
+[VAULT_GKE_REHEARSAL.md §10](../../runbooks/edai2/VAULT_GKE_REHEARSAL.md#10-vault-v2-on-kind).
 
-Run [`eso_local_20261124T055021Z`](../../evidence/edai2/vault/eso_local_20261124T055021Z/results.jsonl)
-(kind `kind-llm-agent-local`, Vault 2.0.4, ESO v2.14.0, TLS issued by cert-manager v1.16.2 from the
-repository's `certificate.yaml`, as on GKE): **65 of 65 steps passed**. Afterwards, the kind cluster
-was identical to a snapshot taken before the run: `ewallet-agents` objects and their
-resourceVersions, namespaces, CRDs, webhooks and cluster RBAC. The temporary cert-manager was
-removed afterwards.
-
-| Area | Result |
+| Run | Result |
 |---|---|
-| Vault | cert-manager issued the CA and server certificate (chain verified, SANs include `vault.ewallet-vault.svc.cluster.local`); no PodDisruptionBudget; uninitialised → `init` (3/2) → unsealed (`initialized true, sealed false`); bootstrap applied; HTTPS verifies with the CA; an untrusted CA is refused |
-| Token lifecycle | Orphan `secret-operator` token created; initial root retired and then rejected; the operator token cannot change a role; all seeding and rotation used the operator token |
-| Root generation (authenticated) | Without a token: HTTP 403; with the operator token: denied; an ESO reader cannot log in as `vault-admin`; the admin login can neither configure nor read metadata; 1 share cannot finish (attempt cancelled); admin login plus 2 shares produced a root that re-applied the bootstrap and issued a replacement operator token, then was retired and rejected |
-| Operator-token expiry | A 20 s operator token was rejected after expiry; the replacement and the original operator token kept working |
-| ESO | 3 deployments Ready; SecretStore `Valid`; ExternalSecret `SecretSynced`; target holds only `connection_string`, owned by the ExternalSecret, hash equal to Vault; `feast-online-redis` unchanged |
-| Shadow gate | `shadow_compare.sh`: `SHADOW_MATCH` for the equal pair, `SHADOW_SHADOW_SECRET_MISSING` for an absent Secret, `SHADOW_MISMATCH` after rotation (the old Secret was not rotated) |
-| Feature API | Real image from the chart with the overlay (no `EWALLET_VAULT_*`); Feast materialized through the synced Secret; readiness and a real lookup: HTTP 200, 3 features |
-| Rollback | Switch to `feast-online-redis` → HTTP 200; switch back → HTTP 200 |
-| Second namespace | Before seeding, the `ewallet-agents` ExternalSecret failed with *secret missing*; after seeding, the shadow Secret synced (no consumer) |
-| Isolation (expected reason asserted, no target Secret) | ml-platform → Fraud API path and agent path: `permission denied`; ewallet-agents → Feature API path: `permission denied`; ewallet-agents store using the ml-platform role: `namespace not authorized` |
-| Other negative cases (expected reason asserted) | Application ServiceAccount: `service account name not authorized`; audience `kubernetes`: `invalid audience`; untrusted CA: `x509`; wrong auth mount: login denied; missing property: key missing; invalid KV version: rejected at admission; consumer with a missing Secret: `CreateContainerConfigError` |
-| NetworkPolicy | A listed pod reaches Vault; an unlisted pod in the same namespace cannot |
-| Rotation | KV version 2 → ESO synced the new value → rollout restart → lookup HTTP 200 on the rotated (synthetic) Redis password |
-| Vault unavailable | Scaled to 0: ExternalSecret `Ready False` with cause *unreachable*; Secret retained; the Feature API restarted on it and served HTTP 200 |
-| Seal and persistence | Restart → sealed; sync fails with cause *sealed*; manual unseal → version 2 and the operator token still present from the PVC → sync resumed |
-| Audit | 528 lines, 132 Kubernetes logins, 0 plaintext matches of any synthetic value |
+| [`rehearsal_v2_kind_vault-rehearsal-20261125T074917Z`](../../evidence/edai2/vault/rehearsal_v2_kind_vault-rehearsal-20261125T074917Z/README.md) | **129 records, 0 FAIL, all gates open; kind restored to its baseline.** K1–K16 of the audit's test matrix |
+| [`rehearsal_v2_faults_kind_20261125`](../../evidence/edai2/vault/rehearsal_v2_faults_kind_20261125/README.md) | Five interrupted `Retain` drills, one interrupted cleanup: every stopped run refused its normal phases and cleaned up from its exact volume state |
 
-A follow-up run, [`eso_local_20261124T061029Z`](../../evidence/edai2/vault/eso_local_20261124T061029Z/results.jsonl)
-(64/64, OpenSSL CA), checks the retired root tokens with an idempotent `configure` that must fail with
-HTTP 403. The earlier probe, a metadata read of a path not yet written, could not tell a revoked token from
-a missing path.
+| Area | Result (kind) |
+|---|---|
+| Auto-unseal (simulated) | 3/2 **recovery keys**; Vault unsealed itself after init, after every restart, after the Released-PV recovery and after the simulated wake; manual `unseal` refused |
+| Seal unreachable (simulated) | Vault never Ready, API never up, exited on seal setup; Secrets kept; the Feature API kept serving and even started; Vault recovered by itself when the seal came back |
+| Recovery-key ceremony | 1 key insufficient; a forged share rejected (400); 2 keys → root, used, retired (403) |
+| ClusterSecretStore | The committed `ewallet-vault` and the rehearsal store `True Valid`; one reader across two namespaces; three ExternalSecrets synced and owned |
+| Feature API (real image and chart) | 9 lookups `BASELINE_OK` (HTTP 200, 31 features): baseline, switch, rollback, re-upgrade, after agents, after rotation, while Vault down, after PV recovery, after wake |
+| Agent Gateway + vLLM (real images and chart) | 200 with the client key from Vault; 401 wrong, missing, or with the backend key; the overlay moved validator, backend and ModelConfig together; client-key rotation needs a gateway restart; a half-rotated backend key fails, and vLLM refuses the other key directly (200/401); Helm rollback and re-upgrade 200 |
+| Negative | out-of-policy path, missing key, wrong ServiceAccount, same-named reader in a consumer namespace, wrong audience, untrusted CA, unapproved namespace, sandbox: each with its expected cause and no target Secret. The reader's own token got 200 on a read inside its prefix and 403 for everything else tried, including root generation. NetworkPolicy blocked a non-ESO pod |
+| Rotation | Redis: server password rotated (`CONFIG SET`, data kept) → Vault → ESO → consumers; the retired credential refused |
+| Persistence and cleanup | `Retain` drill, recovery, simulated wake; cleanup by recorded identity only; kind back to its original state |
 
-Each negative step passes only if ESO reported the expected cause. The cause comes from the
-controller log, because ESO's events are generic. An unreachable Vault, or any other unrelated
-failure, therefore fails the step instead of passing as an authorization test. Earlier runs are
-kept for history: `eso_local_20261123T210316Z` (42 steps, before the token lifecycle and these
-assertions), and `eso_local_20261124T044834Z` (53 steps, which still used the since-removed
-unauthenticated root generation), and `eso_local_20261124T051306Z` (63 steps, with an OpenSSL CA instead of cert-manager).
+Static and contract tests: [`test_vault_eso.py`](../../../tests/ops/test_vault_eso.py) (store, policy, CRD schemas,
+rendered controller flags, overlays, MCP and idempotency Secrets untouched), `test_vault_tools.py` (recovery keys,
+seal configuration, unsealer), `test_vault_rehearsal.py` (driver safety, stub cleanup), `test_r2_serving_identity.py`.
 
-Local means local: kind's CNI (kindnet) enforced the NetworkPolicy, and the Redis was a
-disposable in-namespace instance rather than `feature-store/redis`. None of this is a GKE result.
+### History (V1, branch `feature/edai2-vault-eso`)
 
-The GKE technical rehearsal ([VAULT_GKE_REHEARSAL.md](../../runbooks/edai2/VAULT_GKE_REHEARSAL.md))
-was dry-run end to end on kind with its own driver, [`gke_rehearsal.sh`](../../../scripts/vault/gke_rehearsal.sh):
-[`rehearsal_kind_20261124T172656Z`](../../evidence/edai2/vault/rehearsal_kind_20261124T172656Z/README.md),
-10 phases and 45 steps with no failure, from preflight to a verified clean cluster. It also
-recorded two Vault 2.0.4 defaults seen with the new `describe` command: an `agent-registry/`
-mount and a `default-ceiling` policy, neither used here.
+| Run | Environment | Result |
+|---|---|---|
+| [`eso_local_20261124T055021Z`](../../evidence/edai2/vault/eso_local_20261124T055021Z/results.jsonl) | kind | 65/65, the V1 namespaced chain |
+| [`gke_rehearsal_vault-rehearsal-20261124T173156Z`](../../evidence/edai2/vault/gke_rehearsal_vault-rehearsal-20261124T173156Z/README.md) | **GKE** | Campaign A complete (V1: Shamir, namespaced store); everything removed |
+| [`rehearsal_aplus_kind_20261124T191350Z`](../../evidence/edai2/vault/rehearsal_aplus_kind_20261124T191350Z/README.md) | kind | A+: real Feature API, Helm switch and rollback, `Retain`, simulated wake |
+| [`rehearsal_aplus_faults_kind_20261125`](../../evidence/edai2/vault/rehearsal_aplus_faults_kind_20261125/README.md) | kind | fail-fast and cleanup from five interrupted points of the `Retain` drill |
 
-The same rehearsal then ran on GKE `ewallet-dev` with synthetic values only
-([`gke_rehearsal_vault-rehearsal-20261124T173156Z`](../../evidence/edai2/vault/gke_rehearsal_vault-rehearsal-20261124T173156Z/README.md)): Vault on Persistent Disks with cert-manager TLS,
-Kubernetes auth through GKE's TokenReview, ESO sync, a consumer authenticating with the synced
-Secret, six denials with their expected causes, Calico enforcing the Vault NetworkPolicy, versioning
-and a sealed restart with manual unseal. Everything was then removed (disks proven deleted), the
-production configuration was unchanged, and the cluster went back to 0 nodes. It is a rehearsal,
-not the owner's row 54 evidence.
+The V1 validators (`eso_local_validate.sh`, `local_validate.sh`) were removed in V2; they remain in Git history.
 
-Campaign A+ extends that rehearsal to the real Feature API: the serving chart as a separate Helm
-release in the rehearsal namespace, switched to the ESO Secret with the official overlay, rolled back
-and switched again, plus the PV `Retain` drill (a deleted PVC recovered from its `Released` PV) and a
-restart standing in for a wake. On kind every lookup returned HTTP 200 with all 31 features
-([`rehearsal_aplus_kind_20261124T191350Z`](../../evidence/edai2/vault/rehearsal_aplus_kind_20261124T191350Z/README.md)).
-The driver stops a run at its first failure, and its cleanup finishes from any point of the `Retain`
-drill. Five interrupted runs were cleaned up on kind
-([`rehearsal_aplus_faults_kind_20261125`](../../evidence/edai2/vault/rehearsal_aplus_faults_kind_20261125/README.md)).
-The GKE run, with a real guarded sleep and wake, awaits the owner's approval
-([runbook §9](../../runbooks/edai2/VAULT_GKE_REHEARSAL.md#9-campaign-a-the-feature-api-release-storage-and-wake)).
+### Owner evidence on GKE (after the approved campaigns)
 
-Static contract tests: [`tests/ops/test_vault_eso.py`](../../../tests/ops/test_vault_eso.py).
-The earlier direct-loader runs remain in `docs/evidence/edai2/vault/local_20261106T183340Z` and `local_r2_20261107T101251Z`.
-
-### Owner evidence on GKE (after an approved campaign)
-
-Screenshots illustrate the deployed system; the owner takes them during the official campaign,
-and none is generated or reconstructed. The list, the Console navigation, the PASS criteria, what
-must never be visible, and the capture checkpoints are in the acceptance plan's
-[visual evidence playbook](../../runbooks/edai2/VAULT_GKE_ACCEPTANCE_CAMPAIGN.md#7-visual-evidence-playbook-owner-screenshots)
-(E1–E9). Accepted figures are added to the sections they illustrate, with captions.
+Screenshots illustrate the deployed system; the owner takes them during the official campaign, and none is
+generated or reconstructed. The V2 list is in the audit (§16: E1–E9 updated, K-E1–K-E7 for Cloud KMS, the
+ClusterSecretStore and Agent Gateway).

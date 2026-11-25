@@ -1,0 +1,73 @@
+{
+ "secret_engines": {
+  "agent-registry/": {
+   "type": "agent_registry",
+   "version": null
+  },
+  "ewallet/": {
+   "type": "kv",
+   "version": "2"
+  }
+ },
+ "auth_methods": {
+  "kubernetes/": "kubernetes",
+  "token/": "token"
+ },
+ "audit_devices": {
+  "file/": "file"
+ },
+ "kubernetes_roles": {
+  "eso-ewallet-reader": {
+   "bound_service_account_names": [
+    "eso-vault-reader"
+   ],
+   "bound_service_account_namespaces": [
+    "external-secrets"
+   ],
+   "audience": "vault",
+   "token_policies": [
+    "eso-ewallet-reader"
+   ],
+   "token_ttl": 300,
+   "token_max_ttl": 900,
+   "token_no_default_policy": true
+  },
+  "eso-vault-rehearsal": {
+   "bound_service_account_names": [
+    "eso-vault-reader"
+   ],
+   "bound_service_account_namespaces": [
+    "external-secrets"
+   ],
+   "audience": "vault",
+   "token_policies": [
+    "eso-vault-rehearsal"
+   ],
+   "token_ttl": 300,
+   "token_max_ttl": 900,
+   "token_no_default_policy": true
+  },
+  "vault-admin": {
+   "bound_service_account_names": [
+    "vault-admin"
+   ],
+   "bound_service_account_namespaces": [
+    "ewallet-vault"
+   ],
+   "audience": "vault",
+   "token_policies": [
+    "root-generation"
+   ],
+   "token_ttl": 900,
+   "token_max_ttl": 1800,
+   "token_no_default_policy": true
+  }
+ },
+ "acl_policies": {
+  "default-ceiling": "\n# Allow an entity to inspect its own registration information\npath \"agent-registry/registration/entity_id/{{identity.entity.id}}\" {\n  capabilities = [\"read\"]\n}\n\n# Allow an entity to read the default policies\npath \"policy/default\" {\n  capabilities = [\"read\"]\n}\npath \"policy/default-ceiling\" {\n  capabilities = [\"read\"]\n}\n",
+  "eso-ewallet-reader": "# The only External Secrets Operator reader (ClusterSecretStore ewallet-vault, role eso-ewallet-reader).\n# Read only, on two explicit prefixes. No list and no metadata, so the reader cannot discover\n# paths; no system paths, no write. A new area (for example mcp-platform/) is a reviewed change here.\npath \"ewallet/data/ml-platform/*\" {\n  capabilities = [\"read\"]\n}\npath \"ewallet/data/agent-platform/*\" {\n  capabilities = [\"read\"]\n}\n\n# token_no_default_policy removes these; ESO checks its login token and revokes it after use.\npath \"auth/token/lookup-self\" {\n  capabilities = [\"read\"]\n}\npath \"auth/token/revoke-self\" {\n  capabilities = [\"update\"]\n}\n",
+  "eso-vault-rehearsal": "# Rehearsal only (docs/runbooks/edai2/VAULT_GKE_REHEARSAL.md): ClusterSecretStore ewallet-vault-rehearsal,\n# used from the temporary rehearsal namespaces, reads exactly three synthetic entries. They lie under the\n# official prefixes, which the existing secret-operator token may write, so the rehearsal seeds them exactly\n# like the official campaign (put --token-file). The real ml-platform/feast-online-redis,\n# agent-platform/vllm-api-key and agent-platform/agentgateway-client-key are NOT readable here.\npath \"ewallet/data/ml-platform/rehearsal-redis\" {\n  capabilities = [\"read\"]\n}\npath \"ewallet/data/agent-platform/rehearsal-vllm-api-key\" {\n  capabilities = [\"read\"]\n}\npath \"ewallet/data/agent-platform/rehearsal-agentgateway-client-key\" {\n  capabilities = [\"read\"]\n}\n\n# token_no_default_policy removes these; ESO checks its login token and revokes it after use.\npath \"auth/token/lookup-self\" {\n  capabilities = [\"read\"]\n}\npath \"auth/token/revoke-self\" {\n  capabilities = [\"update\"]\n}\n",
+  "root-generation": "# Vault 2.x authenticates root generation. This policy lets the owner's admin login\n# (role vault-admin) start, read, cancel and feed a root-generation ceremony, and nothing\n# else: no secrets, no policies, no roles. Completing the ceremony still needs 2 of the\n# 3 unseal shares. Never attach it to ESO readers or application roles.\npath \"sys/generate-root/attempt\" {\n  capabilities = [\"create\", \"read\", \"update\", \"delete\"]\n}\npath \"sys/generate-root/update\" {\n  capabilities = [\"create\", \"update\"]\n}\n",
+  "secret-operator": "# Rotation by a human operator: write new versions and read metadata, never values.\n# The two V2 areas only (docs/edai2/platform/VAULT_V2_ARCHITECTURE_AUDIT.md \u00a710).\npath \"ewallet/data/ml-platform/*\" {\n  capabilities = [\"create\", \"update\"]\n}\npath \"ewallet/metadata/ml-platform/*\" {\n  capabilities = [\"read\", \"list\"]\n}\npath \"ewallet/data/agent-platform/*\" {\n  capabilities = [\"create\", \"update\"]\n}\npath \"ewallet/metadata/agent-platform/*\" {\n  capabilities = [\"read\", \"list\"]\n}\n"
+ }
+}

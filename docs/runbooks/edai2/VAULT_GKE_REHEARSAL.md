@@ -6,7 +6,12 @@ approves it. Its job is to find GKE-specific problems before the owner's officia
 ([VAULT_GKE_ACCEPTANCE_CAMPAIGN.md](VAULT_GKE_ACCEPTANCE_CAMPAIGN.md), Campaign B). It ends with
 everything removed and the cluster asleep.
 
-**Status: Campaign A executed on GKE on 2026-11-24 as `vault-rehearsal-20261124T173156Z`: `VAULT_GKE_REHEARSAL_COMPLETE`. Campaign A+ (§9): KIND PASS, GKE pending approval.**
+**Status:**
+
+- **Campaign A (V1):** executed on GKE on 2026-11-24 as `vault-rehearsal-20261124T173156Z`: `VAULT_GKE_REHEARSAL_COMPLETE`.
+- **Campaign A+ (V1, §9):** KIND PASS.
+- **Vault V2:** the driver now deploys the V2 design (§10). It passes on kind with simulated auto-unseal;
+  on GKE (Campaign A2) it waits for P4, the Cloud KMS resources.
 ([report](../../evidence/edai2/vault/gke_rehearsal_vault-rehearsal-20261124T173156Z/README.md)). Nothing on this page runs without the owner's
 explicit approval, and the approval names one rehearsal ID.
 
@@ -43,9 +48,8 @@ business lookup: those touch production and belong to Campaign B (G5–G11).
 | Official bootstrap applied too | `configure` is rehearsed exactly as G4. The official roles then exist in the rehearsal Vault but nothing is seeded under their paths |
 | Ownership label | every object the script creates carries `ewallet.io/vault-rehearsal=<ID>`, set at creation with `kubectl create`; cleanup refuses a namespace without it |
 
-The script never modifies [`eso_local_validate.sh`](../../../scripts/vault/eso_local_validate.sh)
-or bypasses its kind-only guard: it is a separate driver,
-[`gke_rehearsal.sh`](../../../scripts/vault/gke_rehearsal.sh), that reuses the same assertion classes.
+The driver is [`gke_rehearsal.sh`](../../../scripts/vault/gke_rehearsal.sh), for kind and GKE alike. V1's separate
+kind-only validator `eso_local_validate.sh` was removed in V2 (it remains in Git history).
 
 ### Resource inventory
 
@@ -232,7 +236,7 @@ export FEATURE_IMAGE=$(helm --kube-context $CTX get values ewallet-serving -n ml
 # 2. [OWNER: R3–R8 and the A+ phases for $ID] the first failure ends the block; the script refuses the rest
 ( set -euo pipefail
   [[ $FEATURE_IMAGE =~ @sha256:[0-9a-f]{64}$ ]] || { echo "FEATURE_IMAGE is not pinned by digest: nothing started"; exit 1; }
-  for p in vault init configure eso consumer feature-api switch negative rollback lifecycle retain; do
+  for p in vault init configure ceremony eso consumer feature-api switch negative rollback lifecycle retain; do   # V2; seal and agents are kind-only
     VAULT_REHEARSAL_APPROVED=$ID $R "$p"
   done
   $R gate retain
@@ -266,8 +270,10 @@ export FEATURE_IMAGE=$(helm --kube-context $CTX get values ewallet-serving -n ml
   - the second wake (block 4);
   - cleanup (block 5): it deletes the two synthetic disks and ESO's CRDs;
   - the second guarded sleep (block 6).
-- **Keep `$REHEARSAL_DIR/private` across the sleep:** it holds the synthetic unseal shares that
-  `after-wake` needs. Cleanup removes it.
+- **Keep `$REHEARSAL_DIR/private` across the sleep:** it holds the synthetic operator token and recovery
+  keys that `after-wake` needs (V2 needs no shares to unseal: Vault unseals itself through Cloud KMS). Cleanup removes it.
+- **V2 prerequisite:** the `vault` phase refuses on GKE until the P4 Cloud KMS resources and their read-only preflight
+  gates exist ([audit §8–§9](../../edai2/platform/VAULT_V2_ARCHITECTURE_AUDIT.md)). Until then block 2 stops at its first phase.
 - **The mid-campaign manifest includes the rehearsal workloads** (Vault, ESO, `rehearsal-serving`,
   Redis), so the second wake restores them. The final manifest (block 6) is recorded after cleanup;
   Campaign B's G1 uses that one.
@@ -341,3 +347,61 @@ The production registry in GCS through Workload Identity; `feature-store/redis` 
 `redis-clients-feature-api` NetworkPolicy; the Feature API's KEDA ScaledObject; the real credential
 and `SHADOW_MATCH` against `feast-online-redis`; anything in `ml-platform`. Those remain Campaign B
 risks, each guarded by a stop condition in the acceptance plan.
+
+## 10. Vault V2 on kind
+
+**Status: KIND PASS.** Full campaign
+[`rehearsal_v2_kind_vault-rehearsal-20261125T074917Z`](../../evidence/edai2/vault/rehearsal_v2_kind_vault-rehearsal-20261125T074917Z/README.md):
+129 records, 0 FAIL. Fault runs: [`rehearsal_v2_faults_kind_20261125`](../../evidence/edai2/vault/rehearsal_v2_faults_kind_20261125/README.md).
+Auto-unseal there is `SIMULATED_AUTO_UNSEAL`. GKE (Campaign A2) waits for P4.
+
+`scripts/vault/gke_rehearsal.sh` deploys the Vault V2 design
+([audit](../../edai2/platform/VAULT_V2_ARCHITECTURE_AUDIT.md)):
+
+- the `gcpckms` seal on GKE;
+- on kind, a local transit "unsealer" Vault as the stand-in, labelled `SIMULATED_AUTO_UNSEAL`;
+- recovery keys;
+- the rehearsal ClusterSecretStore `ewallet-vault-rehearsal`, with exact namespaces `vault-rehearsal`
+  and `vault-rehearsal-agents`. It logs in as the official reader `external-secrets/eso-vault-reader`
+  through the narrower role `eso-vault-rehearsal`.
+
+On kind it also creates the official `ewallet-vault` from the committed file. On GKE it never does:
+there the official store belongs to the campaign.
+
+**Kind-only parts:**
+
+- the unsealer and the `seal` drill: the seal becomes unreachable, and that is never applied to Cloud KMS;
+- `ewallet-sandbox` as a test namespace;
+- the `agents` phase: the real agentgateway and the real vLLM CPU image, on the staged Qwen3-0.6B model,
+  through a read-only hostPath PV.
+
+**Order (kind):**
+
+```bash
+kind_cert_manager.sh install kind-llm-agent-local   # scripts/vault/rehearsal/; refuses an existing cert-manager
+preflight vault init configure ceremony seal eso consumer feature-api switch negative rollback agents lifecycle retain
+gate retain
+# simulated wake: delete pod vault-0 and the synthetic Redis pod
+after-wake
+gate after-wake
+cleanup
+verify-clean
+gate clean
+kind_cert_manager.sh remove kind-llm-agent-local    # removes only the cert-manager it installed
+```
+
+| Phase | PASS when |
+|---|---|
+| `vault` | the unsealer is ready (its token may only encrypt and decrypt with key `autounseal`; its root revoked); Vault 2.0.4 runs with `seal_type` `transit` (kind) or `gcpckms` (GKE); uninitialised and Ready; TLS verified |
+| `init` | 3 recovery keys, threshold 2, no unseal key; Vault **unseals itself**; Ready; manual `unseal` refused (`vault_auto_unseal`) |
+| `configure` | official + rehearsal bootstrap; roles exactly `eso-ewallet-reader`, `eso-vault-rehearsal`, `vault-admin`; root retired (403); operator cannot administer; untrusted CA refused |
+| `ceremony` | admin login; 1 recovery key cannot finish (cancelled); a forged share with a genuine one is rejected (400); 2 keys generate a root that reads the configuration, then is retired (403) |
+| `seal` (kind) | restart → auto-unsealed, Raft data and operator token intact; unsealer unreachable → never Ready, exits on seal setup; unsealer back → unsealed again by itself |
+| `eso` | controller flags (cluster store on; ClusterExternalSecret, PushSecret, ClusterPushSecret off); CA published once (`CA_PUBLISHED`, then `CA_UNCHANGED`); `ewallet-vault` (kind) and `ewallet-vault-rehearsal` Ready |
+| `consumer` | one store, two namespaces, three ExternalSecrets synced, each target owned by its ExternalSecret, one key, equal to Vault; Redis round trip OK |
+| `feature-api`, `switch`, `rollback` | as A+ (§9), with target `feast-online-redis-vault` and the official overlay unchanged |
+| `negative` | out-of-policy path, missing key, wrong ServiceAccount, same-named reader in a consumer namespace, wrong audience (store NotReady), untrusted CA (store NotReady), unapproved namespace, sandbox (kind, official store): each with its own cause and no target Secret; the reader's own token: read 200 in its prefix, 403 for an out-of-prefix read, metadata, list, write, `sys/` and root generation; NetworkPolicy blocks a non-ESO pod |
+| `agents` (kind) | `SHADOW_MATCH` for both keys; through the gateway with real vLLM: valid 200, wrong, missing and backend key 401; the official overlay moves all three references; client-key rotation (old key until the restart, then 401); a half-rotated backend key fails and the real vLLM refuses it directly; Helm rollback restores 200; re-upgrade on the rotated keys |
+| `lifecycle` | KV v2/v3 propagation; a real Redis rotation (server password, Vault, ESO, consumers; the old credential refused); restart → auto-unsealed, ESO resumes; (kind) seal unreachable → Secrets kept, consumers serve and start; seal back → recovered by itself |
+| `retain`, `after-wake` | as A+, without any unseal: the re-bound and woken Vault unseals itself |
+| `cleanup`, `verify-clean` | as A+, plus: the rehearsal namespaces, every ClusterSecretStore labelled with this id (any other refuses cleanup), the agents release and the model PV (by recorded name); the KMS key is never touched |

@@ -1,0 +1,83 @@
+== retain-set vault-rehearsal-20261125T084248Z
+  ok rc=0: preflight
+  ok rc=0: vault
+  ok rc=0: init
+  ok rc=0: configure
+  ok rc=0: eso
+  ok rc=0: consumer
+  ok rc=1: retain
+  ok rc=2: lifecycle
+  ok rc=1: gate retain
+  ok rc=0: inspect
+{"stopped":"retain failed at fault-injected","volumes":[{"claim":"audit-vault-0","state":"bound"},{"claim":"data-vault-0","state":"bound"}]}
+  ok rc=0: cleanup
+  ok rc=0: verify-clean
+  ok rc=0: gate clean
+  PASS 127s
+== pvc-deleted:audit-vault-0 vault-rehearsal-20261125T084455Z
+  ok rc=0: preflight
+  ok rc=0: vault
+  ok rc=0: init
+  ok rc=0: configure
+  ok rc=0: eso
+  ok rc=0: consumer
+  ok rc=1: retain
+  ok rc=2: lifecycle
+  ok rc=1: gate retain
+  ok rc=0: inspect
+{"stopped":"retain failed at fault-injected","volumes":[{"claim":"audit-vault-0","state":"released"},{"claim":"data-vault-0","state":"bound"}]}
+  ok rc=0: cleanup
+  ok rc=0: verify-clean
+  ok rc=0: gate clean
+  PASS 191s
+== pvcs-released vault-rehearsal-20261125T084806Z
+  ok rc=0: preflight
+  ok rc=0: vault
+  ok rc=0: init
+  ok rc=0: configure
+  ok rc=0: eso
+  ok rc=0: consumer
+  ok rc=1: retain
+  ok rc=2: lifecycle
+  ok rc=1: gate retain
+  ok rc=0: inspect
+{"stopped":"retain failed at fault-injected","volumes":[{"claim":"audit-vault-0","state":"released"},{"claim":"data-vault-0","state":"released"}]}
+  ok rc=1: cleanup
+  ok rc=0: cleanup
+  ok rc=0: verify-clean
+  ok rc=0: gate clean
+  PASS 198s
+== claimref-removed:audit-vault-0 vault-rehearsal-20261125T085124Z
+  ok rc=0: preflight
+  ok rc=0: vault
+  ok rc=0: init
+  ok rc=0: configure
+  ok rc=0: eso
+  ok rc=0: consumer
+  ok rc=1: retain
+  ok rc=2: lifecycle
+  ok rc=1: gate retain
+  ok rc=0: inspect
+{"stopped":"retain failed at fault-injected","volumes":[{"claim":"audit-vault-0","state":"unclaimed"},{"claim":"data-vault-0","state":"released"}]}
+  ok rc=0: cleanup
+  ok rc=0: verify-clean
+  ok rc=0: gate clean
+  recovery-completed before cleanup
+  PASS 199s
+== rebound:audit-vault-0 vault-rehearsal-20261125T085443Z
+  ok rc=0: preflight
+  ok rc=0: vault
+  ok rc=0: init
+  ok rc=0: configure
+  ok rc=0: eso
+  ok rc=0: consumer
+  ok rc=1: retain
+  ok rc=2: lifecycle
+  ok rc=1: gate retain
+  ok rc=0: inspect
+{"stopped":"retain failed at fault-injected","volumes":[{"claim":"audit-vault-0","state":"bound"},{"claim":"data-vault-0","state":"released"}]}
+  ok rc=0: cleanup
+  ok rc=0: verify-clean
+  ok rc=0: gate clean
+  PASS 186s
+FAULTS_DONE /home/huyy-giaa/ewallet-evidence/vault/v2/faults-20261125T084248Z
