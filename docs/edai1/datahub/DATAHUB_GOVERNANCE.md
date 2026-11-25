@@ -1,6 +1,6 @@
 # DataHub Data Governance — DP1, DP2, DP3
 
-This is the governance report for EDAI-1 rubric rows 28–33. It covers the 5GB batch campaign that DataHub now describes:
+This is the data-governance report for the EDAI-1 batch pipelines. It covers the 5GB batch campaign that DataHub now describes:
 
 | Identity | Value |
 |---|---|
@@ -37,7 +37,7 @@ The campaign itself, which ran as three Airflow DAGs submitting Spark batches, i
 
 ### 1.1 Objectives
 
-The rubric asks three questions of each pipeline:
+Governance has to answer three questions for each pipeline:
 1. Are its tables visible in DataHub?
 2. Is it clear which Airflow pipeline produces each table?
 3. Is the data validation of those tables visible in DataHub?
@@ -330,7 +330,7 @@ The owner captured all screenshots from the local DataHub UI on 2026-11-13, afte
 
 The lineage graphs of the three DataFlows also show tasks named `submit_*_dataproc`. These are DataJobs left from earlier publications of the same DAGs. They carry no 5GB campaign properties and are not part of the 8 DataJobs above (§9).
 
-### 8.1 DP1 — Source → Bronze (rows 28–29)
+### 8.1 DP1 — Source → Bronze
 
 **DG01 — DP1 lineage.**
 
@@ -359,7 +359,7 @@ The lineage graphs of the three DataFlows also show tasks named `submit_*_datapr
 
 *Run detail of `transactions.non_empty`: Passed, last evaluated 2026-11-11 14:20:44 (+07:00). That is the `generated_at` time of the Bronze validation report (07:20:44Z), so the result shown is the executed one.*
 
-### 8.2 DP2 — Bronze → Silver → Gold (rows 30–31)
+### 8.2 DP2 — Bronze → Silver → Gold
 
 **DG03 — Bronze → Silver lineage.**
 
@@ -405,7 +405,7 @@ The lineage graphs of the three DataFlows also show tasks named `submit_*_datapr
 
 *`dim_merchant_scd2.contiguous_non_overlapping_intervals`: each `valid_to_ts` equals the next version's `valid_from_ts` and the last interval is open (contract `gold_dim_merchant_scd2.yml`). Passed with observed value 0 violations; last evaluated 2026-11-11 15:20:35 (+07:00), the core-gold report time.*
 
-### 8.3 DP3 — historical features (rows 32–33)
+### 8.3 DP3 — historical features
 
 **DG07 — DP3 lineage.**
 

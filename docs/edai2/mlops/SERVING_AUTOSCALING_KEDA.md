@@ -6,11 +6,9 @@
 | Owner-run autoscaling experiments | **Executed** (2026-11-08): both APIs scaled 1 → 2 → 1 under real load, with 0 failures |
 | Throughput or latency gain over the fixed baseline | **Not shown**: see section 11 |
 
-## 1. Which requirement this addresses
+## 1. Scope
 
-The EDAI-2 rubric names KEDA as its autoscaling tool. Rows 19 and 25 ask for it on the agents. Those rows stay with G5-C, which needs separate approval, and this page does not claim them.
-
-G5-B applies KEDA to the two serving Web APIs measured for row 32 ([ROW_32_LOCUST_GKE.md](../testing/ROW_32_LOCUST_GKE.md)). It answers what happens to the row 32 throughput and latency when replicas follow load. It also proves the KEDA → Prometheus → HPA chain on GKE that G5-C will reuse.
+G5-B applies KEDA to the two serving Web APIs whose throughput and latency were measured by the Locust load test on GKE ([LOCUST_LOAD_TEST_GKE.md](../testing/LOCUST_LOAD_TEST_GKE.md)). It answers what happens to that throughput and latency when replicas follow load, and it proves the KEDA → Prometheus → HPA chain on GKE. KEDA for the Agent Platform (the Coordinator and the shared WorkerPool) is a separate deployment, reported in the [Agent Platform evidence](../agents/AGENT_PLATFORM_EVIDENCE.md#9-keda-autoscaling-g5).
 
 ## 2. How it works here
 

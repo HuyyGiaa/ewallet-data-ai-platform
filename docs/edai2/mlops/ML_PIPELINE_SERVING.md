@@ -192,8 +192,8 @@ correlation_id: n13-doc-20261104T093242Z
 - *HTTP 200, `fraud_probability` 0.0639895560144887, equal to the value recorded when the model was first deployed;*
 - *the KServe predictor log contains the same request ID (`n13-doc-20261104T093242Z`), which confirms that the request reached the model server.*
 
-The genuine historical GKE and Fraud API captures above remain the qualifying
-UI evidence for row 15. The N13 transcript is supporting evidence only.
+The genuine historical GKE and Fraud API captures above remain the primary
+UI evidence for serving. The N13 transcript is supporting evidence only.
 
 ### N15 genuine live runtime captures
 

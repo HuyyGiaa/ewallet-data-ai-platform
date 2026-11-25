@@ -8,7 +8,6 @@ This page describes the A/B test between `fraud-detector` v1 and a candidate v2.
 | `LOCAL_VALIDATED` | Yes: real Redis, Feast, KServe predictors and models on localhost |
 | `CLOUD_DEPLOYED` | No |
 | `CLOUD_RUNTIME_VERIFIED` | No |
-| `RUBRIC_EVIDENCE_COMPLETE` | No |
 
 ## Architecture
 

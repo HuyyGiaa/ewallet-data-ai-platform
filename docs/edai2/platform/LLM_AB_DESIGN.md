@@ -1,8 +1,8 @@
 # LLM A/B test and GPU plan
 
-> **Status (2026-11-10).** This A/B design is kept for rubric row 53. Its local CPU results below are valid. The GPU stages were never run on GKE, and the GPU benchmarking direction has been discontinued: the GPU sections record the earlier plan, not active work. The served model and the official benchmarks are in [LLM_PLATFORM.md](../llm/LLM_PLATFORM.md) and [BENCHMARK_RESULTS.md](../llm/BENCHMARK_RESULTS.md).
+> **Status (2026-11-10).** This A/B design is kept as a record of the model comparison. Its local CPU results below are valid. The GPU stages were never run on GKE, and the GPU benchmarking direction has been discontinued: the GPU sections record the earlier plan, not active work. The served model and the official benchmarks are in [LLM_PLATFORM.md](../llm/LLM_PLATFORM.md) and [BENCHMARK_RESULTS.md](../llm/BENCHMARK_RESULTS.md).
 
-This page covers the comparison of Qwen3-0.6B and Qwen3-1.7B (EDAI-2 row 53). Routing and serving are tested locally with both real models. **Nothing has run on GKE or on a GPU.** The GPU quota blocks every GPU stage.
+This page covers the comparison of Qwen3-0.6B and Qwen3-1.7B. Routing and serving are tested locally with both real models. **Nothing has run on GKE or on a GPU.** The GPU quota blocks every GPU stage.
 
 | Status | State |
 |---|---|
@@ -10,7 +10,6 @@ This page covers the comparison of Qwen3-0.6B and Qwen3-1.7B (EDAI-2 row 53). Ro
 | `LOCAL_VALIDATED` | Yes: pinned gateway, real vLLM on CPU, both models live at once |
 | `CLOUD_DEPLOYED` | No |
 | `CLOUD_RUNTIME_VERIFIED` | No |
-| `RUBRIC_EVIDENCE_COMPLETE` | No |
 
 ## Blocker
 

@@ -44,7 +44,7 @@ Do not use `o1_experiment.sh`, `g2_experiment.sh` or `g1_operator.sh` on this cl
 
 ## P1: Jenkins CD
 
-**Source.** Build from the merged commit. A streaming image from C-B alone lacks C-A's watermark fix, and the release gate fails it on purpose. See [the integration order](../../../edai2/platform/C_INTEGRATION_ORDER.md). MCP and Agents have no such dependency.
+**Source.** Build from the merged commit. A streaming image from C-B alone lacks C-A's watermark fix, and the release gate fails it on purpose. See [the integration order](../../../../archive/legacy-docs/docs/edai2/platform/C_INTEGRATION_ORDER.md). MCP and Agents have no such dependency.
 
 | Component | Job | Branch | Image | Objects in `ewallet-cicd` | Requests | PASS |
 |---|---|---|---|---|---|---|

@@ -1,6 +1,6 @@
 # Centralized secrets with HashiCorp Vault
 
-This page describes the Vault integration for EDAI-2 row 54. It is implemented and validated on a disposable local deployment. **It is not deployed on GKE**, so the row is not complete until the owner runs package P7.
+This page describes the Vault integration for EDAI-2 centralized secrets. It is implemented and validated on a disposable local deployment. **It is not deployed on GKE**; that needs the owner-run package P7.
 
 | Status | State |
 |---|---|
@@ -8,7 +8,6 @@ This page describes the Vault integration for EDAI-2 row 54. It is implemented a
 | `LOCAL_VALIDATED` | Yes: official chart, Raft, TLS, real ServiceAccount tokens, on kind |
 | `CLOUD_DEPLOYED` | No |
 | `CLOUD_RUNTIME_VERIFIED` | No |
-| `RUBRIC_EVIDENCE_COMPLETE` | No |
 
 ## How a workload gets a secret
 

@@ -12,13 +12,14 @@ The platform needs realistic, *reproducible* input data with the problems that r
 
 This report describes the batch and streaming generators that produce such data, and the characteristics of the generated datasets.
 
-Two immutable offline datasets are used:
-
-- the 4-million-transaction F4C validation run, which contains detailed schema
-  and population validation and was generated in 1,034.85 seconds;
-- cloud dataset `canonical-100gb-v1`, tied by historical audit to source SHA
-  `bbae48caef7f65fda0c9375a7a49afb2eca5eef4`, whose final GCS manifest is
-  `COMPLETE` at 100,156,470,260 bytes.
+The project dataset is `rehearsal-5gb-v1`: an immutable, manifest-backed source
+of 5,000,608,241 bytes in 186 shards, published and verified on GCS on
+2026-11-10. Every DP1–DP3, storage, governance, schema and Feature Store result in
+the project uses it. A smaller 4-million-transaction validation run (F4C), which
+contains detailed schema and population validation and was generated in 1,034.85
+seconds, is used for the local checks described below. An earlier, larger
+dataset, `canonical-100gb-v1`, was generated with the same code and is
+summarised briefly in [Earlier 100 GB dataset](#earlier-100-gb-dataset).
 
 Streaming behaviour is measured through the Flink campaigns described in the [Flink report](../streaming/FLINK_STREAMING.md).
 
@@ -47,7 +48,8 @@ Principal implementation references:
 - [streaming generator](../../../data_platform/generation/src/streaming/streaming_generator.py)
 - [sharded generator](../../../data_platform/generation/src/sharded/generator.py)
 - [immutable manifest publisher](../../../data_platform/generation/src/sharded/manifest.py)
-- [canonical 100 GB profile](../../../configs/generation/cloud-canonical-100gb.yaml)
+- [5GB dataset profile](../../../configs/generation/cloud-rehearsal-5gb.yaml) and its [generator configuration](../../../data_platform/generation/config/settings_merchant_history.yaml)
+- [source verifier](../../../ops/gcp/verify_source_dataset.py)
 - [deterministic-sharding report](../novel_ideas/01_DETERMINISTIC_SHARDING.md)
 
 The sharding report documents plan digests, stable shard seeds, create-only
@@ -77,53 +79,73 @@ independently.
 
 ## Determinism and configuration
 
-The canonical cloud plan uses:
+The 5GB plan uses:
 
 | Parameter | Value |
 | --- | ---: |
-| Dataset version | `canonical-100gb-v1` |
+| Dataset version | `rehearsal-5gb-v1` |
 | Global seed | 7001 |
-| Shards | 3,696 |
+| Shards | 186 |
 | Users per shard | 12,500 |
 | Merchants per shard | 300 |
 | Logical transactions per shard | 100,000 |
-| Target / tolerance | 100,000,000,000 bytes / ±5% |
+| Target / tolerance | 5,000,000,000 bytes / ±10% (the verifier accepts 4.5–5.5 GB) |
+| Plan digest | `422c15a169165158fcd7d432a7943d50812b5f3e55e7d0c6aec7c457371c6c83` |
 
 Each shard derives its own seed from the frozen plan and shard ID. A bounded
-four-shard benchmark produced byte-identical Parquet, manifests, checksums and
-final ordering with 1, 2, and 4 workers. Measured wall times were 98.791,
-47.094, and 28.212 seconds respectively; four workers achieved 3.50× speedup
-with 1.314 GB peak aggregate RSS. Upload time was excluded.
+local benchmark of four shards with these per-shard dimensions produced
+byte-identical Parquet, manifests, checksums and final ordering with 1, 2, and 4
+workers. Measured wall times were 98.791, 47.094, and 28.212 seconds
+respectively; four workers achieved 3.50× speedup with 1.314 GB peak aggregate
+RSS. Upload time was excluded.
 
-## Canonical 100 GB characteristics
+## 5GB dataset characteristics
 
-The final manifest was created at `2026-10-24T06:54:00.544Z` with generation
-`1792824840507681`, plan digest
-`da043b9ad8a1121cad93fd5bca9633d036c7e2c9da3894cfd85b7d3af793046f`,
-and status `COMPLETE`.
+`rehearsal-5gb-v1` was generated with two workers, one shard at a time per
+worker, each shard uploaded with create-only preconditions and verified before
+its local staging was removed. The final manifest has SHA-256
+`ac2dfb0eac16e173261b3c3f65e83a03d388528538daefd9ec669bef7123eb80`; every
+downstream DagRun pins that value.
 
 | Characteristic | Verified value |
 | --- | ---: |
-| Total physical bytes | **100,156,470,260** |
-| Shards | 3,696 |
-| Logical transactions | 369,600,000 |
-| Physical transaction rows | 376,992,000 |
-| Added duplicate rows | 7,392,000 |
+| Total physical bytes | **5,000,608,241** |
+| Shards | 186 (about 26.9 MB each on average) |
+| Logical transactions | 18,600,000 |
+| Physical transaction rows | 18,972,000 |
+| Added duplicate rows | 372,000 |
 | Added-duplicate rate | **2.00% of logical transactions** |
-| Unique-ID ratio in physical transactions | 98.0392% |
-| Fraud-label rows | 369,600,000 |
-| Transaction V1 rows / bytes | 182,250,817 / 22,735,275,158 |
-| Transaction V2 rows / bytes | 194,741,183 / 24,333,983,035 |
-| Login-event rows / bytes | 369,609,248 / 21,450,554,837 |
-| Total Parquet objects | 33,264 |
+| Fraud-label rows | 18,600,000 |
+| Users / accounts / devices | 2,325,000 / 3,137,729 / 2,662,450 |
+| Merchants / merchant-history rows | 55,800 / 334,800 |
+| Balance snapshots | 18,106,858 |
+| Login events | 18,586,786 |
 
-The complete machine-readable manifest summary has SHA-256
-`df52b39ac7951523661cd88f5d8ce705835f8d8b22b6c44543d91193ebfffc73`.
+The byte count and manifest identity come from the source manifest as recorded
+by DP1. The row counts are the Bronze and Silver validation results of the 5GB
+campaign `ab-20261110225456` (rules `*.non_empty`, `fraud_labels.*`), so they are
+measured on the stored data rather than derived from the plan.
 
-The exact end-to-end generation/upload duration was not preserved in the final
-manifest. Calibration measured one 100,000-transaction shard at 27,059,611
-bytes, 20.585 seconds, and 300,478,464 bytes peak RSS. These values must not be
-multiplied into a claimed canonical runtime.
+## Earlier 100 GB dataset
+
+Before the project standardised on 5 GB, the same generator published
+`canonical-100gb-v1` ([profile](../../../configs/generation/cloud-canonical-100gb.yaml),
+source SHA `bbae48caef7f65fda0c9375a7a49afb2eca5eef4`). Its final GCS manifest was
+created at `2026-10-24T06:54:00.544Z` with status `COMPLETE` and plan digest
+`da043b9ad8a1121cad93fd5bca9633d036c7e2c9da3894cfd85b7d3af793046f`.
+
+| Characteristic | Verified value |
+| --- | ---: |
+| Total physical bytes | 100,156,470,260 |
+| Shards / Parquet objects | 3,696 / 33,264 |
+| Logical / physical transactions | 369,600,000 / 376,992,000 |
+| Added duplicates | 7,392,000 (2.00%) |
+
+Reaching the size target required a bounded 35-object size remediation that
+preserved the other 33,229 verified objects, so the run must not be described as
+a single uninterrupted first attempt. No result in the current reports depends on
+this dataset; its procedures are kept in the
+[100 GB readiness runbook](../../runbooks/edai1/cloud/canonical_100gb_readiness.md).
 
 ## Skew and cardinality
 
@@ -141,16 +163,16 @@ at the top 5%, confirming that implementation for that fixture:
 ![Historical merchant-skew profile](../../evidence/spark/01_merchant_skew_profile_500k.png)
 
 *Historical 500k local source evidence. It demonstrates the intended merchant
-distribution but is not a full scan of `canonical-100gb-v1`.*
+distribution but is not a full scan of `rehearsal-5gb-v1`.*
 
-The canonical manifest proves the intended schema, volume, duplicates, and
-high-cardinality transaction identity. It does not contain value-frequency
-histograms for hour, channel, or merchant columns. Additionally, canonical
-merchants were generated per shard, producing 1,108,800 shard-local merchant
-rows rather than one global 300-merchant namespace. A full frequency scan of the
-100 GB dataset has not been run, so the skew ratios above are reported as
-configured values plus the measured 500k profile, not as measured 100 GB
-distributions.
+The 5GB manifest and validation reports establish the schema, volume, duplicates,
+and high-cardinality transaction identity. They do not contain value-frequency
+histograms for hour, channel, or merchant columns. Merchants are generated per
+shard, producing 55,800 shard-local merchants rather than one global
+300-merchant namespace. The skew ratios above are therefore reported as
+configured values plus the measured 500k profile; the skew that the Spark
+pipelines actually meet on the 5GB data is analysed in
+[Batch Processing and Orchestration](../BATCH_PROCESSING_AND_ORCHESTRATION.md).
 
 ## Schema evolution
 
@@ -159,16 +181,15 @@ window `2026-01-01` through `2026-05-31`. Records before the cutover are written
 as V1 without `channel`; records from the cutover onward are written as V2 with
 `channel`. Both populations are non-empty.
 
-Canonical schema fingerprints are distinct:
-
-- V1: `75899a6d550880446fdb9a5524f7df7be3c61f4793f51165e729db46f91f6b76`;
-- V2: `5a3e4259fb8d67dbdc156ba9e067dee3031412485d91580d8d9b7d5ea32969ca`.
+Each source table records the set of schema fingerprints of its files, and the
+source verifier fails on an unexpected set. On the 5GB data, DP1 aligned the two
+versions and the Bronze rule `transactions.channel_schema` and the Silver rules
+`channel_not_null` and `valid_channel` all passed.
 
 ![Schema evolution at source](../../evidence/edai1/novel_ideas/01_schema_evolution_source_500k.png)
 
 *Historical 500k source screenshot: V1 physically lacks `channel`, while V2
-contains it. The canonical 100 GB manifest independently records the two
-different schema fingerprints and non-empty row populations.*
+contains it. The same generator code produced `rehearsal-5gb-v1`.*
 
 Bronze ingests V1 first and appends V2 with schema merge. Missing V1 `channel`
 values become null at the unified Bronze boundary; the generator does not fake
@@ -182,12 +203,11 @@ two scales:
 
 - F4C: 4,000,000 logical transactions plus 80,000 duplicates equals 4,080,000
   physical rows;
-- canonical 100 GB: 369,600,000 logical plus 7,392,000 duplicates equals
-  376,992,000 physical rows.
+- 5GB: 18,600,000 logical plus 372,000 duplicates equals 18,972,000 physical
+  rows.
 
-The successful F4C validation recorded 80,000 duplicates removed by Silver and
-no duplicate labels. The canonical manifest calculation independently
-reconciles to exactly 2.00%.
+Both F4C and the 5GB campaign removed exactly the added duplicates in Silver
+(80,000 and 372,000) and kept one fraud label per logical transaction.
 
 ## Storage and partition strategy
 
@@ -202,13 +222,10 @@ high-cardinality business identifiers. DP1 consumes the final manifest and
 ingests V1/V2 into one Bronze transaction table. Successful downstream DP1
 consumption demonstrates that the stored source was usable, not merely present.
 
-The final volume required a bounded 35-object size remediation. Generation
-preconditions, the immutable plan, and a rollback ledger preserved the other
-33,229 verified objects. The result must not be described as a single
-uninterrupted first attempt.
-
-The publication is evidenced by the immutable manifest metadata and by its
-consumption in DP1; no GCS console screenshot of the final manifest was kept.
+The publication is evidenced by the immutable manifest, by the source verifier
+(manifest and plan, 186 shards, seed, generator configuration, size band and every
+object's size and MD5), and by its consumption in DP1; no GCS console screenshot
+of the final manifest was kept.
 
 ## Streaming late-arrival simulation
 
@@ -226,7 +243,7 @@ and too-late events using watermarks and allowed lateness.
 The historical functional Block A replay used 600 unique events and recorded
 528 `ON_TIME` plus 72 `TOO_LATE`, exactly 12%, with identical baseline and
 optimized accepted/late digests. This result belongs to its historical Flink
-source, not the current canonical HEAD.
+source, not the current HEAD.
 
 ![Historical late and duplicate output](../../evidence/flink/01_streaming_feature_late_duplicate.png)
 
@@ -251,8 +268,8 @@ functional checks for both baseline and optimized jobs.*
 The generator also supports burst windows at 12:00–12:20 and 17:20–17:40. A
 base rate of 50 events/minute with multiplier 30 produces approximately 1,500
 events/minute. Historical terminal evidence recorded burst windows above the
-configured threshold, but burst behavior is supplementary to the row 10
-duplicate proof.
+configured threshold, but burst behavior is supplementary to the duplicate
+results above.
 
 ## Reproducing the datasets
 
@@ -260,7 +277,8 @@ An offline reproduction must pin the configuration, dataset version, source SHA,
 global seed, dependency environment, and output prefix. Run calibration first,
 verify disk safety and plan digest, generate/resume immutable shards, finalize
 only after all shards validate, and retain the final manifest plus checksums.
-Never overwrite `canonical-100gb-v1`; changes require a new dataset version.
+Never overwrite `rehearsal-5gb-v1`; changes require a new dataset version. The
+exact commands are in the [EDAI-1 campaign runbook](../../runbooks/edai1/cloud/edai1_campaign_runbook.md).
 
 Streaming reproduction must record the generator seed, rate, duration, logical
 and physical record counts, event-time/arrival-time delay distribution, input
@@ -270,12 +288,12 @@ separate.
 
 ## Limitations
 
-- The final 100 GB manifest does not contain measured merchant/hour/channel
-  frequency histograms; the skew of the full dataset has not been measured.
+- The 5GB manifest does not contain merchant/hour/channel frequency
+  histograms; the configured skew has not been measured by a full scan.
 - The 500k merchant profile and F4C source validation are genuine but are not
-  substitutes for scanning the 100 GB source.
-- Canonical generation/upload wall time is unavailable; calibration and local
-  parallel timings are bounded measurements only.
+  substitutes for scanning the 5GB source.
+- The 5GB generation/upload wall time was not recorded in the manifest; the
+  local parallel timings are bounded measurements only.
 - Late and duplicate runtime proof belongs to historical Flink versions.
 - No final GCS Console or generator dashboard screenshot was recovered.
 - Synthetic fraud and traffic distributions are controlled test data, not

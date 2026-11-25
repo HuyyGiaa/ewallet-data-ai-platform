@@ -1,6 +1,6 @@
 # EDAI-2 curated screenshots
 
-Classification of every embedded image is in [SCREENSHOT_AUDIT.md](../../../edai2/SCREENSHOT_AUDIT.md). Every image here is embedded and explained in an EDAI-2 topic document. This folder is not a gallery to be read on its own; start from the [rubric evidence index](../../../edai2/RUBRIC_EVIDENCE_INDEX.md).
+Every image here is embedded and explained in an EDAI-2 topic document. This folder is not a gallery to be read on its own; start from the [EDAI-2 report index](../../../edai2/README.md).
 
 | Folder | Content | Provenance |
 |---|---|---|
@@ -15,7 +15,7 @@ Classification of every embedded image is in [SCREENSHOT_AUDIT.md](../../../edai
 - No image was edited or cropped.
 - No result was fabricated.
 - Programmatic terminal-like renders are not used as submission screenshots.
-- Rows whose image does not exist are marked `SCREENSHOT_MISSING` in the [gap ledger](../../../edai2/GAP_LEDGER.md).
+- A report states explicitly when a screenshot of a claim was not kept.
 
 **Related folders:**
 - Small text evidence copied into the repository: [`../text/`](../text) (with `PROVENANCE.json`).

@@ -44,7 +44,7 @@ metricsDiscovery:
 
 autoscaling:
   enabled: false
-  # Calibrated from the G5-A GKE baseline (docs/edai2/testing/ROW_32_LOCUST_GKE.md), one replica,
+  # Calibrated from the G5-A GKE baseline (docs/edai2/testing/LOCUST_LOAD_TEST_GKE.md), one replica,
   # 1 CPU limit: Feature API saturates at about 86 req/s, Fraud API at about 24.5 req/s.
   # The request-rate trigger is AverageValue, so the HPA computes
   #   desired = ceil(sum of per-pod request rates / requestsPerSecondPerReplica)

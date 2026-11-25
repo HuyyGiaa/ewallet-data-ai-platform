@@ -26,9 +26,9 @@ Hypothesis is pinned at `6.168.5` in the inference project's lockfile.
 | **Agent tools are repeatable:** `feature_lookup`, `fraud_scoring` and `knowledge_search` return the same response on every repeat for a generated transaction or query; unknown features are rejected every time | [`test_tool_idempotency_properties.py` (line 47)](../../../tests/property/test_tool_idempotency_properties.py#L47) |
 | **Idempotency store:** stable, collision-free keys; one active owner; replay until TTL; one winner under concurrent claims. A Hypothesis **state machine** compares the store with an independent reference model | [`test_idempotency_store_properties.py` (line 343)](../../../tests/property/test_idempotency_store_properties.py#L343) |
 | **Coordinator:** duplicates replay without a new delegation; a changed payload is a conflict; concurrent duplicates delegate once | [`test_coordinator_idempotency_properties.py`](../../../tests/property/test_coordinator_idempotency_properties.py) |
-| Supporting invariants: schema, 41-input vector, derived formulas, failure mapping, masking idempotency | [B1_TESTING_QUALITY.md §3](B1_TESTING_QUALITY.md#3-property-based-testing-b12-row-31) |
+| Supporting invariants: schema, 41-input vector, derived formulas, failure mapping, masking idempotency | archived [B1 test catalogue](../../../archive/legacy-docs/docs/edai2/testing/B1_TESTING_QUALITY.md), §3 |
 
-What "idempotent" means differs per component: the Fraud API is stateless, so it guarantees functional repeatability only, not deduplication. The guarantee per component is stated in [B1_TESTING_QUALITY.md §3](B1_TESTING_QUALITY.md#3-property-based-testing-b12-row-31).
+What "idempotent" means differs per component: the Fraud API is stateless, so it guarantees functional repeatability only, not deduplication. The guarantee per component is stated in archived [B1 test catalogue](../../../archive/legacy-docs/docs/edai2/testing/B1_TESTING_QUALITY.md), §3.
 
 ## 3. Results
 
@@ -56,7 +56,7 @@ The **xfails are known defects**, pinned as strict expected failures in [`test_k
 
 - **CrossHair is not used.** It is a symbolic-execution backend for Hypothesis that could find inputs random generation misses.
 - **No screenshot of the HEAD run exists;** its raw output is committed. No thorough-profile run exists for HEAD.
-- **The properties run against in-process fakes** (`tests/property/fraud_api_harness.py`), not the deployed services. Live repeatability was observed separately in the GKE load tests ([Web API Load Testing and Performance Analysis on GKE](ROW_32_LOCUST_GKE.md)).
+- **The properties run against in-process fakes** (`tests/property/fraud_api_harness.py`), not the deployed services. Live repeatability was observed separately in the GKE load tests ([Web API Load Testing and Performance Analysis on GKE](LOCUST_LOAD_TEST_GKE.md)).
 
 ## 5. Reproducing the runs
 

@@ -21,7 +21,7 @@ Where the classes come from: the API contract and the configuration rules. For e
 | Feast timeout | Finite and bounded; the upper bound is inclusive | [`test_feast_online_failures.py` (line 78)](../../../tests/inference/test_feast_online_failures.py#L78) |
 | Feature vector values | Accepted numeric types against values outside the frozen types; null only for nullable columns; merchant present against absent | [`test_assembler_boundaries.py`](../../../tests/inference/test_assembler_boundaries.py) |
 
-The Hypothesis suites ([Property-Based Testing and Idempotency Verification](ROW_31_PROPERTY_BASED_IDEMPOTENCY.md)) cover 18 further invalid request partitions with generated inputs. They are a separate technique and are not counted here.
+The Hypothesis suites ([Property-Based Testing and Idempotency Verification](PROPERTY_BASED_IDEMPOTENCY.md)) cover 18 further invalid request partitions with generated inputs. They are a separate technique and are not counted here.
 
 ## 3. Results
 

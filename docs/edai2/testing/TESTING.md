@@ -7,17 +7,17 @@ This report describes how the platform is tested:
 - how they run in Jenkins;
 - what the recorded executions show.
 
-## Rubric rows 28–32
+## Testing techniques
 
-Each row has its own document with the evidence, results and limitations. This page keeps the overall strategy and the Jenkins execution.
+Each technique has its own report with the evidence, results and limitations. This page keeps the overall strategy and the Jenkins execution.
 
-| Row | Technique | Document | Headline result |
-|---|---|---|---|
-| 28 | Unit tests, coverage > 90 %, Web API, fixtures, mocks | [ROW_28_UNIT_TEST_COVERAGE.md](ROW_28_UNIT_TEST_COVERAGE.md) | 99.03 % at `281db72`; 91.90 % at HEAD |
-| 29 | Equivalence partitioning and boundary values | [ROW_29_EQUIVALENCE_BOUNDARY.md](ROW_29_EQUIVALENCE_BOUNDARY.md) | 70 tests, 77 subtests, green |
-| 30 | Mutation testing (mutmut) | [ROW_30_MUTATION_TESTING.md](ROW_30_MUTATION_TESTING.md) | Actionable 94.69 % (B1), 91.44 % (integrated) |
-| 31 | Property-based idempotency (Hypothesis) | [ROW_31_PROPERTY_BASED_IDEMPOTENCY.md](ROW_31_PROPERTY_BASED_IDEMPOTENCY.md) | 551 passed (B1), 566 passed (HEAD) |
-| 32 | Locust load test of the Web API | [ROW_32_LOCUST_GKE.md](ROW_32_LOCUST_GKE.md) | GKE in-cluster, 103,977 requests, 0 failures |
+| Technique | Report | Headline result |
+|---|---|---|
+| Unit tests, coverage > 90 %, Web API, fixtures, mocks | [UNIT_TEST_COVERAGE.md](UNIT_TEST_COVERAGE.md) | 99.03 % at `281db72`; 91.90 % at HEAD |
+| Equivalence partitioning and boundary values | [EQUIVALENCE_BOUNDARY_TESTING.md](EQUIVALENCE_BOUNDARY_TESTING.md) | 70 tests, 77 subtests, green |
+| Mutation testing (mutmut) | [MUTATION_TESTING.md](MUTATION_TESTING.md) | Actionable 94.69 % (B1), 91.44 % (integrated) |
+| Property-based idempotency (Hypothesis) | [PROPERTY_BASED_IDEMPOTENCY.md](PROPERTY_BASED_IDEMPOTENCY.md) | 551 passed (B1), 566 passed (HEAD) |
+| Locust load test of the Web API | [LOCUST_LOAD_TEST_GKE.md](LOCUST_LOAD_TEST_GKE.md) | GKE in-cluster, 103,977 requests, 0 failures |
 
 ## 1. Testing strategy
 
@@ -205,6 +205,5 @@ The red build is the expected result. It shows that a failing gate prevents any 
 
 ## 6. Limitations
 
-- The suites do not measure code coverage. They are not yet complemented by mutation testing (beyond the targeted, hand-written mutation smoke in [`scripts/validation/targeted_mutation_smoke.py`](../../../scripts/validation/targeted_mutation_smoke.py)), by property-based tests, or by a load test of the Web API.
-- The idempotency tests are example-based rather than generated.
-- These additions are tracked in the [EDAI-2 gap ledger](../GAP_LEDGER.md).
+- The Jenkins suites described here do not measure code coverage themselves. Coverage, mutation testing, property-based idempotency and the Web API load test are reported separately in the technique reports listed at the top of this page; their results come from different commits and campaigns and are not one combined execution.
+- The idempotency tests in the Jenkins suites are example-based; generated cases are covered by the [property-based idempotency](PROPERTY_BASED_IDEMPOTENCY.md) report.

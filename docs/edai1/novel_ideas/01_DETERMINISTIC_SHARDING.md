@@ -2,7 +2,7 @@
 
 ## 1. Summary
 
-The idea is a reproducible data-product protocol for generating the 100 GB dataset:
+The idea is a reproducible data-product protocol for generating the project's 5GB source dataset, `rehearsal-5gb-v1`:
 
 - deterministic, bounded-memory shards;
 - content identity for every file;
@@ -11,7 +11,7 @@ The idea is a reproducible data-product protocol for generating the 100 GB datas
 
 ## 2. Problem and motivation
 
-A single-process generator can satisfy a volume target but is operationally weak. A retry may produce different rows, partial uploads may look complete, and a changed configuration can silently reuse an existing dataset name. At 100 GB, restarting from zero after one failure is costly.
+A single-process generator can satisfy a volume target but is operationally weak. A retry may produce different rows, partial uploads may look complete, and a changed configuration can silently reuse an existing dataset name. Even at 5 GB, published over about 1.5 hours, restarting from zero after one failure is costly, and the cost grows with every larger dataset version.
 
 The system addresses those failure modes by making the generation plan and every published object independently verifiable. Dataset completeness is represented by a final manifest, not by the existence of a storage prefix.
 
@@ -40,7 +40,7 @@ flowchart LR
     W --> F[Parquet files + checksums\nrows + schema hashes]
     F --> U[Create-only upload\nand remote verification]
     U --> M[Per-shard completion manifest]
-    M --> V[Verify all 3,696 shards]
+    M --> V[Verify all 186 shards]
     V --> D[Final COMPLETE dataset manifest]
     D --> B[DP1 Source-to-Bronze consumption]
 ```
@@ -58,7 +58,7 @@ The coordinator is the only process that schedules unfinished shards, publishes 
 | `data_platform/generation/src/sharded/storage.py` | `ObjectStore`, `GcloudObjectStore` | Conditional storage writes and metadata read-back |
 | `data_platform/generation/src/sharded/profile_manifest.py` | `build_profile` | Produce a profile bound to plan and final manifest |
 | `ops/gcp/generate_source_dataset.py` | command entry point | Coordinate planning, workers, publication and resume |
-| `ops/gcp/validate_canonical_source_gate.py` | command entry point | Validate object inventory, counts, sizes, MD5 and final status |
+| `ops/gcp/verify_source_dataset.py` | command entry point | Validate manifest and plan, registry pins, object inventory, sizes, MD5 and final status |
 
 ## 6. Algorithm and integrity contract
 
@@ -71,62 +71,57 @@ The coordinator is the only process that schedules unfinished shards, publishes 
 7. On retry, validate the shard-manifest identity and every referenced object before treating the shard as complete.
 8. Finalize only when all expected manifests exist. Aggregate counts and fingerprints in deterministic shard order, then write `dataset_manifest.json` as the completion marker.
 
-Controlled duplicate generation remains explicit. The canonical population contains 369,600,000 logical transactions and 376,992,000 physical transaction rows, a difference of 7,392,000 or exactly 2%. Schema evolution is observable because each table records its set of schema SHA-256 values; an unexpected schema set fails the source gate rather than being silently accepted.
+Controlled duplicate generation remains explicit. The 5GB population contains 18,600,000 logical transactions and 18,972,000 physical transaction rows, a difference of 372,000 or exactly 2%. Schema evolution is observable because each table records its set of schema SHA-256 values; an unexpected schema set fails the source gate rather than being silently accepted.
 
 ## 7. Experimental setup
 
-The canonical profile used dataset version `canonical-100gb-v1`, global seed `7001`, 12,500 users, 300 merchants and 100,000 logical transactions per shard. One calibration shard measured 27,059,611 bytes, 20.585 seconds and 300,478,464 bytes peak RSS. The calibrated plan contained 3,696 shards.
+The 5GB profile ([`cloud-rehearsal-5gb.yaml`](../../../configs/generation/cloud-rehearsal-5gb.yaml)) used dataset version `rehearsal-5gb-v1`, global seed `7001`, 12,500 users, 300 merchants and 100,000 logical transactions per shard, and 186 shards. It was published with two workers on 2026-11-10 to its own bucket, `ewallet-data-ai-platform-hg26-rehearsal-5gb-data`.
 
-A bounded local benchmark generated four identical canonical-size shards with 1, 2 and 4 workers. Upload and cloud-manifest publication were excluded, so these timings are not presented as the canonical cloud runtime.
+A bounded local benchmark generated four shards with the same per-shard dimensions with 1, 2 and 4 workers. Upload and cloud-manifest publication were excluded, so these timings are not presented as the cloud publication runtime.
 
 ## 8. Quantitative results
 
 | Result | Value | Source |
 |---|---:|---|
-| Final manifest status | `COMPLETE` | final GCS manifest |
-| Physical persisted bytes | 100,156,470,260 | final GCS manifest |
-| Shards | 3,696 | final GCS manifest |
-| Logical transactions | 369,600,000 | final GCS manifest |
-| Physical transaction rows | 376,992,000 | final GCS manifest |
-| Fraud-label rows | 369,600,000 | final GCS manifest |
-| Controlled duplicate rows/rate | 7,392,000 / 2.00% | final GCS manifest |
-| Parquet objects | 33,264 | source gate |
-| Plan digest | `da043b9ad8a1121cad93fd5bca9633d036c7e2c9da3894cfd85b7d3af793046f` | final GCS manifest |
-| GCS manifest generation | `1792824840507681` | final GCS manifest |
+| Final manifest status | published and verified | source verifier, 2026-11-10 |
+| Physical persisted bytes | 5,000,608,241 | final GCS manifest, as recorded by DP1 |
+| Shards | 186 | final GCS manifest |
+| Logical transactions | 18,600,000 | Silver validation |
+| Physical transaction rows | 18,972,000 | Bronze validation |
+| Fraud-label rows | 18,600,000 | Bronze and Silver validation |
+| Controlled duplicate rows/rate | 372,000 / 2.00% | Bronze minus Silver |
+| Plan digest | `422c15a169165158fcd7d432a7943d50812b5f3e55e7d0c6aec7c457371c6c83` | final GCS manifest |
+| Manifest SHA-256 | `ac2dfb0eac16e173261b3c3f65e83a03d388528538daefd9ec669bef7123eb80` | pinned by every DP1–DP3 DagRun |
 | 1-worker benchmark | 98.791 s / 1.00× | local benchmark |
 | 2-worker benchmark | 47.094 s / 2.10× | local benchmark |
 | 4-worker benchmark | 28.212 s / 3.50×; 1.314 GB peak aggregate RSS | local benchmark |
 
-The three benchmark modes produced byte-identical Parquet files, identical per-shard manifests and identical checksums. The successful canonical source was consumed by downstream DP1; this is functional evidence that the manifest-backed source was usable, not merely present in GCS.
+The three benchmark modes produced byte-identical Parquet files, identical per-shard manifests and identical checksums. The 5GB source was then consumed by DP1 in both Spark profiles of campaign `ab-20261110225456`, each run pinning the same manifest SHA-256; this is functional evidence that the manifest-backed source was usable, not merely present in GCS.
+
+**Earlier 100 GB publication.** The same protocol first published `canonical-100gb-v1`: 100,156,470,260 bytes in 3,696 shards (33,264 Parquet objects), 369,600,000 logical and 376,992,000 physical transactions, final manifest `COMPLETE` on 2026-10-24 (plan digest `da043b9a…`), generated from commit `bbae48ca`. It needed a bounded 35-object size remediation, carried out under the same create-only preconditions and a rollback ledger. The current reports use only the 5GB dataset.
 
 ## 9. Correctness validation and provenance
 
-The authoritative inspected summary is:
-
-`/home/huyy-giaa/ewallet-evidence/edai1-deep-audit-20261029/20261029T071108Z/gcs_canonical_manifest_summary.json`
-
-- SHA-256: `df52b39ac7951523661cd88f5d8ce705835f8d8b22b6c44543d91193ebfffc73`
-- GCS object: `source/canonical-100gb-v1/_control/dataset_manifest.json`
-- Created/updated: `2026-10-24T06:54:00.544Z`
-- Object MD5: `zb4xFQ9uTRv4jH1mGZbulA==`
-
-The dataset was generated by implementation commit `bbae48caef7f65fda0c9375a7a49afb2eca5eef4`.
+- GCS object: `gs://ewallet-data-ai-platform-hg26-rehearsal-5gb-data/source/rehearsal-5gb-v1/_control/dataset_manifest.json`.
+- Manifest SHA-256: `ac2dfb0eac16e173261b3c3f65e83a03d388528538daefd9ec669bef7123eb80`, recorded in the DP1 handoff manifests of both profiles ([baseline](../../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/manifests/baseline/dp1_handoff.json), [optimized](../../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/manifests/optimized/dp1_handoff.json)) together with `physical_bytes` and `plan_digest`.
+- Row counts: the Bronze and Silver [validation reports](../../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/validation_reports/) of the same campaign.
+- Verification: `ops.gcp.verify_source_dataset` checks the manifest and plan, the registry pins (186 shards, seed 7001, generator configuration, 4.5–5.5 GB) and every object's size and MD5, and exits non-zero on any violation.
 
 ## 10. Screenshot
 
 ![Schema evolution in the generated source](../../evidence/edai1/novel_ideas/01_schema_evolution_source_500k.png)
 
-*Generated source on the local 500k-user dataset: the V1 transaction files physically lack `channel`, and the V2 files contain it. The 100 GB dataset records the same two schema fingerprints in its manifest. (SHA-256 `1821c547…`)*
+*Generated source on the local 500k-user dataset: the V1 transaction files physically lack `channel`, and the V2 files contain it. The same generator code produced the V1/V2 split of `rehearsal-5gb-v1`, which DP1 aligned and validated. (SHA-256 `1821c547…`)*
 
 ## 11. Limitations
 
-- The local parallel benchmark excludes GCS upload and cannot establish end-to-end canonical runtime.
-- The final source volume required a bounded 35-object size remediation. It used generation preconditions, an immutable plan and rollback ledger; it should not be presented as a single uninterrupted first-attempt run.
+- The local parallel benchmark excludes GCS upload and cannot establish the end-to-end cloud publication runtime.
+- The 5GB publication time (about 1.5 hours with two workers, per the runbook) is an operational estimate, not a recorded measurement.
 - Immutable publication prevents accidental overwrite but does not replace bucket retention, access control or disaster recovery.
 - Determinism is proven for the measured shard modes and content contracts; changes to library versions or Parquet encoders require a new dataset version.
 
 ## 12. Reproducibility
 
-Use the commands and safety gates in `docs/cloud/canonical_100gb_readiness.md`. First run the calibration and dry-run plan, verify that the plan resolves to 3,696 shards, then execute with the same dataset version and plan. Resume only with identical inputs. Finally run `ops.gcp.validate_canonical_source_gate` and retain the plan, all shard manifests, the final manifest, command logs, source SHA and downstream DP1 run identity.
+Use the commands and safety gates in the [EDAI-1 campaign runbook](../../runbooks/edai1/cloud/edai1_campaign_runbook.md) (Part 0 and Part 1). First run the dry-run plan and check that it resolves to 186 shards and plan digest `422c15a1…`, then execute with the same dataset version and plan. Resume only with identical inputs. Finally run `ops.gcp.verify_source_dataset` and retain the plan, all shard manifests, the final manifest, command logs, source SHA and downstream DP1 run identity.
 
-Reproduction must use a new dataset version if any frozen input or dependency changes. Do not overwrite `canonical-100gb-v1`.
+Reproduction must use a new dataset version if any frozen input or dependency changes. Do not overwrite `rehearsal-5gb-v1`.

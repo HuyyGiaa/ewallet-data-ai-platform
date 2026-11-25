@@ -1,6 +1,6 @@
 # Schema Design
 
-This is the schema-design report for EDAI-1 rubric rows 34–38. It covers the canonical 5GB campaign:
+This is the schema-design report for the EDAI-1 lakehouse. It covers the 5GB campaign:
 
 | Identity | Value |
 |---|---|

@@ -9,10 +9,9 @@ This runbook is for the owner's own benchmark and screenshot session, the eviden
 Nothing here generates screenshots, and nothing touches production.
 
 - Methodology and why one run per arm is used: [BENCHMARK_RESULTS §2](../../edai2/llm/BENCHMARK_RESULTS.md#2-experimental-environment-and-methodology).
-- Which screenshot backs which rubric row: [EDAI2_LLM_BENCHMARK_EVIDENCE_MATRIX.md](../../rubric/EDAI2_LLM_BENCHMARK_EVIDENCE_MATRIX.md).
 - Design, GKE validation history and measured stage durations (archived record): [BENCHMARK_REPLAY.md](../../../archive/legacy-docs/docs/edai2/llm/BENCHMARK_REPLAY.md).
 
-Status: the owner ran this procedure on 2026-11-09/10 (`SINGLE_RUN_RESULTS=COMPLETE`, `OWNER_SCREENSHOTS=INTEGRATED`): [results](../../edai2/llm/BENCHMARK_RESULTS.md), [evidence matrix](../../rubric/EDAI2_LLM_BENCHMARK_EVIDENCE_MATRIX.md). The steps below stay as the replay procedure. As executed, some screens were combined or captured with equivalent commands; the matrix records what each file shows.
+Status: the owner ran this procedure on 2026-11-09/10 (`SINGLE_RUN_RESULTS=COMPLETE`, `OWNER_SCREENSHOTS=INTEGRATED`): [results](../../edai2/llm/BENCHMARK_RESULTS.md). The steps below stay as the replay procedure. As executed, some screens were combined or captured with equivalent commands; the screenshot provenance file of the campaign records what each file shows.
 
 ## 0. Overview
 
@@ -294,7 +293,7 @@ ev_cleanup $CAMPAIGN/exp-v1; ev_cleanup $CAMPAIGN/exp-v2
 ```
 
 1. Both comparisons must say `single-run True <verdict>`. Any `OBSERVED_*` or `NO_CLEAR_OBSERVED_CHANGE` is a valid result. `INVALID` means the pair is not comparable; read `validity_problems`.
-2. Check every row of [BENCHMARK_EVIDENCE_MATRIX.md](../../rubric/EDAI2_LLM_BENCHMARK_EVIDENCE_MATRIX.md): each REQUIRED screenshot exists and shows what its row requires.
+2. Check every screenshot checkpoint of this runbook: each required screenshot exists and shows what its checkpoint requires.
 3. Take numbers only from `comparison/metrics.json`. Describe them as observed differences of one run per arm.
 4. Commit the campaign directory yourself. Do not run `tmux kill-server` before both `runner exit` lines are written.
 

@@ -1,6 +1,6 @@
 # EDAI-2 Historical Documents
 
-The files below are internal working documents produced during development: proposals, change reviews, incident records, handoffs and earlier rubric maps. They are kept unchanged for traceability, but they are **not** the submission reports. Several of them describe infrastructure assumptions or states that were later superseded, for example "registry not deployed" or "streaming not supported", so they must not be read as the current system state. The current technical reports are listed in the [EDAI-2 index](README.md).
+The files below are internal working documents produced during development: proposals, change reviews, incident records, and handoffs. They are kept unchanged for traceability, but they are **not** the submission reports. Several of them describe infrastructure assumptions or states that were later superseded, for example "registry not deployed" or "streaming not supported", so they must not be read as the current system state. The current technical reports are listed in the [EDAI-2 index](README.md).
 
 These files were moved with `git mv` to `archive/legacy-docs/`; their content
 and Git history remain available. The complete old-to-new path map is in the
@@ -8,9 +8,7 @@ and Git history remain available. The complete old-to-new path map is in the
 
 | File | Kind | Current report |
 |---|---|---|
-| [llm/g3_rubric_gate_a.md](../../archive/legacy-docs/docs/edai2/llm/g3_rubric_gate_a.md) | Planning and approval gate (rubric map) | [LLM Platform](llm/LLM_PLATFORM.md), [Agent Platform architecture](agents/AGENT_PLATFORM_ARCHITECTURE.md) |
 | [mlops/MLOPS_FEATURE_STORE.md](../../archive/legacy-docs/docs/edai2/mlops/MLOPS_FEATURE_STORE.md) | Earlier MLOps campaign report with status vocabulary | [ML Pipeline and Serving](mlops/ML_PIPELINE_SERVING.md) |
-| [cicd_rubric_evidence_20261103.md](../../archive/legacy-docs/docs/edai2/cicd_rubric_evidence_20261103.md) | Earlier CI/CD rubric evidence | [CI/CD architecture](cicd/CICD_ARCHITECTURE.md) |
 | [cicd_campaign_closure_handoff_20261103.md](../../archive/legacy-docs/docs/edai2/cicd_campaign_closure_handoff_20261103.md) | Campaign handoff | [CI/CD architecture](cicd/CICD_ARCHITECTURE.md) |
 | [cicd_infra_change_review_20261103.md](../../archive/legacy-docs/docs/edai2/cicd_infra_change_review_20261103.md) | Change review | [CI/CD architecture](cicd/CICD_ARCHITECTURE.md) |
 | [cicd_observability_runtime_20261103.md](../../archive/legacy-docs/docs/edai2/cicd_observability_runtime_20261103.md) | Earlier observability readback | [Observability](observability/OBSERVABILITY.md) |
@@ -32,7 +30,16 @@ and Git history remain available. The complete old-to-new path map is in the
 | [llm/vllm_cpu_o1_benchmark.md](../../archive/legacy-docs/docs/edai2/llm/vllm_cpu_o1_benchmark.md) | Complete O1 experiment log (historical) | [Benchmark Results §6](llm/BENCHMARK_RESULTS.md#6-comparative-analysis) |
 | [llm/llmd_g2_routing_benchmark.md](../../archive/legacy-docs/docs/edai2/llm/llmd_g2_routing_benchmark.md) | Complete G2 experiment log (historical) | [Benchmark Results §6](llm/BENCHMARK_RESULTS.md#6-comparative-analysis) |
 
-Two documents moved instead of being archived: the evidence matrix is now [`docs/rubric/EDAI2_LLM_BENCHMARK_EVIDENCE_MATRIX.md`](../rubric/EDAI2_LLM_BENCHMARK_EVIDENCE_MATRIX.md), and the LLM A/B design is now [`platform/LLM_AB_DESIGN.md`](platform/LLM_AB_DESIGN.md). Frozen evidence READMEs whose checksums are recorded still name the old paths; use this table to follow them.
+The LLM A/B design moved instead of being archived and is now [`platform/LLM_AB_DESIGN.md`](platform/LLM_AB_DESIGN.md). Frozen evidence READMEs whose checksums are recorded still name the old paths; use this table to follow them.
+
+**Session handoffs archived on 2026-11-25.** These internal handoff and integration-planning notes were moved with `git mv`; the reports they fed are the current ones.
+
+| File | Kind | Current report |
+|---|---|---|
+| [platform/SESSION_A_HANDOFF.md](../../archive/legacy-docs/docs/edai2/platform/SESSION_A_HANDOFF.md) | Session A handoff (Feature API, Locust, KEDA, edge) | [Serving Autoscaling with KEDA](mlops/SERVING_AUTOSCALING_KEDA.md), [External Gateway](gateway/EXTERNAL_GATEWAY_ARCHITECTURE.md) |
+| [platform/C_B_HANDOFF.md](../../archive/legacy-docs/docs/edai2/platform/C_B_HANDOFF.md), [platform/C_C_HANDOFF.md](../../archive/legacy-docs/docs/edai2/platform/C_C_HANDOFF.md) | Batch C-B and C-C handoffs | [CI/CD architecture](cicd/CICD_ARCHITECTURE.md), [Vault](platform/VAULT.md) |
+| [platform/C_DATA_PLATFORM_INTEGRATION.md](../../archive/legacy-docs/docs/edai2/platform/C_DATA_PLATFORM_INTEGRATION.md), [platform/C_INTEGRATION_ORDER.md](../../archive/legacy-docs/docs/edai2/platform/C_INTEGRATION_ORDER.md) | Integration contract and merge order | [Feature Store](mlops/FEATURE_STORE.md) |
+| [testing/B1_TESTING_QUALITY.md](../../archive/legacy-docs/docs/edai2/testing/B1_TESTING_QUALITY.md) | B1 testing work record and test catalogue | [Testing](testing/TESTING.md) |
 
 **Runbooks and compatibility paths.** Current agent runbooks are under
 `docs/runbooks/edai2/llm_agent/`, and current MLOps references are under

@@ -1,8 +1,8 @@
 # B1 Testing Quality Runbook
 
-How to run the four B1 experiments and capture genuine evidence for EDAI-2 rows
-28, 30, 31 and 32. Design and scope are in
-[B1_TESTING_QUALITY.md](../../edai2/testing/B1_TESTING_QUALITY.md).
+How to run the four B1 experiments (coverage, mutation testing, property-based
+idempotency and load testing) and capture genuine evidence. Design and scope are
+in the archived [B1 testing work record](../../../archive/legacy-docs/docs/edai2/testing/B1_TESTING_QUALITY.md).
 
 Everything runs locally. Nothing here contacts GKE or any cloud service, and the
 current `kubectl` context does not matter.
@@ -224,8 +224,8 @@ docs/evidence/edai2/testing/b1/
 Capture real windows only. Keep the terminal prompt or the browser address bar in
 view, and do not edit output. `.coverage` is ignored by Git and is not evidence.
 
-After the runs, hand over the evidence folder. Phase B then updates `TESTING.md`,
-`RUBRIC_EVIDENCE_INDEX.md`, `GAP_LEDGER.md` and `SCREENSHOT_AUDIT.md`.
+After the runs, hand over the evidence folder. The technique reports listed in
+`TESTING.md` are then updated from it.
 
 ## 7. Troubleshooting
 

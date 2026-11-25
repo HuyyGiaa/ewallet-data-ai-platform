@@ -324,7 +324,6 @@ The kagent Agent Sandbox pilot does not count as scaling evidence.
 Each run goes under `docs/evidence/edai2/<area>/<run-id>/`, where area is `build`, `iam`, `cloud_lab`, `load`, `keda`, `edge`, `ml_ab`, `vault` or `llm_ab`.
 
 Each run records:
-- the rubric row from `RUBRIC_EVIDENCE_INDEX.md`;
 - the source SHA, image digests and Helm revision;
 - the exact command, start and end UTC, and the raw output;
 - `kubectl get/top` snapshots;
@@ -536,7 +535,7 @@ gcloud container clusters update ewallet-dev --zone asia-southeast1-b --project 
 
 ### G5-A: real Locust baseline (executed 2026-11-07)
 
-Submission page: [ROW_32_LOCUST_GKE.md](../../edai2/testing/ROW_32_LOCUST_GKE.md). Evidence: `docs/evidence/edai2/load/g5a_20261107T183037Z`.
+Submission page: [LOCUST_LOAD_TEST_GKE.md](../../edai2/testing/LOCUST_LOAD_TEST_GKE.md). Evidence: `docs/evidence/edai2/load/g5a_20261107T183037Z`.
 - Eight in-cluster runs, 103,977 requests, 0 failures.
 - Feature API ceiling about 86 req/s per replica (its 1-CPU limit).
 - Fraud API ceiling about 24.5 req/s (single KServe predictor plus the API's CPU).

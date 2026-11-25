@@ -32,4 +32,4 @@ Owner-captured genuine screenshots from `~/Pictures/Screenshots/`, copied unchan
 
 Source paths: `~/Pictures/Screenshots/<same filename>` for every row. Times in the images are ICT (UTC+7) unless shown as `Z`.
 
-**Not imported:** unnamed `Screenshot From …` files (not G5-B), and any screenshot showing credentials. The G5-A baseline images used in the comparison are the repository files `../load/g5a_locust_*_20_users.png` (rendered from the G5-A `report.html` by headless Chrome in G5-A, see `docs/edai2/SCREENSHOT_AUDIT.md`), not owner screen captures.
+**Not imported:** unnamed `Screenshot From …` files (not G5-B), and any screenshot showing credentials. The G5-A baseline images used in the comparison are the repository files `../load/g5a_locust_*_20_users.png` (rendered from the G5-A `report.html` by headless Chrome in G5-A), not owner screen captures.

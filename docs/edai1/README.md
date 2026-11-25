@@ -41,19 +41,19 @@ flowchart LR
 
 ## Technical reports
 
-Each module report ends with a *Traceability* section that links every result to its implementation (with line anchors), its machine-readable execution artifact and its screenshot. The [rubric evidence index](RUBRIC_EVIDENCE_INDEX.md#module-traceability-rows-34-2021-2838) maps each rubric row to the same four kinds of proof.
+Each module report ends with a *Traceability* section that links every result to its implementation (with line anchors), its machine-readable execution artifact and its screenshot.
 
-| Topic | Rubric rows | Report | Evidence |
-|---|---|---|---|
-| **Docker & Compose** | 3, 4 | [Docker Optimization](docker/DOCKER_OPTIMIZATION.md) | [`docker/5gb/`](../evidence/edai1/docker/5gb/MANIFEST.md) |
-| Data generation | 5–10 | [Data Generation and Simulation](data_generator/DATA_GENERATION_AND_SIMULATION.md) | [`data_generator/`](../evidence/edai1/data_generator/) |
-| **Batch Processing & Orchestration — DP1/DP2/DP3** | 11–15, 22–27 | [Batch Processing and Orchestration](BATCH_PROCESSING_AND_ORCHESTRATION.md): Spark DP1–DP3, the three Airflow DAGs and the 5GB Baseline/Optimised campaign `ab-20261110225456` | [`spark/rehearsal-5gb-ab-20261110225456/`](../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/README.md) |
-| Stream processing | 16–19 | [Flink Streaming](streaming/FLINK_STREAMING.md) | [`streaming/`](../evidence/edai1/streaming/) |
-| **Storage optimization** | 20, 21 | [Lakehouse and Warehouse Storage Optimization](storage/STORAGE_OPTIMIZATION.md) | [`storage/5gb/`](../evidence/edai1/storage/5gb/MANIFEST.md) |
-| **Data Governance** | 28–33 | [DataHub Governance](datahub/DATAHUB_GOVERNANCE.md): DP1–DP3 lineage and executed-rule assertions of the 5GB campaign | [`datahub/rehearsal-5gb/`](../evidence/edai1/datahub/rehearsal-5gb/MANIFEST.md) |
-| **Schema Design** | 34–38 | [Schema Design](schema/SCHEMA_DESIGN.md): all-zone inventory, ERDs, SCD2, feature timestamps, naming | [`schema/rehearsal-5gb/`](../evidence/edai1/schema/rehearsal-5gb/MANIFEST.md) |
-| Novel idea 1 | 39 | [Deterministic Sharded Generation](novel_ideas/01_DETERMINISTIC_SHARDING.md) | [`novel_ideas/`](../evidence/edai1/novel_ideas/) |
-| Novel idea 2 | 40 | [Point-in-Time Leakage Prevention](novel_ideas/02_PIT_LEAKAGE_PREVENTION.md) | [`novel_ideas/`](../evidence/edai1/novel_ideas/) |
+| Topic | Report | Evidence |
+|---|---|---|
+| **Docker & Compose** | [Docker Optimization](docker/DOCKER_OPTIMIZATION.md) | [`docker/5gb/`](../evidence/edai1/docker/5gb/MANIFEST.md) |
+| Data generation | [Data Generation and Simulation](data_generator/DATA_GENERATION_AND_SIMULATION.md) | [`data_generator/`](../evidence/edai1/data_generator/) |
+| **Batch Processing & Orchestration — DP1/DP2/DP3** | [Batch Processing and Orchestration](BATCH_PROCESSING_AND_ORCHESTRATION.md): Spark DP1–DP3, the three Airflow DAGs and the 5GB Baseline/Optimised campaign `ab-20261110225456` | [`spark/rehearsal-5gb-ab-20261110225456/`](../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/README.md) |
+| Stream processing | [Flink Streaming](streaming/FLINK_STREAMING.md) | [`streaming/`](../evidence/edai1/streaming/) |
+| **Storage optimization** | [Lakehouse and Warehouse Storage Optimization](storage/STORAGE_OPTIMIZATION.md) | [`storage/5gb/`](../evidence/edai1/storage/5gb/MANIFEST.md) |
+| **Data Governance** | [DataHub Governance](datahub/DATAHUB_GOVERNANCE.md): DP1–DP3 lineage and executed-rule assertions of the 5GB campaign | [`datahub/rehearsal-5gb/`](../evidence/edai1/datahub/rehearsal-5gb/MANIFEST.md) |
+| **Schema Design** | [Schema Design](schema/SCHEMA_DESIGN.md): all-zone inventory, ERDs, SCD2, feature timestamps, naming | [`schema/rehearsal-5gb/`](../evidence/edai1/schema/rehearsal-5gb/MANIFEST.md) |
+| Novel idea 1 | [Deterministic Sharded Generation](novel_ideas/01_DETERMINISTIC_SHARDING.md) | [`novel_ideas/`](../evidence/edai1/novel_ideas/) |
+| Novel idea 2 | [Point-in-Time Leakage Prevention](novel_ideas/02_PIT_LEAKAGE_PREVENTION.md) | [`novel_ideas/`](../evidence/edai1/novel_ideas/) |
 
 Owner procedures: [Docker and storage](../runbooks/edai1/DOCKER_STORAGE_5GB_OWNER_EVIDENCE.md), [DataHub and schema](../runbooks/edai1/DATAHUB_SCHEMA_OWNER_EVIDENCE.md).
 
@@ -62,7 +62,7 @@ Owner procedures: [Docker and storage](../runbooks/edai1/DOCKER_STORAGE_5GB_OWNE
 | Area | Result | Interpretation |
 |---|---|---|
 | Docker (5GB workload) | Campaign-verifier image 396.9 MB → 44.2 MB content (−88.87 %); 95.8 % of the reduction from the slim base, 4.2 % from multi-stage packaging; identical 45-check fingerprint in all four variants; non-root hardened Compose run exit 0 | No run-time gain is claimed (start-up dominated). The October 88.44 % result is historical |
-| Dataset | **100,156,470,260 bytes** in 3,696 shards: 369.6 M logical transactions plus a controlled 2 % duplicate rate | A deterministic, resumable publication with a final manifest. The DP1–DP3, storage, governance and schema results use the 5GB rehearsal dataset `rehearsal-5gb-v1` |
+| Dataset `rehearsal-5gb-v1` | **5,000,608,241 bytes** in 186 shards: 18.6 M logical transactions, 18,972,000 physical rows after a controlled 2.00 % duplicate rate | A deterministic, resumable publication with a final manifest; every DP1–DP3, storage, governance and schema result in this index uses this dataset. The same generator earlier published a 100 GB dataset (3,696 shards), kept as history |
 | DP1–DP3 on Dataproc, 5GB (`ab-20261110225456`) | 6 DagRuns and 16 batches succeeded; 260 validation rules per profile passed; Baseline and Optimised outputs `SEMANTIC_EQUIVALENT` across all 34 tables | The pipeline is correct and traceable end to end |
 | Spark Baseline vs Optimised, 5GB | Application runtime 165.1/197.9/314.9/160.2 s → 213.8/292.3/335.8/196.7 s (DP1/Silver/Gold/DP3); Gold shuffle −20.5 % | Not faster in one trial. The validator control varied 6–54 %, so the runtime differences are not attributable; plan-level AQE effects are |
 | Flink (100 events/s, 120 s) | Both profiles accepted 12,000 unique events out of 12,180 raw arrivals; the optimised profile lowered p95 latency from 10.9 s to 7.3 s | Deduplication and late-event routing behave identically in both profiles |
@@ -90,17 +90,12 @@ Programmatic terminal-like renders are not embedded in the final reports.
 ## Limitations
 
 - **DP1–DP3 performance.** One Baseline and one Optimised trial on 5 GB, run 8 hours apart. Runtime differences are within run-to-run variation, and the rehearsal does not show which configuration performs best on larger data.
-- **Streaming.** The Flink measurements come from a local cluster. The newer streaming implementation, which writes to the feature store, has not been run end to end.
+- **Streaming.** The Flink measurements come from a local cluster. The newer streaming implementation, which writes to the feature store, is verified on GKE in the EDAI-2 [Feature Store](../edai2/mlops/FEATURE_STORE.md) report.
 - **Skew.** The 5GB run diagnoses write-layout skew in the Spark UI, but no method is shown to improve it over the Baseline.
 - **Optimizations without a measured gain.** The Docker images run no faster (start-up dominated); lakehouse compaction was a no-op and Z-order was not adopted. Both are reported as results.
 - **Governance.** Lineage and assertions are published from the verified campaign record after the run, not emitted live by the Airflow tasks, and only the `optimized` profile is published.
 - **Schema.** Relationships are logical; Delta enforces no keys, so integrity holds for runs that pass the validators. The SCD2 attribute history is synthetic.
 
-## Internal tracking
+## Historical documents
 
-These files are maintained for project tracking. They are not part of the technical narrative:
-
-- [Rubric evidence index](RUBRIC_EVIDENCE_INDEX.md)
-- [Gap ledger](GAP_LEDGER.md)
-- [Screenshot audit](SCREENSHOT_AUDIT.md)
-- [Historical documents](HISTORICAL_DOCUMENTS.md)
+Superseded reports are listed in the [historical-document register](HISTORICAL_DOCUMENTS.md).

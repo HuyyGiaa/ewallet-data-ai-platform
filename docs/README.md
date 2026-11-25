@@ -2,8 +2,7 @@
 
 This index is the reviewer entry point for the E-Wallet Data & AI Platform.
 Technical reports explain the design, implementation, execution results,
-evidence and limitations. Rubric status is intentionally kept in separate
-internal tracking documents.
+evidence and limitations.
 
 ## Canonical navigation
 
@@ -27,22 +26,7 @@ Historical documents and earlier architecture material are preserved in the
 [legacy-document archive](../archive/legacy-docs/README.md), but are not part of
 this primary navigation.
 
-## Internal evidence tracking
-
-These files preserve the 93-row workbook crosswalk and known proof gaps. They
-are review aids, not substitutes for the engineering reports.
-
-| Sheet | Evidence index | Gap ledger |
-|---|---|---|
-| EDAI-1 | [Rubric evidence index](edai1/RUBRIC_EVIDENCE_INDEX.md) | [Gap ledger](edai1/GAP_LEDGER.md) |
-| EDAI-2 | [Rubric evidence index](edai2/RUBRIC_EVIDENCE_INDEX.md) | [Gap ledger](edai2/GAP_LEDGER.md) |
-
-The exact workbook wording, including the requirement, Deliverables/Proof text
-and raw points for all 93 scored rows, is preserved in the
-[workbook extract](rubric/edai_k11_workbook_extract.json). Its recorded SHA-256
-matches the reviewed `EDAI K11.xlsx` workbook. The
-[evidence matrix](rubric/rubric_evidence_matrix.csv) retains source, runtime and
-missing-proof references for each sheet and row.
+## Historical documents
 
 Historical and superseded reports were relocated with history-preserving
 `git mv` operations and are catalogued in the

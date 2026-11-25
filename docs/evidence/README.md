@@ -15,11 +15,10 @@ existing locations remain authoritative until a later owner-approved Phase B1.
 |---|---|---|
 | EDAI-1 | [EDAI-1 documentation and evidence links](../edai1/README.md) | Mixed historical/partial/current artifacts |
 | EDAI-2 | [EDAI-2 documentation and evidence links](../edai2/README.md) | Mixed historical/partial/current artifacts |
-| Rubric | [Rubric audit](../rubric/rubric_audit.md) | Point-in-time crosswalk |
 | Migration planning | `docs/migration/evidence/` | Phase B0 mapping only; not migrated |
-| EDAI-1 Docker (rows 3–4) | [docker/5gb/MANIFEST.md](edai1/docker/5gb/MANIFEST.md) | Owner run `20261112t142522`, SHA-256 verified; older files [historical](edai1/docker/README.md) |
-| EDAI-1 storage (rows 20–21) | [storage/5gb/MANIFEST.md](edai1/storage/5gb/MANIFEST.md) | Lakehouse `storage-5gb-20261112t142522` and PostgreSQL index benchmark, SHA-256 verified; older files [historical](edai1/storage/README.md) |
-| EDAI-2 testing runs | [edai2/testing/README.md](edai2/testing/README.md) | Rows 28–31 raw results with provenance |
+| EDAI-1 Docker | [docker/5gb/MANIFEST.md](edai1/docker/5gb/MANIFEST.md) | Owner run `20261112t142522`, SHA-256 verified; older files [historical](edai1/docker/README.md) |
+| EDAI-1 storage | [storage/5gb/MANIFEST.md](edai1/storage/5gb/MANIFEST.md) | Lakehouse `storage-5gb-20261112t142522` and PostgreSQL index benchmark, SHA-256 verified; older files [historical](edai1/storage/README.md) |
+| EDAI-2 testing runs | [edai2/testing/README.md](edai2/testing/README.md) | Unit, equivalence, mutation and property-test raw results with provenance |
 | EDAI-2 testing and KEDA screenshots | [testing](edai2/screenshots/testing/EVIDENCE_MANIFEST.md), [keda](edai2/screenshots/keda/EVIDENCE_MANIFEST.md) | Owner captures, SHA-256 verified |
 
 ## Approved future taxonomy
@@ -28,14 +27,14 @@ existing locations remain authoritative until a later owner-approved Phase B1.
 - DataHub: `docs/evidence/edai1/datahub/{lineage,assertions,datasets_schema}/{screenshots,api}/`.
 - EDAI-2: `docs/evidence/edai2/{mlops,llm,rag,agents,cicd,observability}/`.
 
-Additional subdirectories are allowed only when the rubric or actual component
+Additional subdirectories are allowed only when actual component
 responsibility requires them. The older DataHub location
 `docs/evidence/images/datahub/` is superseded but remains untouched while its
 owning worktree is active.
 
 ## Evidence rules
 
-- A file's existence is not proof that a rubric criterion passed.
+- A file's existence is not proof that a check passed.
 - Runtime evidence must identify the source Git SHA, run ID, timestamp, source
   system, artifact type, checksum, and reproduction runbook when available.
 - Screenshots supplement API/log readback; they do not replace machine-readable

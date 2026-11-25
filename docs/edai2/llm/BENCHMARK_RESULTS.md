@@ -15,7 +15,7 @@ This is the authoritative report of the two LLM serving benchmarks submitted for
 - **EXP-V2.** llm-d EPP routing had 47.5 % lower E2E p95 at c=2, but 101.9 % higher at c=4 and 71.5 % higher at c=8, and 7.3 % higher (within the threshold) at c=1. Failures: 0/48 in both arms. EPP routing did not show a general gain, and llm-d is not part of the production deployment.
 - **Each experiment is one baseline run and one optimized run.** The percentages are observed differences of one pair, with no confidence interval and no significance test.
 
-Every number comes from the campaign's raw artifacts (`comparison/metrics.json`, `summary.json`, `raw_requests.jsonl`). Screenshots prove what ran and what was on screen; they are not the source of the numbers. Which screenshot backs which claim is listed in the [evidence matrix](../../rubric/EDAI2_LLM_BENCHMARK_EVIDENCE_MATRIX.md).
+Every number comes from the campaign's raw artifacts (`comparison/metrics.json`, `summary.json`, `raw_requests.jsonl`). Screenshots prove what ran and what was on screen; they are not the source of the numbers.
 
 ## 2. Experimental Environment and Methodology
 
@@ -47,7 +47,7 @@ The runner supports three profiles. All use the same image, model, workload, req
 | `formal` | 3 (2–5), order AB, BA, AB | [`compare.py`](../../../ops/experiments/compare.py): threshold plus run-to-run spread | The historical 3-run rehearsal (§6) |
 | `smoke` | 1, reduced levels | `compare.py`, always `INCONCLUSIVE` | Workflow check, never a result |
 
-The profile is recorded in the manifest (`settings.profile`, `settings.methodology`), in every checkpoint banner (`EXP-V1 SINGLE-RUN / BASELINE run 01`) and in the comparison, so single-run and multi-run evidence cannot be mixed up. The rubric asks for a benchmark and an optimization, not for repeated measurements, so the owner chose one run per arm at every level, which can be replayed and captured personally in one sitting.
+The profile is recorded in the manifest (`settings.profile`, `settings.methodology`), in every checkpoint banner (`EXP-V1 SINGLE-RUN / BASELINE run 01`) and in the comparison, so single-run and multi-run evidence cannot be mixed up. The goal was a benchmark and an optimization, not repeated measurements, so the owner chose one run per arm at every level, which can be replayed and captured personally in one sitting.
 
 **What one pair cannot show:**
 
@@ -551,7 +551,6 @@ The O1 and G2 runs used a different stack (§2.6); the rehearsal used the same s
 | What | Location |
 |---|---|
 | Campaign index, file provenance | [`owner_single_run_20261109/README.md`](../../evidence/edai2/llm/owner_single_run_20261109/README.md) |
-| Claim-by-claim screenshot and raw-artifact mapping (`VERIFIED` / `PARTIAL` status per item) | [EDAI2_LLM_BENCHMARK_EVIDENCE_MATRIX.md](../../rubric/EDAI2_LLM_BENCHMARK_EVIDENCE_MATRIX.md) |
 | Screenshot provenance (source name, SHA-256, arm, limitation of every screenshot) | [`screenshot_provenance.json`](../../evidence/edai2/llm/owner_single_run_20261109/screenshot_provenance.json) |
 | Comparisons | [`exp-v1/comparison/metrics.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/comparison/metrics.json), [`exp-v2/comparison/metrics.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/comparison/metrics.json) |
 | Manifests | [`exp-v1/manifest.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v1/manifest.json), [`exp-v2/manifest.json`](../../evidence/edai2/llm/owner_single_run_20261109/exp-v2/manifest.json) |
@@ -568,19 +567,9 @@ The O1 and G2 runs used a different stack (§2.6); the rehearsal used the same s
 
 **Archived records** (historical, not current results): the earlier [methodology page](../../../archive/legacy-docs/docs/edai2/llm/BENCHMARK_METHODOLOGY.md), the [replay design and GKE validation record](../../../archive/legacy-docs/docs/edai2/llm/BENCHMARK_REPLAY.md) with measured stage durations, the pre-run [safety audit](../../../archive/legacy-docs/docs/edai2/llm/EXP_V1_V2_SAFETY_AUDIT.md), and the complete [O1](../../../archive/legacy-docs/docs/edai2/llm/vllm_cpu_o1_benchmark.md) and [G2](../../../archive/legacy-docs/docs/edai2/llm/llmd_g2_routing_benchmark.md) experiment logs.
 
-### 9.1 EDAI-2 rubric alignment
+### 9.1 Benchmark and production telemetry
 
-The wording comes from the repository's workbook extract, [`edai_k11_workbook_extract.json`](../../rubric/edai_k11_workbook_extract.json).
-
-| Row | Requirement | Implementation and configuration | Runtime evidence | Benchmark evidence | Gaps |
-|---|---|---|---|---|---|
-| 3 | Deploy LLM inference platform; document setup, benchmark and results | [LLM_PLATFORM](LLM_PLATFORM.md), Helm chart | Production deployment evidence in [LLM_PLATFORM §6](LLM_PLATFORM.md#6-runtime-verification) | §3, §4 | None for this row |
-| 4 | Setup a custom LLM model | Qwen3-0.6B baked into a digest-pinned image | S1-01, S1-04: digest and model revision | Same model in both experiments | None |
-| 5 | agentgateway with suitable security and policy | §5 table, template and chart; [LLM_PLATFORM §4](LLM_PLATFORM.md#4-agentgateway) | POL-1 to POL-7 on the benchmark gateway | — | Screenshots show the temporary benchmark gateway; production policy evidence is G1 raw. Failover not exercised in this campaign |
-| 6 | Benchmark the model server and optimize | §2 to §4 | S1-*, S2-* | `OBSERVED_IMPROVEMENT`, `OBSERVED_MIXED` | Single run per arm (§2.3) |
-| 50 | LLM telemetry | [OBSERVABILITY §6](../observability/OBSERVABILITY.md#6-llm-telemetry) | Production Grafana captures | See below | The benchmark alone does not cover this row |
-
-**Row 50 detail.**
+The benchmark measures serving performance; LLM telemetry in production is described in [OBSERVABILITY §6](../observability/OBSERVABILITY.md#6-llm-telemetry). The two cover different signals:
 
 | Metric | This benchmark | Production telemetry ([OBSERVABILITY §6](../observability/OBSERVABILITY.md#6-llm-telemetry)) |
 |---|---|---|
@@ -591,4 +580,4 @@ The wording comes from the repository's workbook extract, [`edai_k11_workbook_ex
 | TTFT | Yes | Yes |
 | Prompts caught by PII/safety | **No:** the benchmark traffic does not pass through the agent PII screen | Yes |
 
-The row rests on the production telemetry. The benchmark adds runtime measurements for tokens, round-trip time and TTFT, but no PII evidence.
+Production telemetry covers every signal in the table. The benchmark adds runtime measurements for tokens, round-trip time and TTFT, but no PII evidence.

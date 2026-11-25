@@ -4,16 +4,15 @@ This document covers the Spark batch pipelines DP1–DP3 and their Airflow orche
 
 Every number below comes from the campaign's stored artifacts in [`docs/evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/`](../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/README.md), which is called `evidence/` from here on. Every screenshot is a genuine capture, with its source identity in the [screenshot manifest](../evidence/edai1/spark/rehearsal-5gb-ab-20261110225456/screenshots/MANIFEST.md).
 
-**Rubric map.**
+**Reading guide.**
 
-| Row | Requirement | Where it is answered |
-|---:|---|---|
-| 11 | Spark baseline, each optimisation step, Spark UI, Airflow integration | §A.4, §B–D (Spark UI per pipeline), §F |
-| 12 | Handle skew, with explanation | §C.3, §F.4 |
-| 13 | Handle schema evolution, with explanation | §B.2 |
-| 14 | Handle another offline problem (duplicates), with explanation | §C.2 |
-| 15 | Spark integrated into the pipelines | §E |
-| 22–27 | DP1/DP2/DP3 ingest and validate stages in Airflow | §B.4, §C.6, §D.4, §E |
+| Topic | Sections |
+|---|---|
+| Spark Baseline and Optimised profiles, Spark UI, results | §A.4, §B–D, §F |
+| Data skew | §C.3, §F.4 |
+| Schema evolution | §B.2 |
+| Duplicate handling | §C.2 |
+| Airflow orchestration of the ingest and validate stages | §B.4, §C.6, §D.4, §E |
 
 ## A. Overview and architecture
 
@@ -99,7 +98,7 @@ These are the properties the batches actually received (`evidence/dataproc_usage
 
 DP1 reads each entity's Parquet shards, aligns the transaction schema versions and writes run-scoped Delta tables. It is a read–transform–write job with little shuffle (1.39 GB in both profiles).
 
-### B.2 Schema evolution (row 13)
+### B.2 Schema evolution
 
 **Problem.** Transactions before 2026-03-15 (V1) have no `channel` column; later ones (V2) do.
 
@@ -174,7 +173,7 @@ The DP1 Baseline Stages view ([screenshot 11](../evidence/edai1/spark/rehearsal-
 
 Date-partitioned tables are written with a fixed task count per table ([`common/write_layout.py`](../../data_platform/processing/spark/common/write_layout.py)): `transactions` 128 tasks, `balance_snapshots` and `login_events` 48.
 
-### C.2 Deduplication (row 14)
+### C.2 Deduplication
 
 **Problem.** 2 % of transactions are delivered twice with the same `transaction_id` (at-least-once delivery).
 
@@ -203,7 +202,7 @@ df = (df.withColumn("_row_number", F.row_number().over(window_spec))
 - *`Window row_number()` partitioned by `transaction_id` and ordered by `ingested_at DESC`, then `Filter (_row_number = 1)`;*
 - *`RepartitionByExpression [event_date], 128` before the Delta write.*
 
-### C.3 Data skew: what the implementation does (row 12)
+### C.3 Data skew: what the implementation does
 
 The synthetic data is skewed by design: payment traffic concentrates on a few merchants and on peak hours. The current implementation handles skew with three mechanisms:
 
@@ -467,7 +466,7 @@ These are measured separately and never added together:
 
 The remaining skew is in the **write layout**, in both profiles. Each date-partitioned table is repartitioned by `event_date` into a fixed number of tasks (128 or 160). The data has 151 event dates, so some tasks receive two dates. The slowest task is 4.3–6.7× the median (Silver stage 76; Gold stages 125 and 173).
 
-AQE neither coalesces nor splits a repartition with an explicit count, and skew join only applies to joins. Neither profile therefore changes this skew, and the run shows **no measured improvement of skew over the Baseline** (rubric row 12 stays PARTIAL). In DP3, the Baseline had no skew-flagged stage. The Optimised run had one short stage (stage 4, 50 tasks, slowest task 10.4 s). Merchant-window skew at full volume remains unmeasured.
+AQE neither coalesces nor splits a repartition with an explicit count, and skew join only applies to joins. Neither profile therefore changes this skew, and the run shows **no measured improvement of skew over the Baseline**. In DP3, the Baseline had no skew-flagged stage. The Optimised run had one short stage (stage 4, 50 tasks, slowest task 10.4 s). Merchant-window skew at full volume remains unmeasured.
 
 ### F.5 Control: the validators
 

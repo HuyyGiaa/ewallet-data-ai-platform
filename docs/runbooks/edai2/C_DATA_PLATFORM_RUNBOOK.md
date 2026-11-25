@@ -1,8 +1,8 @@
 # Data Platform Runbook (C1, C2, C3)
 
-This runbook takes the owner from a reviewed branch to cloud evidence for EDAI-2 rows 11 and 12
-and the EDAI-1 DP2 Gold, schema and Spark UI gaps. Ownership rules and findings are in the
-[integration contract](../../edai2/platform/C_DATA_PLATFORM_INTEGRATION.md).
+This runbook takes the owner from a reviewed branch to cloud evidence for the Feature Store batch
+and streaming paths and the EDAI-1 DP2 Gold, schema and Spark UI work. Ownership rules and findings
+are in the archived [integration contract](../../../archive/legacy-docs/docs/edai2/platform/C_DATA_PLATFORM_INTEGRATION.md).
 
 Every section marks commands **READ-ONLY** or **MUTATING**. Run nothing marked MUTATING until the
 matching experiment in [section 7](#7-cloud-approval-package) is approved. A step's result counts
@@ -225,7 +225,7 @@ docker rm -f c-redis-test
 
 **Expected:** each run ends with `"status": "PASS"`. A namespace can be used once. The second run
 restarts after the late phases, because watermarks do not survive a restore, as the
-[contract](../../edai2/platform/C_DATA_PLATFORM_INTEGRATION.md#5-c2-flink-dual-store-path) explains.
+[contract](../../../archive/legacy-docs/docs/edai2/platform/C_DATA_PLATFORM_INTEGRATION.md#5-c2-flink-dual-store-path) explains.
 
 ### 3.2 Cloud run
 

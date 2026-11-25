@@ -1,6 +1,6 @@
 # G5-A: real Locust baseline on GKE, 2026-11-07
 
-Submission page: [ROW_32_LOCUST_GKE.md](../../../../edai2/testing/ROW_32_LOCUST_GKE.md).
+Submission page: [LOCUST_LOAD_TEST_GKE.md](../../../../edai2/testing/LOCUST_LOAD_TEST_GKE.md).
 
 | Path | Content |
 |---|---|

@@ -84,8 +84,8 @@ logic, and runtime claims are tied to preserved reports and evidence.
 
 ## Key Highlights
 
-- **Deterministic data at 100 GB scale.** Stable shard identities, create-only
-  publication, resume safety, and a final manifest make parallel generation
+- **Deterministic, manifest-backed data.** Stable shard identities, create-only
+  publication, resume safety, and a final manifest make the 5 GB source dataset
   reproducible across worker counts.
 - **Verified batch orchestration and governance.** Three Airflow DAGs run the
   DP1/DP2/DP3 Spark stages on Dataproc Serverless. Their lineage and 263
@@ -122,8 +122,8 @@ logic, and runtime claims are tied to preserved reports and evidence.
 
 | Experiment | Recorded result | Scope and source |
 |---|---:|---|
-| Canonical dataset | **100,156,470,260 bytes** across 3,696 shards | Immutable synthetic-data manifest; [generator report](docs/edai1/data_generator/DATA_GENERATION_AND_SIMULATION.md) |
-| Duplicate simulation | **2.00%** added rows | 7,392,000 controlled duplicates in the canonical population; [generator report](docs/edai1/data_generator/DATA_GENERATION_AND_SIMULATION.md) |
+| Source dataset `rehearsal-5gb-v1` | **5,000,608,241 bytes** across 186 shards | 18.6 M logical transactions; immutable manifest pinned by every DagRun; [generator report](docs/edai1/data_generator/DATA_GENERATION_AND_SIMULATION.md) |
+| Duplicate simulation | **2.00%** added rows | 372,000 controlled duplicates, all removed in Silver (18,972,000 → 18,600,000); [generator report](docs/edai1/data_generator/DATA_GENERATION_AND_SIMULATION.md) |
 | Flink acceptance p95 | **10,896 → 7,256 ms** | 100 events/s for 120 s, baseline vs optimised profile; [streaming report](docs/edai1/streaming/FLINK_STREAMING.md) |
 | Docker image (5GB verifier) | **396.9 → 44.2 MB** content (−88.87 %) | 95.8 % from the slim base, 4.2 % from multi-stage packaging; same 45-check fingerprint; [Docker report](docs/edai1/docker/DOCKER_OPTIMIZATION.md) |
 | Delta partition pruning (5GB) | **7 of 151 files, 3.0–3.3× faster** | Compaction was a no-op and Z-order was not adopted (no I/O reduction); isolated Dataproc clones; [storage report](docs/edai1/storage/STORAGE_OPTIMIZATION.md) |
@@ -139,7 +139,7 @@ logic, and runtime claims are tied to preserved reports and evidence.
 | Agent sessions (G6) | **24/24 turns** on 2 shared workers | Same replay; Registry 3 Agents, 2 MCP servers, 3 Prompts; [Agent evidence](docs/edai2/agents/AGENT_PLATFORM_EVIDENCE.md) |
 | CI/CD V2 release campaign | **6 successful CD executions, 6 of 7 release groups** | Every verdict `stage: rehearsal`, `production_changed: false`; streaming rehearsal 182 comparisons, 0 mismatches; [release evidence](docs/edai2/cicd/CICD_RELEASE_EVIDENCE.md) |
 | External gateway acceptance (G3-B) | **4 routes over HTTPS, cleanup COMPLETE** | Supervised campaign `g3b-owner-evidence-20261124T083106Z`; DNS back offline, GKE back to 0 nodes; [gateway evidence](docs/edai2/gateway/EXTERNAL_GATEWAY_EVIDENCE.md) |
-| PIT leakage validation | **310/310, zero mismatches** | 10 cases × 31 features, labels excluded; [PIT report](docs/edai1/novel_ideas/02_PIT_LEAKAGE_PREVENTION.md) |
+| Point-in-time validation (5GB) | **0 mismatches** | Feast historical retrieval vs an independent oracle (155 comparisons, 0 ambiguous); streaming Offline verification 26/26; an earlier direct-Gold run on the 100 GB snapshot matched 310/310; [PIT report](docs/edai1/novel_ideas/02_PIT_LEAKAGE_PREVENTION.md) |
 
 The DP1–DP3 batch pipelines ran end to end on Dataproc under Airflow for the
 5 GB campaign `ab-20261110225456`, once per Spark profile. All validations passed,
@@ -149,10 +149,11 @@ runtime rose 6.7–47.7 % per stage, within the run-to-run variation measured on
 unchanged validators, while AQE cut Gold shuffle by 20.5 %. See
 [Batch Processing and Orchestration](docs/edai1/BATCH_PROCESSING_AND_ORCHESTRATION.md).
 
-The 100 GB dataset demonstrates deterministic large-scale generation and
-publication. The Spark, storage, governance, schema and Feature Store results
-above come from bounded 5 GB campaigns and are not claims about the full
-100 GB population.
+All data-engineering, storage, governance, schema and Feature Store results
+above use the same 5 GB source dataset, `rehearsal-5gb-v1`. They describe
+behaviour at that scale and do not extrapolate to larger data. The same
+generator earlier published a 100 GB dataset (100,156,470,260 bytes, 3,696
+shards); it is documented as history in the generator report.
 
 ---
 
@@ -482,18 +483,19 @@ stable identity and deterministic seed, writes through create-only publication,
 and commits a final manifest only after the complete shard set is valid.
 
 The implementation produced byte-identical bounded outputs across one, two,
-and four workers and published a complete 100,156,470,260-byte canonical
-manifest. See [Deterministic Sharding](docs/edai1/novel_ideas/01_DETERMINISTIC_SHARDING.md).
+and four workers and published the 5,000,608,241-byte `rehearsal-5gb-v1`
+dataset in 186 shards behind one verified manifest. See [Deterministic Sharding](docs/edai1/novel_ideas/01_DETERMINISTIC_SHARDING.md).
 
 ### 2. Point-in-Time Leakage Prevention
 
-Feature parity alone does not prove temporal correctness. The PIT validator
-therefore compares Feast retrieval against an independent direct-Gold oracle,
-uses exclusive historical windows, rejects label columns, and publishes
-result-bound governance events.
+Feature parity alone does not prove temporal correctness. Spark builds features
+with exclusive historical windows, label columns never reach Feast, and the
+validators compare Feast retrieval with an oracle that does not use Feast.
 
-The preserved run evaluated 10 cases × 31 features: all 310 comparable values
-matched, zero mismatches were recorded, and labels were not passed to Feast.
+On the 5 GB data, historical retrieval matched the independent oracle in all 155
+comparisons with no ambiguous entity, and the streaming campaign verified 26/26
+point-in-time values. An earlier ten-case direct-Gold validation on the 100 GB
+snapshot matched all 310 values.
 See [Point-in-Time Leakage Prevention](docs/edai1/novel_ideas/02_PIT_LEAKAGE_PREVENTION.md).
 
 ### 3. Grounded Agent Intake and Exact Agent Telemetry

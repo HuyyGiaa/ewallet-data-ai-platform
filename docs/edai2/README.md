@@ -24,7 +24,7 @@ The overall architecture, with numbered data and investigation flows, is in the 
 | Agent Platform final GKE integration: Coordinator → Sandbox Specialists → MCP Gateway → backends, KEDA, MCP failover, shared WorkerPool, tracing (campaign `agi-20261115T145608Z`) | [Agent Platform operations](agents/AGENT_PLATFORM_OPERATIONS.md) · [Agent Platform evidence (owner replay `replay-20261118T161231Z`)](agents/AGENT_PLATFORM_EVIDENCE.md) |
 | RAG ingestion, retrieval and governance | [RAG Knowledge Pipeline](rag/RAG_PIPELINE.md) |
 | Test strategy and Jenkins test results | [Testing and Continuous Verification](testing/TESTING.md) |
-| Testing rubric rows 28–32 (coverage, partitions, mutation, properties, Locust) | [Row 28](testing/ROW_28_UNIT_TEST_COVERAGE.md), [Row 29](testing/ROW_29_EQUIVALENCE_BOUNDARY.md), [Row 30](testing/ROW_30_MUTATION_TESTING.md), [Row 31](testing/ROW_31_PROPERTY_BASED_IDEMPOTENCY.md), [Row 32](testing/ROW_32_LOCUST_GKE.md) |
+| Unit coverage, equivalence and boundary testing, mutation testing, property-based idempotency, Locust load testing | [Unit test coverage](testing/UNIT_TEST_COVERAGE.md), [Equivalence and boundary testing](testing/EQUIVALENCE_BOUNDARY_TESTING.md), [Mutation testing](testing/MUTATION_TESTING.md), [Property-based idempotency](testing/PROPERTY_BASED_IDEMPOTENCY.md), [Locust load test on GKE](testing/LOCUST_LOAD_TEST_GKE.md) |
 | KEDA autoscaling of the Feature and Fraud APIs (G5-B) | [Serving Autoscaling with KEDA](mlops/SERVING_AUTOSCALING_KEDA.md) |
 | Jenkins pipelines and continuous delivery | [CI/CD architecture](cicd/CICD_ARCHITECTURE.md), [operations](cicd/CICD_OPERATIONS.md), [release evidence](cicd/CICD_RELEASE_EVIDENCE.md) |
 | Metrics, logs, traces, LLM and agent telemetry | [Observability](observability/OBSERVABILITY.md) |
@@ -51,11 +51,6 @@ screenshot gaps.
 
 Operating instructions for reaching the UIs are in the [UI access runbook](../runbooks/edai2/UI_REPLAY.md).
 
-## Internal tracking
+## Historical documents
 
-These files are kept for project tracking and are not part of the technical narrative:
-
-- [Rubric evidence index](RUBRIC_EVIDENCE_INDEX.md)
-- [Gap ledger](GAP_LEDGER.md)
-- [Screenshot audit](SCREENSHOT_AUDIT.md)
-- [Historical documents](HISTORICAL_DOCUMENTS.md)
+Superseded reports are listed in the [historical-document register](HISTORICAL_DOCUMENTS.md).

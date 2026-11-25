@@ -12,11 +12,8 @@ and Git history remain available. The complete old-to-new path map is in the
 | [spark/OPTIMIZATION_MATRIX.md](../../archive/legacy-docs/docs/edai1/spark/OPTIMIZATION_MATRIX.md) | Historical 100GB Spark experiments | [Batch Processing and Orchestration](BATCH_PROCESSING_AND_ORCHESTRATION.md) |
 | [spark/REHEARSAL_5GB_BENCHMARK.md](../../archive/legacy-docs/docs/edai1/spark/REHEARSAL_5GB_BENCHMARK.md) | First 5GB rehearsal write-up | [Batch Processing and Orchestration](BATCH_PROCESSING_AND_ORCHESTRATION.md) |
 | [airflow/AIRFLOW_DP1_DP2_DP3_EVIDENCE.md](../../archive/legacy-docs/docs/edai1/airflow/AIRFLOW_DP1_DP2_DP3_EVIDENCE.md) | Historical DAG versions and 100GB runs | [Batch Processing and Orchestration](BATCH_PROCESSING_AND_ORCHESTRATION.md) |
-| [EDAI1_RUBRIC_100_STATUS.md](../../archive/legacy-docs/docs/edai1/EDAI1_RUBRIC_100_STATUS.md) | Earlier rubric status | [RUBRIC_EVIDENCE_INDEX](RUBRIC_EVIDENCE_INDEX.md) |
-| [EDAI1_RUBRIC_COVERAGE.md](../../archive/legacy-docs/docs/edai1/EDAI1_RUBRIC_COVERAGE.md) | Earlier rubric coverage matrix | [RUBRIC_EVIDENCE_INDEX](RUBRIC_EVIDENCE_INDEX.md) |
-| [RUBRIC_100_CROSS_WORKSTREAM.md](../../archive/legacy-docs/docs/edai1/RUBRIC_100_CROSS_WORKSTREAM.md) | Workstream boundary note | — |
-| [RUNTIME_BLOCKERS.md](../../archive/legacy-docs/docs/edai1/RUNTIME_BLOCKERS.md) | Earlier blocker list | [GAP_LEDGER](GAP_LEDGER.md) |
-| [SCREENSHOT_INDEX.md](../../archive/legacy-docs/docs/edai1/SCREENSHOT_INDEX.md) | Earlier screenshot list | [SCREENSHOT_AUDIT](SCREENSHOT_AUDIT.md) |
+| [RUNTIME_BLOCKERS.md](../../archive/legacy-docs/docs/edai1/RUNTIME_BLOCKERS.md) | Earlier blocker list | — |
+| [SCREENSHOT_INDEX.md](../../archive/legacy-docs/docs/edai1/SCREENSHOT_INDEX.md) | Earlier screenshot list | — |
 | [DATAHUB_39_TO_32_SCOPE_RECONCILIATION.md](../../archive/legacy-docs/docs/edai1/DATAHUB_39_TO_32_SCOPE_RECONCILIATION.md) | DataHub scope reconciliation | [DataHub report](datahub/DATAHUB_GOVERNANCE.md) |
 | [DATAHUB_ASSERTIONS_REMEDIATION.md](../../archive/legacy-docs/docs/edai1/DATAHUB_ASSERTIONS_REMEDIATION.md) | Remediation record | [DataHub report](datahub/DATAHUB_GOVERNANCE.md) |
 | [DATAHUB_DP1_DP2_DP3_LINEAGE_AND_VALIDATION.md](../../archive/legacy-docs/docs/edai1/DATAHUB_DP1_DP2_DP3_LINEAGE_AND_VALIDATION.md) | Earlier DataHub summary | [DataHub report](datahub/DATAHUB_GOVERNANCE.md) |

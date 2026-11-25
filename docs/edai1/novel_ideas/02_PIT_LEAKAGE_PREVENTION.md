@@ -4,7 +4,7 @@
 
 Feast historical retrieval by itself is standard functionality and is not the contribution. The contribution has three parts:
 
-- an independent, provenance-locked oracle that compares values computed directly from Gold with what Feast returns;
+- an independent, provenance-locked oracle that compares what Feast returns with values found without Feast, directly from the stored feature data;
 - a check that rejects any label leakage;
 - the publication of the verified outcome as result-bound DataHub assertions.
 
@@ -12,7 +12,7 @@ Feast historical retrieval by itself is standard functionality and is not the co
 
 Fraud features must describe only information available before the scored transaction. A conventional aggregation that includes the current row or a future row leaks information and inflates offline model quality. A successful Feast API call proves neither that the upstream Gold features used an exclusive temporal boundary nor that labels were excluded from the retrieval payload.
 
-The validation therefore tests both layers: Spark constructs features with strict event-time windows, while a separate validator retrieves the same canonical cases through Feast and compares every value with a direct-Gold oracle.
+The validation therefore tests both layers: Spark constructs features with strict event-time windows, while a separate validator retrieves the same cases through Feast and compares every value with an oracle that never goes through Feast.
 
 ## 3. Contribution and novelty boundary
 
@@ -36,14 +36,14 @@ The novelty is the cross-system validation methodology and evidence binding, not
 flowchart LR
     T[Silver transactions\nwith event timestamps] --> W[Spark exclusive windows\nT-window <= event < T]
     W --> G[Four Gold feature tables]
-    G --> O[Direct-Gold canonical oracle\n10 cases x 31 values]
+    G --> O[Independent oracle\nlatest eligible row per entity]
     G --> S[Immutable Feast offline snapshot]
     R[Pinned registry generation + SHA] --> F[Feast historical retrieval]
     S --> F
     E[Entity keys + event_timestamp only] --> F
     O --> C[Independent comparator]
     F --> C
-    C -->|310/310, mismatch 0| D[Four result-bound\nDataHub PASS events]
+    C -->|0 mismatches| D[Result-bound\nevidence and DataHub events]
 ```
 
 ## 5. Implementation map
@@ -58,7 +58,9 @@ flowchart LR
 | `data_platform/processing/spark/gold/features/validation.py` | `validate_feature_columns` | Feature-schema validation |
 | `data_platform/processing/spark/gold/historical_feature_pipeline.py` | `feature_definitions`, `run_historical_feature_pipeline` | Build run-scoped feature outputs |
 | `ai_platform/features/feast/retrieval/historical.py` | `retrieve_feature_view`, `retrieve_combined` | Perform historical retrieval through Feast |
-| `ai_platform/features/feast/validation/contracts.py` | frozen 10-row/31-feature/310-value contracts | Reject sample or feature-contract drift |
+| `ai_platform/features/feast/validation/contracts.py` | frozen 10-row/31-feature/310-value contracts | Reject sample or feature-contract drift (direct-Gold case validator) |
+| `ai_platform/features/feast/validation/snapshot_retrieval.py` | snapshot retrieval check | Compare Feast historical retrieval with the latest eligible Parquet row per entity |
+| `data_platform/streaming/verification/consistency.py` | streaming consistency report | Verify Offline point-in-time values and Online state after a streaming campaign |
 | `ai_platform/features/feast/validation/canonical_sample.py` | `validate_sample_frame`, `validate_retrieved_frame`, `validate_canonical_sample` | Validate oracle, leakage, alignment and value equality |
 | `ai_platform/features/feast/validation/precision_audit.py` | `audit_precision` | Quantify direct-Gold precision before comparison |
 
@@ -88,89 +90,64 @@ This oracle is stronger than checking that retrieval completed: it can detect te
 
 ## 7. Experimental setup and identities
 
-| Attribute | Verified value |
-|---|---|
-| Environment | GCP Cloud Run job |
-| Validation run ID | `feast-g3-261030183547` |
-| Cloud Run execution | `feast-g3-261030183547-tqqcx` |
-| Validator source SHA | `167e807a22bac29df2db8933b6e7d664d3cb3c72` |
-| Feature source SHA | `bbae48caef7f65fda0c9375a7a49afb2eca5eef4` |
-| Validation-export SHA | `b093547eff1f163491070b69eda27ff4fdc4f5ec` |
-| Feature run | `ab-20261025134342-optimized-feat-r261026025955` |
-| Silver run | `ab-20261025134342-optimized-silver-r261025181923` |
-| Snapshot | `canonical-training-v1-20261028-101106-recovered` |
-| Registry generation | `1793255806863364` |
-| Registry SHA-256 | `d3e721969c81db12e6180a4f5f9b7ac2a6db95cdc56034eced2ea4780d439b9a` |
-| Retrieval mode | `bounded-dask` |
-| Cloud Run start | `2026-10-30T18:52:39.971605Z` |
-| Cloud Run completion | `2026-10-30T19:02:48.129301Z` |
+The protocol was exercised on the 5GB dataset `rehearsal-5gb-v1` by two independent checks, both run as part of the [Feature Store](../../edai2/mlops/FEATURE_STORE.md) campaigns.
 
-The ten cases are account takeover, amount anomaly, cold start, merchant burst, multi-account user, non-payment without merchant, normal, payment with merchant, recent device and velocity.
+| Attribute | Historical retrieval check | Streaming Offline verification |
+|---|---|---|
+| Source | DP3 feature run `ab-20261110225456-optimized-feat-r261110225459` (Git `aae22b08`) | streaming campaign `verify-fs12-20261114063323` (source commit `6e3a81b1`) |
+| Offline snapshot | `feast-r5gb-20261111-214544` | the campaign's Offline path |
+| Oracle | the latest Parquet row at or before `as_of`, found per entity without Feast | the latest eligible Parquet row per entity, found without Feast |
+| Feast call | `get_historical_features()` (Dask, bounded scan) at `as_of` 2026-05-20T12:00:00.5Z | `get_historical_features()` per entity |
+
+Before any comparison, the export of the four feature views was verified independently: 63,238,144 rows in total, each view's row count equal to its source manifest, the column contract satisfied and Delta version 0 ([`independent_verification.txt`](../../evidence/edai2/feature-store/fs-20261112/phase-a-export/independent_verification.txt)). The exported views carry only entity keys, timestamps and the 31 features, so no `label` or `fraud_type` column can reach Feast.
 
 ## 8. Quantitative results
 
-| Metric | Result |
-|---|---:|
-| Sample cases | 10/10 distinct |
-| Historical features per case | 31 |
-| Comparable values | 310/310 |
-| Mismatches | 0 |
-| Labels passed to Feast | `false` |
-| FeatureViews retrieved | 4 |
-| End-to-end validator runtime | 581.101048 s |
-| Peak RSS | 2,098,597,888 bytes |
-| DataHub PIT assertion runs | 4 PASS |
+| Metric | Historical retrieval | Streaming Offline verification |
+|---|---:|---:|
+| Historical features | 31 | 31 |
+| Rows retrieved / entities | 20 rows | 26 entities |
+| Comparisons | 155 | 203 |
+| Mismatches | 0 | 0 |
+| Ambiguous entities | 0 | — |
+| Point-in-time values verified | — | 26/26 (`PIT_VALUES_VERIFIED`) |
 
-The result demonstrates no mismatch or detected leakage for the evaluated ten cases. It does not prove absence of leakage for every possible transaction or future code version.
+The results show no mismatch and no detected leakage for the evaluated samples. They do not prove absence of leakage for every transaction or future code version.
+
+**Earlier direct-Gold validation (100 GB snapshot).** The ten-case direct-Gold validator described in §6 ran once, as Cloud Run job `feast-g3-261030183547` (validator SHA `167e807a`, 2026-10-30), on a training snapshot of the earlier 100 GB dataset. It compared 10 cases × 31 features: **310/310 values matched, 0 mismatches**, labels were not passed to Feast, and four result-bound DataHub assertion runs were recorded as PASS. It has not been re-run on the 5GB dataset; the 5GB evidence above comes from the two Feast-independent oracles.
+
+![Cloud Run execution of the direct-Gold validator](../../evidence/edai1/novel_ideas/02_pit_cloud_run_success.png)
+
+*Cloud Run execution `feast-g3-261030183547-tqqcx` of the earlier direct-Gold validation: one task succeeded, zero failed.*
+
+![Cloud Logging result of the direct-Gold validator](../../evidence/edai1/novel_ideas/03_pit_cloud_logging_310_pass.png)
+
+*Its Cloud Logging result: 10 cases, 31 features per case, 310 comparisons, `mismatch_count: 0`, `status: PASS`, `labels_passed_to_feast: false`.*
 
 ## 9. Raw evidence and correctness validation
 
-Primary artifact:
-
-`/home/huyy-giaa/ewallet-evidence/feast-pit/feast-g3-261030183547/pit-validation.json`
-
-- SHA-256: `dcebde23b144ec77a092bca8ce9758483c32eee4dc1a928fd804718b890eed41`
-- Status: `PASS`
-- Evidence URI: `gs://ewallet-data-ai-platform-hg26-data/ml/training-staging/canonical-100gb-v1/canonical-training-v1-20261028-101106-recovered/g3/feast-g3-261030183547/evidence/pit-validation.json`
-
-Execution request evidence:
-
-`/home/huyy-giaa/ewallet-evidence/feast-pit/feast-g3-261030183547/cloudrun-execute.json`
-
-- SHA-256: `58a8124c7f014ebe0a9954953775c57636782d20ba1b4bcccfca38963d15f509`
-- Recorded command exit code: `0`
-
-DataHub raw read-back is under:
-
-`/home/huyy-giaa/ewallet-evidence/datahub-assertions-20261101/runtime-20261031T220705Z/raw-api-readback/`
-
-It contains `assertionInfo` and `assertionRunEvent` for user, account, device and merchant PIT checks. The four run events are COMPLETE/SUCCESS and preserve the PIT artifact SHA and source run identity.
-
+- Historical retrieval: [`historical_retrieval.json`](../../evidence/edai2/feature-store/fs-20261112/phase-a-export/historical_retrieval.json) (`status: PASS`, `mismatch_count: 0`, `ambiguous_entities: 0`) and its export manifest and lineage in the same folder.
+- Streaming consistency: the report of campaign `verify-fs12-20261114063323`, whose SHA-256 digest is recomputed by `verification.cli check-report`; see [Feature Store §9.2](../../edai2/mlops/FEATURE_STORE.md#92-streaming-verification-on-gke).
 
 ## 10. Evidence screenshots
 
-The validation ran as a Google Cloud Run job. The screenshots show the job execution and its Cloud Logging result (SHA-256 values in `docs/evidence/edai1/novel_ideas/PIT_UI_SHA256.txt`).
+![Feast historical retrieval on the 5GB snapshot](../../evidence/edai2/feature-store/screenshots/batch-03_feast_historical_retrieval.png)
 
-![Google Cloud Run execution completed successfully](../../evidence/edai1/novel_ideas/02_pit_cloud_run_success.png)
+*`get_historical_features` on the 5GB snapshot at 2026-05-20T12:00:00.5Z: 20 rows and 31 features, 155 comparisons, 0 mismatches, 0 ambiguous entities.*
 
-*Google Cloud Run Job Execution UI for `feast-g3-261030183547-tqqcx`, showing one task succeeded, zero failed and zero running. The task ran from 2026-10-31 01:52:47 to 02:02:46 ICT, corresponding to the retained Cloud Run execution window.*
+![Offline/Online consistency on GKE](../../evidence/edai2/feature-store/screenshots/stream-07_offline_online_consistency_pass.png)
 
-![Google Cloud Logging PIT validation result](../../evidence/edai1/novel_ideas/03_pit_cloud_logging_310_pass.png)
-
-*Original Cloud Logging output at 2026-10-31 02:02:44.175 ICT for execution `feast-g3-261030183547-tqqcx`. It shows ten distinct cases, 31 historical features per case, 310 expected and 310 actual comparisons, `mismatch_count: 0`, `status: PASS`, and `labels_passed_to_feast: false`. The visible execution Git SHA is `167e807a22bac29df2db8933b6e7d664d3cb3c72`.*
-
-The raw oracle JSON and the DataHub API read-back are the machine-readable record. The four DataHub point-in-time assertion events are COMPLETE/SUCCESS in both semantic and raw read-back; no DataHub UI screenshot of them was kept.
+*Consistency report of campaign `verify-fs12-20261114063323`: 203 feature comparisons over 26 entities, 0 mismatches and 0 missing values, 26/26 point-in-time values verified.*
 
 ## 11. Limitations
 
-- Standard Feast PIT retrieval is not itself a novel contribution. The defensible contribution is the independent direct-Gold oracle and immutable provenance checks.
-- Ten curated cases provide high-value boundary coverage but are not exhaustive or statistically representative of the full dataset.
+- Standard Feast PIT retrieval is not itself a novel contribution. The defensible contribution is the Feast-independent oracle and the immutable provenance checks.
+- The 5GB checks sample 20 rows and 26 entities; they are not exhaustive or statistically representative of the full dataset. The ten curated edge cases of the direct-Gold validator ran only on the earlier 100 GB snapshot.
 - Zero mismatches proves parity between the selected oracle and retrieved values; a common upstream semantic bug could evade detection if both inputs inherited it. The separate Spark exclusive-window tests reduce, but do not eliminate, that risk.
-- No DataHub UI screenshot of the four point-in-time assertion events was kept; they are documented by API read-back.
-- Registry bytes were read back and pinned for this run. The report does not claim deterministic Feast serialization across independent publication invocations.
+- The report does not claim deterministic Feast serialization across independent registry publications.
 
 ## 12. Reproducibility
 
-Use a new run identity and immutable output prefix. Record the source SHA, lock hash, container digest, feature/Silver run IDs, snapshot ID, validation-export lineage and registry generation/SHA before execution. Run the focused temporal and validator tests, then invoke the canonical sample validator in GCP mode with explicit snapshot and registry locations. Require exactly 10 cases, 31 features, 310 comparisons, zero mismatches and `labels_passed_to_feast=false`. Preserve the output JSON, execution metadata and logs by checksum. Publish DataHub result-bound events only from the completed artifact and read them back through both semantic and raw APIs.
+Use a new run identity and immutable output prefix. Record the source SHA, lock hash, container digest, feature/Silver run IDs, snapshot ID, validation-export lineage and registry generation/SHA before execution. Run the focused temporal and validator tests, then run the snapshot retrieval check and, for the streaming path, the consistency validator, as described in the [Feature Store runbook](../../runbooks/edai2/FEATURE_STORE_RUNBOOK.md). Require zero mismatches, zero ambiguous entities and every sampled point-in-time value verified. Preserve the output JSON, execution metadata and logs by checksum. Publish DataHub result-bound events only from the completed artifact and read them back.
 
 Do not republish or overwrite the existing registry merely to reproduce this report; use create-only recovery semantics or a new registry generation.

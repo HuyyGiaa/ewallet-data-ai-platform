@@ -26,7 +26,7 @@ Property suites are not counted, so the figure comes from deterministic tests on
 | **Fixtures.** Shared deterministic test doubles:<br>- an in-memory Feast store (`EntityFeatureStore`);<br>- a V2 model transport (`DeterministicModelTransport`);<br>- a factory that wires the real service around them (`build_fraud_service`) | [`support.py` (line 123)](../../../tests/inference/support.py#L123), [line 174](../../../tests/inference/support.py#L174), [line 256](../../../tests/inference/support.py#L256) |
 | **Mocks.** `unittest.mock.patch` (for example removing `opentelemetry` from `sys.modules`). Stub and raising services and recording telemetry stand in for collaborators | [`test_app_error_paths.py` (line 16)](../../../tests/inference/test_app_error_paths.py#L16), [line 34](../../../tests/inference/test_app_error_paths.py#L34) |
 
-The test catalogue by file is in [B1_TESTING_QUALITY.md §2](B1_TESTING_QUALITY.md#2-coverage-b11-row-28).
+The test catalogue by file is in archived [B1 test catalogue](../../../archive/legacy-docs/docs/edai2/testing/B1_TESTING_QUALITY.md), §2.
 
 ## 3. Results
 
