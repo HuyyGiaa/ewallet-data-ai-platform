@@ -224,6 +224,25 @@ EXISTING_IDS: dict[str, dict[str, Any]] = {
 }
 
 
+# Representations the provider records for an existing resource that mean the same as the approved value
+# (seen in the real P4-B3R1 plan): an unset rotation_period is stored as "", and a refresh turns unset
+# user labels from null into {}. Nothing else is equivalent.
+EXISTING_EQUIVALENT = {"rotation_period": (None, "")}
+NORMALISED_DRIFT = {"labels": (None, {})}
+
+
+def _benign_drift(entry: dict[str, Any]) -> bool:
+    """True only for a refresh of an existing KMS resource whose sole difference is labels null <-> {}."""
+    change = entry.get("change") or {}
+    before, after = change.get("before"), change.get("after")
+    if entry.get("address") not in EXISTING or change.get("actions") != ["update"] or \
+            not isinstance(before, dict) or not isinstance(after, dict) or set(before) != set(after):
+        return False
+    differing = {key for key in before if before[key] != after[key]}
+    return bool(differing) and all(key in NORMALISED_DRIFT and before[key] in NORMALISED_DRIFT[key]
+                                   and after[key] in NORMALISED_DRIFT[key] for key in differing)
+
+
 def _module_values(values: Any, where: str) -> dict[str, dict[str, Any]]:
     """Address -> resource of module.vault_kms in a prior_state/planned_values ``values`` block."""
     if not isinstance(values, dict) or not isinstance(values.get("root_module"), dict):
@@ -250,7 +269,9 @@ def _check_existing(address: str, resource: dict[str, Any], where: str) -> list[
         return problems + [f"{where} {address}: no values"]
     wanted = {**spec["exact"], **{key: value for key, (_, value) in spec["derived"].items()}, **EXISTING_IDS[address]}
     for key, want in wanted.items():
-        if values.get(key) != want:
+        same = values.get(key) in EXISTING_EQUIVALENT[key] if want is None and key in EXISTING_EQUIVALENT \
+            else values.get(key) == want
+        if key not in values or not same:
             problems.append(f"{where} {address}: {key} = {values.get(key)!r}, expected {want!r}")
     for key in spec.get("false_or_unset", ()):
         if values.get(key) not in (None, False):
@@ -355,12 +376,13 @@ def guard_complete(plan: Any) -> tuple[list[str], dict[str, Any]]:
     if not isinstance(drift, list):
         problems.append("resource_drift is not a list")
         drift = []
-    drifted = sorted(str(d.get("address")) for d in drift if isinstance(d, dict))
+    normalised = sorted(str(d.get("address")) for d in drift if isinstance(d, dict) and _benign_drift(d))
+    drifted = sorted(str(d.get("address")) for d in drift if isinstance(d, dict) and not _benign_drift(d))
     for address in drifted:
         if address.startswith(f"{MODULE}."):
             problems.append(f"{address}: drifted outside Terraform since P4-B3: stop for an owner decision")
     summary = {"approved_creates": sorted(created), "existing_unchanged": sorted(set(EXISTING) & set(prior)),
-               "unchanged_or_read": ignored,
+               "unchanged_or_read": ignored, "normalised_drift_labels_null_to_empty": normalised,
                "drift_outside_the_change": [a for a in drifted if not a.startswith(f"{MODULE}.")],
                "targeted_or_incomplete": plan.get("complete") is not True}
     return problems, summary
@@ -389,7 +411,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"STOP: {problem}", file=sys.stderr)
         print(f"{name}_FAIL: {len(problems)} problem(s)", file=sys.stderr)
         return 1
-    extra = {"existing_unchanged": summary["existing_unchanged"]} if args.mode == "complete" else {}
+    extra = {k: summary[k] for k in ("existing_unchanged", "normalised_drift_labels_null_to_empty")} \
+        if args.mode == "complete" else {}
     print(json.dumps({"verdict": f"{name}_PASS", "approved_creates": len(summary["approved_creates"]),
                       "creates": summary["approved_creates"], "unrelated_mutations": 0, **extra, **{
                           k: summary[k] for k in ("unchanged_or_read", "drift_outside_the_change", "targeted_or_incomplete")}}))

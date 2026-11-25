@@ -534,6 +534,67 @@ def test_completion_untrustworthy_plans_fail(mutate, needle):
     assert any(needle in f for f in cproblems(p))
 
 
+def real_shape(p):
+    """What the real P4-B3R1 plan showed: rotation_period stored as "", and a refresh turning labels null into {}."""
+    for r in p["prior_state"]["values"]["root_module"]["child_modules"][0]["resources"] + \
+            p["planned_values"]["root_module"]["child_modules"][0]["resources"]:
+        if r["address"] == A["google_kms_crypto_key.vault_unseal"]:
+            r["values"].update(rotation_period="", labels={})
+    before = dict(prior_of(p, "google_kms_crypto_key.vault_unseal")["values"], labels=None)
+    p["resource_drift"] = [{"address": A["google_kms_crypto_key.vault_unseal"], "mode": "managed",
+                            "type": "google_kms_crypto_key", "provider_name": kms.PROVIDER,
+                            "change": {"actions": ["update"], "before": before,
+                                       "after": copy.deepcopy(prior_of(p, "google_kms_crypto_key.vault_unseal")["values"])}}]
+    return p
+
+
+def test_completion_the_real_plan_shape_passes_and_reports_the_label_normalisation():
+    found, summary = kms.guard_complete(real_shape(completion_plan()))
+    assert found == [] and summary["normalised_drift_labels_null_to_empty"] == [A["google_kms_crypto_key.vault_unseal"]]
+
+
+@pytest.mark.parametrize("after,actions", [
+    ({"labels": {"owner": "someone"}}, ["update"]),
+    ({"rotation_period": "7776000s"}, ["update"]),
+    ({"purpose": "ASYMMETRIC_DECRYPT"}, ["update"]),
+    ({}, ["delete"]),
+], ids=["labels-set", "labels-and-rotation", "labels-and-purpose", "not-an-update"])
+def test_completion_only_the_label_null_to_empty_refresh_is_tolerated(after, actions):
+    p = real_shape(completion_plan())
+    change = p["resource_drift"][0]["change"]
+    change["after"].update(after)
+    change["actions"] = actions
+    assert any("drifted outside Terraform since P4-B3" in f for f in cproblems(p))
+
+
+def test_completion_a_drift_that_removes_an_attribute_is_not_tolerated():
+    p = real_shape(completion_plan())
+    p["resource_drift"][0]["change"]["after"].pop("labels")
+    assert any("drifted outside Terraform since P4-B3" in f for f in cproblems(p))
+
+
+def test_completion_label_drift_on_an_approved_key_grant_is_not_tolerated():
+    p = real_shape(completion_plan())
+    viewer = prior_of(p, "google_kms_crypto_key_iam_member.vault_viewer")["values"]
+    p["resource_drift"].append({"address": A["google_kms_crypto_key_iam_member.vault_viewer"],
+                                "change": {"actions": ["update"], "before": dict(viewer, role="roles/cloudkms.admin"),
+                                           "after": copy.deepcopy(viewer)}})
+    assert any(f"{A['google_kms_crypto_key_iam_member.vault_viewer']}: drifted" in f for f in cproblems(p))
+
+
+@pytest.mark.parametrize("value", ["0s", "7776000s", [], {}])
+def test_completion_only_null_or_empty_string_mean_no_rotation(value):
+    p = completion_plan()
+    prior_of(p, "google_kms_crypto_key.vault_unseal")["values"]["rotation_period"] = value
+    assert any("rotation_period" in f for f in cproblems(p))
+
+
+def test_completion_a_missing_identity_attribute_fails():
+    p = completion_plan()
+    prior_of(p, "google_kms_crypto_key.vault_unseal")["values"].pop("rotation_period")
+    assert any("rotation_period" in f for f in cproblems(p))
+
+
 def run_complete_cli(tmp_path, content, capsys):
     path = tmp_path / "plan.json"
     if content is not None:
@@ -546,6 +607,7 @@ def test_cli_completion_pass_and_fail_closed(tmp_path, capsys):
     shown = json.loads(out.out)
     assert code == 0 and shown["verdict"] == "VAULT_KMS_COMPLETION_PLAN_GUARD_PASS" and shown["approved_creates"] == 1
     assert shown["creates"] == [A[MISSING_SHORT]] and len(shown["existing_unchanged"]) == 6
+    assert shown["normalised_drift_labels_null_to_empty"] == []
     for index, content in enumerate((None, "{not json", json.dumps(plan()))):
         (tmp_path / str(index)).mkdir()
         code, out = run_complete_cli(tmp_path / str(index), content, capsys)
