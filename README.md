@@ -136,6 +136,31 @@ cover feature engineering, training, serving, LLMs, RAG, agents, delivery and
 observability. Evidence status and unresolved proof gaps remain in the separate
 internal indexes linked from the [documentation index](docs/README.md).
 
+### Data + ML Overall System Flow
+
+The following diagram presents the end-to-end Data and ML platform. Airflow
+orchestrates the DP1/DP2/DP3 batch pipelines on Spark (Dataproc Serverless),
+which turn generated sources into bronze, silver, gold and historical-feature
+Delta tables on Google Cloud Storage, with lineage and quality in DataHub.
+Streaming events flow through Redpanda into Apache Flink, which keeps the Feast
+online store (Redis) fresh. The Feast offline store produces point-in-time
+training snapshots. Kubeflow Pipelines trains and evaluates candidate models
+and logs them to MLflow. KServe serves the fraud predictor behind the Fraud API,
+and the Feature API serves online features through the Istio gateway with KEDA
+autoscaling. Jenkins CI/CD with Trivy image gates, Vault secrets management, and
+OpenTelemetry, Prometheus, Grafana, Loki and Tempo observability complete the
+platform.
+
+Related documentation:
+[Batch Processing and Orchestration](docs/edai1/BATCH_PROCESSING_AND_ORCHESTRATION.md) ·
+[Flink Streaming](docs/edai1/streaming/FLINK_STREAMING.md) ·
+[Feature Store](docs/edai2/mlops/FEATURE_STORE.md) ·
+[ML Pipeline and Serving](docs/edai2/mlops/ML_PIPELINE_SERVING.md) ·
+[CI/CD Architecture](docs/edai2/cicd/CICD_ARCHITECTURE.md) ·
+[Observability](docs/edai2/observability/OBSERVABILITY.md)
+
+![E-Wallet Data and ML Platform Architecture](docs/architecture/ewallet_data_ml_architecture.png)
+
 ---
 
 ## Technology Stack
