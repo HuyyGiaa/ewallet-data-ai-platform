@@ -1,0 +1,28 @@
+{
+  "campaign": "P5-A (Vault V2 GKE Campaign A2 readiness)",
+  "checked_at": "2026-11-28T04:45Z",
+  "source_commit": "f4b091844c4629fe95654196e9cfad6a9c2b2a48",
+  "mode": "read-only cloud queries; no kubectl against GKE, no wake, no mutation",
+  "verdict": "VAULT_V2_P5A_BLOCKED",
+  "blocker": "BILLING_ACCOUNT_CLOSED: the project's billing account reports open=false; Cloud KMS answers FAILED_PRECONDITION 'Billing is disabled' and the GKE API answers 403 'requires billing to be enabled'",
+  "gates": {
+    "P5A-1": {"verdict": "P5A_KMS_READY_FAIL", "kms_preflight": "VAULT_KMS_PREFLIGHT_BLOCKED",
+              "pass": 7, "blocked": ["kms-key-ring", "kms-crypto-key", "kms-key-versions", "kms-key-iam"],
+              "cause": "Cloud KMS FAILED_PRECONDITION: billing disabled (not a missing resource: a blocked query concludes nothing)",
+              "file": "kms-gates-cloud.jsonl"},
+    "P5A-2": {"verdict": "BLOCKED",
+              "gke_cluster_describe": "HTTP 403: requires billing to be enabled",
+              "billing_project": {"billingEnabled": true, "billing_account_open": false},
+              "compute_still_readable": {"pool_instance_group_size": 0, "instances": 0,
+                                         "disks": {"count": 16, "total_gb": 90, "status": "all READY", "versus_recovery_manifest": "same 16 pvc- disks, none missing, none new"}},
+              "apis_listed_enabled": ["container.googleapis.com", "compute.googleapis.com", "cloudkms.googleapis.com"]},
+    "P5A-3": {"verdict": "NOT_STARTED", "reason": "P5-A §2: a failed KMS preflight stops P5 preparation"},
+    "P5A-4": {"verdict": "NOT_STARTED", "reason": "as P5A-3"},
+    "P5A-5": {"verdict": "NOT_STARTED", "reason": "as P5A-3"},
+    "P5A-6": {"verdict": "NOT_STARTED", "reason": "as P5A-3"}
+  },
+  "recovery_manifest": {"newest_local": "~/ewallet-evidence/vault/vault-rehearsal-20261124T173156Z/recovery-manifest",
+                        "recorded_at": "2026-11-24T18:04:36Z", "identity": "ewallet-data-ai-platform-hg26 / ewallet-dev / asia-southeast1-b / cpu-pool",
+                        "pool_vms": 5, "workloads": 83, "vault_or_eso_workloads": 0,
+                        "live_validation": "DEFERRED: the GKE API is blocked"}
+}
