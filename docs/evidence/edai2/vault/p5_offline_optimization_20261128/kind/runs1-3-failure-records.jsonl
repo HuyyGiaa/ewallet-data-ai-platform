@@ -1,0 +1,9 @@
+{"phase":"lifecycle","step":"phase-start","result":"STARTED"}
+{"phase":"lifecycle","step":"seal-down-sync","result":"FAIL","detail":"unexpected cause unclassified"}
+{"phase":"cleanup","step":"phase-start","result":"STARTED"}
+{"phase":"lifecycle","step":"phase-start","result":"STARTED"}
+{"phase":"lifecycle","step":"seal-down-sync","result":"FAIL","detail":"unexpected cause unclassified"}
+{"phase":"cleanup","step":"phase-start","result":"STARTED"}
+{"phase":"lifecycle","step":"phase-start","result":"STARTED"}
+{"phase":"lifecycle","step":"seal-down-sync","result":"FAIL","detail":"unexpected cause unclassified"}
+{"phase":"cleanup","step":"phase-start","result":"STARTED"}

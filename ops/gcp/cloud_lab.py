@@ -1,7 +1,7 @@
 """Operate the ``ewallet-dev`` GKE cluster as an on-demand cloud lab.
 
 The tool covers sleep (zero CPU nodes) and profile-based wake. Read-only
-commands are ``status``, ``plan-sleep``, ``plan-wake``, ``verify``,
+commands are ``status``, ``plan-sleep``, ``plan-wake``, ``verify``, ``diff-manifest``,
 ``cost-status`` and ``record-manifest`` (it writes local files only). Every mutating command prints its plan by default and acts
 only with ``--execute``, ``--confirm-cluster ewallet-dev`` and
 ``CLOUD_LAB_APPROVED=yes``. Nothing here deletes a resource, starts a GPU, or
@@ -244,25 +244,36 @@ def required_nodes(
     requests: Iterable[dict[str, Any]],
     patterns: Iterable[str] | None,
     shape: NodeShape = NodeShape(),
+    recorded: set[str] | None = None,
 ) -> dict[str, Any]:
     """Compute nodes needed for system pods plus the selected workloads.
 
     ``patterns=None`` means the whole recorded system. Node counts keep 15%
     headroom for bin-packing, since requests are not perfectly divisible.
+    ``recorded`` (the manifest's workload keys) marks request rows that a partial
+    wake cannot hold down: pods of a Deployment a WorkerPool owns are never
+    recorded or scaled, so they come back with every wake and are always counted.
     """
     pattern_list = None if patterns is None else list(patterns)
     cpu = mem = largest = 0.0
+    unholdable = []
     for row in requests:
         key = f"{row['namespace']}/{row['name']}"
         system = row["namespace"] in SYSTEM_NAMESPACES
-        if system or pattern_list is None or any(fnmatch(key, p) for p in pattern_list):
+        owned = recorded is not None and not system and key not in recorded
+        if owned and pattern_list is not None and not any(fnmatch(key, p) for p in pattern_list):
+            unholdable.append(key)
+        if system or owned or pattern_list is None or any(fnmatch(key, p) for p in pattern_list):
             cpu += row["cpu_m"]
             mem += row["mem_mi"]
             largest = max(largest, row["max_pod_cpu_m"])
     free_cpu = (shape.cpu_m - shape.daemon_cpu_m) * PACKING_LIMIT
     free_mem = (shape.mem_mi - shape.daemon_mem_mi) * PACKING_LIMIT
     nodes = max(1, math.ceil(cpu / free_cpu), math.ceil(mem / free_mem))
-    return {"nodes": nodes, "cpu_m": round(cpu), "mem_mi": round(mem), "largest_pod_cpu_m": round(largest)}
+    need = {"nodes": nodes, "cpu_m": round(cpu), "mem_mi": round(mem), "largest_pod_cpu_m": round(largest)}
+    if unholdable:
+        need["unholdable"] = sorted(unholdable)
+    return need
 
 
 def node_hourly() -> float:
@@ -637,13 +648,26 @@ def restore_guarded(lab: Lab, paused: list[str], previous: dict[str, int]) -> No
         print(f"ROLLBACK INCOMPLETE, finish by hand: {failed}", file=sys.stderr)
 
 
-def unpause_keda(lab: Lab) -> list[str]:
-    """Unpause the ScaledObjects that a cloud-lab sleep paused; others stay as their owner left them."""
+def keda_target(item: dict[str, Any]) -> str:
+    """The ``namespace/name`` a ScaledObject scales (a Deployment or a WorkerPool)."""
+    return f"{item['metadata']['namespace']}/{item.get('spec', {}).get('scaleTargetRef', {}).get('name')}"
+
+
+def unpause_keda(lab: Lab, patterns: Iterable[str] | None = None) -> list[str]:
+    """Unpause the ScaledObjects that a cloud-lab sleep paused; others stay as their owner left them.
+
+    A partial wake (``patterns`` given) unpauses only those whose target is allow-listed. The others
+    keep their pause: their target is held down, so the next sleep needs no KEDA approval for them, and
+    ``record-manifest`` keeps refusing the partially awake cluster (it would record the held-down zeros).
+    """
+    pattern_list = None if patterns is None else list(patterns)
     resumed = []
     for item in scaled_objects(lab):
         annotations = item["metadata"].get("annotations") or {}
         key = f"{item['metadata']['namespace']}/{item['metadata']['name']}"
-        if PAUSED_BY in annotations:
+        if PAUSED_BY in annotations and pattern_list is not None and not any(fnmatch(keda_target(item), p) for p in pattern_list):
+            print(f"partial wake: ScaledObject {key} stays paused (its target is held down)")
+        elif PAUSED_BY in annotations:
             set_keda_pause(lab, key, None)
             resumed.append(key)
         elif KEDA_PAUSE in annotations:
@@ -735,8 +759,8 @@ def cmd_record_manifest(lab: Lab, args: argparse.Namespace) -> int:
 def cmd_plan_wake(lab: Lab, args: argparse.Namespace) -> int:
     """Print the node count and cost for a wake without touching the cluster."""
     patterns = wake_targets(args, args.mode)
-    _, requests = read_manifest(args.manifest)
-    need = required_nodes(requests, patterns)
+    recorded, requests = read_manifest(args.manifest)
+    need = required_nodes(requests, patterns, recorded={w.key for w in recorded})
     if args.mode == "full":
         need["nodes"] = max(need["nodes"], 4)
     need["node_hourly_usd"] = round(need["nodes"] * node_hourly(), 4)
@@ -749,7 +773,7 @@ def wake(lab: Lab, args: argparse.Namespace, mode: str) -> int:
     require_approval(args)
     patterns = wake_targets(args, mode)
     recorded, requests = read_manifest(args.manifest)
-    nodes = args.nodes or required_nodes(requests, patterns)["nodes"]
+    nodes = args.nodes or required_nodes(requests, patterns, recorded={w.key for w in recorded})["nodes"]
     if mode == "full":
         nodes = args.nodes or max(required_nodes(requests, None)["nodes"], 4)
     current = lab.live_replicas()
@@ -767,7 +791,7 @@ def wake(lab: Lab, args: argparse.Namespace, mode: str) -> int:
     owned = workerpool_owned(lab)   # B′: KEDA -> WorkerPool -> atecontroller own these replicas
     for workload, replicas in restore_plan([w for w in recorded if w.key not in owned], current, patterns):
         lab.k_mutate("-n", workload.namespace, "scale", workload.kind.lower(), workload.name, f"--replicas={replicas}")
-    resumed = unpause_keda(lab)
+    resumed = unpause_keda(lab, patterns)
     if resumed:
         print(json.dumps({"keda_resumed": resumed}, indent=2))
     return 0
@@ -813,23 +837,98 @@ def sleep_failures(vms: list[str], disks: set[str], before: set[str], buckets: s
     return failures
 
 
+# API groups a Vault rehearsal writes; a webhook that fails closed on one of them and has no ready endpoint
+# (its controller held down by a partial wake) would refuse the rehearsal's first install.
+REHEARSAL_API_GROUPS = {"", "*", "apps", "batch", "policy", "rbac.authorization.k8s.io", "networking.k8s.io",
+                        "admissionregistration.k8s.io", "apiextensions.k8s.io", "cert-manager.io", "external-secrets.io"}
+
+
+def blocking_webhooks(configs: list[dict[str, Any]], slices: list[dict[str, Any]]) -> list[str]:
+    """Admission webhooks with failurePolicy Fail, a rule on a rehearsal API group and no ready endpoint."""
+    ready = {f"{s['metadata']['namespace']}/{(s['metadata'].get('labels') or {}).get('kubernetes.io/service-name')}"
+             for s in slices
+             if any((e.get("conditions") or {}).get("ready") is not False for e in s.get("endpoints") or [])}
+    found = []
+    for config in configs:
+        for hook in config.get("webhooks") or []:
+            service = (hook.get("clientConfig") or {}).get("service")
+            groups = {g for rule in hook.get("rules") or [] for g in rule.get("apiGroups") or []}
+            if (service and hook.get("failurePolicy", "Fail") == "Fail" and groups & REHEARSAL_API_GROUPS
+                    and f"{service['namespace']}/{service['name']}" not in ready):
+                found.append(f"webhook {hook['name']} ({config['kind']}) fails closed and "
+                             f"{service['namespace']}/{service['name']} has no ready endpoint")
+    return sorted(found)
+
+
+def unavailable_apiservices(items: list[dict[str, Any]]) -> list[str]:
+    """APIServices not Available: while one is down, discovery fails and no namespace can finish deleting."""
+    return sorted(f"APIService {i['metadata']['name']} not Available" for i in items
+                  if not any(c.get("type") == "Available" and c.get("status") == "True"
+                             for c in (i.get("status") or {}).get("conditions") or []))
+
+
+def partial_awake_failures(lab: Lab, recorded: list[Workload], patterns: list[str]) -> list[str]:
+    """A partial wake: allow-listed workloads at their recorded replicas, every other non-system one held at 0,
+    every APIService Available (cleanup deletes namespaces), no fail-closed webhook left without its server."""
+    owned = workerpool_owned(lab)
+    live = lab.live_replicas()
+    failures = [f"{w.key} replicas != {r}" for w, r in restore_plan([w for w in recorded if w.key not in owned], live, patterns)]
+    failures += [f"{w.key} not held down: replicas {live[w.key]}" for w in recorded
+                 if w.key not in owned and w.namespace not in SYSTEM_NAMESPACES and not allowed(w, patterns)
+                 and live.get(w.key, 0) > 0]
+    failures += [f"ScaledObject {i['metadata']['namespace']}/{i['metadata']['name']} still paused by cloud-lab"
+                 for i in scaled_objects(lab) if PAUSED_BY in (i["metadata"].get("annotations") or {})
+                 and allowed(Workload("ScaledObject", *keda_target(i).split("/", 1), 0), patterns)]
+    configs = [dict(c, kind="MutatingWebhookConfiguration") for c in
+               json.loads(lab.kubectl("get", "mutatingwebhookconfigurations", "-o", "json"))["items"]]
+    configs += [dict(c, kind="ValidatingWebhookConfiguration") for c in
+                json.loads(lab.kubectl("get", "validatingwebhookconfigurations", "-o", "json"))["items"]]
+    failures += unavailable_apiservices(json.loads(lab.kubectl("get", "apiservices", "-o", "json"))["items"])
+    return failures + blocking_webhooks(configs, json.loads(lab.kubectl("get", "endpointslices", "-A", "-o", "json"))["items"])
+
+
 def cmd_verify(lab: Lab, args: argparse.Namespace) -> int:
-    """Check durable data and, for sleep, that no pool VM remains."""
+    """Check durable data and, for sleep, that no pool VM remains.
+
+    ``--expect awake`` with ``--mode``/``--profile`` checks a partial wake instead of the whole
+    recorded system (:func:`partial_awake_failures`).
+    """
     before = {d["name"] for d in json.loads((args.manifest / "disks-before.json").read_text())}
     buckets_before = set((args.manifest / "buckets-before.txt").read_text().split())
     disks = {d["name"] for d in json.loads(lab.gcloud("compute", "disks", "list", "--format=json(name)"))}
     buckets = set(lab.gcloud("storage", "buckets", "list", "--format=value(name)").split())
     vms = lab.pool_vms() if args.expect == "sleep" else []
     failures = sleep_failures(vms, disks, before, buckets, buckets_before)
-    if args.expect == "awake":
+    patterns = wake_targets(args, args.mode) if getattr(args, "mode", None) not in (None, "full") else None
+    if args.expect == "awake" and patterns is not None:
+        failures += partial_awake_failures(lab, read_manifest(args.manifest)[0], patterns)
+    elif args.expect == "awake":
         recorded, _ = read_manifest(args.manifest)
         owned = workerpool_owned(lab)
         failures += [f"{w.key} replicas != {r}" for w, r in restore_plan([w for w in recorded if w.key not in owned],
                                                                           lab.live_replicas())]
         failures += [f"ScaledObject {i['metadata']['namespace']}/{i['metadata']['name']} still paused by cloud-lab"
                      for i in scaled_objects(lab) if PAUSED_BY in (i["metadata"].get("annotations") or {})]
-    print(json.dumps({"expect": args.expect, "failures": failures}, indent=2))
+    print(json.dumps({"expect": args.expect, **({"profile": args.profile} if patterns is not None else {}),
+                      "failures": failures}, indent=2))
     return 1 if failures else 0
+
+
+def cmd_diff_manifest(lab: Lab, args: argparse.Namespace) -> int:
+    """Compare live declared replicas with a recovery manifest (read-only; works asleep, on the control plane).
+
+    Before a wake this shows exactly what the last sleep changed: e.g. the guarded Deployments at 0.
+    """
+    recorded, _ = read_manifest(args.manifest)
+    live = lab.live_replicas()
+    keys = {w.key for w in recorded} | workerpool_owned(lab)
+    report = {"manifest": str(args.manifest),
+              "differs": [{"workload": w.key, "recorded": w.replicas, "live": live[w.key]}
+                          for w in recorded if w.key in live and live[w.key] != w.replicas],
+              "missing": sorted(w.key for w in recorded if w.key not in live),
+              "unrecorded": sorted(k for k in live if k not in keys)}
+    print(json.dumps(report, indent=2))
+    return 0
 
 
 def cmd_cost_status(lab: Lab, args: argparse.Namespace) -> int:
@@ -874,6 +973,10 @@ def build_parser() -> argparse.ArgumentParser:
     verify = sub.add_parser("verify")
     verify.add_argument("--expect", choices=["sleep", "awake"], required=True)
     verify.add_argument("--manifest", type=Path, required=True)
+    verify.add_argument("--mode", choices=["minimal", "experiment", "full"], help="with --profile: verify a partial wake")
+    verify.add_argument("--profile")
+    diff = sub.add_parser("diff-manifest", help="read-only: live declared replicas against a recovery manifest")
+    diff.add_argument("--manifest", type=Path, required=True)
     record = sub.add_parser("record-manifest", help="record the awake cluster as the next wake's recovery manifest")
     record.add_argument("--out", type=Path, required=True, help="new directory for the manifest")
     record.add_argument("--campaign", required=True)
@@ -894,6 +997,7 @@ def main(argv: list[str] | None = None) -> int:
     handlers: dict[str, Callable[[Lab, argparse.Namespace], int]] = {
         "status": cmd_status, "plan-sleep": cmd_plan_sleep, "sleep": cmd_sleep, "plan-wake": cmd_plan_wake,
         "verify": cmd_verify, "cost-status": cmd_cost_status, "record-manifest": cmd_record_manifest,
+        "diff-manifest": cmd_diff_manifest,
         "wake-minimal": lambda l, a: wake(l, a, "minimal"),
         "wake-experiment": lambda l, a: wake(l, a, "experiment"),
         "wake-full": lambda l, a: wake(l, a, "full"),

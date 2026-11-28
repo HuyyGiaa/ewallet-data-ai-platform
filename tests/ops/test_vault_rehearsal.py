@@ -680,3 +680,101 @@ def test_gke_preflight_requires_the_cloud_kms_preflight():
     pre = TEXT.split("phase_preflight() {")[1].split("phase_vault() {")[0]
     assert 'scripts/vault/kms_preflight.py" --mode cloud' in pre and "fail kms-preflight" in pre
     assert pre.index("kms_preflight.py") > pre.index('if [ -z "$KIND" ]; then')       # GKE only; kind keeps the transit stand-in
+
+
+# ---- P5 offline: every auto-unseal is checked against the platform's seal (gcpckms on GKE)
+
+def test_every_auto_unseal_wait_is_followed_by_the_seal_type_check():
+    lines = TEXT.splitlines()
+    waits = [i for i, line in enumerate(lines) if "s=$(wait_unsealed" in line]
+    assert len(waits) == 4, "init, the kind seal drill, lifecycle and after-wake"
+    for i in waits:
+        assert lines[i + 1].strip().startswith('expect_seal ') and lines[i + 1].count('"$s"') == 1, lines[i:i + 2]
+    after_wake = TEXT.split("phase_after_wake()")[1].split("\n}")[0]
+    assert "expect_seal after-wake-seal" in after_wake and "expected_seal_type" in after_wake
+    retain = TEXT.split("phase_retain()")[1].split("\n}")[0]
+    assert "expect_seal rebound-seal" in retain
+
+
+@pytest.mark.parametrize("kind,seal,ok", [("", "gcpckms", True), ("", "transit", False), ("", "shamir", False),
+                                          ("1", "transit", True), ("1", "gcpckms", False)],
+                         ids=["gke-kms", "gke-transit-refused", "gke-shamir-refused", "kind-transit", "kind-kms-refused"])
+def test_expect_seal_refuses_any_other_seal(kind, seal, ok):
+    helpers = "\n".join(line for line in TEXT.splitlines() if line.startswith(("seal_kind()", "expect_seal()")))
+    body = TEXT.split("expect_seal() {")[1].split("\n}")[0]
+    code = (f'KIND={kind}\nfail() {{ echo "FAIL $1: $2"; exit 1; }}\n{helpers.splitlines()[0]}\n'
+            f'expect_seal() {{{body}\n}}\nexpect_seal step \'{{"seal_type": "{seal}"}}\' && echo OK')
+    done = subprocess.run(["bash", "-c", code], capture_output=True, text=True, timeout=10)
+    assert (done.returncode == 0) is ok and ("OK" in done.stdout) is ok
+    if not ok:
+        assert f"FAIL step: seal type {seal}, expected" in done.stdout
+
+
+def test_the_two_node_run_is_fail_fast_approved_per_step_and_restores_the_platform():
+    """§9 two-node run (P5): profile vault-a2, every mutating step approved, plain sleeps, R1/R2 full restoration."""
+    runbook = (ROOT / "docs/runbooks/edai2/VAULT_GKE_REHEARSAL.md").read_text()
+    two = runbook.split("### Two-node run")[1].split("### Resources and cost")[0]
+    code = two.split("```bash")[1].split("```")[0]
+    names = ["T1", "T3", "T4", "T6", "R1", "R2"]
+    blocks = {b[:2]: b for b in code.split("\n# ")[1:] if b[:2] in names}
+    assert sorted(blocks) == sorted(names)
+    for name, block in blocks.items():
+        body = block.split("set -euo pipefail")[1]
+        assert f"BLOCK {name} PASS" in block and f"approved {name}" in body
+        # the approval is checked before the first mutation of the block
+        first = min(body.index(m) for m in ("wake-", "plain_sleep", "guarded_sleep", "after-wake") if m in body)
+        assert body.index(f"approved {name}") < first, name
+        assert f"A2_APPROVAL={name}:$ID" in block.splitlines()[0]
+    for name, gate in [("T3", "retain"), ("T4", "retain"), ("T6", "clean"), ("R1", "clean"), ("R2", "clean")]:
+        assert blocks[name].split("set -euo pipefail")[1].lstrip("; \n").startswith(f"$R gate {gate}")
+    helper = code.split("approved() {")[1].split("\n}")[0]
+    assert '[ "${A2_APPROVAL:-}" = "$1:$ID" ]' in helper and "exit 1" in helper
+    assert "--nodes 2" in blocks["T1"] and "--nodes 2" in blocks["T4"] and "--nodes 5" in blocks["R1"]
+    assert "diff-manifest" in blocks["T1"] and "live-before-wake.json" in blocks["T1"] and "diff-manifest" in blocks["T6"]
+    assert blocks["T1"].index("whenScaled") < blocks["T1"].index("wake-experiment"), "PVC retention checked before the wake"
+    assert "rehearsal-workloads-mid.json" in blocks["T3"] and blocks["T3"].index("rehearsal_workloads") < blocks["T3"].index("plain_sleep")
+    t4 = blocks["T4"]
+    assert t4.index("rehearsal-workloads-mid.json") < t4.index("after-wake") and "done || exit 1" in t4
+    assert "verify --expect awake --manifest \"$MANIFEST\"" in blocks["R1"] and 'guarded_sleep "$REHEARSAL_DIR/recovery-manifest"' in blocks["R2"]
+    t_code = "".join(blocks[n] for n in ("T1", "T3", "T4", "T6", "R1"))
+    for forbidden in ("guarded_sleep", "--scale-pdb-guarded", "--pause-keda", "--also-approve", "record-manifest --", "|| break",
+                      "CLOUD_LAB_GUARDED_SLEEP_APPROVAL", "CLOUD_LAB_KEDA_PAUSE_APPROVAL"):
+        assert forbidden not in t_code, forbidden
+    plain = code.split("plain_sleep() (")[1].split("\n)\n")[0]
+    assert "'.verdict == \"SAFE_TO_SLEEP\"'" in plain and "verify --expect sleep" in plain
+    assert "no **additional** PDB-guarded" in two and "The sleep itself is still approved by the owner" in two
+    for row in ("**T-F0**", "**T-F1**", "**T-F2**", "**T-FB**", "**T-FR**"):
+        assert row in two
+    assert "approved T-F2" in two and "wake-full --manifest $MANIFEST --nodes 5" in two
+    rules = two.split("**Rules of this run:**")[1].split("- **The profile**")[0]
+    for phrase in ("No real GKE validation of this run has occurred", "first (T1) and the second (T4)",
+                   "separate 5-node procedure, R1/R2", "explicitly **pending**", "needs the owner's explicit approval",
+                   "never automatic"):
+        assert phrase in rules, phrase
+    assert "RESTORATION PENDING" in blocks["T6"] and "never automatic" in two.split("**T-FB**")[1].split("\n")[0]
+    assert "g3b-owner-evidence" not in runbook.split("## 4. Procedure")[0], "§3 names the newest recovery manifest"
+
+
+# ---- P5 offline: the kind seal-down drill classifies a store-not-ready error from the store's own log
+
+@pytest.mark.parametrize("lines,expected", [
+    ('{"ExternalSecret":{"name":"feast-online-redis"},"error":"err: ClusterSecretStore \\"ewallet-vault-rehearsal\\" is not ready"}',
+     "store-not-ready"),
+    ('{"ExternalSecret":{"name":"feast-online-redis"},"error":"dial tcp 10.0.0.1:8200: connect: connection refused"}', "vault-unreachable"),
+    ('{"ExternalSecret":{"name":"feast-online-redis"},"error":"invalid audience; ClusterSecretStore \\"x\\" is not ready"}',
+     "token-audience-rejected"),
+], ids=["store-not-ready", "unreachable", "specific-cause-wins"])
+def test_es_error_names_a_store_not_ready_error_and_keeps_specific_causes_first(tmp_path, lines, expected):
+    body = TEXT.split("es_error() {")[1].split("\n}")[0]
+    log = tmp_path / "log"
+    log.write_text(lines + "\n")
+    code = f'ENS=external-secrets\nk() {{ cat "{log}"; }}\nes_error() {{{body}\n}}\nes_error feast-online-redis 4m'
+    done = subprocess.run(["bash", "-c", code], capture_output=True, text=True, timeout=10)
+    assert done.stdout.strip() == expected
+
+
+def test_the_seal_down_drill_reads_the_store_log_only_for_a_store_not_ready_error_and_stays_strict():
+    drill = TEXT.split("# 4. K14 (kind only)")[1].split("seal-down-sync \"the Secret changed")[0]
+    assert '[ "$out" != store-not-ready ] || out=$(es_error "$STORE" 4m)' in drill
+    assert 'case "$out" in vault-unreachable|vault-sealed) ;; *) fail seal-down-sync "unexpected cause $out"' in drill
+    assert drill.index("store-not-ready") < drill.index("case \"$out\"")

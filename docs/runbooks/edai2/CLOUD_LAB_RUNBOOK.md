@@ -24,6 +24,7 @@ python3 ops/gcp/cloud_lab.py plan-sleep
 python3 ops/gcp/cloud_lab.py plan-wake --mode full --manifest $M
 python3 ops/gcp/cloud_lab.py plan-wake --mode minimal --profile jenkins-smoke --manifest $M
 python3 ops/gcp/cloud_lab.py verify --expect sleep --manifest $M
+python3 ops/gcp/cloud_lab.py diff-manifest --manifest $M
 ```
 
 ## Modes
@@ -69,6 +70,21 @@ CLOUD_LAB_APPROVED=yes python3 ops/gcp/cloud_lab.py wake-minimal --profile jenki
 Before adding nodes, the tool scales every application workload outside the
 profile to zero. Otherwise the scheduler would fill the node from all pending
 pods. System namespaces are left alone. `wake-full` later restores everything.
+
+Since P5 (2026-11-28, [evidence](../../evidence/edai2/vault/p5_offline_optimization_20261128/README.md)):
+
+- `plan-wake` also counts the pods that a partial wake cannot hold down. These are Deployments a
+  WorkerPool owns, which are never recorded or scaled, and they appear as `unholdable`. With the 2026-11-24
+  manifest that adds 1.5 CPU, so most minimal profiles need 2 nodes, not 1. The table above predates that.
+- A partial wake unpauses only the ScaledObjects whose target is allow-listed. The others stay paused,
+  so the next sleep needs no KEDA approval for them, and `record-manifest` keeps refusing the partially
+  awake cluster, which would otherwise record the held-down zeros. Never record a manifest after a partial wake.
+- `verify --expect awake --mode <mode> --profile <name> --manifest $M` checks a partial wake. Allow-listed
+  workloads must be at their recorded replicas, every other application workload at 0, every APIService
+  `Available` (no namespace can finish deleting otherwise), and no fail-closed webhook may be left without
+  its server.
+- `diff-manifest --manifest $M` (read-only, also while asleep) lists the live replicas that differ from the
+  manifest.
 
 ## Validation after wake
 

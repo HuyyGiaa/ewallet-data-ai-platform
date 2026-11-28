@@ -1,0 +1,24 @@
+# run 3 (vault-rehearsal-20261128T063943Z): ESO state captured at the seal-down-sync failure, before cleanup (kind, synthetic)
+1795848402.3836203	info	reconciled secret
+1795848709.8657565	error	Reconciler error	error processing spec.data[0] (key: ml-platform/rehearsal-redis), err: ClusterSecretStore "ewallet-vault-rehearsal" is not ready
+[{"lastTransitionTime":"2026-11-28T06:51:49Z","message":"could not get secret data from provider","reason":"SecretSyncedError","status":"False","type":"Ready"}]
+ewallet-vault [{"lastTransitionTime":"2026-11-28T06:51:42Z","message":"unable to create client","reason":"InvalidProviderConfig","status":"False","type":"Ready"}]
+ewallet-vault-rehearsal [{"lastTransitionTime":"2026-11-28T06:51:46Z","message":"unable to create client","reason":"InvalidProviderConfig","status":"False","type":"Ready"}]
+NAME                                  READY   STATUS    RESTARTS      AGE     IP             NODE                            NOMINATED NODE   READINESS GATES
+pod/vault-0                           0/1     Running   1 (41s ago)   2m42s   10.244.0.126   llm-agent-local-control-plane   <none>           <none>
+pod/vault-unsealer-67c5c8d549-nsnd5   1/1     Running   0             10m     10.244.0.101   llm-agent-local-control-plane   <none>           <none>
+
+NAME                     TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)             AGE   SELECTOR
+service/vault            ClusterIP   10.96.44.100   <none>        8200/TCP,8201/TCP   10m   app.kubernetes.io/instance=vault,app.kubernetes.io/name=vault,component=server
+service/vault-active     ClusterIP   10.96.33.27    <none>        8200/TCP,8201/TCP   10m   app.kubernetes.io/instance=vault,app.kubernetes.io/name=vault,component=server,vault-active=true
+service/vault-internal   ClusterIP   None           <none>        8200/TCP,8201/TCP   10m   app.kubernetes.io/instance=vault,app.kubernetes.io/name=vault,component=server
+service/vault-standby    ClusterIP   10.96.12.218   <none>        8200/TCP,8201/TCP   10m   app.kubernetes.io/instance=vault,app.kubernetes.io/name=vault,component=server,vault-active=false
+service/vault-unsealer   ClusterIP   10.96.136.89   <none>        8200/TCP            10m   app.kubernetes.io/name=vault-unsealer-offline
+
+NAME                                                  ADDRESSTYPE   PORTS       ENDPOINTS      AGE
+endpointslice.discovery.k8s.io/vault-active-zbw2n     IPv4          <unset>     <unset>        10m
+endpointslice.discovery.k8s.io/vault-internal-8qrg9   IPv4          8201,8200   10.244.0.126   10m
+endpointslice.discovery.k8s.io/vault-j5bs9            IPv4          8201,8200   10.244.0.126   10m
+endpointslice.discovery.k8s.io/vault-standby-trhml    IPv4          <unset>     <unset>        10m
+endpointslice.discovery.k8s.io/vault-unsealer-qxfjw   IPv4          <unset>     <unset>        10m
+true

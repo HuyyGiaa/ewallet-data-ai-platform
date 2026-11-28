@@ -1,5 +1,5 @@
 {
-  "_comment": "Workload allow-lists for on-demand GKE modes. Node counts are computed from recorded requests by cloud_lab.py; none of these profiles has been run yet.",
+  "_comment": "Workload allow-lists for on-demand GKE modes. Node counts are computed from recorded requests by cloud_lab.py; none of these profiles has been run yet. vault-a2 (Vault V2 Campaign A2) allow-lists only the rehearsal's own namespaces, which no production manifest records: every production workload is held at 0 and the system namespaces keep running, plus KEDA's metrics apiserver alone (its APIService must stay Available or no namespace can finish deleting; the KEDA operator stays at 0 so it cannot scale a held-down Deployment back). See docs/evidence/edai2/vault/p5_offline_optimization_20261128.",
   "minimal": {
     "feature-store-verify": [
       "feature-store/redis"
@@ -83,6 +83,13 @@
       "feature-store/redis",
       "kagent/*",
       "ewallet-prompts/*"
+    ],
+    "vault-a2": [
+      "keda/keda-operator-metrics-apiserver",
+      "ewallet-vault/*",
+      "external-secrets/*",
+      "vault-rehearsal/*",
+      "vault-rehearsal-agents/*"
     ],
     "agent-integration": [
       "ate-system/*",

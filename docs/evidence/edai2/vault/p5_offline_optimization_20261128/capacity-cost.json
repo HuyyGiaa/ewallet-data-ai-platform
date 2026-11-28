@@ -1,0 +1,499 @@
+{
+  "source": "recovery manifest vault-rehearsal-20261124T173156Z (inventory/), cloud_lab.py NodeShape and PRICES (Cloud Billing Catalog list prices read 2026-11-06; NOT re-read: billing is closed)",
+  "node_shape": {
+    "allocatable_cpu_m": 3920,
+    "allocatable_mem_mi": 13273,
+    "daemonsets_cpu_m": 918,
+    "daemonsets_mem_mi": 1585,
+    "packing_limit": 0.85,
+    "free_per_node_cpu_m": 2552,
+    "free_per_node_mem_mi": 9935
+  },
+  "plan_wake": {
+    "vault-a2": {
+      "nodes": 2,
+      "cpu_m": 2607,
+      "mem_mi": 4498,
+      "largest_pod_cpu_m": 500,
+      "unholdable": [
+        "ewallet-sandbox/business-agents-deployment",
+        "kagent-pilot/kagent-pilot-deployment"
+      ]
+    },
+    "full": {
+      "nodes": 5,
+      "cpu_m": 10291,
+      "mem_mi": 25380,
+      "largest_pod_cpu_m": 2000
+    }
+  },
+  "rehearsal_pods_requests": {
+    "vault-0": {
+      "cpu_m": 100,
+      "mem_mi": 256
+    },
+    "external-secrets (3 Deployments)": {
+      "cpu_m": 40,
+      "mem_mi": 128
+    },
+    "feature-api (+1 during a rollout)": {
+      "cpu_m": 200,
+      "mem_mi": 768
+    },
+    "rehearsal-redis": {
+      "cpu_m": 10,
+      "mem_mi": 16
+    },
+    "Jobs and probe pods (no requests)": {
+      "cpu_m": 0,
+      "mem_mi": 0
+    }
+  },
+  "per_node_hour_usd": 0.1779,
+  "continuing_usd_per_hour_any_node_count": {
+    "pvc_disks": 0.0136,
+    "gcs": 0.0943,
+    "artifact_registry": 0.0019,
+    "total_excluding_cluster_fee": 0.1097,
+    "cluster_fee_before_free_tier": 0.1
+  },
+  "continuing_usd_per_day_excluding_cluster_fee": 2.63,
+  "not_included": [
+    "Cloud KMS key version and operations (small; not in the tool's price table)",
+    "logging, monitoring, egress",
+    "the GKE free-tier offset of the cluster fee (not read from billing data)",
+    "taxes and any closed-account penalties"
+  ],
+  "sequences": [
+    {
+      "sequence": "current runbook: blocks 1-6 on 5 nodes",
+      "steps": [
+        {
+          "step": "block 1 wake",
+          "nodes": 5,
+          "minutes": [
+            20,
+            30
+          ]
+        },
+        {
+          "step": "block 2",
+          "nodes": 5,
+          "minutes": [
+            30,
+            40
+          ]
+        },
+        {
+          "step": "block 3 guarded sleep",
+          "nodes": 5,
+          "minutes": [
+            15,
+            30
+          ]
+        },
+        {
+          "step": "block 4 wake",
+          "nodes": 5,
+          "minutes": [
+            20,
+            30
+          ]
+        },
+        {
+          "step": "block 4 after-wake + block 5 cleanup",
+          "nodes": 5,
+          "minutes": [
+            15,
+            20
+          ]
+        },
+        {
+          "step": "block 6 guarded sleep",
+          "nodes": 5,
+          "minutes": [
+            15,
+            30
+          ]
+        }
+      ],
+      "awake_minutes": [
+        115,
+        180
+      ],
+      "node_hours": [
+        9.58,
+        15.0
+      ],
+      "node_cost_usd": [
+        1.7,
+        2.67
+      ],
+      "cluster_fee_usd_before_free_tier": [
+        0.19,
+        0.3
+      ]
+    },
+    {
+      "sequence": "two-node A2 (T1-T6) only",
+      "steps": [
+        {
+          "step": "T1 wake",
+          "nodes": 2,
+          "minutes": [
+            10,
+            15
+          ]
+        },
+        {
+          "step": "block 2",
+          "nodes": 2,
+          "minutes": [
+            30,
+            40
+          ]
+        },
+        {
+          "step": "T3 plain sleep",
+          "nodes": 2,
+          "minutes": [
+            5,
+            10
+          ]
+        },
+        {
+          "step": "T4 wake",
+          "nodes": 2,
+          "minutes": [
+            10,
+            15
+          ]
+        },
+        {
+          "step": "T4 after-wake + block 5 cleanup",
+          "nodes": 2,
+          "minutes": [
+            15,
+            20
+          ]
+        },
+        {
+          "step": "T6 plain sleep",
+          "nodes": 2,
+          "minutes": [
+            5,
+            10
+          ]
+        }
+      ],
+      "awake_minutes": [
+        75,
+        110
+      ],
+      "node_hours": [
+        2.5,
+        3.67
+      ],
+      "node_cost_usd": [
+        0.44,
+        0.65
+      ],
+      "cluster_fee_usd_before_free_tier": [
+        0.12,
+        0.18
+      ]
+    },
+    {
+      "sequence": "two-node A2 + R1/R2 restoration now",
+      "steps": [
+        {
+          "step": "T1 wake",
+          "nodes": 2,
+          "minutes": [
+            10,
+            15
+          ]
+        },
+        {
+          "step": "block 2",
+          "nodes": 2,
+          "minutes": [
+            30,
+            40
+          ]
+        },
+        {
+          "step": "T3 plain sleep",
+          "nodes": 2,
+          "minutes": [
+            5,
+            10
+          ]
+        },
+        {
+          "step": "T4 wake",
+          "nodes": 2,
+          "minutes": [
+            10,
+            15
+          ]
+        },
+        {
+          "step": "T4 after-wake + block 5 cleanup",
+          "nodes": 2,
+          "minutes": [
+            15,
+            20
+          ]
+        },
+        {
+          "step": "T6 plain sleep",
+          "nodes": 2,
+          "minutes": [
+            5,
+            10
+          ]
+        },
+        {
+          "step": "R1 full wake",
+          "nodes": 5,
+          "minutes": [
+            20,
+            30
+          ]
+        },
+        {
+          "step": "R1 verify",
+          "nodes": 5,
+          "minutes": [
+            5,
+            10
+          ]
+        },
+        {
+          "step": "R2 guarded sleep",
+          "nodes": 5,
+          "minutes": [
+            15,
+            30
+          ]
+        }
+      ],
+      "awake_minutes": [
+        115,
+        180
+      ],
+      "node_hours": [
+        5.83,
+        9.5
+      ],
+      "node_cost_usd": [
+        1.04,
+        1.69
+      ],
+      "cluster_fee_usd_before_free_tier": [
+        0.19,
+        0.3
+      ]
+    },
+    {
+      "sequence": "three-node A2 + R1/R2 restoration now",
+      "steps": [
+        {
+          "step": "T1 wake",
+          "nodes": 3,
+          "minutes": [
+            10,
+            15
+          ]
+        },
+        {
+          "step": "block 2",
+          "nodes": 3,
+          "minutes": [
+            30,
+            40
+          ]
+        },
+        {
+          "step": "T3 plain sleep",
+          "nodes": 3,
+          "minutes": [
+            5,
+            10
+          ]
+        },
+        {
+          "step": "T4 wake",
+          "nodes": 3,
+          "minutes": [
+            10,
+            15
+          ]
+        },
+        {
+          "step": "T4 after-wake + block 5 cleanup",
+          "nodes": 3,
+          "minutes": [
+            15,
+            20
+          ]
+        },
+        {
+          "step": "T6 plain sleep",
+          "nodes": 3,
+          "minutes": [
+            5,
+            10
+          ]
+        },
+        {
+          "step": "R1 full wake",
+          "nodes": 5,
+          "minutes": [
+            20,
+            30
+          ]
+        },
+        {
+          "step": "R1 verify",
+          "nodes": 5,
+          "minutes": [
+            5,
+            10
+          ]
+        },
+        {
+          "step": "R2 guarded sleep",
+          "nodes": 5,
+          "minutes": [
+            15,
+            30
+          ]
+        }
+      ],
+      "awake_minutes": [
+        115,
+        180
+      ],
+      "node_hours": [
+        7.08,
+        11.33
+      ],
+      "node_cost_usd": [
+        1.26,
+        2.02
+      ],
+      "cluster_fee_usd_before_free_tier": [
+        0.19,
+        0.3
+      ]
+    },
+    {
+      "sequence": "R1/R2 restoration alone",
+      "steps": [
+        {
+          "step": "R1 full wake",
+          "nodes": 5,
+          "minutes": [
+            20,
+            30
+          ]
+        },
+        {
+          "step": "R1 verify",
+          "nodes": 5,
+          "minutes": [
+            5,
+            10
+          ]
+        },
+        {
+          "step": "R2 guarded sleep",
+          "nodes": 5,
+          "minutes": [
+            15,
+            30
+          ]
+        }
+      ],
+      "awake_minutes": [
+        40,
+        70
+      ],
+      "node_hours": [
+        3.33,
+        5.83
+      ],
+      "node_cost_usd": [
+        0.59,
+        1.04
+      ],
+      "cluster_fee_usd_before_free_tier": [
+        0.07,
+        0.12
+      ]
+    }
+  ],
+  "sequence_notes": [
+    "minutes are estimates (GKE phases are slower than kind's 13 min); nodes are billed while they exist, including during a sleep's drain",
+    "if R1 is the opening wake of the next campaign that needs the platform, its cost belongs to that campaign; only 'R1 verify' is added",
+    "prices: cloud_lab.py PRICES (list prices read 2026-11-06, not re-read)"
+  ],
+  "capacity": [
+    {
+      "option": "1 node, vault-a2",
+      "nodes": 1,
+      "requests_peak_cpu_m": 2957,
+      "requests_peak_mem_mi": 5666,
+      "cpu_use_of_budget": 1.16,
+      "mem_use_of_budget": 0.57,
+      "fits": false
+    },
+    {
+      "option": "2 nodes, vault-a2 (T1, T4)",
+      "nodes": 2,
+      "requests_peak_cpu_m": 2957,
+      "requests_peak_mem_mi": 5666,
+      "cpu_use_of_budget": 0.58,
+      "mem_use_of_budget": 0.29,
+      "fits": true
+    },
+    {
+      "option": "3 nodes, vault-a2",
+      "nodes": 3,
+      "requests_peak_cpu_m": 2957,
+      "requests_peak_mem_mi": 5666,
+      "cpu_use_of_budget": 0.39,
+      "mem_use_of_budget": 0.19,
+      "fits": true
+    },
+    {
+      "option": "3 nodes, full",
+      "nodes": 3,
+      "requests_peak_cpu_m": 10641,
+      "requests_peak_mem_mi": 26548,
+      "cpu_use_of_budget": 1.39,
+      "mem_use_of_budget": 0.89,
+      "fits": false
+    },
+    {
+      "option": "4 nodes, full",
+      "nodes": 4,
+      "requests_peak_cpu_m": 10641,
+      "requests_peak_mem_mi": 26548,
+      "cpu_use_of_budget": 1.04,
+      "mem_use_of_budget": 0.67,
+      "fits": false
+    },
+    {
+      "option": "5 nodes, full (blocks 1-6, R1)",
+      "nodes": 5,
+      "requests_peak_cpu_m": 10641,
+      "requests_peak_mem_mi": 26548,
+      "cpu_use_of_budget": 0.83,
+      "mem_use_of_budget": 0.53,
+      "fits": true
+    }
+  ]
+}

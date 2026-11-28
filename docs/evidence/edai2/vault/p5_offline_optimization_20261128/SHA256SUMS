@@ -1,0 +1,11 @@
+6b7d9c8423c194f85129c65ec25dfca48a47fb2dd7915480c1b01008209f8f31  ./capacity-cost.json
+1708878649e6132c62a3ea81808c954ed861650a974b695b7727b5c2dacd4976  ./inventory/MANIFEST.json
+7758c8263bf8f8d5eeaa1e040dca48fd38c75a8bca178041c79be28033e43254  ./inventory/workload-requests.json
+1252667ce1f0a314906a08ce7e12b30b1cd70824984b522631a9e327e18cfdb5  ./inventory/workloads.json
+ecbcd0fd576aa99397cb99f6368edb291f4189bf5d1f71aa17f0b67f4405c086  ./kind/results-run4-pass.jsonl
+b3b65741f55d96c58c45a127477337cd1398879590164969c538c80c3f991e5a  ./kind/run3-eso-state-at-failure.txt
+d16eaa67f5b03fe9f50eb45ad58e36a3918c1c34e019ace9a84dee8c6f0bad65  ./kind/runs1-3-failure-records.jsonl
+4750b0c43c3cc24ef61025c5ba2f31959edd096d503cc3f022984705c9d98455  ./kind-v2-run.md
+f2b8fd44efc8c8a047c0c37680529ee7d2c5beac51af9ad2fab907ffa1a0471f  ./README.md
+57bb6f6353f9b5d62d4acb7d9d78614bfdcab95ba51ced16f084cb212c0bec74  ./SCREENSHOT_CHECKLIST.md
+c60c7ed675eb9ac76a954ac0f7a406867d41d093750e17f0afab9440b9349705  ./test-results.txt

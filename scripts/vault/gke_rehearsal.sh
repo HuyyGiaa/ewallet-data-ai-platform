@@ -119,6 +119,9 @@ wait_unsealed() {  # [seconds]: auto-unseal, never a manual unseal; prints the s
   done
   return 1
 }
+expect_seal() {  # <step> <status JSON>: the seal that unsealed Vault is this platform's (gcpckms on GKE; kind's transit never counts there)
+  [ "$(jq -r .seal_type <<<"$2")" = "$(seal_kind)" ] || fail "$1" "seal type $(jq -r .seal_type <<<"$2"), expected $(seal_kind)"
+}
 mine() { [ "$(k get ns "$1" -o jsonpath="{.metadata.labels.ewallet\.io/vault-rehearsal}" 2>/dev/null)" = "$ID" ]; }
 
 forward=
@@ -168,6 +171,7 @@ es_error() {  # <object> [since]: the cause class from the ESO controller log (e
     *"Code: 404"*|*"Secret does not exist"*|*"secret does not exist"*) echo vault-secret-missing ;;
     *"/login"*"permission denied"*) echo vault-login-denied ;;
     *"permission denied"*) echo vault-permission-denied ;;
+    *"SecretStore"*"is not ready"*) echo store-not-ready ;;   # the cause is then logged under the store's name
     *) echo unclassified ;;
   esac
 }
@@ -745,6 +749,7 @@ phase_init() {  # MUTATING (Vault): RB step 3 with SYNTHETIC recovery material i
   [ "$(jq '.recovery_keys_base64 | length' "$PRIV/vault-keys.json")" = 3 ] && [ "$(jq '.keys_base64 | length' "$PRIV/vault-keys.json")" = 0 ] \
     || fail vault-init "the key file does not hold exactly 3 recovery keys and no unseal key"
   s=$(wait_unsealed 120) || fail auto-unseal "Vault did not unseal itself within 120 s of init"
+  expect_seal auto-unseal "$s"
   k -n "$VNS" wait --for=condition=Ready pod/vault-0 --timeout=120s >/dev/null || fail auto-unseal "unsealed but the pod is not Ready"
   record auto-unsealed "$(jq -c --arg l "$AUTO" --arg r "$(pod_ready)" '{result: "PASS", initialized, sealed, seal_type, recovery_seal, pod_ready: $r,
     manual_unseal: "none", label: $l}' <<<"$s")"
@@ -833,6 +838,7 @@ phase_seal() {  # MUTATING (Vault, kind: the unsealer Service): K13/K14 at the V
     || fail canary "put failed"
   restart_vault
   s=$(wait_unsealed 120) || fail restart-auto-unseal "Vault did not unseal itself after a restart"
+  expect_seal restart-auto-unseal "$s"
   k -n "$VNS" wait --for=condition=Ready pod/vault-0 --timeout=120s >/dev/null || fail restart-auto-unseal "unsealed but not Ready"
   [ "$(vault versions --token-file "$OP" --path ml-platform/rehearsal-seal-canary | jq -r .current_version)" = 1 ] \
     || fail restart-auto-unseal "data or operator token lost across the restart"
@@ -1139,6 +1145,7 @@ phase_lifecycle() {  # MUTATING (Vault: synthetic versions; Kubernetes: Vault po
   # 3. K13: restart -> Vault unseals itself (no manual unseal), ESO resumes, the consumer keeps working.
   restart_vault
   s=$(wait_unsealed 120) || fail restart-auto-unseal "Vault did not unseal itself after the restart"
+  expect_seal restart-auto-unseal "$s"
   k -n "$VNS" wait --for=condition=Ready pod/vault-0 --timeout=120s >/dev/null || fail restart-auto-unseal "not Ready"
   force_sync "$ES"; rv=$(synced_after "$ES" "$rv") || fail restart-auto-unseal "ESO did not reconcile after the restart"
   [ "$(consume)" = OK ] || fail restart-auto-unseal "consumer failed after the restart"
@@ -1155,6 +1162,8 @@ phase_lifecycle() {  # MUTATING (Vault: synthetic versions; Kubernetes: Vault po
     force_sync "$ES"
     es_wait "$RNS" "$ES" False 120 || fail seal-down-sync "ESO did not report the unavailable Vault"
     out=$(es_error "$ES" 4m)
+    # ESO may mark the store NotReady first; the ExternalSecret then names only the store, which logs the cause.
+    [ "$out" != store-not-ready ] || out=$(es_error "$STORE" 4m)
     case "$out" in vault-unreachable|vault-sealed) ;; *) fail seal-down-sync "unexpected cause $out" ;; esac
     [ "$(secret_sha "$RNS" "$T" connection_string)" = "$before" ] || fail seal-down-sync "the Secret changed while Vault was down"
     [ "$(consume)" = OK ] || fail seal-down-sync "the consumer lost access while Vault was down"
@@ -1411,7 +1420,7 @@ phase_rollback() {  # MUTATING: the official G11 drill (RB 9 rollback, RB 8 agai
 }
 
 phase_retain() {  # MUTATING: Retain, an accidental PVC deletion, and the runbook's Released-PV recovery
-  local kv v claim rv
+  local kv v claim rv s
   open_forward; status_is true false >/dev/null
   check_volumes_before_delete bound
   kv=$(vault versions --token-file "$PRIV/operator-token.json" --path "$RPATH" | jq -r .current_version)
@@ -1452,7 +1461,8 @@ phase_retain() {  # MUTATING: Retain, an accidental PVC deletion, and the runboo
   k -n "$VNS" wait --for=condition=Ready pod/vault-0 --timeout=300s >/dev/null || fail retain "vault-0 not back (unsealed)"
   open_forward
   # An uninitialised Vault here would mean the data did not come back.
-  record rebound-initialised-auto-unsealed "$(jq -c --arg l "$AUTO" '{result: "PASS", initialized, sealed, manual_unseal: "none", label: $l}' <<<"$(status_is true false)")"
+  s=$(status_is true false); expect_seal rebound-seal "$s"
+  record rebound-initialised-auto-unsealed "$(jq -c --arg l "$AUTO" '{result: "PASS", initialized, sealed, seal_type, manual_unseal: "none", label: $l}' <<<"$s")"
   [ "$(vault versions --token-file "$PRIV/operator-token.json" --path "$RPATH" | jq -r .current_version)" = "$kv" ] \
     || fail retain "KV version differs after the recovery"
   rv=$(es_synced_rv "$RNS" feast-online-redis); force_sync feast-online-redis
@@ -1469,7 +1479,9 @@ phase_after_wake() {  # MUTATING (unseal, reseed): after the approved GKE sleep 
   open_forward
   # No manual unseal after a wake: Vault must unseal itself through its seal (Cloud KMS on GKE, transit on kind).
   s=$(wait_unsealed 300) || fail after-wake "Vault did not unseal itself after the wake (initialised: $(vault status | jq -r .initialized))"
-  record vault-after-wake "$(jq -c --arg l "$AUTO" '{result: "PASS", initialized, sealed, seal_type, manual_unseal: "none", label: $l}' <<<"$s")"
+  expect_seal after-wake-seal "$s"   # on GKE: unsealed by Cloud KMS (gcpckms), the V2 claim this phase proves
+  record vault-after-wake "$(jq -c --arg l "$AUTO" --arg e "$(seal_kind)" '{result: "PASS", initialized, sealed, seal_type, expected_seal_type: $e,
+    manual_unseal: "none", label: $l}' <<<"$s")"
   k -n "$VNS" wait --for=condition=Ready pod/vault-0 --timeout=120s >/dev/null || fail after-wake "unsealed but not Ready"
   kv=$(cat "$DIR/kv-version")
   [ "$(vault versions --token-file "$PRIV/operator-token.json" --path "$RPATH" | jq -r .current_version)" = "$kv" ] \

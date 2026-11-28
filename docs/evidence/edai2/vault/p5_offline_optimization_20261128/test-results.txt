@@ -1,0 +1,7 @@
+# P5 offline: final offline test run, 2026-11-28T08:16:00Z, worktree HEAD f4d9fd43 plus the P5 changes (no kind campaign running)
+## focused: cloud lab (all modes, partial wake)
+95 passed in 5.17s
+## focused: Vault rehearsal (incl. cleanup safety and fault matrix stubs), preflights, KMS guard, ESO, tools
+398 passed, 2 skipped in 54.68s
+## whole tests/ops
+1082 passed, 2 skipped in 172.73s (0:02:52)

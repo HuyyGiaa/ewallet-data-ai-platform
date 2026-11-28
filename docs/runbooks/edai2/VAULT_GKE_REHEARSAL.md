@@ -91,8 +91,16 @@ ID=vault-rehearsal-$(date -u +%Y%m%dT%H%M%SZ)
 export KUBECONFIG=~/.cache/ewallet-cloud-lab/kubeconfig CTX=gke_ewallet-data-ai-platform-hg26_asia-southeast1-b_ewallet-dev
 export REHEARSAL_CONTEXT=$CTX REHEARSAL_ID=$ID REHEARSAL_DIR=~/ewallet-evidence/vault/$ID CHARTS=~/ewallet-evidence/vault/charts
 R="bash scripts/vault/gke_rehearsal.sh"
-MANIFEST=~/ewallet-evidence/gateway/g3b-owner-evidence-20261124T083106Z/recovery-manifest   # newest; recheck before use
+MANIFEST=~/ewallet-evidence/vault/vault-rehearsal-20261124T173156Z/recovery-manifest   # newest (recorded 2026-11-24T18:04:36Z)
 ```
+
+That manifest is the newest on the laptop, checked offline on 2026-11-28
+([P5 offline package](../../evidence/edai2/vault/p5_offline_optimization_20261128/README.md)):
+the right cluster identity, 5 VMs, 83 workloads, no Vault or ESO. Before any wake it must be checked
+again against the live cluster, read-only, once Billing is restored:
+`python3 ops/gcp/cloud_lab.py diff-manifest --manifest $MANIFEST`. The only differences expected are
+`ewallet-agents/fraud-coordinator`, `ewallet-mcp/drift-mcp` and `ewallet-mcp/feature-rag-mcp` at 0 (the
+2026-11-24 guarded sleep), with nothing `missing`.
 
 ## 4. Procedure
 
@@ -334,13 +342,201 @@ a named point, and the script refuses it on GKE. The points are:
 
 `tests/ops/test_vault_rehearsal.py` covers every state in the table against the real script.
 
+### Two-node run (`vault-a2` partial wake): the P5 recommendation
+
+Campaign A2 runs on 2 nodes, through the `experiment` profile `vault-a2`
+([P5 offline package](../../evidence/edai2/vault/p5_offline_optimization_20261128/README.md)). Restoring
+the whole platform is a separate wake on 5 nodes (blocks R1 and R2).
+
+**Rules of this run:**
+
+1. **Status: prepared offline, not executed.** No real GKE validation of this run has occurred, and no
+   partial wake has ever run on this cluster. Offline evidence and the kind runs are not GKE evidence.
+2. **Both Campaign A2 wakes use 2 nodes:** the first (T1) and the second (T4).
+3. **Restoring the full platform is a separate 5-node procedure, R1/R2.** It is not part of A2's 2-node run.
+4. **R1 may be deferred.** The platform restoration then stays explicitly **pending**: T6's PASS line says
+   so, the campaign report records it, and the next wake of the cluster must be R1.
+5. **Every mutating operation needs the owner's explicit approval.** That means every wake, sleep, cleanup,
+   restoration and recovery step.
+6. **The fall-back to 5 nodes (T-FB) is never automatic.** It needs its own explicit owner approval. A
+   failed `verify_partial` only stops the block.
+
+- **The profile** allow-lists only the rehearsal's own namespaces and KEDA's metrics apiserver. Every
+  other production workload is held at 0, and the system namespaces run as usual.
+- **Why A2 needs no production pod:** `compare_production` reads Helm releases, Secrets, Deployment
+  templates and Services, never replicas.
+
+| Step | Nodes | What it does |
+|---|---|---|
+| T1 | 0 → **2** | read-only pre-wake checks, the partial wake, `verify_partial`, preflight |
+| block 2 | 2 | the rehearsal phases, unchanged |
+| T3 | 2 → **0** | records the rehearsal workloads, then a plain sleep with Vault installed |
+| T4 | 0 → **2** | the second wake: the rehearsal workloads back as recorded, then `after-wake` (Vault unsealed by Cloud KMS on its retained disks) |
+| block 5 | 2 | cleanup, unchanged |
+| T6 | 2 → **0** | a plain sleep. Production differs from `$MANIFEST` only by held-down zeros |
+| R1 | 0 → **5** | full restoration: `wake-full` from `$MANIFEST`, then `verify --expect awake` |
+| R2 | 5 → **0** | `guarded_sleep`, which records the fresh recovery manifest the next campaign wakes from |
+
+R1 can be the opening wake of the next campaign that needs the platform (Campaign B's G1). R2 is then
+that campaign's own closing sleep.
+
+**Owner approval: every step that changes the cluster needs one.** That covers:
+
+- T1, T3, T4, T6, R1 and R2;
+- blocks 2 and 5;
+- each recovery row below.
+
+The T and R blocks start with `approved <step>`. It refuses unless the owner has exported
+`A2_APPROVAL=<step>:$ID` for that step. Blocks 2 and 5 keep their own approvals:
+`VAULT_REHEARSAL_APPROVED` and `VAULT_REHEARSAL_CLEANUP_APPROVED`.
+
+"Plain sleep" means only this: when `plan-sleep` reports `SAFE_TO_SLEEP`, no **additional** PDB-guarded,
+KEDA-pause or `--also-approve` approval is needed. The sleep itself is still approved by the owner. If
+`plan-sleep` reports anything else, the helper stops; never add a flag to get past it. R2 is a guarded
+sleep and needs the guarded, KEDA and `$ALSO` approvals, as block 6 does.
+
+**Why no recovery manifest is recorded before T3 and T6:**
+
+- `record-manifest` records the live declared replicas. That is right before a full sleep, as in
+  block 3, because the live cluster *is* the platform then.
+- During a partial wake, production is held at 0. A manifest recorded then would make the next full
+  wake restore those zeros. `record-manifest` refuses while a cloud-lab pause exists, and this flow
+  never calls it.
+
+**What replaces the recording, so `$MANIFEST` is not trusted blindly:**
+
+- **T1:** before anything changes, the live declared state is compared with `$MANIFEST` (only the three
+  guarded Deployments may differ, and nothing may be missing or unrecorded) and saved.
+- **The rehearsal's own workloads** (Vault, ESO, `rehearsal-serving`, Redis) were never in `$MANIFEST`.
+  T3 records them before the sleep, and T4 requires the same set, at the same replicas and Ready, before
+  `after-wake`.
+- **`after-wake`** checks the rest: Vault initialised and auto-unsealed with `gcpckms`, the KV version,
+  both PVs `Bound/Retain`, a new ESO reconciliation, the consumer, the Feature API lookup, and production
+  unchanged.
+- **R1:** the full restoration is proven against `$MANIFEST`. R2 then records the fresh manifest from the
+  fully awake platform, as block 6 does.
+
+**What stays different during A2:**
+
+- The two WorkerPool Deployments (`ewallet-sandbox/business-agents-deployment` and
+  `kagent-pilot/kagent-pilot-deployment`) cannot be held down. They come back without their controller,
+  and they are counted in the 2 nodes.
+- The ScaledObjects that the 2026-11-24 sleep paused stay paused until R1.
+
+```bash
+# T0. Session (READ-ONLY), after block 0: the approval check, the profile and the helpers of the T and R blocks
+export P="--profile vault-a2 --manifest $MANIFEST"; mkdir -p "$REHEARSAL_DIR"
+export SYS='["kube-system", "gmp-system", "gke-managed-cim", "istio-system", "cert-manager"]'   # cloud_lab SYSTEM_NAMESPACES: their autoscalers follow the node count
+approved() {  # <step>: the owner's explicit approval of this step for this ID, exported before pasting the block
+  [ "${A2_APPROVAL:-}" = "$1:$ID" ] || { echo "NOT APPROVED: step $1 needs the owner's A2_APPROVAL=$1:$ID"; exit 1; }
+}
+verify_partial() (  # the partial wake: rehearsal allowed, production held at 0, APIServices Available, no fail-closed webhook down
+  set -euo pipefail
+  for i in $(seq 10); do if python3 ops/gcp/cloud_lab.py verify --expect awake --mode experiment $P > "$REHEARSAL_DIR/verify-partial.json"; then break; fi
+    [ "$i" -lt 10 ] || { cat "$REHEARSAL_DIR/verify-partial.json"; exit 1; }; sleep 60; done
+)
+rehearsal_workloads() {  # the Deployments and StatefulSets of the rehearsal namespaces: kind, namespace, name, replicas
+  for ns in ewallet-vault external-secrets vault-rehearsal; do kubectl --context "$CTX" -n "$ns" get deploy,sts -o json; done \
+    | jq -cs '[.[].items[] | {kind, namespace: .metadata.namespace, name: .metadata.name, replicas: .spec.replicas}] | sort_by(.namespace, .kind, .name)'
+}
+plain_sleep() (  # <label>: only when SAFE_TO_SLEEP; a plain sleep; then the production disks and buckets of $MANIFEST
+  set -euo pipefail
+  python3 ops/gcp/cloud_lab.py plan-sleep > "$REHEARSAL_DIR/$1-plan-sleep.json"
+  jq -e '.verdict == "SAFE_TO_SLEEP"' "$REHEARSAL_DIR/$1-plan-sleep.json" >/dev/null \
+    || { echo "SLEEP NOT STARTED: see $REHEARSAL_DIR/$1-plan-sleep.json (not SAFE_TO_SLEEP: owner decision, no guarded flag)"; exit 1; }
+  CLOUD_LAB_APPROVED=yes python3 ops/gcp/cloud_lab.py sleep --execute --confirm-cluster ewallet-dev
+  python3 ops/gcp/cloud_lab.py verify --expect sleep --manifest "$MANIFEST" | tee "$REHEARSAL_DIR/$1-verify-sleep.json"
+)
+
+# T1. [OWNER: approve T1 (A2_APPROVAL=T1:$ID): first wake, 2 nodes, profile vault-a2] after READ-ONLY checks of the live state
+( set -euo pipefail; approved T1
+  python3 ops/gcp/cloud_lab.py diff-manifest --manifest "$MANIFEST" > "$REHEARSAL_DIR/diff-before-wake.json"
+  jq -e --argjson sys "$SYS" 'def app: split("/")[0] as $n | $sys | index($n) | not;
+         ([.differs[].workload | select(app)] - ["ewallet-agents/fraud-coordinator", "ewallet-mcp/drift-mcp", "ewallet-mcp/feature-rag-mcp"]) == []
+         and .missing == [] and ([.unrecorded[] | select(app)] == [])' \
+    "$REHEARSAL_DIR/diff-before-wake.json" >/dev/null || { echo "the cluster differs from \$MANIFEST: nothing woken"; exit 1; }
+  kubectl --context "$CTX" get deploy,sts -A -o json \
+    | jq '[.items[] | {kind, namespace: .metadata.namespace, name: .metadata.name, replicas: .spec.replicas}]' > "$REHEARSAL_DIR/live-before-wake.json"
+  # The partial wake scales production StatefulSets to 0: none may delete its PVCs when scaled (the default is Retain)
+  kubectl --context "$CTX" get sts -A -o json | jq -e '[.items[] | select(.spec.persistentVolumeClaimRetentionPolicy.whenScaled == "Delete")
+    | "\(.metadata.namespace)/\(.metadata.name)"] == []' || { echo "a StatefulSet deletes its PVCs when scaled: nothing woken"; exit 1; }
+  CLOUD_LAB_APPROVED=yes python3 ops/gcp/cloud_lab.py wake-experiment $P --nodes 2 --confirm-cluster ewallet-dev --execute
+  verify_partial
+  for i in $(seq 10); do if $R preflight; then break; fi; [ "$i" -lt 10 ] || exit 1; sleep 60; done
+  echo "BLOCK T1 PASS" )
+
+# then block 2 above, unchanged (its own approval: VAULT_REHEARSAL_APPROVED=$ID)
+
+# T3. [OWNER: approve T3 (A2_APPROVAL=T3:$ID): plain sleep] the first sleep, WITH Vault installed; the two Vault disks must stay
+( set -euo pipefail; $R gate retain; approved T3
+  rehearsal_workloads > "$REHEARSAL_DIR/rehearsal-workloads-mid.json"
+  jq -e 'any(.[]; .kind == "StatefulSet" and .name == "vault") and any(.[]; .name == "feature-api") and any(.[]; .name == "external-secrets")' \
+    "$REHEARSAL_DIR/rehearsal-workloads-mid.json" >/dev/null || { echo "the rehearsal workloads are incomplete: not slept"; exit 1; }
+  plain_sleep mid
+  $R inspect; tail -n 1 "$REHEARSAL_DIR/results.jsonl" | jq -e '[.disks[]] | length == 2 and all(. == "present")' >/dev/null
+  echo "BLOCK T3 PASS" )
+
+# T4. [OWNER: approve T4 (A2_APPROVAL=T4:$ID): second wake, 2 nodes] the same Vault comes back on the retained disks and unseals through Cloud KMS
+( set -euo pipefail
+  $R gate retain; approved T4
+  CLOUD_LAB_APPROVED=yes python3 ops/gcp/cloud_lab.py wake-experiment $P --nodes 2 --confirm-cluster ewallet-dev --execute
+  verify_partial
+  [ "$(rehearsal_workloads)" = "$(jq -c . "$REHEARSAL_DIR/rehearsal-workloads-mid.json")" ] \
+    || { echo "the rehearsal workloads differ from rehearsal-workloads-mid.json"; exit 1; }
+  jq -r '.[] | "\(.namespace) \(.kind | ascii_downcase)/\(.name)"' "$REHEARSAL_DIR/rehearsal-workloads-mid.json" | while read -r ns w; do
+    kubectl --context "$CTX" -n "$ns" rollout status "$w" --timeout=600s >/dev/null || { echo "$ns $w not Ready after the wake"; exit 1; }
+  done || exit 1   # explicit: errexit does not reliably stop at a failed "| while" pipeline
+  VAULT_REHEARSAL_APPROVED=$ID $R after-wake
+  $R gate after-wake
+  echo "BLOCK T4 PASS: every A+ phase passed" )
+
+# then block 5 above, unchanged (its own approval: VAULT_REHEARSAL_CLEANUP_APPROVED=$ID)
+
+# T6. [OWNER: approve T6 (A2_APPROVAL=T6:$ID): plain sleep] asleep; production differs from $MANIFEST only by held-down zeros
+( set -euo pipefail; $R gate clean; approved T6
+  plain_sleep final
+  python3 ops/gcp/cloud_lab.py diff-manifest --manifest "$MANIFEST" > "$REHEARSAL_DIR/diff-final.json"
+  jq -e --argjson sys "$SYS" 'def app: split("/")[0] as $n | $sys | index($n) | not;
+         all(.differs[] | select(.workload | app); .live == 0) and .missing == [] and ([.unrecorded[] | select(app)] == [])' \
+    "$REHEARSAL_DIR/diff-final.json" >/dev/null
+  echo "BLOCK T6 PASS: A2 done on 2 nodes; asleep; PLATFORM RESTORATION PENDING until R1 passes" )
+
+# R1. [OWNER: approve R1 (A2_APPROVAL=R1:$ID): full wake, 5 nodes] the whole platform back to $MANIFEST; the ScaledObjects unpaused
+( set -euo pipefail; $R gate clean; approved R1
+  CLOUD_LAB_APPROVED=yes python3 ops/gcp/cloud_lab.py wake-full --manifest "$MANIFEST" --nodes 5 --confirm-cluster ewallet-dev --execute
+  python3 ops/gcp/cloud_lab.py verify --expect awake --manifest "$MANIFEST" | tee "$REHEARSAL_DIR/verify-restored.json"
+  echo "BLOCK R1 PASS: platform restored (the next campaign may continue from here)" )
+
+# R2. [OWNER: approve R2 (A2_APPROVAL=R2:$ID) AND the guarded sleep, KEDA pause and $ALSO targets] a FRESH manifest of the full platform
+( set -euo pipefail; $R gate clean; approved R2
+  python3 ops/gcp/cloud_lab.py verify --expect awake --manifest "$MANIFEST" >/dev/null
+  guarded_sleep "$REHEARSAL_DIR/recovery-manifest"
+  echo "BLOCK R2 PASS: asleep; the next wake uses \$REHEARSAL_DIR/recovery-manifest" )
+```
+
+**Failure in the two-node run.** The steps of *Failure* above apply, with `plain_sleep` in place of
+`guarded_sleep`. Each row is an owner decision with its own approval:
+
+| | When | Commands |
+|---|---|---|
+| **T-F0** the wake did not finish | `wake-experiment` stopped before or during the resize | read-only `cloud_lab.py status`. Production is held at 0, and that is harmless. [OWNER: approve again] re-run T1 or T4, or T-F2 if nodes came up |
+| **T-F1** cleanup, then the final sleep | as F1 | [OWNER: cleanup] block 5, then [OWNER: T6] T6 |
+| **T-F2** plain sleep as it is | as F2 | [OWNER: approve T-F2 (`A2_APPROVAL=T-F2:$ID`)] `( set -euo pipefail; approved T-F2; plain_sleep stopped )`. Later: T4, then T-F1 |
+| **T-FB** fall back to 5 nodes (never automatic) | `verify_partial` failed in T1 (an APIService not Available, a fail-closed webhook without an endpoint, a workload not held down); nothing of Vault is installed yet | the block only stops. [OWNER: a separate, explicit approval of the 5-node run] `wake-full --manifest $MANIFEST --nodes 5`, then blocks 1 to 6 above, each with its approvals |
+| **T-FR** restoration failed | R1's `verify` lists failures | stay awake, read-only report; [OWNER: decide] a repeated R1 or R2 as it is. Never `record-manifest` before `verify --expect awake` passes |
+
 ### Resources and cost
 
 Additional to Campaign A: Feature API 100m CPU / 384 MiB (one pod), a seed Job, a ConfigMap; no
 disk. Awake time ≈ 70–90 min in two stretches (≈ 35 min for wake, R2–R8 and A+; ≈ 25 min for the
 second wake, `after-wake`, cleanup), plus three cloud-lab transitions. At the `cloud_lab.py` rate of
 ≈ US$0.83/h for 5 nodes plus ≈ US$0.10/h cluster fee: ≈ US$1.2–1.5. The two synthetic disks
-(6 GiB) cost cents while asleep.
+(6 GiB) cost cents while asleep. The two-node run (estimates, every wake included; the
+[P5 package](../../evidence/edai2/vault/p5_offline_optimization_20261128/README.md) has the comparison):
+
+- T1–T6 on 2 nodes: ≈ US$0.4–0.7.
+- With R1/R2 on 5 nodes straight after: ≈ US$1.0–1.7, against ≈ US$1.7–2.7 for blocks 1–6 with the same
+  step durations.
 
 ### What A+ still cannot show
 
